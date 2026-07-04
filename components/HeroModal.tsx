@@ -51,7 +51,12 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, on
             return (
               <div key={def.key} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
                 <div className="relative shrink-0 flex items-end justify-center h-44 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 40%, ${def.color}44, #0f172a 70%)` }}>
-                  <span className="absolute inset-0 flex items-center justify-center text-6xl select-none" style={{ opacity: unlocked ? 0.9 : 0.4 }}>{def.emoji}</span>
+                  {/* fallback: a glowing color medallion (covered by the portrait once its art lands) */}
+                  <div className="absolute inset-0 flex items-center justify-center select-none" style={{ opacity: unlocked ? 1 : 0.6 }}>
+                    <div className="rounded-full flex items-center justify-center" style={{ width: 94, height: 94, background: `radial-gradient(circle at 50% 36%, ${def.color}, #0f172a 92%)`, border: `3px solid ${def.color}`, boxShadow: `0 0 22px ${def.color}55` }}>
+                      <span style={{ fontSize: '2.9rem', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>{def.emoji}</span>
+                    </div>
+                  </div>
                   <img src={def.art} alt={def.name} draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className={`relative h-[112%] w-auto max-w-none object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] select-none ${unlocked ? '' : 'grayscale opacity-50'}`} />
                   {unlocked ? (
                     <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded-full px-2 py-0.5">

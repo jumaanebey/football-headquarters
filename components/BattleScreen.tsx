@@ -487,14 +487,23 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   </div>
                 ) : heroDef ? (
                   <div className="relative w-full" style={{ aspectRatio: '1' }}>
-                    <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '3vmin', filter: glow, animation: anim }}>{heroDef.emoji}</span>
+                    {/* fallback: a glowing gold-rimmed badge in the hero's color (matches the deploy tray) */}
+                    <div className="absolute inset-0 rounded-full flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 38%, ${heroDef.color}e0, #0f172a 88%)`, border: '2px solid #fde047', filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim }}>
+                      <span style={{ fontSize: '2.3vmin', lineHeight: 1 }}>{heroDef.emoji}</span>
+                    </div>
                     <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim }} />
                   </div>
                 ) : (
-                  // ONE individual player — a jersey-number chip now, auto-upgrades to a single-player sprite when the art lands.
+                  // ONE individual player — a mini helmet + numbered jersey now, auto-upgrades to a single-player sprite when the art lands.
                   <div className="relative w-full" style={{ aspectRatio: '1', filter: pGlow, opacity: t.hitFlash > 0 ? 0.5 : 1, animation: anim }}>
-                    <div className="absolute inset-0 flex items-center justify-center rounded-full font-black text-white leading-none"
-                      style={{ background: st.color, border: '1.5px solid rgba(0,0,0,0.45)', fontSize: '1.7vmin', boxShadow: shielded ? '0 0 0 2px #0ea5e9' : '0 1px 3px rgba(0,0,0,0.5)' }}>{t.jersey}</div>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      {/* helmet (team black w/ orange stripe) */}
+                      <div className="relative" style={{ width: '46%', height: '40%', borderRadius: '50% 50% 42% 42%', background: '#111827', border: '1px solid rgba(255,255,255,0.3)', marginBottom: '-9%', zIndex: 2, boxShadow: shielded ? '0 0 0 2px #0ea5e9' : 'none' }}>
+                        <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '18%', width: '70%', height: '14%', background: '#f97316', borderRadius: 2 }} />
+                      </div>
+                      {/* numbered jersey (position color) */}
+                      <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: st.color, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{t.jersey}</div>
+                    </div>
                     <img src={unitPlayerSprite(t.unit)} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />
                   </div>
                 )}
