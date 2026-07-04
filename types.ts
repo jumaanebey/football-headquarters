@@ -180,6 +180,8 @@ export interface GameState {
   defenseLog: DefenseLogEntry[]; // record of rival raids on your base (Clash "while you were away")
   shieldUntil?: number;     // timestamp; while now < this, no offline raids can hit you
   trophies: number;         // trophy-ladder standing (drives your Rank)
+  teamName: string;         // your club's public name (shown to Live Rivals)
+  dailies: import('./dailies').DailiesState; // today's Daily Practice quests
 }
 
 // A hero's persistent progression: level (coins), stars (evolution via shards), shards (from

@@ -21,6 +21,13 @@ import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
 import { CAMPAIGN_STAGES, campaignBase } from './campaign';
+import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
+import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, LiveBase } from './pvp';
+import { DailyQuestsModal } from './components/DailyQuestsModal';
+import { RECRUIT_LAST_NAMES } from './constants';
+
+const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
+const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
 import { BattleScreen, BattleResult, BattleConfig } from './components/BattleScreen';
 import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase } from './battle';
 import { HeroModal } from './components/HeroModal';
@@ -54,7 +61,9 @@ const INITIAL_STATE: GameState = {
   upgrades: [],
   defenseLog: [],
   trophies: 0,
-  campaign: { unlocked: 1, stars: {}, claimed: [] }
+  campaign: { unlocked: 1, stars: {}, claimed: [] },
+  teamName: genTeamName(),
+  dailies: freshDailies()
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -103,6 +112,9 @@ const loadState = (): GameState => {
         }
       }
       const campaign = saved.campaign ?? { unlocked: 1, stars: {}, claimed: [] };
+      // Daily quests reset when the calendar day changes; team name backfills once.
+      const dailies = (saved.dailies && saved.dailies.date === todayKey()) ? saved.dailies : freshDailies();
+      const teamName = saved.teamName || genTeamName();
       // "While you were away" — resolve rival raids against your ACTUAL base for the
       // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
       let defenseLog = [...(saved.defenseLog || [])];
@@ -133,7 +145,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -160,6 +172,8 @@ function App() {
   const [raidTargets, setRaidTargets] = useState<EnemyBase[]>([]);
   const [attackTab, setAttackTab] = useState<'season' | 'raid'>('season');
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
+  const [isDailyOpen, setIsDailyOpen] = useState(false);
+  const [liveTargets, setLiveTargets] = useState<LiveBase[]>([]);
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
@@ -276,6 +290,7 @@ function App() {
           heroes: finalHeroes,
           upgrades: finalUpgrades,
           resources: { ...prev.resources, [ResourceType.ENERGY]: newEnergy },
+          dailies: prev.dailies.date !== todayKey() ? freshDailies() : prev.dailies, // midnight rollover
           timeOfDay: newTime,
           lastTick: now
         };
@@ -370,6 +385,7 @@ function App() {
      spawnText(`+${drill.rewardCoins} Coins`, screenPos.x, screenPos.y, '#fbbf24');
      spawnText(`+${xpGained} XP`, screenPos.x, screenPos.y - 30, '#3b82f6');
      sfx.collect();
+     bumpDaily('drills');
   };
 
   const handleMatchComplete = (result: MatchResult) => {
@@ -446,6 +462,7 @@ function App() {
     const label = cfg.resource === ResourceType.FANS ? 'Fans' : 'Coins';
     spawnText(`+${amount} ${label}`, screenPos.x, screenPos.y, '#fbbf24');
     sfx.collect();
+    if (cfg.resource === ResourceType.COINS) bumpDaily('bank_coins', amount);
   };
 
   const handleRally = () => {
@@ -542,7 +559,13 @@ function App() {
   const unseenDefenses = gameState.defenseLog.filter(e => !e.seen).length;
 
   // Open the raid picker with a fresh set of trophy-scaled rivals (no more farming 2 bases).
-  const openRaid = () => { setRaidTargets(generateRaidTargets(gameState.trophies)); setAttackSelectOpen(true); };
+  // When Live Rivals is connected, also fetch REAL player bases near your trophy count.
+  const openRaid = () => {
+    setRaidTargets(generateRaidTargets(gameState.trophies));
+    setLiveTargets([]);
+    if (pvpEnabled()) findOpponents(gameState.trophies).then(setLiveTargets);
+    setAttackSelectOpen(true);
+  };
 
   // Take REVENGE on a rival who raided you — storm their (scaled) base for extra loot.
   const handleRevenge = (entry: DefenseLogEntry) => {
@@ -612,6 +635,12 @@ function App() {
       if (gemReward > 0) spawnText(`+${gemReward} 👑`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
       if (isCampaign && r.won && stageDef && !gameState.campaign.claimed.includes(stage)) spawnText(`First clear! +${stageDef.firstClear.gems} 👑 +${stageDef.firstClear.shards} shards`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
       if (!isCampaign) spawnText(`${trophyDelta >= 0 ? '+' : ''}${trophyDelta} 🏆`, window.innerWidth / 2, window.innerHeight / 2 + 80, trophyDelta >= 0 ? '#22c55e' : '#ef4444');
+      // Daily Practice progress
+      if (r.won) bumpDaily('win_attack');
+      if (r.stars > 0) bumpDaily('game_balls', r.stars);
+      // LIVE rival raided → their defense log hears about it; and republish my base state.
+      if (r.pvpTarget) reportAttack(r.pvpTarget, gameState.teamName, r.stars, r.pct, r.coins);
+      setTimeout(publishMyBase, 500);
     } else {
       setGameState(prev => ({
         ...prev,
@@ -635,9 +664,78 @@ function App() {
       if (prev.resources.COINS < cost) { sfx.error(); return prev; }
       return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, heroes: prev.heroes.map(h => h.key === key ? { ...h, level: h.level + 1 } : h) };
     });
+    // Mirror the success guards for the daily-quest bump (state update above is functional).
+    const h0 = gameState.heroes.find(h => h.key === key);
+    const stadLvl0 = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+    if (h0?.unlocked && h0.level < heroMaxLevel(stadLvl0) && gameState.resources.COINS >= cost) bumpDaily('train_hero');
     sfx.upgrade();
     spawnText('Hero leveled up!', window.innerWidth / 2, window.innerHeight / 2, '#facc15');
   };
+
+  // --- DAILY PRACTICE (quests) ---
+  // Advance a quest's progress if it's on today's slate and unclaimed.
+  const bumpDaily = (id: string, n = 1) => {
+    setGameState(prev => {
+      const active = questsForDate(prev.dailies.date).find(q => q.id === id);
+      if (!active || prev.dailies.claimed.includes(id)) return prev;
+      const cur = prev.dailies.progress[id] || 0;
+      if (cur >= active.target) return prev;
+      return { ...prev, dailies: { ...prev.dailies, progress: { ...prev.dailies.progress, [id]: Math.min(active.target, cur + n) } } };
+    });
+  };
+
+  const handleClaimDaily = (id: string) => {
+    setGameState(prev => {
+      const slate = questsForDate(prev.dailies.date);
+      const q = slate.find(x => x.id === id);
+      if (!q || prev.dailies.claimed.includes(id) || (prev.dailies.progress[id] || 0) < q.target) return prev;
+      const claimed = [...prev.dailies.claimed, id];
+      const sweep = !prev.dailies.sweepClaimed && slate.every(x => claimed.includes(x.id));
+      return {
+        ...prev,
+        resources: {
+          ...prev.resources,
+          [ResourceType.GEMS]: prev.resources.GEMS + (q.reward.gems || 0) + (sweep ? SWEEP_BONUS_GEMS : 0),
+          [ResourceType.COINS]: prev.resources.COINS + (q.reward.coins || 0),
+        },
+        dailies: { ...prev.dailies, claimed, sweepClaimed: prev.dailies.sweepClaimed || sweep },
+      };
+    });
+    sfx.collect();
+    spawnText('Daily reward claimed!', window.innerWidth / 2, window.innerHeight / 2, '#f43f5e');
+  };
+
+  const dailyClaimable = questsForDate(gameState.dailies.date)
+    .filter(q => (gameState.dailies.progress[q.id] || 0) >= q.target && !gameState.dailies.claimed.includes(q.id)).length;
+
+  // --- LIVE RIVALS (async PvP) ---
+  // On load: pull attacks other players landed on my base while I was away.
+  useEffect(() => {
+    if (!pvpEnabled()) return;
+    const since = localStorage.getItem('fhq_pvp_since') || new Date(0).toISOString();
+    fetchAttacksOnMe(since).then(attacks => {
+      if (!attacks.length) return;
+      localStorage.setItem('fhq_pvp_since', attacks[attacks.length - 1].created_at);
+      setGameState(prev => {
+        let coins = prev.resources.COINS;
+        let trophies = prev.trophies;
+        const entries: DefenseLogEntry[] = attacks.map(a => {
+          const coinsLost = Math.min(a.coins_lost, Math.round(coins * 0.12));
+          coins -= coinsLost;
+          trophies = Math.max(0, trophies + trophiesLostOnDefense(a.pct));
+          return { id: `pvp_${a.id}`, attacker: `${a.attacker_name} ⚡`, at: Date.parse(a.created_at), stars: a.stars, pct: a.pct, coinsLost, seen: false };
+        });
+        return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: coins }, trophies, defenseLog: [...entries.reverse(), ...prev.defenseLog].slice(0, 20) };
+      });
+    });
+  }, []);
+
+  // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
+  const publishMyBase = () => {
+    if (!pvpEnabled()) return;
+    publishBase(gameState.teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster)));
+  };
+  useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // SCOUT SEARCH (hero gacha): spend gems, get a new hero or shards toward a star-up.
   const handleRollHero = () => {
@@ -651,6 +749,7 @@ function App() {
         : h),
     }));
     setLastRoll(res);
+    bumpDaily('scout');
     if (res.isNew) sfx.victory(); else sfx.sign();
   };
 
@@ -852,6 +951,29 @@ function App() {
               </div>
             ) : (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+              {/* LIVE RIVALS — real players' published bases (async PvP) */}
+              {liveTargets.length > 0 && (
+                <>
+                  <div className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-300 flex items-center gap-1.5">⚡ Live Rivals <span className="text-slate-500 normal-case tracking-normal">— real coaches' stadiums</span></div>
+                  {liveTargets.map(b => (
+                    <button key={b.pid} onClick={() => { setBattleConfig({ mode: 'attack', title: `Raiding ${b.name}`, buildings: b.layout, playerArmy: armyFromRoster(gameState.roster), power: armyStrength(gameState.roster), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: { coins: 500 + b.trophies * 3, fans: 25 }, pvpTarget: b.pid }); setAttackSelectOpen(false); }}
+                      className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-fuchsia-700/70 hover:border-fuchsia-400 bg-fuchsia-950/30 hover:bg-fuchsia-900/30 transition-all active:scale-95 text-left">
+                      <div>
+                        <div className="font-bold text-white text-lg">⚡ {b.name}</div>
+                        <div className="text-xs text-fuchsia-200/70">🏆 {b.trophies} · {b.layout.filter(x => x.kind !== 'wall').length} buildings · live player</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-yellow-400 font-mono font-bold">+{500 + b.trophies * 3}</div>
+                        <div className="text-[10px] text-slate-500 uppercase">max loot</div>
+                      </div>
+                    </button>
+                  ))}
+                  <div className="text-[10px] uppercase tracking-widest font-bold text-slate-500 pt-1">Scrimmage bots</div>
+                </>
+              )}
+              {!pvpEnabled() && (
+                <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> not connected — raid real players by wiring Supabase (see <span className="font-mono">PVP-SETUP.md</span>).</div>
+              )}
               {raidTargets.map(b => (
                 <button key={b.id} onClick={() => { setBattleConfig({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: armyStrength(gameState.roster), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward }); setAttackSelectOpen(false); }}
                   className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
@@ -969,6 +1091,24 @@ function App() {
           </div>
         );
       })()}
+
+      {/* Daily Practice (quests) */}
+      <button
+        onClick={() => setIsDailyOpen(true)}
+        className="fixed top-2 right-28 z-40 text-rose-300 hover:text-white bg-black/30 p-1.5 rounded transition-colors"
+        title="Daily Practice"
+      >
+        <span className="relative flex items-center">
+          🎁
+          {dailyClaimable > 0 && (
+            <span className="absolute -top-2 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 border border-slate-900 text-[9px] font-bold text-white flex items-center justify-center leading-none animate-pulse">{dailyClaimable}</span>
+          )}
+        </span>
+      </button>
+
+      {isDailyOpen && (
+        <DailyQuestsModal dailies={gameState.dailies} onClaim={handleClaimDaily} onClose={() => setIsDailyOpen(false)} />
+      )}
 
       {/* Mute toggle */}
       <button

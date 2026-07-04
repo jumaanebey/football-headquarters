@@ -21,6 +21,7 @@ export interface BattleConfig {
   aiMult?: number;
   loot: { coins: number; fans: number };
   campaignStage?: number; // set when this attack is a Season campaign stage
+  pvpTarget?: string;     // set when raiding a LIVE rival's published base (their pid)
 }
 
 export interface BattleResult {
@@ -32,6 +33,7 @@ export interface BattleResult {
   fans: number;
   won: boolean;
   campaignStage?: number;
+  pvpTarget?: string;
 }
 
 interface Props {
@@ -107,7 +109,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const hqDead = s.buildings.find(b => b.kind === 'hq')?.dead ?? false;
     const stars = (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0);
     const frac = destroyed / total;
-    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac), fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage });
+    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac), fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget });
     setPhase('result');
   };
 

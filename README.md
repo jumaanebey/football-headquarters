@@ -34,6 +34,11 @@ in real-time raids to score touchdowns and climb the trophy ladder — all clien
   grade and "weakest link" callout — the optimize-your-base strategic hook.
 - **Economy & ranking** — coins, gems (crowns), fans, energy; a **trophy/rank ladder**
   (Sandlot → … → G.O.A.T.) with fresh trophy-scaled matchmaking each raid.
+- **Daily Practice** — three curated daily quests paying Crowns + a Daily Sweep bonus: the
+  session-to-session drip that feeds Scout Searches.
+- **Live Rivals (async PvP)** — publish your base and raid **real players'** stadiums; their
+  attacks land in your Defense Log. Supabase-backed with zero SDK deps, and the game degrades
+  gracefully to generated rivals until it's connected — see **`PVP-SETUP.md`** (5-minute setup).
 - **Persistence** — everything autosaves to `localStorage`; offline progress (collectors + rival
   raids) is resolved on load.
 
