@@ -4,7 +4,9 @@ A **Clash-of-Clans / Castle-Clash-style base-builder**, reskinned to an American
 Build your stadium, train position groups, unlock and level star heroes, then storm rival stadiums
 in real-time raids to score touchdowns and climb the trophy ladder — all client-side, no backend.
 
-> **Status:** work in progress. Playable end-to-end; art is still being generated (many sprites use
+![Football Headquarters — base view](docs/screenshot.png)
+
+> **Status:** work in progress. Playable end-to-end; some sprites are still being generated (they use
 > emoji/placeholder fallbacks that auto-swap to real PNGs as they land).
 
 ---
