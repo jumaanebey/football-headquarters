@@ -1,5 +1,5 @@
 import { UnitGroup, Player, BuildingInstance, BuildingType } from './types';
-import { WALL_HP } from './constants';
+import { WALL_HP, TENDENCIES, TendencyKey } from './constants';
 
 // ---------------------------------------------------------------------------
 // Real-time attack model (Clash-of-Clans-style). World is a 100x100 square.
@@ -132,10 +132,13 @@ export const HERO_DEFS: HeroDef[] = [
 ];
 export const STARTER_HERO_KEYS = HERO_DEFS.filter(h => h.starter).map(h => h.key);
 export const heroLevelMult = (level: number) => 1 + 0.25 * (level - 1);
+// Star evolution (Castle Clash-style): each star past the first is a big multiplicative jump,
+// so star-ups feel like real power spikes on top of steady level grind. 5★ = ×2.4.
+export const heroStarMult = (stars: number) => 1 + 0.35 * (Math.max(1, stars) - 1);
 export const heroUpgradeCost = (level: number) => Math.round(600 * Math.pow(1.55, level - 1));
 
-export const heroForBattle = (def: HeroDef, level: number): RaidHero => {
-  const m = heroLevelMult(level);
+export const heroForBattle = (def: HeroDef, level: number, stars = 1): RaidHero => {
+  const m = heroLevelMult(level) * heroStarMult(stars);
   return {
     key: def.key, name: def.name, ability: def.ability, abilityName: def.abilityName, abilityDesc: def.abilityDesc,
     unit: def.unit, hp: Math.round(def.baseHp * m), dps: def.baseDps * m, speed: def.speed, range: def.range,
@@ -143,10 +146,10 @@ export const heroForBattle = (def: HeroDef, level: number): RaidHero => {
   };
 };
 // Only UNLOCKED heroes can be fielded in a raid.
-export const heroesForBattle = (heroLevels: { key: string; level: number; unlocked?: boolean }[]): RaidHero[] =>
-  heroLevels
+export const heroesForBattle = (heroStates: { key: string; level: number; unlocked?: boolean; stars?: number }[]): RaidHero[] =>
+  heroStates
     .filter(hl => hl.unlocked !== false) // treat undefined as unlocked (back-compat with old saves)
-    .map(hl => { const def = HERO_DEFS.find(d => d.key === hl.key); return def ? heroForBattle(def, hl.level) : null; })
+    .map(hl => { const def = HERO_DEFS.find(d => d.key === hl.key); return def ? heroForBattle(def, hl.level, hl.stars ?? 1) : null; })
     .filter(Boolean) as RaidHero[];
 
 // Heroes can level generously above your Stadium so the game stays hero-focused.
@@ -209,11 +212,22 @@ export const armyStrength = (roster: Player[]): Record<UnitGroup, number> => {
     [UnitGroup.DEFENSE_LINE]: { t: 0, n: 0 },
     [UnitGroup.DEFENSE_SECONDARY]: { t: 0, n: 0 },
   };
-  roster.forEach(p => { acc[p.unit].t += playerOvr(p); acc[p.unit].n += 1; });
+  // Offense-leaning Tendencies sharpen a group's raid power (+6% per Blitzer/Playmaker in the
+  // group, +3% per balanced player) — so WHO you roster changes HOW you hit, not just how hard.
+  const tBonus: Record<UnitGroup, number> = {
+    [UnitGroup.OFFENSE_LINE]: 0, [UnitGroup.OFFENSE_SKILL]: 0,
+    [UnitGroup.DEFENSE_LINE]: 0, [UnitGroup.DEFENSE_SECONDARY]: 0,
+  };
+  roster.forEach(p => {
+    acc[p.unit].t += playerOvr(p); acc[p.unit].n += 1;
+    const side = TENDENCIES[p.tendency as TendencyKey]?.side;
+    if (side === 'offense') tBonus[p.unit] += 0.06;
+    else if (side === 'balanced') tBonus[p.unit] += 0.03;
+  });
   const out = {} as Record<UnitGroup, number>;
   (Object.keys(acc) as UnitGroup[]).forEach(u => {
     const avg = acc[u].n ? acc[u].t / acc[u].n : 10;
-    out[u] = Math.max(1, Math.min(4.5, avg / 10));
+    out[u] = Math.max(1, Math.min(4.5, (avg / 10) * (1 + tBonus[u])));
   });
   return out;
 };
@@ -293,19 +307,21 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
   });
 };
 
-export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = []): BattleBuildingDef[] => {
+// `defBoost` (from your roster's defensive Tendencies — see defense.ts) toughens every
+// structure: an Anchor/Iron Wall-heavy roster literally makes your stadium harder to break.
+export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1): BattleBuildingDef[] => {
   const bs: BattleBuildingDef[] = buildings.map(b => {
     const x = Math.min(86, Math.max(14, b.gridX * 10));
     const y = Math.min(86, Math.max(14, b.gridY * 10));
     const lvl = b.level;
     if (b.type === BuildingType.STADIUM)
-      return { id: b.id, kind: 'hq', x, y, hp: Math.round(500 * (1 + 0.35 * (lvl - 1))), size: 8 };
+      return { id: b.id, kind: 'hq', x, y, hp: Math.round(500 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 8 };
     if (b.type === BuildingType.MEDICAL_CENTER || b.type === BuildingType.YOUTH_ACADEMY)
-      return { id: b.id, kind: 'defense', x, y, hp: Math.round(210 * (1 + 0.35 * (lvl - 1))), size: 6, damage: 12 + lvl * 3, range: 24 };
-    return { id: b.id, kind: 'building', x, y, hp: Math.round(150 * (1 + 0.3 * (lvl - 1))), size: 6 };
+      return { id: b.id, kind: 'defense', x, y, hp: Math.round(210 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 6, damage: Math.round((12 + lvl * 3) * defBoost), range: 24 };
+    return { id: b.id, kind: 'building', x, y, hp: Math.round(150 * (1 + 0.3 * (lvl - 1)) * defBoost), size: 6 };
   });
   const ws: BattleBuildingDef[] = walls.map((w, i) => ({
-    id: `wall-${i}`, kind: 'wall', x: Math.min(90, Math.max(10, w.gridX * 10)), y: Math.min(90, Math.max(10, w.gridY * 10)), hp: WALL_HP, size: 4,
+    id: `wall-${i}`, kind: 'wall', x: Math.min(90, Math.max(10, w.gridX * 10)), y: Math.min(90, Math.max(10, w.gridY * 10)), hp: Math.round(WALL_HP * defBoost), size: 4,
   }));
   return [...bs, ...ws];
 };

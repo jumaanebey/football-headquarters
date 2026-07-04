@@ -18,8 +18,13 @@ in real-time raids to score touchdowns and climb the trophy ladder — all clien
 - **Roster & recruiting** — rarity-weighted scouting, position-group drills (energy-gated, timed),
   and **player tendencies** (Blitzer / Anchor / Playmaker / Iron Wall / …) that shape your offense
   and defense.
-- **Star Heroes** — 9 heroes (incl. a premium unlock) that level **instantly with coins** and each
-  have a signature impact: Hail Mary, Truck Stick, Field Medic, Shield Wall, Trick Play, Hall of Fame…
+- **Hall of Heroes** — 9 heroes (incl. a premium unlock) that level **instantly with coins**, each
+  with a signature impact: Hail Mary, Truck Stick, Field Medic, Shield Wall, Trick Play, Hall of Fame…
+  **Scout Search** (gem gacha) finds new heroes — duplicates convert to **shards** that fuel
+  ⭐ **star evolutions** (up to 5★, big multiplicative power spikes).
+- **Season campaign** — a 12-game deterministic ladder from the Preseason Opener to THE
+  CHAMPIONSHIP: 3-Game-Ball ratings per stage, first-clear gem + shard bounties, and late-season
+  opponents that field extra coverage.
 - **Real-time raids** — deploy individual players on a stadium field, run plays (Blitz / Trainer),
   send in your Mascot and Fan Mob, and **score a touchdown** on the enemy HQ. Non-violent, football-
   themed combat (footballs, penalty flags — no weapons).

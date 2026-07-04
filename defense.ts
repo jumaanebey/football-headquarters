@@ -13,6 +13,17 @@ export interface DefenseRating {
 
 const ovr = (p: Player) => (p.stats.strength + p.stats.speed + p.stats.iq) / 3;
 
+/** HP/damage multiplier your defensive-Tendency roster gives your stadium in battle (1.0–1.3). */
+export const defenseTroopBoost = (roster: Player[]): number => {
+  const defRaw = roster.reduce((s, p) => {
+    const t = TENDENCIES[p.tendency as TendencyKey];
+    if (!t) return s;
+    const w = t.side === 'defense' ? 1 : t.side === 'balanced' ? 0.5 : 0;
+    return s + ovr(p) * w;
+  }, 0);
+  return 1 + Math.min(0.3, (defRaw / 250) * 0.3);
+};
+
 /**
  * How tough your stadium is to raid — the number players optimize in Design mode.
  * Three levers, all in the player's control:

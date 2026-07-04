@@ -15,10 +15,12 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { ObjectiveBanner } from './components/ObjectiveBanner';
 import { TourPointer } from './components/TourPointer';
 import { GoalId } from './objectives';
-import { computeDefenseRating } from './defense';
+import { computeDefenseRating, defenseTroopBoost } from './defense';
 import { tendencyFromId } from './constants';
 import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
+import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
+import { CAMPAIGN_STAGES, campaignBase } from './campaign';
 import { BattleScreen, BattleResult, BattleConfig } from './components/BattleScreen';
 import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase } from './battle';
 import { HeroModal } from './components/HeroModal';
@@ -47,11 +49,12 @@ const INITIAL_STATE: GameState = {
   timeOfDay: 12, // Noon start
   recruitSlot: null,
   walls: INITIAL_WALLS,
-  heroes: HERO_DEFS.map(d => ({ key: d.key, level: 1, unlocked: !!d.starter })),
+  heroes: HERO_DEFS.map(d => ({ key: d.key, level: 1, unlocked: !!d.starter, stars: 1, shards: 0 })),
   builders: INITIAL_BUILDERS,
   upgrades: [],
   defenseLog: [],
-  trophies: 0
+  trophies: 0,
+  campaign: { unlocked: 1, stars: {}, claimed: [] }
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -90,13 +93,16 @@ const loadState = (): GameState => {
       const heroes = (saved.heroes || []).map((h: any) => ({
         ...h,
         unlocked: h.unlocked ?? HERO_DEFS.find(d => d.key === h.key)?.starter ?? false,
+        stars: h.stars ?? 1,
+        shards: h.shards ?? 0,
       }));
       const presentHeroKeys = new Set(heroes.map((h: any) => h.key));
       for (const dh of HERO_DEFS) {
         if (!presentHeroKeys.has(dh.key)) {
-          heroes.push({ key: dh.key, level: 1, unlocked: !!dh.starter });
+          heroes.push({ key: dh.key, level: 1, unlocked: !!dh.starter, stars: 1, shards: 0 });
         }
       }
+      const campaign = saved.campaign ?? { unlocked: 1, stars: {}, claimed: [] };
       // "While you were away" — resolve rival raids against your ACTUAL base for the
       // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
       let defenseLog = [...(saved.defenseLog || [])];
@@ -108,7 +114,7 @@ const loadState = (): GameState => {
       const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
       if (numAttacks > 0) {
         const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS);
+        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS, defenseTroopBoost(roster));
         let worstPct = 0;
         for (let a = 0; a < numAttacks; a++) {
           const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
@@ -127,7 +133,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -152,6 +158,8 @@ function App() {
   const [isHeroOpen, setIsHeroOpen] = useState(false);
   const [defenseLogOpen, setDefenseLogOpen] = useState(false);
   const [raidTargets, setRaidTargets] = useState<EnemyBase[]>([]);
+  const [attackTab, setAttackTab] = useState<'season' | 'raid'>('season');
+  const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
@@ -560,7 +568,7 @@ function App() {
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
-      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls),
+      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster)),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
       loot: { coins: coinsAtRisk, fans: 0 },
@@ -569,19 +577,41 @@ function App() {
 
   const handleBattleFinish = (r: BattleResult) => {
     if (r.mode === 'attack') {
-      const gemReward = r.stars >= 3 ? 5 : r.stars === 2 ? 2 : r.stars === 1 ? 1 : 0; // stars → Crowns
-      const trophyDelta = trophiesForRaid(r.won, r.stars); // climb (or slip on) the ladder
-      setGameState(prev => ({
-        ...prev,
-        resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS + r.coins, [ResourceType.FANS]: prev.resources.FANS + r.fans, [ResourceType.GEMS]: prev.resources.GEMS + gemReward },
-        matchHistory: [{ week: prev.currentMatch, opponent: r.title.replace('Attacking ', ''), ourScore: r.stars, theirScore: 0, won: r.won, reward: r.coins }, ...prev.matchHistory],
-        currentMatch: prev.currentMatch + 1,
-        trophies: Math.max(0, prev.trophies + trophyDelta),
-        shieldUntil: 0, // going on offense drops your protective shield
-      }));
+      const isCampaign = !!r.campaignStage;
+      // Raids move the trophy ladder + pay star-gems; campaign pays via first-clear bounties instead.
+      const gemReward = isCampaign ? 0 : (r.stars >= 3 ? 5 : r.stars === 2 ? 2 : r.stars === 1 ? 1 : 0);
+      const trophyDelta = isCampaign ? 0 : trophiesForRaid(r.won, r.stars);
+      const stage = r.campaignStage ?? 0;
+      const stageDef = isCampaign ? CAMPAIGN_STAGES[stage - 1] : null;
+      setGameState(prev => {
+        const firstClear = !!(stageDef && r.won && !prev.campaign.claimed.includes(stage));
+        const campaign = isCampaign ? {
+          unlocked: r.won ? Math.max(prev.campaign.unlocked, Math.min(CAMPAIGN_STAGES.length, stage + 1)) : prev.campaign.unlocked,
+          stars: { ...prev.campaign.stars, [stage]: Math.max(prev.campaign.stars[stage] || 0, r.stars) },
+          claimed: firstClear ? [...prev.campaign.claimed, stage] : prev.campaign.claimed,
+        } : prev.campaign;
+        return {
+          ...prev,
+          resources: {
+            ...prev.resources,
+            [ResourceType.COINS]: prev.resources.COINS + r.coins,
+            [ResourceType.FANS]: prev.resources.FANS + r.fans,
+            [ResourceType.GEMS]: prev.resources.GEMS + gemReward + (firstClear ? stageDef!.firstClear.gems : 0),
+          },
+          heroes: firstClear
+            ? prev.heroes.map(h => h.key === stageDef!.firstClear.shardHero ? { ...h, shards: h.shards + stageDef!.firstClear.shards } : h)
+            : prev.heroes,
+          campaign,
+          matchHistory: [{ week: prev.currentMatch, opponent: r.title.replace('Attacking ', ''), ourScore: r.stars, theirScore: 0, won: r.won, reward: r.coins }, ...prev.matchHistory],
+          currentMatch: prev.currentMatch + 1,
+          trophies: Math.max(0, prev.trophies + trophyDelta),
+          shieldUntil: 0, // going on offense drops your protective shield
+        };
+      });
       if (r.coins > 0) spawnText(`+${r.coins} Coins looted!`, window.innerWidth / 2, window.innerHeight / 2, '#fbbf24');
       if (gemReward > 0) spawnText(`+${gemReward} 👑`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
-      spawnText(`${trophyDelta >= 0 ? '+' : ''}${trophyDelta} 🏆`, window.innerWidth / 2, window.innerHeight / 2 + 80, trophyDelta >= 0 ? '#22c55e' : '#ef4444');
+      if (isCampaign && r.won && stageDef && !gameState.campaign.claimed.includes(stage)) spawnText(`First clear! +${stageDef.firstClear.gems} 👑 +${stageDef.firstClear.shards} shards`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
+      if (!isCampaign) spawnText(`${trophyDelta >= 0 ? '+' : ''}${trophyDelta} 🏆`, window.innerWidth / 2, window.innerHeight / 2 + 80, trophyDelta >= 0 ? '#22c55e' : '#ef4444');
     } else {
       setGameState(prev => ({
         ...prev,
@@ -607,6 +637,53 @@ function App() {
     });
     sfx.upgrade();
     spawnText('Hero leveled up!', window.innerWidth / 2, window.innerHeight / 2, '#facc15');
+  };
+
+  // SCOUT SEARCH (hero gacha): spend gems, get a new hero or shards toward a star-up.
+  const handleRollHero = () => {
+    if (gameState.resources.GEMS < ROLL_COST_GEMS) { sfx.error(); return; }
+    const res = rollHero(gameState.heroes);
+    setGameState(prev => ({
+      ...prev,
+      resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - ROLL_COST_GEMS },
+      heroes: prev.heroes.map(h => h.key === res.key
+        ? (res.isNew ? { ...h, unlocked: true } : { ...h, shards: h.shards + res.shards })
+        : h),
+    }));
+    setLastRoll(res);
+    if (res.isNew) sfx.victory(); else sfx.sign();
+  };
+
+  // Star-up: spend a hero's banked shards for a big evolution power spike.
+  const handleStarUpHero = (key: string) => {
+    setGameState(prev => {
+      const hero = prev.heroes.find(h => h.key === key);
+      if (!hero || !hero.unlocked || hero.stars >= MAX_STARS) return prev;
+      const cost = STAR_UP_COSTS[hero.stars];
+      if (!cost || hero.shards < cost) { sfx.error(); return prev; }
+      return { ...prev, heroes: prev.heroes.map(h => h.key === key ? { ...h, stars: h.stars + 1, shards: h.shards - cost } : h) };
+    });
+    sfx.upgrade();
+    spawnText('⭐ STAR UP!', window.innerWidth / 2, window.innerHeight / 2, '#fde047');
+  };
+
+  // Launch a Season campaign stage (deterministic ladder — the PvE spine).
+  const startCampaign = (stage: number) => {
+    const st = CAMPAIGN_STAGES[stage - 1];
+    if (!st || stage > gameState.campaign.unlocked) { sfx.error(); return; }
+    const base = campaignBase(stage);
+    setBattleConfig({
+      mode: 'attack',
+      title: `${st.name} — ${st.opponent}`,
+      buildings: base.buildings,
+      playerArmy: armyFromRoster(gameState.roster),
+      power: armyStrength(gameState.roster),
+      heroes: heroesForBattle(gameState.heroes),
+      specials: specialsForBattle(gameState.resources.FANS),
+      loot: st.reward,
+      campaignStage: stage,
+    });
+    setAttackSelectOpen(false);
   };
 
   // Unlock a hero by paying its coin/gem cost.
@@ -727,18 +804,54 @@ function App() {
         />
       )}
 
-      {/* Attack: choose a base to raid */}
+      {/* Attack: Season campaign ladder or a live Raid */}
       {attackSelectOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-          <div className="bg-slate-950 w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl p-6">
+          <div className="bg-slate-950 w-full max-w-md max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl p-6 flex flex-col">
             <div className="flex justify-between items-center mb-1">
               <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2">
-                <Swords className="text-red-500" size={26} /> Raid a Base
+                <Swords className="text-red-500" size={26} /> Game Day
               </h2>
               <button onClick={() => setAttackSelectOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={18} /></button>
             </div>
-            <p className="text-slate-400 text-sm mb-5">Deploy your squad, smash their base, loot the rewards.</p>
-            <div className="space-y-3">
+            {/* Mode tabs */}
+            <div className="flex gap-2 my-3">
+              <button onClick={() => setAttackTab('season')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'season' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+                🏆 Season {gameState.campaign.unlocked > CAMPAIGN_STAGES.length ? '✓' : `${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length}`}
+              </button>
+              <button onClick={() => setAttackTab('raid')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'raid' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+                ⚔️ Raid
+              </button>
+            </div>
+
+            {attackTab === 'season' ? (
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+                {CAMPAIGN_STAGES.map(st => {
+                  const locked = st.stage > gameState.campaign.unlocked;
+                  const earned = gameState.campaign.stars[st.stage] || 0;
+                  const cleared = gameState.campaign.claimed.includes(st.stage);
+                  return (
+                    <button key={st.stage} onClick={() => !locked && startCampaign(st.stage)} disabled={locked}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl border-2 text-left transition-all active:scale-[0.98]
+                        ${locked ? 'border-slate-800 bg-slate-900/40 opacity-45 cursor-not-allowed' : 'border-slate-700 hover:border-orange-500 bg-slate-800 hover:bg-slate-700/70'}`}>
+                      <div className="min-w-0">
+                        <div className="font-bold text-white truncate">{locked ? '🔒 ' : ''}{st.name}</div>
+                        <div className="text-xs text-slate-400 truncate">vs {st.opponent}</div>
+                        <div className="text-sm leading-none mt-1">
+                          {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < earned ? 1 : 0.22, filter: i < earned ? 'none' : 'grayscale(1)' }}>🏈</span>)}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-yellow-400 font-mono font-bold text-sm">+{st.reward.coins}</div>
+                        {!cleared && !locked && <div className="text-[10px] text-purple-300 font-bold">1st: +{st.firstClear.gems}👑 +{st.firstClear.shards}🧩</div>}
+                        {cleared && <div className="text-[10px] text-green-500 font-bold">CLEARED</div>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               {raidTargets.map(b => (
                 <button key={b.id} onClick={() => { setBattleConfig({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: armyStrength(gameState.roster), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward }); setAttackSelectOpen(false); }}
                   className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
@@ -756,6 +869,7 @@ function App() {
                 </button>
               ))}
             </div>
+            )}
           </div>
         </div>
       )}
@@ -773,9 +887,12 @@ function App() {
           heroes={gameState.heroes}
           resources={gameState.resources}
           stadiumLevel={stadiumLevel}
-          onClose={() => setIsHeroOpen(false)}
+          lastRoll={lastRoll}
+          onClose={() => { setIsHeroOpen(false); setLastRoll(null); }}
           onUpgrade={handleUpgradeHero}
           onUnlock={handleUnlockHero}
+          onRoll={handleRollHero}
+          onStarUp={handleStarUpHero}
         />
       )}
 

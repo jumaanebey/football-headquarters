@@ -20,6 +20,7 @@ export interface BattleConfig {
   preTroops?: { unit: UnitGroup; x: number; y: number }[];
   aiMult?: number;
   loot: { coins: number; fans: number };
+  campaignStage?: number; // set when this attack is a Season campaign stage
 }
 
 export interface BattleResult {
@@ -30,6 +31,7 @@ export interface BattleResult {
   coins: number;
   fans: number;
   won: boolean;
+  campaignStage?: number;
 }
 
 interface Props {
@@ -43,7 +45,7 @@ interface Props {
 interface Shot { sx: number; sy: number; tx: number; ty: number; t: number; dur: number; rot: number; }
 interface Pulse { x: number; y: number; r: number; life: number; maxLife: number; color: string; }
 // Ephemeral battle FX: dust puffs under runners, impact pops on contact, floating "SACKED!" text.
-interface Fx { type: 'dust' | 'impact' | 'yards'; x: number; y: number; life: number; maxLife: number; text?: string; }
+interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; }
 
 const TICK_MS = 50;
 const DT = TICK_MS / 1000;
@@ -105,7 +107,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const hqDead = s.buildings.find(b => b.kind === 'hq')?.dead ?? false;
     const stars = (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0);
     const frac = destroyed / total;
-    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac), fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0 });
+    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac), fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage });
     setPhase('result');
   };
 
@@ -148,6 +150,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             if (target.kind !== 'wall') {
               const scored = target.kind === 'hq'; // taking their stadium = the score
               s.fx.push({ type: 'yards', text: scored ? 'TOUCHDOWN!' : 'SACKED!', x: target.x, y: target.y, life: scored ? 1.5 : 1.0, maxLife: scored ? 1.5 : 1.0 });
+              // Loot burst — coins pop out of the wreckage
+              for (let ci = 0; ci < (scored ? 7 : 4); ci++) {
+                const ca = Math.random() * Math.PI * 2;
+                s.fx.push({ type: 'coin', x: target.x, y: target.y, vx: Math.cos(ca) * 9, vy: Math.sin(ca) * 5 - 9, life: 0.7, maxLife: 0.7 });
+              }
               s.shakeT = scored ? 0.4 : 0.25;
             }
           }
@@ -183,7 +190,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
       if (s.shots.length) s.shots = s.shots.filter(sh => (sh.t += DT) < sh.dur);
       if (s.pulses.length) s.pulses = s.pulses.filter(p => (p.life -= DT) > 0);
-      if (s.fx.length) s.fx = s.fx.filter(f => (f.life -= DT) > 0);
+      if (s.fx.length) {
+        for (const f of s.fx) {
+          if (f.type === 'coin') { // little lofted arcs with gravity
+            f.x += (f.vx ?? 0) * DT; f.y += (f.vy ?? 0) * DT; f.vy = (f.vy ?? 0) + 42 * DT;
+          }
+        }
+        s.fx = s.fx.filter(f => (f.life -= DT) > 0);
+      }
       if (s.shakeT > 0) s.shakeT = Math.max(0, s.shakeT - DT);
 
       s.time -= DT;
@@ -422,6 +436,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 <div key={i} className="absolute pointer-events-none font-display font-black uppercase" style={{ left: `${f.x}%`, top: `${f.y}%`, color: td ? '#fde047' : '#fef08a', fontSize: td ? '5vmin' : '3.4vmin', letterSpacing: '0.02em', textShadow: td ? '0 0 8px #f59e0b, 0 3px 6px #000' : '0 2px 5px #000, 0 0 3px #000', zIndex: 210, transform: `translate(-50%, calc(-50% - ${(1 - k) * (td ? 46 : 34)}px)) scale(${td ? 1 + (1 - k) * 0.3 : 1})`, opacity: Math.min(1, k * 1.6) }}>{f.text}</div>
               );
             }
+            if (f.type === 'coin') return (
+              <span key={i} className="absolute pointer-events-none" style={{ left: `${f.x}%`, top: `${f.y}%`, fontSize: '1.7vmin', lineHeight: 1, zIndex: 205, transform: 'translate(-50%,-50%)', opacity: Math.min(1, k * 2), filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.6))' }}>🪙</span>
+            );
             if (f.type === 'impact') return (
               <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3.6vmin', height: '3.6vmin', background: 'radial-gradient(circle, #fff 0%, #fde047 45%, transparent 72%)', zIndex: 150, transform: `translate(-50%,-50%) scale(${0.6 + (1 - k) * 1.1})`, opacity: k }} />
             );

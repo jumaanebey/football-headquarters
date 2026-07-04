@@ -173,12 +173,30 @@ export interface GameState {
   timeOfDay: number; // 0-24
   recruitSlot: RecruitSlot | null;
   walls: { gridX: number; gridY: number }[]; // Blocking Sleds — player-placed defensive barriers
-  heroes: { key: string; level: number; unlocked: boolean }[];  // trainable star heroes (unlocked = owned)
+  heroes: HeroState[];      // trainable star heroes (unlocked = owned; stars/shards = evolution)
+  campaign: CampaignProgress; // Season campaign ladder progress
   builders: number;         // how many upgrades can run at once
   upgrades: UpgradeJob[];   // in-progress timed upgrades
   defenseLog: DefenseLogEntry[]; // record of rival raids on your base (Clash "while you were away")
   shieldUntil?: number;     // timestamp; while now < this, no offline raids can hit you
   trophies: number;         // trophy-ladder standing (drives your Rank)
+}
+
+// A hero's persistent progression: level (coins), stars (evolution via shards), shards (from
+// Scout Searches and campaign first-clears — duplicates convert to shards, Castle Clash-style).
+export interface HeroState {
+  key: string;
+  level: number;
+  unlocked: boolean;
+  stars: number;  // 1..5 — each star multiplies hero power
+  shards: number; // banked toward the next star-up
+}
+
+// Season campaign ladder: highest unlocked stage, best Game Balls per stage, claimed first-clears.
+export interface CampaignProgress {
+  unlocked: number;                 // highest stage available (starts at 1)
+  stars: Record<number, number>;    // stage -> best Game Balls (0-3)
+  claimed: number[];                // stages whose first-clear reward was granted
 }
 
 // One rival raid resolved against the player's base while they were away.
