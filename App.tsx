@@ -717,9 +717,12 @@ function App() {
       if (!attacks.length) return;
       localStorage.setItem('fhq_pvp_since', attacks[attacks.length - 1].created_at);
       setGameState(prev => {
+        // Idempotent by attack id — StrictMode double-mounts this effect in dev.
+        const fresh = attacks.filter(a => !prev.defenseLog.some(d => d.id === `pvp_${a.id}`));
+        if (!fresh.length) return prev;
         let coins = prev.resources.COINS;
         let trophies = prev.trophies;
-        const entries: DefenseLogEntry[] = attacks.map(a => {
+        const entries: DefenseLogEntry[] = fresh.map(a => {
           const coinsLost = Math.min(a.coins_lost, Math.round(coins * 0.12));
           coins -= coinsLost;
           trophies = Math.max(0, trophies + trophiesLostOnDefense(a.pct));
