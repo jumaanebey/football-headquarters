@@ -1,0 +1,922 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
+import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS } from './constants';
+import { rosterCap, recruitSeconds } from './recruiting';
+import { sfx, toggleMute, isMuted } from './sound';
+import { IsometricMap } from './components/IsometricMap';
+import { TopHUD } from './components/TopHUD';
+import { SquadModal } from './components/SquadModal';
+import { SeasonModal } from './components/SeasonModal';
+import { ActionModal } from './components/ActionModal';
+import { ScoutingModal } from './components/ScoutingModal';
+import { StandingsModal } from './components/StandingsModal';
+import { TutorialOverlay } from './components/TutorialOverlay';
+import { ObjectiveBanner } from './components/ObjectiveBanner';
+import { TourPointer } from './components/TourPointer';
+import { GoalId } from './objectives';
+import { computeDefenseRating } from './defense';
+import { tendencyFromId } from './constants';
+import { generateRaidTargets, EnemyBase } from './battle';
+import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
+import { BattleScreen, BattleResult, BattleConfig } from './components/BattleScreen';
+import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase } from './battle';
+import { HeroModal } from './components/HeroModal';
+import { DefenseLogModal } from './components/DefenseLogModal';
+import { FloatingTextLayer } from './components/FloatingTextLayer';
+import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Hammer } from 'lucide-react';
+
+const INITIAL_STATE: GameState = {
+  resources: {
+    [ResourceType.COINS]: 500,
+    [ResourceType.GEMS]: 10,
+    [ResourceType.ENERGY]: 100,
+    [ResourceType.FANS]: 0
+  },
+  seasonPhase: SeasonPhase.OFF_SEASON,
+  teamReadiness: 0,
+  currentMatch: 1,
+  matchHistory: [],
+  level: 1,
+  xp: 0,
+  xpToNextLevel: 100,
+  buildings: INITIAL_BUILDINGS,
+  roster: INITIAL_ROSTER,
+  bonusOrbs: [],
+  lastTick: Date.now(),
+  timeOfDay: 12, // Noon start
+  recruitSlot: null,
+  walls: INITIAL_WALLS,
+  heroes: HERO_DEFS.map(d => ({ key: d.key, level: 1, unlocked: !!d.starter })),
+  builders: INITIAL_BUILDERS,
+  upgrades: [],
+  defenseLog: [],
+  trophies: 0
+};
+
+const SAVE_KEY = 'fhq_save_v1';
+const TUTORIAL_KEY = 'fhq_tutorial_done_v1';
+
+// Load a persisted game, merging over defaults so new fields never come back undefined.
+// Absolute drill finishTimes survive reloads as-is; we only reset the loop's tick clock.
+const loadState = (): GameState => {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw) as GameState;
+      const now = Date.now();
+      // Credit passive collectors for time spent away (capped per collector config).
+      const offlineSecs = Math.max(0, (now - (saved.lastTick || now)) / 1000);
+      const buildings = (saved.buildings || INITIAL_BUILDINGS).map(b => {
+        // Pull any off-map building back onto the field (cells 2..8 are safely on the diamond).
+        const gridX = Math.min(8, Math.max(2, b.gridX));
+        const gridY = Math.min(8, Math.max(2, b.gridY));
+        const cfg = COLLECTOR_CONFIG[b.type];
+        if (!cfg) return { ...b, gridX, gridY };
+        const secs = Math.min(offlineSecs, cfg.maxOfflineSeconds);
+        const cap = collectorCap(b.type, b.level);
+        const accrued = Math.min(cap, (b.accrued || 0) + collectorRate(b.type, b.level) * secs);
+        return { ...b, gridX, gridY, accrued };
+      });
+      // Backfill buildings added in newer versions (e.g. the Stadium) that older saves lack.
+      const presentIds = new Set(buildings.map(b => b.id));
+      for (const ib of INITIAL_BUILDINGS) {
+        if (!presentIds.has(ib.id)) buildings.push(ib);
+      }
+      // Reset transient player movement state so no one is stuck mid-walk on load.
+      const roster = (saved.roster || INITIAL_ROSTER).map(p => ({ ...p, state: PlayerState.IDLE, targetPos: { ...p.worldPos }, tendency: p.tendency ?? tendencyFromId(p.id) }));
+      // Backfill heroes added in newer versions. Old saves lack `unlocked` → starters
+      // become unlocked, any newly-added unlockable heroes start locked.
+      const heroes = (saved.heroes || []).map((h: any) => ({
+        ...h,
+        unlocked: h.unlocked ?? HERO_DEFS.find(d => d.key === h.key)?.starter ?? false,
+      }));
+      const presentHeroKeys = new Set(heroes.map((h: any) => h.key));
+      for (const dh of HERO_DEFS) {
+        if (!presentHeroKeys.has(dh.key)) {
+          heroes.push({ key: dh.key, level: 1, unlocked: !!dh.starter });
+        }
+      }
+      // "While you were away" — resolve rival raids against your ACTUAL base for the
+      // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
+      let defenseLog = [...(saved.defenseLog || [])];
+      let coins = saved.resources?.[ResourceType.COINS] ?? INITIAL_STATE.resources[ResourceType.COINS];
+      let shieldUntil = saved.shieldUntil || 0;
+      let trophies = saved.trophies || 0;
+      // A protective shield (earned after a beating) blocks all offline raids until it expires.
+      const shielded = now < shieldUntil;
+      const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
+      if (numAttacks > 0) {
+        const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS);
+        let worstPct = 0;
+        for (let a = 0; a < numAttacks; a++) {
+          const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
+          const res = simulateRaid(layout, defenseAiTroops(), raidAiMult(opp.offenseRating, stadiumLvl));
+          const coinsLost = Math.min(coins, Math.round(coins * 0.12 * (res.pct / 100)));
+          coins -= coinsLost;
+          trophies = Math.max(0, trophies + trophiesLostOnDefense(res.pct)); // storming your stadium costs you rank
+          worstPct = Math.max(worstPct, res.pct);
+          defenseLog.unshift({
+            id: `def_${now}_${a}`, attacker: opp.name, at: now - Math.floor(Math.random() * offlineSecs * 1000),
+            stars: res.stars, pct: res.pct, coinsLost, seen: false,
+          });
+        }
+        defenseLog = defenseLog.slice(0, 20); // keep the last 20 raids
+        // Got roughed up (≥50% taken) → grant a protective shield so you're not farmed.
+        if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
+      }
+      const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+    }
+  } catch (e) {
+    console.warn('Save load failed, starting fresh:', e);
+  }
+  return INITIAL_STATE;
+};
+
+function App() {
+  const [gameState, setGameState] = useState<GameState>(loadState);
+  const [isSquadOpen, setIsSquadOpen] = useState(false);
+  const [isSeasonOpen, setIsSeasonOpen] = useState(false);
+  const [isScoutingOpen, setIsScoutingOpen] = useState(false);
+  const [isStandingsOpen, setIsStandingsOpen] = useState(false);
+  const [attackSelectOpen, setAttackSelectOpen] = useState(false);
+  const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
+  const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
+  const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
+  const [muted, setMuted] = useState(isMuted());
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [moveSel, setMoveSel] = useState<string | null>(null);
+  const [isHeroOpen, setIsHeroOpen] = useState(false);
+  const [defenseLogOpen, setDefenseLogOpen] = useState(false);
+  const [raidTargets, setRaidTargets] = useState<EnemyBase[]>([]);
+  const [showTutorial, setShowTutorial] = useState(() => {
+    try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
+  });
+
+  const finishTutorial = () => {
+    try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
+    setShowTutorial(false);
+  };
+
+  const lastUpdateRef = useRef(Date.now());
+
+  // Keep a live ref of state so the autosave interval always writes the latest.
+  const stateRef = useRef(gameState);
+  stateRef.current = gameState;
+
+  // --- AUTOSAVE ---
+  useEffect(() => {
+    const persist = () => {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(stateRef.current));
+      } catch (e) {
+        console.warn('Save failed:', e);
+      }
+    };
+    const saveLoop = setInterval(persist, 2000);
+    window.addEventListener('beforeunload', persist);
+    return () => {
+      clearInterval(saveLoop);
+      window.removeEventListener('beforeunload', persist);
+      persist();
+    };
+  }, []);
+
+  // --- GAME LOOP ---
+  useEffect(() => {
+    const loop = setInterval(() => {
+      const now = Date.now();
+      const dt = (now - lastUpdateRef.current) / 1000;
+      lastUpdateRef.current = now;
+
+      setGameState(prev => {
+        // 1. Time Cycle (0-24) - 1 real minute = 1 game day
+        const dayProgress = dt / 60;
+        const newTime = (prev.timeOfDay + (dayProgress * 24)) % 24;
+
+        // 2. Update Drill Timers + accrue passive collectors
+        const updatedBuildings = prev.buildings.map(b => {
+          let nb = b;
+          if (b.state === DrillState.ACTIVE && b.finishTime && now >= b.finishTime) {
+            nb = { ...nb, state: DrillState.COMPLETED };
+          }
+          const cfg = COLLECTOR_CONFIG[b.type];
+          if (cfg) {
+            const cap = collectorCap(b.type, b.level);
+            const accrued = Math.min(cap, (nb.accrued || 0) + collectorRate(b.type, b.level) * dt);
+            nb = { ...nb, accrued };
+          }
+          return nb;
+        });
+
+        // 3. Player AI
+        const updatedRoster = prev.roster.map(p => {
+          let { x, y } = p.worldPos;
+          let { x: tx, y: ty } = p.targetPos;
+
+          const dx = tx - x;
+          const dy = ty - y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const speed = 15 * dt;
+
+          if (dist > 0.5) {
+            x += (dx / dist) * speed;
+            y += (dy / dist) * speed;
+            return { ...p, worldPos: { x, y, z: 0 }, state: p.targetPos.z === 1 ? PlayerState.TRAINING : PlayerState.WALKING };
+          } else {
+             // Arrival: walking-to-pitch players start training; any other walker settles to idle.
+             if (p.state === PlayerState.WALKING && p.targetPos.z === 1) {
+                return { ...p, state: PlayerState.TRAINING };
+             }
+             if (p.state === PlayerState.WALKING) {
+                return { ...p, state: PlayerState.IDLE };
+             }
+             return p;
+          }
+        });
+
+        // 4. Energy Regen — slow by default so Energy paces coaching drills; the Rehab
+        //    Center (MEDICAL_CENTER) speeds it up, giving that building a real purpose.
+        //    Base +1 per 8s (L1) → +1 per 4.8s (L5). (Was a flat 5s with a dead var.)
+        const medCenter = prev.buildings.find(b => b.type === 'MEDICAL_CENTER');
+        const interval = energyIntervalMs(medCenter ? medCenter.level : 1);
+
+        const newEnergy = (prev.lastTick % interval > now % interval && prev.resources.ENERGY < 100)
+            ? Math.min(100, prev.resources.ENERGY + 1)
+            : prev.resources.ENERGY;
+
+        // Complete any timed upgrades whose timer elapsed (frees the builder).
+        let finalBuildings = updatedBuildings;
+        let finalHeroes = prev.heroes;
+        let finalUpgrades = prev.upgrades;
+        if (prev.upgrades.some(u => now >= u.finishTime)) {
+          finalUpgrades = prev.upgrades.filter(u => now < u.finishTime);
+          for (const job of prev.upgrades) {
+            if (now < job.finishTime) continue;
+            if (job.kind === 'building') finalBuildings = finalBuildings.map(b => b.id === job.key ? { ...b, level: job.toLevel } : b);
+            else finalHeroes = finalHeroes.map(h => h.key === job.key ? { ...h, level: job.toLevel } : h);
+          }
+        }
+
+        return {
+          ...prev,
+          buildings: finalBuildings,
+          roster: updatedRoster,
+          heroes: finalHeroes,
+          upgrades: finalUpgrades,
+          resources: { ...prev.resources, [ResourceType.ENERGY]: newEnergy },
+          timeOfDay: newTime,
+          lastTick: now
+        };
+      });
+    }, 100);
+
+    return () => clearInterval(loop);
+  }, []);
+
+  const spawnText = (text: string, x: number, y: number, color: string = '#fbbf24') => {
+    const id = Date.now() + Math.random();
+    setFloatingTexts(prev => [...prev, { id, text, x, y, color }]);
+    setTimeout(() => {
+      setFloatingTexts(prev => prev.filter(ft => ft.id !== id));
+    }, 1000);
+  };
+
+  // --- HANDLERS ---
+  const handleTrainGroup = (unit: UnitGroup, drillId: string) => {
+    const drill = DRILLS[drillId];
+    if (gameState.resources.ENERGY < drill.costEnergy) {
+      spawnText("Low Energy!", window.innerWidth/2, window.innerHeight/2, '#ef4444');
+      sfx.error();
+      return;
+    }
+
+    const freePitch = gameState.buildings.find(b => b.type === 'TRAINING_PITCH' && b.state === DrillState.IDLE);
+    if (!freePitch) {
+      spawnText("Pitch Busy!", window.innerWidth/2, window.innerHeight/2, '#ef4444');
+      sfx.error();
+      return;
+    }
+    sfx.click();
+
+    setGameState(prev => {
+      const pitchTargetX = freePitch.gridX * 10 + 5;
+      const pitchTargetY = freePitch.gridY * 10 + 5;
+
+      return {
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.ENERGY]: prev.resources.ENERGY - drill.costEnergy },
+        buildings: prev.buildings.map(b =>
+          b.id === freePitch.id
+          ? { ...b, state: DrillState.ACTIVE, activeDrillId: drillId, targetUnit: unit, startTime: Date.now(), finishTime: Date.now() + (drill.durationSeconds * 1000) }
+          : b
+        ),
+        roster: prev.roster.map(p => {
+          if (p.unit === unit) {
+            return { ...p, state: PlayerState.WALKING, targetPos: { x: pitchTargetX + (Math.random()*6 - 3), y: pitchTargetY + (Math.random()*6 - 3), z: 1 } };
+          }
+          return p;
+        })
+      };
+    });
+
+    setIsSquadOpen(false);
+  };
+
+  const handleCollect = (building: BuildingInstance, screenPos: {x: number, y: number}) => {
+     if (!building.activeDrillId) return;
+     const drill = DRILLS[building.activeDrillId];
+
+     // XP Bonus from the Training Field level (real, wired effect).
+     const xpGained = Math.floor(drill.rewardXp * trainingXpMult(building.level));
+
+     setGameState(prev => {
+       // War Room (Tactics) sharpens the game plan → more readiness per drill.
+       const warRoom = prev.buildings.find(b => b.type === 'TACTICS_ROOM');
+       const readinessGain = drill.readinessGain * warRoomReadinessMult(warRoom ? warRoom.level : 1);
+       const newReadiness = Math.min(100, prev.teamReadiness + readinessGain);
+
+       return {
+         ...prev,
+         resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS + drill.rewardCoins },
+         teamReadiness: newReadiness,
+         roster: prev.roster.map(p => {
+           if (p.unit === building.targetUnit) {
+             return {
+               ...p,
+               level: p.level + 1,
+               stats: { strength: p.stats.strength + 1, speed: p.stats.speed + 1, iq: p.stats.iq + 1 },
+               state: PlayerState.IDLE,
+               targetPos: { x: p.worldPos.x, y: p.worldPos.y, z: 0 }
+             };
+           }
+           return p;
+         }),
+         buildings: prev.buildings.map(b => b.id === building.id ? { ...b, state: DrillState.IDLE, activeDrillId: null, targetUnit: null, startTime: null, finishTime: null } : b)
+       };
+     });
+
+     spawnText(`+${drill.rewardCoins} Coins`, screenPos.x, screenPos.y, '#fbbf24');
+     spawnText(`+${xpGained} XP`, screenPos.x, screenPos.y - 30, '#3b82f6');
+     sfx.collect();
+  };
+
+  const handleMatchComplete = (result: MatchResult) => {
+      setGameState(prev => ({
+          ...prev,
+          matchHistory: [result, ...prev.matchHistory],
+          currentMatch: prev.currentMatch + 1,
+          resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS + result.reward, [ResourceType.FANS]: prev.resources.FANS + (result.won ? 50 : 10) },
+          teamReadiness: Math.max(0, prev.teamReadiness - 20) // Fatigue: Readiness drops after match
+      }));
+      setIsSeasonOpen(false);
+      spawnText(result.won ? "VICTORY!" : "DEFEAT", window.innerWidth/2, window.innerHeight/2, result.won ? '#10b981' : '#ef4444');
+      if (result.won) sfx.victory(); else sfx.defeat();
+  };
+
+  const newJobId = () => `up_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+
+  const handleUpgradeBuilding = (buildingId: string, cost: number) => {
+    const building = gameState.buildings.find(b => b.id === buildingId);
+    if (!building) return;
+    if (gameState.upgrades.length >= gameState.builders) { spawnText('All builders busy!', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); sfx.error(); return; }
+    if (gameState.upgrades.some(u => u.kind === 'building' && u.key === buildingId)) return;
+    if (gameState.resources.COINS < cost) { sfx.error(); return; }
+    const toLevel = building.level + 1;
+    const now = Date.now();
+    const job: UpgradeJob = { id: newJobId(), kind: 'building', key: buildingId, toLevel, startTime: now, finishTime: now + upgradeDurationSecs(toLevel) * 1000 };
+    setGameState(prev => ({ ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, upgrades: [...prev.upgrades, job] }));
+    setSelectedBuilding(null);
+    sfx.click();
+    spawnText('Under construction…', window.innerWidth / 2, window.innerHeight / 2, '#60a5fa');
+  };
+
+  const handleFinishNow = (jobId: string) => {
+    setGameState(prev => {
+      const job = prev.upgrades.find(u => u.id === jobId);
+      if (!job) return prev;
+      const gemCost = skipGemCost(Math.max(0, (job.finishTime - Date.now()) / 1000));
+      if (prev.resources.GEMS < gemCost) return prev;
+      return {
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - gemCost },
+        buildings: job.kind === 'building' ? prev.buildings.map(b => b.id === job.key ? { ...b, level: job.toLevel } : b) : prev.buildings,
+        heroes: job.kind === 'hero' ? prev.heroes.map(h => h.key === job.key ? { ...h, level: job.toLevel } : h) : prev.heroes,
+        upgrades: prev.upgrades.filter(u => u.id !== jobId),
+      };
+    });
+    setSelectedBuilding(null);
+    sfx.upgrade();
+    spawnText('Rushed!', window.innerWidth / 2, window.innerHeight / 2, '#a78bfa');
+  };
+
+  const handleHireBuilder = () => {
+    setGameState(prev => {
+      if (prev.builders >= MAX_BUILDERS) return prev;
+      const cost = builderHireCost(prev.builders);
+      if (prev.resources.GEMS < cost) return prev;
+      return { ...prev, resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - cost }, builders: prev.builders + 1 };
+    });
+    sfx.upgrade();
+    spawnText('Builder hired!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
+  };
+
+  // --- PASSIVE COLLECTORS ---
+  const handleCollectResource = (building: BuildingInstance, screenPos: {x: number, y: number}) => {
+    const cfg = COLLECTOR_CONFIG[building.type];
+    if (!cfg) return;
+    const amount = Math.floor(building.accrued || 0);
+    if (amount <= 0) return;
+    setGameState(prev => ({
+      ...prev,
+      resources: { ...prev.resources, [cfg.resource]: prev.resources[cfg.resource] + amount },
+      buildings: prev.buildings.map(b => b.id === building.id ? { ...b, accrued: 0 } : b)
+    }));
+    const label = cfg.resource === ResourceType.FANS ? 'Fans' : 'Coins';
+    spawnText(`+${amount} ${label}`, screenPos.x, screenPos.y, '#fbbf24');
+    sfx.collect();
+  };
+
+  const handleRally = () => {
+    setGameState(prev => {
+      if (prev.resources.ENERGY >= 100 || prev.resources.FANS < RALLY_CONFIG.fanCost) return prev;
+      return {
+        ...prev,
+        resources: {
+          ...prev.resources,
+          [ResourceType.FANS]: prev.resources.FANS - RALLY_CONFIG.fanCost,
+          [ResourceType.ENERGY]: Math.min(100, prev.resources.ENERGY + RALLY_CONFIG.energyGain),
+        }
+      };
+    });
+    spawnText('Fans fired up! +Energy', window.innerWidth/2, window.innerHeight/2, '#f43f5e');
+    sfx.collect();
+  };
+
+  // --- RECRUITING ---
+  const handleStartRecruit = (candidate: Player, cost: number) => {
+    const academy = gameState.buildings.find(b => b.type === BuildingType.YOUTH_ACADEMY);
+    if (!academy || gameState.recruitSlot) return;
+    if (gameState.roster.length >= rosterCap(academy.level)) {
+      spawnText('Roster Full!', window.innerWidth/2, window.innerHeight/2, '#ef4444');
+      sfx.error();
+      return;
+    }
+    if (gameState.resources.COINS < cost) {
+      spawnText('Not enough coins', window.innerWidth/2, window.innerHeight/2, '#ef4444');
+      sfx.error();
+      return;
+    }
+    const secs = recruitSeconds(candidate);
+    setGameState(prev => ({
+      ...prev,
+      resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost },
+      recruitSlot: { candidate, cost, finishTime: Date.now() + secs * 1000 }
+    }));
+    spawnText('Scouting…', window.innerWidth/2, window.innerHeight/2, '#3b82f6');
+    sfx.scout();
+  };
+
+  const handleRushRecruit = () => {
+    setGameState(prev => {
+      if (!prev.recruitSlot || prev.resources.GEMS < RECRUIT_CONFIG.rushGemCost) return prev;
+      return {
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - RECRUIT_CONFIG.rushGemCost },
+        recruitSlot: { ...prev.recruitSlot, finishTime: Date.now() }
+      };
+    });
+  };
+
+  const handleSignRecruit = () => {
+    let signedName = '';
+    setGameState(prev => {
+      if (!prev.recruitSlot || Date.now() < prev.recruitSlot.finishTime) return prev;
+      const academy = prev.buildings.find(b => b.type === BuildingType.YOUTH_ACADEMY);
+      const cap = academy ? rosterCap(academy.level) : prev.roster.length;
+      if (prev.roster.length >= cap) return prev; // safety
+      const c = prev.recruitSlot.candidate;
+      const spawn = { x: 56 + Math.random() * 10, y: 8 + Math.random() * 10, z: 0 };
+      signedName = c.name;
+      const signed: Player = { ...c, worldPos: spawn, targetPos: spawn, state: PlayerState.IDLE };
+      return { ...prev, roster: [...prev.roster, signed], recruitSlot: null };
+    });
+    spawnText(`Signed ${signedName || 'Player'}!`, window.innerWidth/2, window.innerHeight/2, '#10b981');
+    sfx.sign();
+  };
+
+  // Route a tapped Goal (from the Goals panel) to its action.
+  const handleGoal = (id: GoalId) => {
+    const center = { x: window.innerWidth / 2, y: 320 };
+    const find = (t: BuildingType) => gameState.buildings.find(b => b.type === t);
+    switch (id) {
+      case 'collect-drill': { const d = gameState.buildings.find(b => b.state === DrillState.COMPLETED); if (d) handleCollect(d, center); break; }
+      case 'collect-coins': { const st = find(BuildingType.STADIUM); if (st) handleCollectResource(st, center); break; }
+      case 'play': setIsSeasonOpen(true); break;
+      case 'fortify': setEditMode(true); setMoveSel(null); setSelectedBuilding(null); break;
+      case 'train': setIsSquadOpen(true); break;
+      case 'upgrade': { const st = find(BuildingType.STADIUM); if (st) setSelectedBuilding(st); break; }
+      case 'recruit': setIsScoutingOpen(true); break;
+      case 'raid': openRaid(); break;
+    }
+  };
+
+  // Open the Defense Log and mark all entries as seen (clears the nav badge).
+  const openDefenseLog = () => {
+    setDefenseLogOpen(true);
+    if (gameState.defenseLog.some(e => !e.seen)) {
+      setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => ({ ...e, seen: true })) }));
+    }
+  };
+  const unseenDefenses = gameState.defenseLog.filter(e => !e.seen).length;
+
+  // Open the raid picker with a fresh set of trophy-scaled rivals (no more farming 2 bases).
+  const openRaid = () => { setRaidTargets(generateRaidTargets(gameState.trophies)); setAttackSelectOpen(true); };
+
+  // Take REVENGE on a rival who raided you — storm their (scaled) base for extra loot.
+  const handleRevenge = (entry: DefenseLogEntry) => {
+    const opp = OPPONENTS.find(o => o.name === entry.attacker);
+    setBattleConfig({
+      mode: 'attack',
+      title: `Revenge — ${entry.attacker}`,
+      buildings: makeRevengeBase(opp?.defenseRating ?? 50),
+      playerArmy: armyFromRoster(gameState.roster),
+      power: armyStrength(gameState.roster),
+      heroes: heroesForBattle(gameState.heroes),
+      specials: specialsForBattle(gameState.resources.FANS),
+      loot: { coins: Math.round(entry.coinsLost * 1.5) + 200, fans: 25 }, // reclaim more than they took
+    });
+    setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => e.id === entry.id ? { ...e, avenged: true } : e) }));
+    setDefenseLogOpen(false);
+  };
+
+  // --- BATTLES (real-time raid + base defense) ---
+  const startDefense = () => {
+    const coinsAtRisk = Math.min(gameState.resources.COINS, Math.round(gameState.resources.COINS * 0.15) + 120);
+    const stadiumLvl = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+    setBattleConfig({
+      mode: 'defense',
+      title: 'Defend Your Stadium',
+      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls),
+      preTroops: defenseAiTroops(),
+      aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
+      loot: { coins: coinsAtRisk, fans: 0 },
+    });
+  };
+
+  const handleBattleFinish = (r: BattleResult) => {
+    if (r.mode === 'attack') {
+      const gemReward = r.stars >= 3 ? 5 : r.stars === 2 ? 2 : r.stars === 1 ? 1 : 0; // stars → Crowns
+      const trophyDelta = trophiesForRaid(r.won, r.stars); // climb (or slip on) the ladder
+      setGameState(prev => ({
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS + r.coins, [ResourceType.FANS]: prev.resources.FANS + r.fans, [ResourceType.GEMS]: prev.resources.GEMS + gemReward },
+        matchHistory: [{ week: prev.currentMatch, opponent: r.title.replace('Attacking ', ''), ourScore: r.stars, theirScore: 0, won: r.won, reward: r.coins }, ...prev.matchHistory],
+        currentMatch: prev.currentMatch + 1,
+        trophies: Math.max(0, prev.trophies + trophyDelta),
+        shieldUntil: 0, // going on offense drops your protective shield
+      }));
+      if (r.coins > 0) spawnText(`+${r.coins} Coins looted!`, window.innerWidth / 2, window.innerHeight / 2, '#fbbf24');
+      if (gemReward > 0) spawnText(`+${gemReward} 👑`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
+      spawnText(`${trophyDelta >= 0 ? '+' : ''}${trophyDelta} 🏆`, window.innerWidth / 2, window.innerHeight / 2 + 80, trophyDelta >= 0 ? '#22c55e' : '#ef4444');
+    } else {
+      setGameState(prev => ({
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.COINS]: Math.max(0, prev.resources.COINS - r.coins) },
+      }));
+      if (r.coins > 0) spawnText(`−${r.coins} Coins raided!`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
+      else spawnText('Base defended!', window.innerWidth / 2, window.innerHeight / 2, '#10b981');
+    }
+    if (r.won) sfx.victory(); else sfx.defeat();
+    setBattleConfig(null);
+  };
+
+  // Heroes level INSTANTLY on coins (their own track — not gated by builders/timers),
+  // so the game stays hero-focused and leveling feels rewarding.
+  const handleUpgradeHero = (key: string, cost: number) => {
+    setGameState(prev => {
+      const hero = prev.heroes.find(h => h.key === key);
+      if (!hero || !hero.unlocked) return prev;
+      const stadiumLvl = prev.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+      if (hero.level >= heroMaxLevel(stadiumLvl)) { sfx.error(); return prev; }
+      if (prev.resources.COINS < cost) { sfx.error(); return prev; }
+      return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, heroes: prev.heroes.map(h => h.key === key ? { ...h, level: h.level + 1 } : h) };
+    });
+    sfx.upgrade();
+    spawnText('Hero leveled up!', window.innerWidth / 2, window.innerHeight / 2, '#facc15');
+  };
+
+  // Unlock a hero by paying its coin/gem cost.
+  const handleUnlockHero = (key: string) => {
+    const def = HERO_DEFS.find(d => d.key === key);
+    if (!def || !def.unlock) return;
+    const { coins = 0, gems = 0 } = def.unlock;
+    setGameState(prev => {
+      const hero = prev.heroes.find(h => h.key === key);
+      if (!hero || hero.unlocked) return prev;
+      if (prev.resources.COINS < coins || prev.resources.GEMS < gems) { sfx.error(); return prev; }
+      return {
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - coins, [ResourceType.GEMS]: prev.resources.GEMS - gems },
+        heroes: prev.heroes.map(h => h.key === key ? { ...h, unlocked: true } : h),
+      };
+    });
+    sfx.sign();
+    spawnText(`${def.name} unlocked!`, window.innerWidth / 2, window.innerHeight / 2, '#a855f7');
+  };
+
+  // --- BASE DESIGN (edit mode): place/remove walls, move buildings ---
+  const handleTileEdit = (gx: number, gy: number) => {
+    const bAt = gameState.buildings.find(b => b.gridX === gx && b.gridY === gy);
+    const wIdx = gameState.walls.findIndex(w => w.gridX === gx && w.gridY === gy);
+    if (moveSel) {
+      if (!bAt && wIdx < 0) {
+        setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === moveSel ? { ...b, gridX: gx, gridY: gy } : b) }));
+        sfx.click();
+      }
+      setMoveSel(null);
+      return;
+    }
+    if (bAt) { setMoveSel(bAt.id); sfx.click(); return; }
+    if (wIdx >= 0) { setGameState(prev => ({ ...prev, walls: prev.walls.filter((_, i) => i !== wIdx) })); return; }
+    if (gameState.walls.length >= WALL_CAP) { spawnText('Wall limit reached', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
+    setGameState(prev => ({ ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] }));
+    sfx.click();
+  };
+
+  const handleResetGame = () => {
+      try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(TUTORIAL_KEY); } catch (e) { /* ignore */ }
+      setGameState({ ...INITIAL_STATE, lastTick: Date.now() });
+      lastUpdateRef.current = Date.now();
+      setSelectedBuilding(null);
+      setConfirmingReset(false);
+      setShowTutorial(true);
+      spawnText("New Franchise!", window.innerWidth/2, window.innerHeight/2, '#fbbf24');
+  };
+
+  const stadiumLevel = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+
+  return (
+    <div className="relative w-full h-screen bg-slate-900 overflow-hidden font-sans select-none">
+      {showTutorial && <TutorialOverlay onDone={finishTutorial} />}
+
+      <TopHUD gameState={gameState} onRally={handleRally} />
+
+      <IsometricMap
+        buildings={gameState.buildings}
+        players={gameState.roster}
+        bonusOrbs={gameState.bonusOrbs}
+        timeOfDay={gameState.timeOfDay}
+        recruitSlot={gameState.recruitSlot}
+        upgrades={gameState.upgrades}
+        walls={gameState.walls}
+        editMode={editMode}
+        moveSel={moveSel}
+        onTileEdit={handleTileEdit}
+        onBuildingClick={(b) => {
+          if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
+          else setSelectedBuilding(b);
+        }}
+        onCollect={handleCollect}
+        onCollectResource={handleCollectResource}
+        onOrbClick={() => {}}
+      />
+
+      <FloatingTextLayer items={floatingTexts} />
+
+      {isSquadOpen && (
+        <SquadModal
+          roster={gameState.roster}
+          resources={gameState.resources}
+          onClose={() => setIsSquadOpen(false)}
+          onTrainGroup={handleTrainGroup}
+          onOpenHeroes={() => { setIsSquadOpen(false); setIsHeroOpen(true); }}
+        />
+      )}
+
+      {isSeasonOpen && (
+        <SeasonModal
+          gameState={gameState}
+          onClose={() => setIsSeasonOpen(false)}
+          onMatchComplete={handleMatchComplete}
+        />
+      )}
+
+      {selectedBuilding && (
+          <ActionModal
+             building={selectedBuilding}
+             resources={gameState.resources}
+             stadiumLevel={stadiumLevel}
+             upgrades={gameState.upgrades}
+             builders={gameState.builders}
+             onClose={() => setSelectedBuilding(null)}
+             onUpgrade={handleUpgradeBuilding}
+             onFinishNow={handleFinishNow}
+             onHireBuilder={handleHireBuilder}
+          />
+      )}
+
+      {isStandingsOpen && (
+        <StandingsModal
+          gameState={gameState}
+          onClose={() => setIsStandingsOpen(false)}
+          onPlay={() => { setIsStandingsOpen(false); openRaid(); }}
+        />
+      )}
+
+      {/* Attack: choose a base to raid */}
+      {attackSelectOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
+          <div className="bg-slate-950 w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl p-6">
+            <div className="flex justify-between items-center mb-1">
+              <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2">
+                <Swords className="text-red-500" size={26} /> Raid a Base
+              </h2>
+              <button onClick={() => setAttackSelectOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={18} /></button>
+            </div>
+            <p className="text-slate-400 text-sm mb-5">Deploy your squad, smash their base, loot the rewards.</p>
+            <div className="space-y-3">
+              {raidTargets.map(b => (
+                <button key={b.id} onClick={() => { setBattleConfig({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: armyStrength(gameState.roster), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward }); setAttackSelectOpen(false); }}
+                  className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
+                  <div>
+                    <div className="font-bold text-white text-lg">{b.name}</div>
+                    <div className="text-xs text-slate-400 flex items-center gap-2">
+                      {Array.from({ length: Math.max(1, Math.min(5, Math.round(b.difficulty))) }).map((_, i) => <Swords key={i} size={11} className="text-red-400 inline" />)}
+                      <span>• {b.buildings.filter(x => x.kind !== 'wall').length} buildings</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-yellow-400 font-mono font-bold">+{b.reward.coins}</div>
+                    <div className="text-[10px] text-slate-500 uppercase">max loot</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {battleConfig && (
+        <BattleScreen
+          config={battleConfig}
+          onFinish={handleBattleFinish}
+          onExit={() => setBattleConfig(null)}
+        />
+      )}
+
+      {isHeroOpen && (
+        <HeroModal
+          heroes={gameState.heroes}
+          resources={gameState.resources}
+          stadiumLevel={stadiumLevel}
+          onClose={() => setIsHeroOpen(false)}
+          onUpgrade={handleUpgradeHero}
+          onUnlock={handleUnlockHero}
+        />
+      )}
+
+      {defenseLogOpen && (
+        <DefenseLogModal
+          log={gameState.defenseLog}
+          shieldUntil={gameState.shieldUntil}
+          onClose={() => setDefenseLogOpen(false)}
+          onWatchLive={() => { setDefenseLogOpen(false); startDefense(); }}
+          onRevenge={handleRevenge}
+        />
+      )}
+
+      {isScoutingOpen && (() => {
+        const academy = gameState.buildings.find(b => b.type === BuildingType.YOUTH_ACADEMY);
+        if (!academy) return null;
+        return (
+          <ScoutingModal
+            resources={gameState.resources}
+            roster={gameState.roster}
+            recruitSlot={gameState.recruitSlot}
+            academy={academy}
+            stadiumLevel={stadiumLevel}
+            onClose={() => setIsScoutingOpen(false)}
+            onStartRecruit={handleStartRecruit}
+            onRush={handleRushRecruit}
+            onSign={handleSignRecruit}
+            onUpgrade={handleUpgradeBuilding}
+          />
+        );
+      })()}
+
+      {/* Live objective + readiness banner + arrow pointing at the next thing to tap */}
+      {!editMode && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} />}
+      <TourPointer
+        gameState={gameState}
+        active={!editMode && !(isSquadOpen || isSeasonOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial)}
+      />
+
+      {/* Base design (edit) mode banner */}
+      {editMode && (() => {
+        const dr = computeDefenseRating(gameState.buildings, gameState.walls, gameState.roster, gameState.resources.FANS);
+        const gradeColor = dr.score >= 70 ? '#22c55e' : dr.score >= 40 ? '#eab308' : '#ef4444';
+        const Bar = ({ label, v }: { label: string; v: number }) => (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase text-slate-400 font-bold w-16 text-right">{label}</span>
+            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700"><div className="h-full rounded-full" style={{ width: `${v}%`, background: v >= 70 ? '#22c55e' : v >= 40 ? '#eab308' : '#ef4444' }} /></div>
+            <span className="text-[10px] font-mono text-slate-300 w-7">{v}</span>
+          </div>
+        );
+        return (
+          <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40 w-[min(92vw,540px)] bg-slate-900/95 backdrop-blur border border-blue-700 rounded-2xl shadow-xl p-3">
+            <div className="flex items-center gap-3">
+              {/* Defense Rating badge */}
+              <div className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2" style={{ borderColor: gradeColor }}>
+                <span className="font-display font-black text-2xl leading-none" style={{ color: gradeColor }}>{dr.grade}</span>
+                <span className="text-[9px] uppercase text-slate-400 font-bold mt-0.5">Defense</span>
+                <span className="text-[10px] font-mono text-slate-300 leading-none">{dr.score}/100</span>
+              </div>
+              <div className="flex-1 space-y-1">
+                <Bar label="Walls" v={dr.walls} />
+                <Bar label="Structure" v={dr.structure} />
+                <Bar label="Defenders" v={dr.defenders} />
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5 flex-wrap">
+              <Shield size={12} className="text-blue-400 shrink-0" /> Weakest link: <span className="text-yellow-300 font-bold">{dr.weakness}</span>
+              {dr.crowd > 0 && <span className="text-rose-300 font-bold ml-auto">🔊 +{dr.crowd} home crowd</span>}
+            </div>
+            <div className="text-[10px] text-slate-500 mt-1">
+              Tap empty tiles to add/remove <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP}) • Tap a building then an empty tile to move it
+            </div>
+            <button onClick={() => { setEditMode(false); setMoveSel(null); }} className="mt-2 w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Done</button>
+          </div>
+        );
+      })()}
+
+      {/* Mute toggle */}
+      <button
+        onClick={() => setMuted(toggleMute())}
+        className="fixed top-2 right-16 z-40 text-slate-400 hover:text-white bg-black/30 p-1.5 rounded transition-colors"
+        title={muted ? 'Unmute' : 'Mute'}
+      >
+        {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+      </button>
+
+      {/* Reset (small, unobtrusive) */}
+      <button
+        onClick={() => setConfirmingReset(true)}
+        className="fixed top-2 right-2 z-40 text-[10px] uppercase font-bold text-slate-500 hover:text-red-400 bg-black/30 px-2 py-1 rounded transition-colors"
+        title="Reset all progress"
+      >
+        Reset
+      </button>
+
+      {/* Reset confirmation (in-game, no native dialog) */}
+      {confirmingReset && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 w-full max-w-xs rounded-2xl border border-slate-700 shadow-2xl p-6 text-center">
+            <h3 className="text-xl font-display font-bold text-white mb-2">Reset Franchise?</h3>
+            <p className="text-slate-400 text-sm mb-6">This wipes all progress and starts a brand-new franchise. This can’t be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmingReset(false)} className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-colors">Cancel</button>
+              <button onClick={handleResetGame} className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition-colors">Reset</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Nav */}
+      <div className="fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur border-t border-slate-700 pb-safe pt-2 px-4 z-40">
+        <div className="flex justify-between items-center max-w-md mx-auto pb-4">
+          <NavBtn icon={<Users />} label="Coach" active={isSquadOpen} onClick={() => setIsSquadOpen(true)} tourId="coach" />
+
+          <NavBtn icon={<Shield />} label="Defend" onClick={openDefenseLog} badge={unseenDefenses} />
+
+          <div
+             data-tour="trophy"
+             onClick={openRaid}
+             className="-mt-10 p-5 rounded-full border-4 shadow-2xl cursor-pointer hover:scale-105 transition-transform bg-red-600 border-red-400 hover:bg-red-500"
+          >
+             <Swords size={32} className="text-white" />
+          </div>
+
+          <NavBtn icon={<Calendar />} label="Standings" onClick={() => setIsStandingsOpen(true)} />
+
+          <NavBtn icon={<Hammer />} label="Design" active={editMode} tourId="design" onClick={() => { setEditMode(true); setMoveSel(null); setSelectedBuilding(null); }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const NavBtn = ({ icon, label, active, onClick, tourId, badge }: any) => (
+  <button data-tour={tourId} onClick={onClick} className={`relative flex flex-col items-center gap-1 ${active ? 'text-white' : 'text-slate-500'}`}>
+    {icon}
+    <span className="text-[10px] uppercase font-bold">{label}</span>
+    {badge > 0 && (
+      <span className="absolute -top-1.5 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 border-2 border-slate-900 text-[9px] font-bold text-white flex items-center justify-center leading-none">{badge}</span>
+    )}
+  </button>
+);
+
+export default App;

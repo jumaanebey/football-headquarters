@@ -1,0 +1,72 @@
+// Lightweight synthesized sound effects via the Web Audio API — no asset files,
+// works offline. Each SFX is a short oscillator sequence with a soft envelope.
+
+const MUTE_KEY = 'fhq_muted_v1';
+
+let ctx: AudioContext | null = null;
+let muted = (() => {
+  try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; }
+})();
+
+const ac = (): AudioContext | null => {
+  try {
+    if (!ctx) {
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  } catch {
+    return null;
+  }
+};
+
+/** One enveloped tone starting `start` seconds from now. */
+const blip = (freq: number, start: number, dur: number, type: OscillatorType = 'triangle', peak = 0.22) => {
+  const a = ac();
+  if (!a) return;
+  const t0 = a.currentTime + start;
+  const osc = a.createOscillator();
+  const g = a.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g).connect(a.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+};
+
+const seq = (notes: Array<[freq: number, at: number, dur: number]>, type: OscillatorType = 'triangle', peak = 0.22) => {
+  if (muted) return;
+  notes.forEach(([f, at, d]) => blip(f, at, d, type, peak));
+};
+
+export const sfx = {
+  click:   () => seq([[880, 0, 0.06]], 'square', 0.12),
+  collect: () => seq([[880, 0, 0.09], [1320, 0.05, 0.12]]),          // coin ding
+  upgrade: () => seq([[523, 0, 0.1], [659, 0.08, 0.1], [784, 0.16, 0.18]]), // C-E-G rise
+  sign:    () => seq([[523, 0, 0.1], [659, 0.09, 0.1], [784, 0.18, 0.1], [1046, 0.27, 0.28]]), // fanfare
+  scout:   () => seq([[440, 0, 0.08], [587, 0.07, 0.12]]),
+  error:   () => seq([[196, 0, 0.16], [155, 0.05, 0.2]], 'sawtooth', 0.18),
+  whistle: () => seq([[2100, 0, 0.14], [1800, 0.12, 0.1]], 'square', 0.14),
+  touchdown: () => seq([[659, 0, 0.1], [880, 0.09, 0.12], [1174, 0.19, 0.2]]), // rising cheer
+  concede: () => seq([[330, 0, 0.14], [247, 0.12, 0.22]], 'sawtooth', 0.16),
+  victory: () => seq([[523, 0, 0.12], [659, 0.12, 0.12], [784, 0.24, 0.12], [1046, 0.36, 0.35]]),
+  defeat:  () => seq([[440, 0, 0.18], [349, 0.16, 0.18], [262, 0.34, 0.35]], 'sawtooth', 0.18),
+};
+
+export const isMuted = () => muted;
+
+export const setMuted = (m: boolean) => {
+  muted = m;
+  try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* ignore */ }
+  if (!m) sfx.click(); // audible confirmation when unmuting (also unlocks the context)
+};
+
+export const toggleMute = (): boolean => {
+  setMuted(!muted);
+  return muted;
+};
