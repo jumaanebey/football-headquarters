@@ -23,11 +23,19 @@ const ICONS: Record<IconKey, React.ReactNode> = {
 
 export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal }) => {
   const goals = getObjectives(gameState);
+  // Docked top-left (off the board) and collapsible; the tuck preference persists.
+  const [collapsed, setCollapsed] = React.useState(() => localStorage.getItem('fhq_goals_collapsed') === '1');
+  const toggle = () => setCollapsed(c => { localStorage.setItem('fhq_goals_collapsed', c ? '0' : '1'); return !c; });
 
   return (
-    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-30 w-[min(92vw,520px)]">
-      <div className="bg-slate-900/95 backdrop-blur border border-slate-700 rounded-2xl shadow-xl overflow-hidden">
-        <div className="px-4 pt-2 pb-1 text-[9px] uppercase tracking-widest text-slate-500 font-bold">Goals</div>
+    <div className="fixed top-16 left-2 z-30 w-[min(80vw,290px)]">
+      <div className="bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden">
+        <button onClick={toggle} className="w-full flex items-center gap-1.5 px-3 pt-2 pb-1.5 text-left">
+          <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Goals</span>
+          <span className="text-[9px] font-mono text-slate-500">({goals.length})</span>
+          <ChevronRight size={13} className={`ml-auto text-slate-500 transition-transform ${collapsed ? '' : 'rotate-90'}`} />
+        </button>
+        {!collapsed && (
         <div className="pb-1.5">
           {goals.map((g, i) => (
             <button
@@ -53,6 +61,7 @@ export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal }) => {
             </button>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

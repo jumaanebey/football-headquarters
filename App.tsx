@@ -81,8 +81,10 @@ const loadState = (): GameState => {
       const offlineSecs = Math.max(0, (now - (saved.lastTick || now)) / 1000);
       const buildings = (saved.buildings || INITIAL_BUILDINGS).map(b => {
         // Pull any off-map building back onto the field (cells 2..8 are safely on the diamond).
-        const gridX = Math.min(8, Math.max(2, b.gridX));
-        const gridY = Math.min(8, Math.max(2, b.gridY));
+        let gridX = Math.min(8, Math.max(2, b.gridX));
+        let gridY = Math.min(8, Math.max(2, b.gridY));
+        // One-time migration: War Room's old default (3,3) crowded the top of the board.
+        if (b.id === 'tactics-1' && gridX === 3 && gridY === 3) { gridX = 8; gridY = 5; }
         const cfg = COLLECTOR_CONFIG[b.type];
         if (!cfg) return { ...b, gridX, gridY };
         const secs = Math.min(offlineSecs, cfg.maxOfflineSeconds);
@@ -1098,7 +1100,7 @@ function App() {
       {/* Daily Practice (quests) */}
       <button
         onClick={() => setIsDailyOpen(true)}
-        className="fixed top-2 right-28 z-40 text-rose-300 hover:text-white bg-black/30 p-1.5 rounded transition-colors"
+        className="fixed bottom-24 right-3 z-40 text-xl bg-slate-900/90 border border-slate-700 hover:border-rose-400 p-2.5 rounded-2xl shadow-xl transition-colors"
         title="Daily Practice"
       >
         <span className="relative flex items-center">

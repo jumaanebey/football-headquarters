@@ -299,7 +299,17 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   };
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-gradient-to-b from-sky-800 to-emerald-950">
+    <div className="absolute inset-0 overflow-hidden" style={{ background: 'linear-gradient(180deg, #05070f 0%, #0a1024 30%, #10203a 55%, #0d2b23 80%, #081d17 100%)' }}>
+      {/* Stadium-night backdrop: starfield, floodlight beams, and a warm field glow. */}
+      <div className="absolute inset-x-0 top-0 h-3/5 pointer-events-none opacity-70" style={{
+        backgroundImage: 'radial-gradient(1px 1px at 22% 28%, rgba(255,255,255,0.8), transparent 100%), radial-gradient(1px 1px at 68% 14%, rgba(255,255,255,0.6), transparent 100%), radial-gradient(1.5px 1.5px at 44% 40%, rgba(255,255,255,0.5), transparent 100%), radial-gradient(1px 1px at 84% 34%, rgba(255,255,255,0.7), transparent 100%), radial-gradient(1px 1px at 8% 12%, rgba(255,255,255,0.5), transparent 100%)',
+        backgroundSize: '260px 220px', maskImage: 'linear-gradient(180deg, #000 40%, transparent 100%)', WebkitMaskImage: 'linear-gradient(180deg, #000 40%, transparent 100%)',
+      }} />
+      {/* Floodlight beams sweeping in from the top corners */}
+      <div className="absolute pointer-events-none" style={{ top: '-12%', left: '-4%', width: '52%', height: '95%', background: 'linear-gradient(160deg, rgba(255,244,210,0.11), rgba(255,244,210,0.03) 45%, transparent 65%)', transform: 'rotate(6deg)', filter: 'blur(4px)' }} />
+      <div className="absolute pointer-events-none" style={{ top: '-12%', right: '-4%', width: '52%', height: '95%', background: 'linear-gradient(200deg, rgba(255,244,210,0.11), rgba(255,244,210,0.03) 45%, transparent 65%)', transform: 'rotate(-6deg)', filter: 'blur(4px)' }} />
+      {/* Warm halo grounding the field */}
+      <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ bottom: '4%', width: '135%', height: '46%', background: 'radial-gradient(ellipse at center, rgba(45,158,68,0.30) 0%, rgba(22,90,52,0.12) 52%, transparent 72%)', filter: 'blur(10px)' }} />
       {/* Board fills space between HUD (top) and nav (bottom), scaled to fit */}
       <div className="absolute left-0 right-0 flex items-center justify-center" style={{ top: 88, bottom: 88 }}>
         <div ref={boardRef} onClick={handleBoardClick} className={`relative ${editMode ? 'cursor-pointer' : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `scale(${scale})`, transformOrigin: 'center' }}>
