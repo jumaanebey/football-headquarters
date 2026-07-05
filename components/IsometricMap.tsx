@@ -170,16 +170,22 @@ const screenToTile = (bx: number, by: number) => {
   return { gx: Math.round((a + b) / 2), gy: Math.round((b - a) / 2) };
 };
 
-// Blocking Sled — smaller + alternately mirrored so a ring reads as a tidy fence
-// line instead of a cluttered repeat of one big sprite.
-const WallSprite: React.FC<{ gridX: number; gridY: number }> = ({ gridX, gridY }) => {
+// Team-colored fence — each segment orients to its neighbors so a ring reads as ONE
+// connected barrier, not a repeat of a single sprite. The straight art's rail runs
+// NE on screen (a gy-axis run); gx-axis runs get the same art mirrored. Isolated
+// cells, corners, and junctions get the padded corner post.
+const WallSprite: React.FC<{ gridX: number; gridY: number; wallKeys: Set<string> }> = ({ gridX, gridY, wallKeys }) => {
   const c = tileToScreen(gridX, gridY);
-  const w = TILE_W * 0.6;
-  const flip = (gridX + gridY) % 2 === 1;
+  const has = (dx: number, dy: number) => wallKeys.has(`${gridX + dx},${gridY + dy}`);
+  const alongGx = has(1, 0) || has(-1, 0); // screen SE–NW run
+  const alongGy = has(0, 1) || has(0, -1); // screen SW–NE run
+  const isPost = alongGx === alongGy;      // isolated OR corner/junction
+  const w = TILE_W * (isPost ? 0.5 : 1.0);
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: gridX + gridY + 1 }}>
-      <img src="/assets/battle/blocking-sled.png" alt="" draggable={false}
-        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2 + 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))', opacity: 0.96 }} />
+      <img src={isPost ? '/assets/ground/fence-post.png' : '/assets/ground/fence-straight.png'} alt="" draggable={false}
+        onError={e => { (e.currentTarget as HTMLImageElement).src = '/assets/battle/blocking-sled.png'; }}
+        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: isPost ? -TILE_H / 2 : -TILE_H, transform: alongGx && !isPost ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))', opacity: 0.97 }} />
     </div>
   );
 };
@@ -461,9 +467,12 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {DECOR.map((d) => (
             <DecorSprite key={d.slug} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
-          {walls.map((w, i) => (
-            <WallSprite key={`w${i}-${w.gridX}-${w.gridY}`} gridX={w.gridX} gridY={w.gridY} />
-          ))}
+          {(() => {
+            const wallKeys = new Set(walls.map(w => `${w.gridX},${w.gridY}`));
+            return walls.map((w, i) => (
+              <WallSprite key={`w${i}-${w.gridX}-${w.gridY}`} gridX={w.gridX} gridY={w.gridY} wallKeys={wallKeys} />
+            ));
+          })()}
           {/* Placed defensive equipment (draggable; range rings shown while designing) */}
           {defenses.map(d => {
             const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
