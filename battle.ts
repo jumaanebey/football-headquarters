@@ -1,5 +1,5 @@
 import { UnitGroup, Player, BuildingInstance, BuildingType } from './types';
-import { WALL_HP, TENDENCIES, TendencyKey, DEFENSE_TYPES } from './constants';
+import { WALL_HP, TENDENCIES, TendencyKey, DEFENSE_TYPES, PARKING_LOT } from './constants';
 
 // ---------------------------------------------------------------------------
 // Real-time attack model (Clash-of-Clans-style). World is a 100x100 square.
@@ -353,10 +353,15 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
 // structure: an Anchor/Iron Wall-heavy roster literally makes your stadium harder to break.
 // `defenses` = the player's PLACED equipment pieces (JUGS/sleds/towers) — real turrets at
 // exactly the tiles the player chose. Positioning them IS the defensive strategy.
-export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number }[] = [], bus: { gridX: number; gridY: number } | null = null): BattleBuildingDef[] => {
+export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number }[] = [], bus: { gridX: number; gridY: number } | null = null, parkingLot = 0): BattleBuildingDef[] => {
+  // 🅿️ Parking Lot: compress the whole base toward center — attackers deploy at the
+  // same perimeter but everything they want is farther away, so your turrets, crowd,
+  // and defenders get more time on them. (Positions squeeze ~5.5%/level toward 50,50.)
+  const squeeze = 1 - PARKING_LOT.compressPerLevel * Math.min(PARKING_LOT.maxLevel, Math.max(0, parkingLot));
+  const cx = (v: number) => 50 + (v - 50) * squeeze;
   const bs: BattleBuildingDef[] = buildings.map(b => {
-    const x = Math.min(86, Math.max(14, b.gridX * 10));
-    const y = Math.min(86, Math.max(14, b.gridY * 10));
+    const x = cx(Math.min(86, Math.max(14, b.gridX * 10)));
+    const y = cx(Math.min(86, Math.max(14, b.gridY * 10)));
     const lvl = b.level;
     if (b.type === BuildingType.STADIUM)
       return { id: b.id, kind: 'hq', x, y, hp: Math.round(500 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 8 };
@@ -365,13 +370,13 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
     return { id: b.id, kind: 'building', x, y, hp: Math.round(150 * (1 + 0.3 * (lvl - 1)) * defBoost), size: 6 };
   });
   const ws: BattleBuildingDef[] = walls.map((w, i) => ({
-    id: `wall-${i}`, kind: 'wall', x: Math.min(90, Math.max(10, w.gridX * 10)), y: Math.min(90, Math.max(10, w.gridY * 10)), hp: Math.round(WALL_HP * defBoost), size: 4,
+    id: `wall-${i}`, kind: 'wall', x: cx(Math.min(90, Math.max(10, w.gridX * 10))), y: cx(Math.min(90, Math.max(10, w.gridY * 10))), hp: Math.round(WALL_HP * defBoost), size: 4,
   }));
   const ds: BattleBuildingDef[] = defenses.map(d => {
     const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
     return {
       id: d.id, kind: 'defense' as const, flavor: t.kind as BattleBuildingDef['flavor'],
-      x: Math.min(88, Math.max(12, d.gridX * 10)), y: Math.min(88, Math.max(12, d.gridY * 10)),
+      x: cx(Math.min(88, Math.max(12, d.gridX * 10))), y: cx(Math.min(88, Math.max(12, d.gridY * 10))),
       hp: Math.round(t.hp * defBoost), size: 5, damage: Math.round(t.damage * defBoost), range: t.range,
     };
   });
@@ -379,7 +384,7 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
   // treats its cell like any wall, but it takes far more smashing).
   const busB: BattleBuildingDef[] = bus ? [{
     id: 'team-bus', kind: 'wall',
-    x: Math.min(90, Math.max(10, bus.gridX * 10)), y: Math.min(90, Math.max(10, bus.gridY * 10)),
+    x: cx(Math.min(90, Math.max(10, bus.gridX * 10))), y: cx(Math.min(90, Math.max(10, bus.gridY * 10))),
     hp: Math.round(WALL_HP * 2.2 * defBoost), size: 6,
   }] : [];
   return [...bs, ...ws, ...ds, ...busB];

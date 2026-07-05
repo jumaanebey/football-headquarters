@@ -9,6 +9,7 @@ import {
 import { RivalCoach } from '../campaign';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
 import { sfx, crowdBedStart, crowdBedStop, crowdBedIntensity } from '../sound';
+import { CROWD_PULSE } from '../constants';
 import { X, Clock, Flag, Shield } from 'lucide-react';
 
 export interface BattleConfig {
@@ -26,6 +27,8 @@ export interface BattleConfig {
   pvpTarget?: string;     // set when raiding a LIVE rival's published base (their pid)
   rival?: RivalCoach;     // the coach across the field — trash talk pre-game, reaction post-game
   homeGuards?: HomeGuardDef[]; // defense mode: YOUR roster's defenders start on the field
+  fans?: number;          // defense mode: your fanbase — the crowd erupts and stalls drives
+  parkingLot?: number;    // defense mode: apron level (visual; the layout is pre-compressed)
 }
 
 export interface BattleResult {
@@ -98,7 +101,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
     return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
   };
-  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean }>({
+  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
     guards: (() => {
@@ -112,7 +115,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [], pulses: [], fx: [], shakeT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
-    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false,
+    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0,
   });
   const [driveStats, setDriveStats] = useState<{ mvp: string; mvpDmg: number; pancakes: number; lost: number; bonus: number } | null>(null);
 
@@ -360,6 +363,21 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           s.troops.forEach(t => { if (!t.dead) t.rageT = Math.max(t.rageT, 4); });
           say('🔥 MOMENTUM SHIFT — the whole squad is ROLLING!');
           sfx.crowdRoar();
+          s.shakeT = 0.2;
+        }
+      }
+
+      // 🔊 HOME CROWD: on defense, a big fanbase periodically ERUPTS and stalls the
+      // enemy drive — the fans you earned are a real part of the stadium's defense.
+      if (isDefense && (config.fans ?? 0) >= CROWD_PULSE.minFans) {
+        s.crowdT = (s.crowdT ?? 0) + DT;
+        if (s.crowdT >= CROWD_PULSE.intervalSecs) {
+          s.crowdT = 0;
+          const stall = CROWD_PULSE.slowSecs(config.fans!);
+          s.troops.forEach(t => { if (!t.dead) t.slowT = Math.max(t.slowT ?? 0, stall); });
+          say(`🔊 ${(config.fans!).toLocaleString()} fans ERUPT — the drive stalls!`);
+          sfx.crowdRoar();
+          crowdBedIntensity(1);
           s.shakeT = 0.2;
         }
       }
@@ -633,6 +651,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <span className="absolute text-[10px]" style={{ left: 6, top: '58%' }}>🎉</span>
             <span className="absolute text-[10px]" style={{ right: 6, top: '44%' }}>🍔</span>
             <span className="absolute text-[10px]" style={{ right: 6, top: '60%' }}>🚙</span>
+            {/* 🅿️ Parking-lot apron — visible bought territory the raiders must cross */}
+            {(config.parkingLot ?? 0) > 0 && (
+              <>
+                <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 0 ${5 + config.parkingLot! * 2.2}vmin rgba(52,58,70,0.30)` }} />
+                {['12%', '38%', '62%', '88%'].map((p, i) => (
+                  <span key={i} className="absolute" style={{ left: p, [i % 2 ? 'bottom' : 'top']: '5%', fontSize: `${1.1 + config.parkingLot! * 0.2}vmin` }}>{i % 2 ? '🚙' : '🚗'}</span>
+                ))}
+                <span className="absolute font-black text-white/25" style={{ left: '4%', bottom: '3.5%', fontSize: '2.2vmin' }}>🅿️</span>
+              </>
+            )}
           </div>
 
           {!isDefense && phase === 'deploy' && (

@@ -212,6 +212,23 @@ export const SHIELD_HOURS = 4;
 // ~96s base, faster with a leveled Rehab Center.)
 export const RAID_ENERGY = 12;
 
+// 🅿️ PARKING LOT — purchasable territory. Each level compresses your base toward the
+// center of the battlefield, so raiders cross a longer apron under fire before they can
+// touch anything. A real coin sink with a real defensive payoff.
+export const PARKING_LOT = {
+  maxLevel: 3,
+  costs: [8000, 20000, 45000],   // L0→1, L1→2, L2→3
+  compressPerLevel: 0.055,        // 5.5% tighter base per level (L3 ≈ 16.5% longer approach)
+};
+
+// 🔊 HOME CROWD — your fanbase is a live weapon on defense: every pulse the crowd
+// erupts and the enemy drive stalls (slow), scaling with how many fans you've earned.
+export const CROWD_PULSE = {
+  minFans: 300,       // below this the stands are too quiet to matter
+  intervalSecs: 10,
+  slowSecs: (fans: number) => 0.8 + Math.min(1.7, fans / 1500), // 2,873 fans ≈ 2.7s stall
+};
+
 // --- PLACEABLE DEFENSES: football equipment you buy and position yourself. ---
 // Each becomes a real turret in your battle layout — WHERE you put them is the strategy.
 export interface DefenseTypeDef {

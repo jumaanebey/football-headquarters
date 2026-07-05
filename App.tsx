@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY } from './constants';
+import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap } from './components/IsometricMap';
@@ -65,7 +65,8 @@ const INITIAL_STATE: GameState = {
   dailies: freshDailies(),
   defenses: [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }], // starter JUGS machine
   inventory: { sleds: 0, defenses: [], bus: false },
-  bus: { gridX: 4, gridY: 9 } // the Team Bus — a movable big blocker (was static decor)
+  bus: { gridX: 4, gridY: 9 }, // the Team Bus — a movable big blocker (was static decor)
+  parkingLot: 0
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -125,6 +126,7 @@ const loadState = (): GameState => {
       const inventory = saved.inventory ?? { sleds: 0, defenses: [], bus: false };
       // Backfill the Team Bus for old saves (it graduated from decor to a movable blocker).
       const bus = saved.bus !== undefined ? saved.bus : (inventory.bus ? null : { gridX: 4, gridY: 9 });
+      const parkingLot = saved.parkingLot ?? 0;
       // "While you were away" — resolve rival raids against your ACTUAL base for the
       // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
       let defenseLog = [...(saved.defenseLog || [])];
@@ -136,7 +138,7 @@ const loadState = (): GameState => {
       const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
       if (numAttacks > 0) {
         const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS, defenseTroopBoost(roster), defenses, bus);
+        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS, defenseTroopBoost(roster), defenses, bus, parkingLot);
         let worstPct = 0;
         for (let a = 0; a < numAttacks; a++) {
           const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
@@ -155,7 +157,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -193,7 +195,7 @@ function App() {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
-    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus)), 400);
+    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus, gameState.parkingLot)), 400);
     if (startRaid) openRaid();
   };
 
@@ -634,10 +636,12 @@ function App() {
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
-      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus),
+      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus, gameState.parkingLot),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
       homeGuards: homeDefenders(gameState.roster), // your recruited defenders, on the field
+      fans: gameState.resources.FANS,              // the crowd stalls enemy drives
+      parkingLot: gameState.parkingLot,            // visible apron (layout pre-compressed)
       loot: { coins: coinsAtRisk, fans: 0 },
     });
   };
@@ -788,7 +792,7 @@ function App() {
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
-    publishBase(gameState.teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus));
+    publishBase(gameState.teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus, gameState.parkingLot));
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -926,6 +930,18 @@ function App() {
     setGameState(prev => ({ ...prev, defenses: prev.defenses.map(d => d.id === id ? { ...d, flip: !d.flip } : d) }));
   const handleFlipBus = () =>
     setGameState(prev => prev.bus ? { ...prev, bus: { ...prev.bus, flip: !prev.bus.flip } } : prev);
+  // 🅿️ Pave the next Parking Lot level — territory that stretches the raiders' approach.
+  const handlePaveParkingLot = () => {
+    setGameState(prev => {
+      if (prev.parkingLot >= PARKING_LOT.maxLevel) return prev;
+      const cost = PARKING_LOT.costs[prev.parkingLot];
+      if (prev.resources.COINS < cost) { sfx.error(); return prev; }
+      return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, parkingLot: prev.parkingLot + 1 };
+    });
+    const affordable = gameState.parkingLot < PARKING_LOT.maxLevel && gameState.resources.COINS >= PARKING_LOT.costs[gameState.parkingLot];
+    if (affordable) { sfx.upgrade(); spawnText('🅿️ Parking Lot paved — longer approach for raiders!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80'); setTimeout(publishMyBase, 500); }
+  };
+
   const handleMoveBus = (gx: number, gy: number) => {
     if (!tileFree(gx, gy, 'team-bus')) { sfx.error(); return; }
     setGameState(prev => prev.bus ? { ...prev, bus: { ...prev.bus, gridX: gx, gridY: gy } } : prev);
@@ -1228,7 +1244,7 @@ function App() {
 
       {/* Base design (edit) mode banner */}
       {editMode && (() => {
-        const dr = computeDefenseRating(gameState.buildings, gameState.walls, gameState.roster, gameState.resources.FANS, gameState.defenses.length);
+        const dr = computeDefenseRating(gameState.buildings, gameState.walls, gameState.roster, gameState.resources.FANS, gameState.defenses.length, gameState.parkingLot);
         const defCap = maxDefenses(stadiumLevel);
         const gradeColor = dr.score >= 70 ? '#22c55e' : dr.score >= 40 ? '#eab308' : '#ef4444';
         const Bar = ({ label, v }: { label: string; v: number }) => (
@@ -1277,6 +1293,25 @@ function App() {
                 })}
               </div>
               {placingDefense && <div className="text-[10px] text-green-300 font-bold mt-1 animate-pulse">Tap a free tile to install the {DEFENSE_TYPES.find(t => t.kind === placingDefense)?.name}</div>}
+              {/* 🅿️ Parking Lot + 🔊 Crowd — the outer layers of the defense-in-depth flow */}
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex-1 flex items-center gap-1.5 text-[10px] text-slate-300">
+                  <span className="font-bold">🅿️ Parking Lot</span>
+                  {[1, 2, 3].map(l => <span key={l} className={`w-2 h-2 rounded-sm ${l <= gameState.parkingLot ? 'bg-orange-400' : 'bg-slate-700'}`} />)}
+                  <span className="text-slate-500">{gameState.parkingLot > 0 ? `+${Math.round(gameState.parkingLot * 5.5)}% longer approach` : 'raiders reach you fast'}</span>
+                </div>
+                {gameState.parkingLot < PARKING_LOT.maxLevel && (
+                  <button onClick={handlePaveParkingLot} disabled={gameState.resources.COINS < PARKING_LOT.costs[gameState.parkingLot]}
+                    className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all active:scale-95 ${gameState.resources.COINS >= PARKING_LOT.costs[gameState.parkingLot] ? 'border-orange-500 bg-orange-900/30 hover:bg-orange-900/60 text-orange-200' : 'border-slate-800 text-slate-600 cursor-not-allowed opacity-60'}`}>
+                    Pave L{gameState.parkingLot + 1} · {(PARKING_LOT.costs[gameState.parkingLot] / 1000).toFixed(0)}k 🪙
+                  </button>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1">
+                🔊 Home crowd: {gameState.resources.FANS >= 300
+                  ? <span className="text-rose-300 font-bold">{gameState.resources.FANS.toLocaleString()} fans stall enemy drives ~{(0.8 + Math.min(1.7, gameState.resources.FANS / 1500)).toFixed(1)}s every 10s</span>
+                  : <span className="text-slate-500">under 300 fans — too quiet to rattle raiders yet</span>}
+              </div>
             </div>
             {/* 📦 Inventory — stored pieces waiting to go back on the board */}
             {(() => {

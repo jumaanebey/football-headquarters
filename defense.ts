@@ -52,6 +52,7 @@ export const computeDefenseRating = (
   roster: Player[],
   fans = 0,
   defenseCount = 0,
+  parkingLot = 0,
 ): DefenseRating => {
   // Mostly seal quality (can attackers walk in for free?), a little mass (spare walls to rebuild depth).
   const wallScore = sealScore(buildings, walls) * 0.7 + Math.min(1, walls.length / 12) * 0.3;
@@ -71,9 +72,11 @@ export const computeDefenseRating = (
   const crowd = Math.min(12, Math.floor(fans / 500));
   // Placed equipment (JUGS/sleds/towers) — up to +12 for a full arsenal.
   const equipment = Math.min(12, defenseCount * 3);
+  // 🅿️ Parking Lot territory — raiders spend longer under fire (+2/level).
+  const apron = Math.min(6, parkingLot * 2);
 
   const base = Math.round((wallScore * 0.35 + structScore * 0.30 + defScore * 0.35) * 100);
-  const score = Math.min(100, base + crowd + equipment);
+  const score = Math.min(100, base + crowd + equipment + apron);
   const grade = score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 55 ? 'B' : score >= 40 ? 'C' : score >= 25 ? 'D' : 'F';
 
   const factors: [string, number][] = [

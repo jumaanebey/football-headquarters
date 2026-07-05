@@ -186,6 +186,7 @@ export interface GameState {
   defenses: DefensePiece[]; // player-placed defensive equipment (JUGS, sleds, ref towers…)
   inventory: StoredPieces;  // pieces stored off the board (Design "Store All" → drag back)
   bus: { gridX: number; gridY: number; flip?: boolean } | null; // the Team Bus — a movable BIG blocker (walls-tier obstacle)
+  parkingLot: number;       // 0-3 — each level widens the apron attackers must cross (longer under fire)
 }
 
 // Pieces you own but currently have OFF the board (Design-mode inventory).
