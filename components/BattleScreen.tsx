@@ -80,11 +80,21 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const isDefense = config.mode === 'defense';
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
-  const sim = useRef<{ troops: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean }>({
+  // Rival DEFENDERS scale with the base's turret strength (or aiMult when defending).
+  const guardMult = config.aiMult ?? (() => {
+    const d = config.buildings.find(b => b.kind === 'defense');
+    return d?.damage ? Math.max(0.8, Math.min(3, d.damage / 16)) : 1;
+  })();
+
+  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number } }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
+    guards: [],
     buildings: config.buildings.map(b => ({ ...b, maxHp: b.hp, dead: false, cooldown: 0 })),
-    shots: [], pulses: [], fx: [], shakeT: 0, time: BATTLE_SECONDS, ended: false,
+    shots: [], pulses: [], fx: [], shakeT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
   });
+
+  // Play-by-play announcer — every big moment gets a line.
+  const say = (text: string) => { sim.current.commentary = { text, t: sim.current.time }; };
 
   const [army, setArmy] = useState<Record<UnitGroup, number>>(config.playerArmy || emptyArmy());
   const [deployedHeroes, setDeployedHeroes] = useState<Set<string>>(new Set());
@@ -102,7 +112,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const total = config.buildings.filter(b => b.kind !== 'wall').length; // walls don't count toward %
 
   // Kickoff: referee whistle + crowd stir the moment play starts.
-  useEffect(() => { if (phase === 'fighting') sfx.kickoff(); }, [phase]);
+  useEffect(() => { if (phase === 'fighting') { sfx.kickoff(); say(`KICKOFF! ${config.title.toUpperCase()}!`); } }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const endBattle = () => {
     if (sim.current.ended) return;
@@ -156,6 +166,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             if (target.kind !== 'wall') {
               const scored = target.kind === 'hq'; // taking their stadium = the score
               s.fx.push({ type: 'yards', text: scored ? 'TOUCHDOWN!' : 'SACKED!', x: target.x, y: target.y, life: scored ? 1.5 : 1.0, maxLife: scored ? 1.5 : 1.0 });
+              say(scored ? '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!' : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(Math.random() * 3)]);
               if (scored) sfx.crowdRoar(); // the stadium erupts
               // Loot burst — coins pop out of the wreckage
               for (let ci = 0; ci < (scored ? 7 : 4); ci++) {
@@ -167,6 +178,50 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           }
         }
       }
+
+      // RIVAL DEFENDERS: alive defense buildings send out linebackers who chase and
+      // tackle your players — real unit-on-unit fights, not just turret pot-shots.
+      s.guardT += DT;
+      const aliveDef = s.buildings.filter(b => b.kind === 'defense' && !b.dead);
+      const aliveGuards = s.guards.filter(g => !g.dead);
+      if (s.guardT >= 8 && aliveDef.length > 0 && aliveGuards.length < 3 && s.troops.some(t => !t.dead)) {
+        s.guardT = 0;
+        const src = aliveDef[Math.floor(Math.random() * aliveDef.length)];
+        s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: src.x, y: src.y, hp: Math.round(140 * guardMult), maxHp: Math.round(140 * guardMult), dps: 11 * guardMult, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 40 + Math.floor(Math.random() * 59) });
+        say('The defense sends out a LINEBACKER!');
+      }
+      for (const g of s.guards) {
+        if (g.dead) continue;
+        if (g.hitFlash > 0) g.hitFlash = Math.max(0, g.hitFlash - DT);
+        // chase the nearest living attacker
+        let prey: BTroop | null = null, pd = 1e9;
+        for (const t of s.troops) { if (t.dead) continue; const dd = dist(g.x, g.y, t.x, t.y); if (dd < pd) { pd = dd; prey = t; } }
+        if (!prey) continue;
+        if (pd > 3.2) {
+          g.x += ((prey.x - g.x) / pd) * g.speed * DT;
+          g.y += ((prey.y - g.y) / pd) * g.speed * DT;
+          g.attacking = false;
+        } else {
+          // the tackle: mutual damage — your player fights through at reduced output
+          g.attacking = true;
+          const shieldFactor = (prey.shieldT && prey.shieldT > 0) ? 0.5 : 1;
+          prey.hp -= g.dps * shieldFactor * DT; prey.hitFlash = 0.12;
+          g.hp -= prey.dps * (prey.rageT > 0 ? 2 : 1) * 0.55 * DT; g.hitFlash = 0.12;
+          if (prey.hp <= 0) {
+            prey.hp = 0; prey.dead = true;
+            say(prey.isHero ? `${(heroes.find(h => h.key === prey.heroKey)?.name || 'Your hero').toUpperCase()} IS DOWN!` : `#${prey.jersey ?? '??'} gets STUFFED at the line!`);
+            s.fx.push({ type: 'impact', x: prey.x, y: prey.y, life: 0.3, maxLife: 0.3 });
+          }
+          if (g.hp <= 0) {
+            g.hp = 0; g.dead = true;
+            say('Their linebacker gets PANCAKED!');
+            s.fx.push({ type: 'impact', x: g.x, y: g.y, life: 0.3, maxLife: 0.3 });
+          }
+        }
+      }
+
+      // Two-minute-warning drama
+      if (!s.warned && s.time <= 15) { s.warned = true; say('⏱ FINAL SECONDS — finish the drive!'); }
 
       // Mascot hype aura — keeps nearby friendly players Raging ("crowd goes wild").
       for (const m of s.troops) {
@@ -315,6 +370,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       if (!perimeterOk(wx, wy)) return;
       sim.current.troops.push(makeHeroTroop(pendingHero, wx, wy));
       setDeployedHeroes(prev => new Set(prev).add(pendingHero.key));
+      say(`${pendingHero.name.toUpperCase()} TAKES THE FIELD!`);
       setPendingHero(null);
       if (phase === 'deploy') setPhase('fighting');
       return;
@@ -370,7 +426,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         </div>
         <div className="flex items-center gap-4">
           <div className="text-center">
-            <div className="text-[10px] uppercase text-slate-500 font-bold leading-none">{isDefense ? 'Ground lost' : 'Destroyed'}</div>
+            <div className="text-[10px] uppercase text-slate-500 font-bold leading-none">{isDefense ? 'Ground lost' : 'Drive'}</div>
             <div className={`font-mono font-bold text-lg leading-none ${isDefense && pct >= 50 ? 'text-red-400' : 'text-white'}`}>{pct}%</div>
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold ${timeLeft <= 10 ? 'bg-red-900/50 text-red-300' : 'bg-slate-800 text-white'}`}>
@@ -412,6 +468,15 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
           {!isDefense && phase === 'deploy' && (
             <div className="absolute rounded-full border-2 border-white/20 border-dashed pointer-events-none" style={{ left: '14%', top: '14%', width: '72%', height: '72%' }} />
+          )}
+
+          {/* 📣 Play-by-play announcer */}
+          {s.commentary.text && phase === 'fighting' && (
+            <div key={s.commentary.text + s.commentary.t} className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: 8, zIndex: 220, maxWidth: '92%' }}>
+              <div className="bg-black/75 border border-white/10 rounded-full px-4 py-1.5 text-[11px] sm:text-xs font-bold italic text-amber-100 whitespace-nowrap overflow-hidden text-ellipsis shadow-lg">
+                📣 {s.commentary.text}
+              </div>
+            </div>
           )}
 
           {s.buildings.filter(b => b.kind === 'defense' && !b.dead && b.range).map(b => (
@@ -486,6 +551,22 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               </div>
             );
           })}
+
+          {/* RIVAL DEFENDERS — crimson linebackers hunting your players */}
+          {s.guards.filter(g => !g.dead).map(g => (
+            <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
+              style={{ left: `${g.x}%`, top: `${g.y}%`, width: '4.4%', minWidth: 24, maxWidth: 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+              <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className="h-full bg-red-400" style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>
+              <div className="relative w-full" style={{ aspectRatio: '1', opacity: g.hitFlash > 0 ? 0.5 : 1, animation: g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite' }}>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="relative" style={{ width: '46%', height: '40%', borderRadius: '50% 50% 42% 42%', background: '#1f2937', border: '1px solid rgba(255,255,255,0.3)', marginBottom: '-9%', zIndex: 2 }}>
+                    <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '18%', width: '70%', height: '14%', background: '#b91c1c', borderRadius: 2 }} />
+                  </div>
+                  <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: '#b91c1c', border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{g.jersey}</div>
+                </div>
+              </div>
+            </div>
+          ))}
 
           {s.troops.filter(t => !t.dead).map(t => {
             const st = TROOP_STATS[t.unit];
