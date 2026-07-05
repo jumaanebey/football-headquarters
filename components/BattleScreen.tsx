@@ -47,7 +47,7 @@ interface Props {
 
 // A defense "shot" is now a football lobbed from a defender to a target — an arcing
 // projectile (t: 0→1 over dur), never a bullet.
-interface Shot { sx: number; sy: number; tx: number; ty: number; t: number; dur: number; rot: number; }
+interface Shot { sx: number; sy: number; tx: number; ty: number; t: number; dur: number; rot: number; flavor?: string; }
 interface Pulse { x: number; y: number; r: number; life: number; maxLife: number; color: string; }
 // Ephemeral battle FX: dust puffs under runners, impact pops on contact, floating "SACKED!" text,
 // Castle-Clash-style floating damage numbers ('dmg') and knocked-down player chips ('down').
@@ -166,11 +166,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         if (t.rageT > 0) t.rageT = Math.max(0, t.rageT - DT);
         if (t.healT > 0) { t.healT = Math.max(0, t.healT - DT); t.hp = Math.min(t.maxHp, t.hp + HEAL_PER_SEC * DT); }
         if (t.shieldT && t.shieldT > 0) t.shieldT = Math.max(0, t.shieldT - DT);
+        if (t.slowT && t.slowT > 0) t.slowT = Math.max(0, t.slowT - DT);
         if (t.abilityCd && t.abilityCd > 0) t.abilityCd = Math.max(0, t.abilityCd - DT);
 
         const raging = t.rageT > 0;
         const dps = t.dps * (raging ? 2 : 1);
-        const speed = t.speed * (raging ? 1.5 : 1);
+        const speed = t.speed * (raging ? 1.5 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1); // penalty flag = mud in your cleats
 
         const goal = nearestBuilding(t.x, t.y, s.buildings); // nearest real (non-wall) target
         if (!goal) continue;
@@ -309,23 +310,43 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         if (Math.random() < 0.08) s.pulses.push({ x: m.x, y: m.y, r: r, life: 0.4, maxLife: 0.4, color: '#f97316' });
       }
 
+      // Turrets — each equipment kind FIGHTS differently (the Design-shop choice matters).
+      const hitTroop = (t: BTroop, raw: number) => {
+        const hit = Math.round(raw * ((t.shieldT && t.shieldT > 0) ? 0.5 : 1));
+        t.hp -= hit; t.hitFlash = 0.15;
+        s.fx.push({ type: 'dmg', text: `${hit}`, color: '#f87171', x: t.x + (Math.random() * 3 - 1.5), y: t.y - 2.5, life: 0.7, maxLife: 0.7 });
+        if (t.hp <= 0) {
+          t.hp = 0; t.dead = true; s.lost++; s.momentum = Math.max(0, s.momentum - 6);
+          s.fx.push({ type: 'down', text: `${t.jersey ?? ''}`, color: isDefense ? '#b91c1c' : '#111827', x: t.x, y: t.y, life: 1.1, maxLife: 1.1 });
+        }
+      };
       for (const b of s.buildings) {
         if (b.dead || b.kind !== 'defense' || !b.damage || !b.range) continue;
         b.cooldown -= DT;
-        if (b.cooldown <= 0) {
-          const prey = nearestTroop(b.x, b.y, s.troops, b.range);
-          if (prey) {
-            const hit = Math.round(b.damage * (prey.shieldT && prey.shieldT > 0 ? 0.5 : 1));
-            prey.hp -= hit; prey.hitFlash = 0.15;
-            s.fx.push({ type: 'dmg', text: `${hit}`, color: '#f87171', x: prey.x + (Math.random() * 3 - 1.5), y: prey.y - 2.5, life: 0.7, maxLife: 0.7 });
-            if (prey.hp <= 0) {
-              prey.hp = 0; prey.dead = true; s.lost++; s.momentum = Math.max(0, s.momentum - 6);
-              s.fx.push({ type: 'down', text: `${prey.jersey ?? ''}`, color: '#111827', x: prey.x, y: prey.y, life: 1.1, maxLife: 1.1 });
-            }
-            s.shots.push({ sx: b.x, sy: b.y, tx: prey.x, ty: prey.y, t: 0, dur: 0.3, rot: Math.random() * 360 });
-            b.cooldown = 0.7;
-          } else b.cooldown = 0.1;
+        if (b.cooldown > 0) continue;
+        const prey = nearestTroop(b.x, b.y, s.troops, b.range);
+        if (!prey) { b.cooldown = 0.1; continue; }
+        const fl = b.flavor;
+        if (fl === 'tshirt') {
+          // T-Shirt Cannon: splash — everyone bunched near the target eats it
+          for (const t of s.troops) { if (!t.dead && dist(t.x, t.y, prey.x, prey.y) <= 7) hitTroop(t, b.damage * 0.7); }
+          s.pulses.push({ x: prey.x, y: prey.y, r: 7, life: 0.35, maxLife: 0.35, color: '#f472b6' });
+          b.cooldown = 1.15;
+        } else if (fl === 'ref') {
+          // Ref Tower: penalty flag — a light hit that SLOWS the runner
+          hitTroop(prey, b.damage);
+          prey.slowT = 2.2;
+          b.cooldown = 0.9;
+        } else if (fl === 'sled') {
+          // Tackling Sled: short range, hits like a truck
+          hitTroop(prey, b.damage * 1.35);
+          b.cooldown = 1.1;
+        } else {
+          // JUGS / generic: steady football launcher (explicit JUGS fires faster)
+          hitTroop(prey, b.damage);
+          b.cooldown = fl === 'jugs' ? 0.55 : 0.7;
         }
+        s.shots.push({ sx: b.x, sy: b.y, tx: prey.x, ty: prey.y, t: 0, dur: 0.3, rot: Math.random() * 360, flavor: fl });
       }
 
       if (s.shots.length) s.shots = s.shots.filter(sh => (sh.t += DT) < sh.dur);
@@ -594,15 +615,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <div key={i} className="absolute rounded-full border-2 pointer-events-none" style={{ left: `${p.x - p.r}%`, top: `${p.y - p.r}%`, width: `${p.r * 2}%`, height: `${p.r * 2}%`, borderColor: p.color, backgroundColor: `${p.color}22`, opacity: p.life / p.maxLife }} />
           ))}
 
-          {/* Defense "shots" are footballs lobbed on an arc — no bullets */}
+          {/* Defense "shots" arc through the air — footballs, penalty flags, or t-shirts. Never bullets. */}
           {s.shots.map((sh, i) => {
             const u = sh.t / sh.dur;
             const x = sh.sx + (sh.tx - sh.sx) * u;
             const y = sh.sy + (sh.ty - sh.sy) * u - Math.sin(Math.PI * u) * 9; // parabolic arc
+            const proj = sh.flavor === 'ref' ? '🚩' : sh.flavor === 'tshirt' ? '👕' : '🏈';
             return (
               <div key={i} className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '3vmin', height: '3vmin', zIndex: 95, transform: `translate(-50%,-50%) rotate(${sh.rot + u * 540}deg)`, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>
-                <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '2.4vmin', lineHeight: 1 }}>🏈</span>
-                <img src="/assets/battle/football-proj.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />
+                <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '2.4vmin', lineHeight: 1 }}>{proj}</span>
+                {proj === '🏈' && <img src="/assets/battle/football-proj.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />}
               </div>
             );
           })}
@@ -699,6 +721,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             return (
               <div key={t.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${t.x}%`, top: `${t.y}%`, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round(t.y) + 100, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
                 <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>
                 {specialDef ? (
                   // Emoji placeholder shows until the real sprite loads; the <img> covers it when present.

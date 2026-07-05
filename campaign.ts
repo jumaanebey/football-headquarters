@@ -105,9 +105,10 @@ export const campaignBase = (stage: number): EnemyBase => {
   // Late-season teams field extra coverage — more turrets, not just bigger HP bars.
   const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 32], [50, 68], [38, 62]];
   const extras = stage >= 11 ? 5 : stage >= 9 ? 4 : stage >= 7 ? 3 : stage >= 5 ? 2 : stage >= 3 ? 1 : 0;
+  const flavors: BattleBuildingDef['flavor'][] = ['ref', 'tshirt', 'sled', 'tshirt', 'ref']; // late-season coverage has personality
   for (let e = 0; e < extras; e++) {
     const [x, y] = extraSpots[e];
-    buildings.push({ id: `cd${e}`, kind: 'defense', x, y, hp: Math.round(230 * st.mult), size: 5, damage: tDmg, range: 23 });
+    buildings.push({ id: `cd${e}`, kind: 'defense', flavor: flavors[e], x, y, hp: Math.round(230 * st.mult), size: 5, damage: tDmg, range: 23 });
   }
   return { id: `camp_${stage}`, name: st.opponent, difficulty: st.mult, reward: st.reward, buildings };
 };

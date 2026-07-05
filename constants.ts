@@ -213,11 +213,13 @@ export interface DefenseTypeDef {
   kind: string; name: string; sprite: string; emoji: string; desc: string;
   cost: number; hp: number; damage: number; range: number;
 }
+// Each kind FIGHTS differently in battle (see BattleScreen turret logic) — the shop
+// choice is a real tactical decision, not a reskin.
 export const DEFENSE_TYPES: DefenseTypeDef[] = [
-  { kind: 'jugs',   name: 'JUGS Machine',   sprite: '/assets/battle/jugs-machine.png',   emoji: '🏈', desc: 'Balanced football launcher',      cost: 2500, hp: 260, damage: 16, range: 24 },
-  { kind: 'sled',   name: 'Tackling Sled',  sprite: '/assets/battle/tackling-sled.png',  emoji: '🛷', desc: 'Short range, hits like a truck',  cost: 1800, hp: 340, damage: 22, range: 14 },
-  { kind: 'ref',    name: 'Ref Tower',      sprite: '/assets/battle/ref-tower.png',      emoji: '🚩', desc: 'Longest range on the field',      cost: 3200, hp: 220, damage: 13, range: 30 },
-  { kind: 'tshirt', name: 'T-Shirt Cannon', sprite: '/assets/battle/tshirt-cannon.png',  emoji: '👕', desc: 'Crowd-pleaser, solid coverage',   cost: 2200, hp: 240, damage: 18, range: 20 },
+  { kind: 'jugs',   name: 'JUGS Machine',   sprite: '/assets/battle/jugs-machine.png',   emoji: '🏈', desc: 'Rapid-fire football launcher',            cost: 2500, hp: 260, damage: 16, range: 24 },
+  { kind: 'sled',   name: 'Tackling Sled',  sprite: '/assets/battle/tackling-sled.png',  emoji: '🛷', desc: 'Short range, hits like a truck (+35%)',   cost: 1800, hp: 340, damage: 22, range: 14 },
+  { kind: 'ref',    name: 'Ref Tower',      sprite: '/assets/battle/ref-tower.png',      emoji: '🚩', desc: 'Penalty flags SLOW runners, longest range', cost: 3200, hp: 220, damage: 13, range: 30 },
+  { kind: 'tshirt', name: 'T-Shirt Cannon', sprite: '/assets/battle/tshirt-cannon.png',  emoji: '👕', desc: 'Splash — blasts the whole cluster',       cost: 2200, hp: 240, damage: 18, range: 20 },
 ];
 /** How many defense pieces your Stadium level supports. */
 export const maxDefenses = (stadiumLevel: number) => Math.min(6, 2 + Math.floor(stadiumLevel / 3));

@@ -16,6 +16,7 @@ export interface BattleBuildingDef {
   size: number;      // footprint radius-ish in world units
   damage?: number;   // dps (defense only)
   range?: number;    // world units (defense only)
+  flavor?: 'jugs' | 'sled' | 'ref' | 'tshirt'; // HOW this turret fights (defaults to jugs behavior)
 }
 
 export interface EnemyBase {
@@ -49,6 +50,7 @@ export interface BTroop {
   rageT: number;    // seconds of Rage (2x dmg, 1.5x speed) remaining
   healT: number;    // seconds of Heal remaining
   shieldT?: number; // seconds of Shield Wall (incoming damage halved) remaining
+  slowT?: number;   // seconds of penalty-flag slow (Ref Tower) remaining
   isHero?: boolean;
   heroKey?: string;
   ability?: 'hailmary' | 'truckstick' | 'motivation' | 'onside_bomb' | 'burner_dash' | 'field_medic' | 'shield_wall' | 'trick_play' | 'hall_of_fame';
@@ -321,9 +323,10 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
     const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage }));
     const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 30], [50, 70], [38, 64]];
     const extras = Math.min(5, Math.floor(tier / 1.4));
+    const flavors: BattleBuildingDef['flavor'][] = ['tshirt', 'ref', 'sled', 'tshirt', 'ref']; // varied looks at higher tiers
     for (let e = 0; e < extras; e++) {
       const [x, y] = extraSpots[e];
-      buildings.push({ id: `xd${e}`, kind: 'defense', x, y, hp: Math.round(220 * tier), size: 5, damage: tDmg, range: 23 });
+      buildings.push({ id: `xd${e}`, kind: 'defense', flavor: flavors[e], x, y, hp: Math.round(220 * tier), size: 5, damage: tDmg, range: 23 });
     }
     return {
       id: `mm_${i}_${Math.floor(Math.random() * 99999)}`,
@@ -356,7 +359,7 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
   const ds: BattleBuildingDef[] = defenses.map(d => {
     const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
     return {
-      id: d.id, kind: 'defense' as const,
+      id: d.id, kind: 'defense' as const, flavor: t.kind as BattleBuildingDef['flavor'],
       x: Math.min(88, Math.max(12, d.gridX * 10)), y: Math.min(88, Math.max(12, d.gridY * 10)),
       hp: Math.round(t.hp * defBoost), size: 5, damage: Math.round(t.damage * defBoost), range: t.range,
     };
