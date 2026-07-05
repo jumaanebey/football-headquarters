@@ -69,6 +69,52 @@ const roar = (dur = 1.5, peak = 0.22) => {
   src.stop(t0 + dur);
 };
 
+// --- CROWD BED: a continuous low stadium murmur under battles, so the fight has AIR in it.
+// Looping filtered noise + a slow swell LFO; intensity is adjustable (momentum ties in).
+let bed: { src: AudioBufferSourceNode; gain: GainNode; lfo: OscillatorNode } | null = null;
+export const crowdBedStart = () => {
+  if (muted || bed) return;
+  const a = ac();
+  if (!a) return;
+  try {
+    const len = Math.floor(a.sampleRate * 2.5);
+    const buf = a.createBuffer(1, len, a.sampleRate);
+    const data = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; data[i] = last * 3.2; } // brown-ish noise = distant crowd
+    const src = a.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const filt = a.createBiquadFilter();
+    filt.type = 'bandpass'; filt.frequency.value = 620; filt.Q.value = 0.4;
+    const gain = a.createGain();
+    gain.gain.setValueAtTime(0.0001, a.currentTime);
+    gain.gain.linearRampToValueAtTime(0.05, a.currentTime + 1.2); // fade the stadium in
+    // slow breathing swell so it never sounds like a flat hiss
+    const lfo = a.createOscillator(); lfo.frequency.value = 0.13;
+    const lfoGain = a.createGain(); lfoGain.gain.value = 0.018;
+    lfo.connect(lfoGain).connect(gain.gain);
+    src.connect(filt).connect(gain).connect(a.destination);
+    src.start(); lfo.start();
+    bed = { src, gain, lfo };
+  } catch { /* audio unavailable */ }
+};
+/** Nudge the crowd louder/quieter with the flow of the game (0..1). */
+export const crowdBedIntensity = (v: number) => {
+  const a = ac();
+  if (!bed || !a) return;
+  try { bed.gain.gain.linearRampToValueAtTime(0.035 + Math.min(1, Math.max(0, v)) * 0.055, a.currentTime + 0.4); } catch { /* ignore */ }
+};
+export const crowdBedStop = () => {
+  const a = ac();
+  if (!bed) return;
+  try {
+    if (a) bed.gain.gain.linearRampToValueAtTime(0.0001, a.currentTime + 0.6);
+    const b = bed;
+    setTimeout(() => { try { b.src.stop(); b.lfo.stop(); } catch { /* already stopped */ } }, 700);
+  } catch { /* ignore */ }
+  bed = null;
+};
+
 export const sfx = {
   click:   () => seq([[880, 0, 0.06]], 'square', 0.12),
   crowdRoar: () => { roar(); seq([[659, 0.12, 0.12], [880, 0.26, 0.22]], 'triangle', 0.1); }, // roar + cheer sparkle

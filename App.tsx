@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses } from './constants';
+import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap } from './components/IsometricMap';
@@ -575,7 +575,7 @@ function App() {
   // Take REVENGE on a rival who raided you — storm their (scaled) base for extra loot.
   const handleRevenge = (entry: DefenseLogEntry) => {
     const opp = OPPONENTS.find(o => o.name === entry.attacker);
-    setBattleConfig({
+    const launched = launchAttack({
       mode: 'attack',
       title: `Revenge — ${entry.attacker}`,
       buildings: makeRevengeBase(opp?.defenseRating ?? 50),
@@ -586,11 +586,25 @@ function App() {
       loot: { coins: Math.round(entry.coinsLost * 1.5) + 200, fans: 25 }, // reclaim more than they took
       rival: coachForBase(entry.attacker),
     });
+    if (!launched) return;
     setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => e.id === entry.id ? { ...e, avenged: true } : e) }));
     setDefenseLogOpen(false);
   };
 
   // --- BATTLES (real-time raid + base defense) ---
+  // Every attack costs Energy — game day isn't free, so loot means something.
+  // (Defense scrimmages stay free; you're not choosing to be raided.)
+  const launchAttack = (config: BattleConfig): boolean => {
+    if (gameState.resources.ENERGY < RAID_ENERGY) {
+      spawnText(`Squad's gassed — need ⚡${RAID_ENERGY}`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
+      sfx.error();
+      return false;
+    }
+    setGameState(prev => ({ ...prev, resources: { ...prev.resources, [ResourceType.ENERGY]: Math.max(0, prev.resources.ENERGY - RAID_ENERGY) } }));
+    setBattleConfig(config);
+    return true;
+  };
+
   const startDefense = () => {
     const coinsAtRisk = Math.min(gameState.resources.COINS, Math.round(gameState.resources.COINS * 0.15) + 120);
     const stadiumLvl = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
@@ -788,7 +802,7 @@ function App() {
     const st = CAMPAIGN_STAGES[stage - 1];
     if (!st || stage > gameState.campaign.unlocked) { sfx.error(); return; }
     const base = campaignBase(stage);
-    setBattleConfig({
+    const launched = launchAttack({
       mode: 'attack',
       title: `${st.name} — ${st.opponent}`,
       buildings: base.buildings,
@@ -800,7 +814,7 @@ function App() {
       campaignStage: stage,
       rival: coachForStage(stage),
     });
-    setAttackSelectOpen(false);
+    if (launched) setAttackSelectOpen(false);
   };
 
   // Unlock a hero by paying its coin/gem cost.
@@ -966,6 +980,7 @@ function App() {
             <div className="flex justify-between items-center mb-1">
               <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2">
                 <Swords className="text-red-500" size={26} /> Game Day
+                <span className="text-[10px] font-sans font-bold normal-case tracking-normal text-slate-400 bg-slate-800 border border-slate-700 rounded-full px-2 py-0.5" title="Suiting up costs Energy — regen at the Rehab Center">⚡{RAID_ENERGY} per game</span>
               </h2>
               <button onClick={() => setAttackSelectOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={18} /></button>
             </div>
@@ -1021,7 +1036,7 @@ function App() {
                 <>
                   <div className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-300 flex items-center gap-1.5">⚡ Live Rivals <span className="text-slate-500 normal-case tracking-normal">— real coaches' stadiums</span></div>
                   {liveTargets.map(b => (
-                    <button key={b.pid} onClick={() => { setBattleConfig({ mode: 'attack', title: `Raiding ${b.name}`, buildings: b.layout, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: { coins: 500 + b.trophies * 3, fans: 25 }, pvpTarget: b.pid }); setAttackSelectOpen(false); }}
+                    <button key={b.pid} onClick={() => { if (launchAttack({ mode: 'attack', title: `Raiding ${b.name}`, buildings: b.layout, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: { coins: 500 + b.trophies * 3, fans: 25 }, pvpTarget: b.pid })) setAttackSelectOpen(false); }}
                       className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-fuchsia-700/70 hover:border-fuchsia-400 bg-fuchsia-950/30 hover:bg-fuchsia-900/30 transition-all active:scale-95 text-left">
                       <div>
                         <div className="font-bold text-white text-lg">⚡ {b.name}</div>
@@ -1040,7 +1055,7 @@ function App() {
                 <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> not connected — raid real players by wiring Supabase (see <span className="font-mono">PVP-SETUP.md</span>).</div>
               )}
               {raidTargets.map(b => (
-                <button key={b.id} onClick={() => { setBattleConfig({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) }); setAttackSelectOpen(false); }}
+                <button key={b.id} onClick={() => { if (launchAttack({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) })) setAttackSelectOpen(false); }}
                   className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
                   <div>
                     <div className="font-bold text-white text-lg">{b.name}</div>

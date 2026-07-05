@@ -66,11 +66,21 @@ export interface BTroop {
 
 // Troop archetypes per position group.
 // Colors are on the home-team identity (steel / orange / charcoal / gold) — see ART-DIRECTION.md.
-export const TROOP_STATS: Record<UnitGroup, { hp: number; dps: number; speed: number; range: number; label: string; color: string; emoji: string }> = {
-  [UnitGroup.OFFENSE_LINE]:      { hp: 280, dps: 14, speed: 9,  range: 4,  label: 'Linemen',   color: '#475569', emoji: '🛡️' }, // tanks — steel
-  [UnitGroup.OFFENSE_SKILL]:     { hp: 95,  dps: 34, speed: 15, range: 7,  label: 'Skill',     color: '#f97316', emoji: '⚡' }, // glass cannon — team orange
-  [UnitGroup.DEFENSE_LINE]:      { hp: 175, dps: 24, speed: 11, range: 4,  label: 'Front 7',   color: '#1f2937', emoji: '💥' }, // bruiser — charcoal
-  [UnitGroup.DEFENSE_SECONDARY]: { hp: 90,  dps: 22, speed: 17, range: 8,  label: 'Secondary', color: '#eab308', emoji: '🏃' }, // fast skirmisher — gold
+export const TROOP_STATS: Record<UnitGroup, { hp: number; dps: number; speed: number; range: number; label: string; color: string; emoji: string; hint: string }> = {
+  [UnitGroup.OFFENSE_LINE]:      { hp: 280, dps: 14, speed: 9,  range: 4,  label: 'Linemen',   color: '#475569', emoji: '🛡️', hint: 'tanks — soak up the defense' },       // steel
+  [UnitGroup.OFFENSE_SKILL]:     { hp: 95,  dps: 34, speed: 15, range: 7,  label: 'Skill',     color: '#f97316', emoji: '⚡', hint: 'hunt loot & the stadium' },            // team orange
+  [UnitGroup.DEFENSE_LINE]:      { hp: 175, dps: 24, speed: 11, range: 4,  label: 'Front 7',   color: '#1f2937', emoji: '💥', hint: 'BLITZ defensive gear first' },         // charcoal
+  [UnitGroup.DEFENSE_SECONDARY]: { hp: 90,  dps: 22, speed: 17, range: 8,  label: 'Secondary', color: '#eab308', emoji: '🏃', hint: 'fast — race to open loot' },           // gold
+};
+
+// TARGETING ROLES: each position group goes after what it's built for, so WHICH players
+// you send (and where) is a real decision — not just how many.
+export type TargetPref = { kind: 'defense' | 'loot'; w: number };
+export const UNIT_PREF: Record<UnitGroup, TargetPref> = {
+  [UnitGroup.OFFENSE_LINE]:      { kind: 'defense', w: 0.75 }, // tanks lean toward turrets to soak
+  [UnitGroup.OFFENSE_SKILL]:     { kind: 'loot',    w: 0.6 },  // playmakers go for the score
+  [UnitGroup.DEFENSE_LINE]:      { kind: 'defense', w: 0.5 },  // the blitz — hunts equipment hard
+  [UnitGroup.DEFENSE_SECONDARY]: { kind: 'loot',    w: 0.75 }, // fast flankers race to open buildings
 };
 
 export const UNIT_ORDER: UnitGroup[] = [
@@ -396,13 +406,19 @@ export const raidAiMult = (offenseRating: number, stadiumLevel: number) =>
 
 export const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 
-/** Nearest alive non-wall building (the real objective; walls are obstacles, not goals). */
-export const nearestBuilding = (x: number, y: number, buildings: BBuilding[]): BBuilding | null => {
+/** Nearest alive non-wall building (the real objective; walls are obstacles, not goals).
+ *  `pref` discounts distance to the troop's preferred target kind so roles shape targeting
+ *  without ever sending a unit across the whole map past closer threats. */
+export const nearestBuilding = (x: number, y: number, buildings: BBuilding[], pref?: TargetPref): BBuilding | null => {
   let best: BBuilding | null = null;
   let bd = Infinity;
   for (const b of buildings) {
     if (b.dead || b.kind === 'wall') continue;
-    const d = dist(x, y, b.x, b.y);
+    let d = dist(x, y, b.x, b.y);
+    if (pref) {
+      const isLoot = b.kind === 'building' || b.kind === 'hq';
+      if ((pref.kind === 'defense' && b.kind === 'defense') || (pref.kind === 'loot' && isLoot)) d *= pref.w;
+    }
     if (d < bd) { bd = d; best = b; }
   }
   return best;

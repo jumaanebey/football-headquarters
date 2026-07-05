@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { UnitGroup } from '../types';
 import {
-  BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER,
+  BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER, UNIT_PREF,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS,
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
   SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef,
 } from '../battle';
 import { RivalCoach } from '../campaign';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
-import { sfx } from '../sound';
+import { sfx, crowdBedStart, crowdBedStop, crowdBedIntensity } from '../sound';
 import { X, Clock, Flag, Shield } from 'lucide-react';
 
 export interface BattleConfig {
@@ -156,8 +156,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
   const total = config.buildings.filter(b => b.kind !== 'wall').length; // walls don't count toward %
 
-  // Kickoff: referee whistle + crowd stir the moment play starts.
-  useEffect(() => { if (phase === 'fighting') { sfx.kickoff(); say(`KICKOFF! ${config.title.toUpperCase()}!`); } }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Kickoff: referee whistle + crowd stir the moment play starts; the crowd BED hums
+  // underneath the whole battle and dies with the final whistle.
+  useEffect(() => {
+    if (phase === 'fighting') { sfx.kickoff(); say(`KICKOFF! ${config.title.toUpperCase()}!`); crowdBedStart(); }
+    if (phase === 'result') crowdBedStop();
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => crowdBedStop(), []); // never leak the loop on exit
 
   const endBattle = () => {
     if (sim.current.ended) return;
@@ -202,7 +207,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         const dps = t.dps * (raging ? 2 : 1);
         const speed = t.speed * (raging ? 1.5 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1); // penalty flag = mud in your cleats
 
-        const goal = nearestBuilding(t.x, t.y, s.buildings); // nearest real (non-wall) target
+        const goal = nearestBuilding(t.x, t.y, s.buildings, t.special ? undefined : UNIT_PREF[t.unit]); // position-group targeting roles
         if (!goal) continue;
         const wall = blockingWall(t.x, t.y, t.range, goal, s.buildings);
         const target = wall || goal; // smash through blocking walls first
@@ -317,9 +322,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       }
 
       // MOMENTUM: builds on sacks/pancakes, drains on losses, decays over time.
-      // Fill the meter and the whole squad catches fire.
+      // Fill the meter and the whole squad catches fire. The crowd breathes with it.
       if (!isDefense) {
         s.momentum = Math.max(0, s.momentum - 1.5 * DT);
+        if (Math.round(s.time * 20) % 20 === 0) crowdBedIntensity(s.momentum / 100); // ~1x/sec
         if (s.momentum >= 100) {
           s.momentum = 30;
           s.troops.forEach(t => { if (!t.dead) t.rageT = Math.max(t.rageT, 4); });
@@ -540,7 +546,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const instruction = castMode ? `Tap the field to call ${castMode.name}`
     : pendingSpecial ? `Tap the sideline to send in the ${pendingSpecial.name}`
     : pendingHero ? `Tap the sideline to send in ${pendingHero.name}`
-    : army[selected] > 0 ? `Tap the sideline to send in your ${TROOP_STATS[selected].label}`
+    : army[selected] > 0 ? `${TROOP_STATS[selected].label}: ${TROOP_STATS[selected].hint} — tap the sideline`
     : 'Pick your offense — players, heroes, or plays';
 
   return (
@@ -853,7 +859,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 {UNIT_ORDER.map(u => {
                   const st = TROOP_STATS[u]; const count = army[u]; const active = selected === u && !pendingHero && !castMode && !pendingSpecial;
                   return (
-                    <button key={u} onClick={() => { setSelected(u); setPendingHero(null); setCastMode(null); setPendingSpecial(null); }} disabled={count <= 0}
+                    <button key={u} onClick={() => { setSelected(u); setPendingHero(null); setCastMode(null); setPendingSpecial(null); }} disabled={count <= 0} title={`${st.label} — ${st.hint}`}
                       className={`relative flex flex-col items-center px-2.5 py-1.5 rounded-xl border-2 transition-all active:scale-95
                         ${count <= 0 ? 'opacity-30 border-slate-800 cursor-not-allowed' : active ? 'border-orange-400 bg-slate-800 scale-105' : 'border-slate-700 bg-slate-800/50'}`}>
                       <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: st.color }}>{st.emoji}</div>

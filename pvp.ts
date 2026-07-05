@@ -64,6 +64,20 @@ export const reportAttack = async (targetPid: string, attackerName: string, star
   } catch { /* fire-and-forget */ }
 };
 
+export interface LeaderRow { pid: string; name: string; trophies: number; }
+
+/** Top real coaches by trophies — the LIVE leaderboard (no fake teams). */
+export const fetchLeaderboard = async (limit = 20): Promise<LeaderRow[]> => {
+  if (!pvpEnabled()) return [];
+  try {
+    const res = await fetch(
+      `${URL_}/rest/v1/fhq_bases?select=pid,name,trophies&order=trophies.desc,updated_at.desc&limit=${limit}`,
+      { headers: headers() },
+    );
+    return res.ok ? await res.json() : [];
+  } catch { return []; }
+};
+
 /** Attacks on MY base since the last sync (applied to the defense log on load). */
 export const fetchAttacksOnMe = async (sinceIso: string): Promise<LiveAttack[]> => {
   if (!pvpEnabled()) return [];

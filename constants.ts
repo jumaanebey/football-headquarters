@@ -207,6 +207,11 @@ export const MAX_BUILDERS = 5;
 // you until it expires. Going on offense (raiding) drops the shield (Clash rule).
 export const SHIELD_HOURS = 4;
 
+// Suiting up for game day costs Energy — attacks aren't free, so loot means something and
+// raid spam can't inflate the economy. (~8 raids per full tank; regen refills one raid in
+// ~96s base, faster with a leveled Rehab Center.)
+export const RAID_ENERGY = 12;
+
 // --- PLACEABLE DEFENSES: football equipment you buy and position yourself. ---
 // Each becomes a real turret in your battle layout — WHERE you put them is the strategy.
 export interface DefenseTypeDef {
