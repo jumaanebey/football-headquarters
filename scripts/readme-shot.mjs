@@ -35,7 +35,9 @@ const demoSave = {
   ],
 };
 
+console.log('launching chromium…');
 const browser = await chromium.launch();
+console.log('launched');
 const page = await browser.newPage({ viewport: { width: 1440, height: 860 }, deviceScaleFactor: 2 });
 await page.addInitScript(save => {
   localStorage.setItem('fhq_save_v1', JSON.stringify(save));
