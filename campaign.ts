@@ -32,10 +32,12 @@ const SCHEDULE: [string, string][] = [
 
 export const CAMPAIGN_STAGES: CampaignStage[] = SCHEDULE.map(([name, opponent], i) => {
   const stage = i + 1;
-  const mult = Math.round((0.55 + i * 0.22) * 100) / 100; // 0.55 → 2.97
+  // Exponential: player power compounds (levels × stars × roster), so the season must too.
+  // Balance-sim tuned: T0 clears ~s1-5, T1 ~s7, T2 ~s9, T3 ~s11, only T4 takes the Championship.
+  const mult = Math.round(0.55 * Math.pow(1.34, i) * 100) / 100; // 0.55 → ~13.8
   return {
     stage, name, opponent, mult,
-    reward: { coins: Math.round(300 + 260 * mult), fans: Math.round(10 + 14 * mult) },
+    reward: { coins: Math.round(300 + 240 * mult), fans: Math.round(10 + 9 * mult) },
     firstClear: {
       gems: 6 + stage * 2,                                    // 8 → 30 gems across the season
       shardHero: HERO_DEFS[i % HERO_DEFS.length].key,          // every hero gets fed across 12 weeks
@@ -48,13 +50,19 @@ export const CAMPAIGN_STAGES: CampaignStage[] = SCHEDULE.map(([name, opponent], 
 export const campaignBase = (stage: number): EnemyBase => {
   const st = CAMPAIGN_STAGES[stage - 1];
   const template = ENEMY_BASES[(stage - 1) % ENEMY_BASES.length];
+  // Turret lethality scales superlinearly (attacker power compounds); loot buildings stay linear.
+  const tDmg = Math.round(13 * Math.pow(st.mult, 1.25));
   const buildings: BattleBuildingDef[] = template.buildings.map(b => ({
     ...b,
     hp: Math.round(b.hp * st.mult),
-    damage: b.damage ? Math.round(b.damage * st.mult) : b.damage,
+    damage: b.damage ? tDmg : b.damage,
   }));
   // Late-season teams field extra coverage — more turrets, not just bigger HP bars.
-  if (stage >= 5) buildings.push({ id: 'cd1', kind: 'defense', x: 30, y: 50, hp: Math.round(230 * st.mult), size: 5, damage: Math.round(16 * st.mult), range: 23 });
-  if (stage >= 9) buildings.push({ id: 'cd2', kind: 'defense', x: 70, y: 50, hp: Math.round(230 * st.mult), size: 5, damage: Math.round(16 * st.mult), range: 23 });
+  const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 32], [50, 68], [38, 62]];
+  const extras = stage >= 11 ? 5 : stage >= 9 ? 4 : stage >= 7 ? 3 : stage >= 5 ? 2 : stage >= 3 ? 1 : 0;
+  for (let e = 0; e < extras; e++) {
+    const [x, y] = extraSpots[e];
+    buildings.push({ id: `cd${e}`, kind: 'defense', x, y, hp: Math.round(230 * st.mult), size: 5, damage: tDmg, range: 23 });
+  }
   return { id: `camp_${stage}`, name: st.opponent, difficulty: st.mult, reward: st.reward, buildings };
 };

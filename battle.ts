@@ -292,16 +292,27 @@ export const makeRevengeBase = (defenseRating: number): BattleBuildingDef[] => {
 const RIVAL_NAMES = ['Riverside Rams', 'Coastal Cobras', 'Mesa Mavericks', 'Summit Stags', 'Delta Dragons', 'Harbor Hawks', 'Canyon Cougars', 'Prairie Pumas', 'Bayou Bandits', 'Ridge Raiders', 'Metro Mustangs', 'Vista Vipers'];
 
 export const generateRaidTargets = (trophies: number): EnemyBase[] => {
-  const base = 0.8 + trophies / 700; // difficulty tracks your ladder standing
+  // Superlinear with the ladder (player power compounds via hero levels × stars), and higher
+  // brackets field MORE turrets, not just fatter HP bars. Balance-sim tuned to ~60-75% win rates.
+  const base = 1.0 + trophies / 300 + Math.pow(trophies / 750, 1.7);
   return Array.from({ length: 3 }, (_, i) => {
-    const tier = Math.max(0.8, base + i * 0.2 + Math.random() * 0.25); // three fresh tiers of challenge
+    const tier = Math.max(0.9, base * (0.85 + i * 0.2) + Math.random() * 0.3); // easy/fair/spicy
     const template = ENEMY_BASES[i % ENEMY_BASES.length];
-    const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? Math.round(b.damage * tier) : b.damage }));
+    // Loot targets scale linearly, but turret LETHALITY scales superlinearly — attacker power
+    // compounds (levels × stars × roster), so defenses must actually kill units at high tiers.
+    const tDmg = Math.round(14 * Math.pow(tier, 1.3));
+    const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage }));
+    const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 30], [50, 70], [38, 64]];
+    const extras = Math.min(5, Math.floor(tier / 1.4));
+    for (let e = 0; e < extras; e++) {
+      const [x, y] = extraSpots[e];
+      buildings.push({ id: `xd${e}`, kind: 'defense', x, y, hp: Math.round(220 * tier), size: 5, damage: tDmg, range: 23 });
+    }
     return {
       id: `mm_${i}_${Math.floor(Math.random() * 99999)}`,
       name: RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)],
       difficulty: Math.round(tier * 10) / 10,
-      reward: { coins: Math.round(450 * tier + 250), fans: Math.round(18 * tier + 6) },
+      reward: { coins: Math.round(420 * tier + 250), fans: Math.round(14 * tier + 6) },
       buildings,
     };
   });
@@ -351,7 +362,7 @@ export const defenseAiTroops = (): { unit: UnitGroup; x: number; y: number }[] =
 // so a maintained base (wall ring + upgrades) holds, while a neglected base falls.
 // Defense HP/damage already scale with building level, so this stays gentle on level.
 export const raidAiMult = (offenseRating: number, stadiumLevel: number) =>
-  (0.7 + offenseRating / 140) * (1 + 0.05 * (stadiumLevel - 1));
+  (0.55 + offenseRating / 150) * (1 + 0.03 * (stadiumLevel - 1)); // balance-sim tuned: low tiers concede 1-2⭐, fortified tiers hold
 
 export const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 
