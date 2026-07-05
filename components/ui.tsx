@@ -71,8 +71,9 @@ export const Sheet: React.FC<{
   footer?: React.ReactNode;
   actions?: React.ReactNode; // header controls (e.g. Scout Search) — rendered beside close
   maxWidth?: string;
+  scroll?: boolean; // false = workspace mode: children manage their own panes (two-pane layouts)
   children: React.ReactNode;
-}> = ({ title, icon, subtitle, onClose, footer, actions, maxWidth = 'max-w-lg', children }) => (
+}> = ({ title, icon, subtitle, onClose, footer, actions, maxWidth = 'max-w-lg', scroll = true, children }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4" onClick={onClose}>
     <div
       className={`bg-[#0b0f1a] w-full ${maxWidth} max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden`}
@@ -90,7 +91,7 @@ export const Sheet: React.FC<{
           <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"><X size={18} /></button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto min-h-0">{children}</div>
+      <div className={scroll ? 'flex-1 overflow-y-auto min-h-0' : 'flex-1 min-h-0 overflow-hidden flex flex-col'}>{children}</div>
       {footer && <div className="p-4 border-t border-slate-800 bg-[#111827] shrink-0">{footer}</div>}
     </div>
   </div>

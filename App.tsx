@@ -891,7 +891,7 @@ function App() {
           shieldUntil: 0, // going on offense drops your protective shield
         };
       });
-      if (r.coins > 0) spawnText(`+${r.coins} Coins looted!`, window.innerWidth / 2, window.innerHeight / 2, '#fbbf24');
+      if (r.coins > 0) spawnText(`Gate haul +${r.coins} coins!`, window.innerWidth / 2, window.innerHeight / 2, '#fbbf24');
       if (gemReward > 0) spawnText(`+${gemReward} 👑`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
       if (isCampaign && r.won && stageDef && !gameState.campaign.claimed.includes(stage)) spawnText(`First clear! +${stageDef.firstClear.gems} 👑 +${stageDef.firstClear.shards} shards`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
       if (!isCampaign) spawnText(`${trophyDelta >= 0 ? '+' : ''}${trophyDelta} 🏆`, window.innerWidth / 2, window.innerHeight / 2 + 80, trophyDelta >= 0 ? '#22c55e' : '#ef4444');
@@ -913,7 +913,7 @@ function App() {
         ...prev,
         resources: { ...prev.resources, [ResourceType.COINS]: Math.max(0, prev.resources.COINS - r.coins) },
       }));
-      if (r.coins > 0) spawnText(`−${r.coins} Coins raided!`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
+      if (r.coins > 0) spawnText(`−${r.coins} gate revenue lost!`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
       else spawnText('Base defended!', window.innerWidth / 2, window.innerHeight / 2, '#10b981');
     }
     if (r.won) sfx.victory(); else sfx.defeat();

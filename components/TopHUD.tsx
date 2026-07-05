@@ -47,7 +47,7 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
         {/* Resources */}
         <div className="flex gap-2 items-center">
           {/* Energy (+ Rally button when affordable) */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-blue-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-blue-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Energy — powers training drills and away games (⚡12 per game). Regens over time; the Rehab Center speeds it up.">
             <img src={RESOURCE_ICON.energy} alt="Energy" className="w-4 h-4 object-contain" draggable={false} />
             <span className="font-display font-bold text-lg">{resources.ENERGY}</span>
             <span className="text-[10px] text-slate-400 ml-1">/ 100</span>
@@ -64,13 +64,13 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
           </div>
 
           {/* Coins */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Coins — gate revenue. Spend on upgrades, equipment, heroes, and the Parking Lot.">
             <img src={RESOURCE_ICON.coins} alt="Coins" className="w-4 h-4 object-contain" draggable={false} />
             <span className="font-display font-bold text-lg" title={resources.COINS.toLocaleString()}>{fmtNum(resources.COINS)}</span>
           </div>
 
           {/* Fans */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-rose-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-rose-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Fans — your crowd. They rally your Energy, fill the Fan Mob, boost home-crowd defense, and ERUPT to stall enemy drives.">
             <Users size={16} className="text-rose-400 fill-rose-400" />
             <span className="font-display font-bold text-lg" title={resources.FANS.toLocaleString()}>{fmtNum(resources.FANS)}</span>
           </div>

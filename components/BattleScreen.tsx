@@ -1091,7 +1091,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               )}
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Ground given up' : 'Enemy destroyed'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Ground given up' : 'Field taken'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
               {!isDefense && driveStats && (
                 <>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} dmg)</span></span></div>
@@ -1099,8 +1099,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Players stuffed</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
                 </>
               )}
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Coins lost' : 'Coins looted'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
-              {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">Fans gained</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
+              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Gate revenue lost' : 'Gate haul'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
+              {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">Fans poached</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
               <button onClick={() => onFinish(result)} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
                 {isReplay ? 'Close Replay' : isDefense ? 'Back to Base' : 'Collect Rewards'}
               </button>

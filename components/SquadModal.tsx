@@ -5,6 +5,7 @@ import { Player, UnitGroup, ResourceType, Drill, PlayerRole } from '../types';
 import { DRILLS, RARITY_CONFIG, TENDENCIES, TendencyKey } from '../constants';
 import { unitSprite } from '../assets';
 import { Shield, Target, Users, Zap, Dumbbell, Brain, ChevronRight, ChevronLeft, Play, Check, Star } from 'lucide-react';
+import { Sheet } from './ui';
 
 interface Props {
   roster: Player[];
@@ -133,28 +134,20 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, onClose, onTrai
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="bg-slate-950 w-full max-w-5xl h-[85vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col relative overflow-hidden">
-
-        {/* Header */}
-        <div className="p-6 border-b border-slate-800 bg-slate-900 flex justify-between items-center z-10">
-          <div>
-            <h2 className="text-3xl font-display font-bold text-white uppercase tracking-tighter flex items-center gap-3">
-              <Users className="text-blue-500" size={32} /> Coaching Staff
-            </h2>
-            <p className="text-slate-400 text-sm">Develop position groups individually to build team readiness.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onOpenHeroes} className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 rounded-full text-black font-bold flex items-center gap-1.5 transition-colors">
-              <Star size={16} className="fill-current" /> Heroes
-            </button>
-            <button onClick={onClose} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white font-bold transition-colors">
-              CLOSE
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+    <Sheet
+      title="Coaching Staff"
+      icon={<Users className="text-sky-400" size={22} />}
+      subtitle="Develop position groups individually to build team readiness."
+      onClose={onClose}
+      maxWidth="max-w-5xl"
+      scroll={false}
+      actions={
+        <button onClick={onOpenHeroes} className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 rounded-full text-black font-bold flex items-center gap-1.5 transition-colors text-sm">
+          <Star size={15} className="fill-current" /> Heroes
+        </button>
+      }
+    >
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
 
           {/* LEFT: Unit Selector */}
           <div className="flex-1 p-6 overflow-y-auto bg-gradient-to-br from-slate-900 to-slate-950">
@@ -234,7 +227,6 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, onClose, onTrai
           </div>
 
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

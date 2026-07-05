@@ -4,7 +4,8 @@ import { Player, ResourceType, BuildingInstance, RecruitSlot } from '../types';
 import { RARITY_CONFIG, UPGRADE_CONFIG, RECRUIT_CONFIG } from '../constants';
 import { rosterCap, rollBoard, candidateOvr, recruitCost, recruitSeconds } from '../recruiting';
 import { unitSprite } from '../assets';
-import { Search, Coins, Crown, Zap, ArrowUpCircle, Users, Clock, CheckCircle2, RefreshCw, X, Dumbbell, Brain, Lock } from 'lucide-react';
+import { Search, Coins, Crown, Zap, ArrowUpCircle, Users, Clock, CheckCircle2, RefreshCw, Dumbbell, Brain, Lock } from 'lucide-react';
+import { Sheet } from './ui';
 
 interface Props {
   resources: Record<ResourceType, number>;
@@ -154,25 +155,37 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="bg-slate-950 w-full max-w-4xl max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col relative overflow-hidden">
-
-        {/* Header */}
-        <div className="p-5 border-b border-slate-800 bg-slate-900 flex justify-between items-center z-10">
-          <div>
-            <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-3">
-              <Search className="text-blue-500" size={26} /> Scouting Dept
-            </h2>
-            <p className="text-slate-400 text-sm flex items-center gap-2">
-              <Users size={13} /> Roster {roster.length} / {cap}
-              <span className="text-slate-600">•</span> Facility Lv {academy.level}
-            </p>
+    <Sheet
+      title="Scouting Dept"
+      icon={<Search className="text-sky-400" size={22} />}
+      subtitle={<span className="flex items-center gap-2"><Users size={13} /> Roster {roster.length} / {cap}<span className="text-slate-600">•</span> Facility Lv {academy.level}</span>}
+      onClose={onClose}
+      maxWidth="max-w-4xl"
+      footer={
+        <div className="flex items-center justify-between">
+          <div className="text-sm">
+            <div className="text-slate-300 font-bold">Expand Facility</div>
+            <div className="text-[12px] text-slate-500">Lv {academy.level} → {academy.level + 1} • roster cap {cap} → {cap + RECRUIT_CONFIG.capPerLevel}</div>
           </div>
-          <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"><X size={20} /></button>
+          {upgradeGated ? (
+            <div className="py-2.5 px-4 rounded-xl font-bold text-[12px] flex items-center gap-2 bg-slate-800 text-slate-400 border border-slate-700">
+              <Lock size={14} className="text-slate-500" /> Requires Stadium Lv {academy.level + 1}
+            </div>
+          ) : (
+            <button
+              onClick={() => onUpgrade(academy.id, upgradeCost)}
+              disabled={resources.COINS < upgradeCost}
+              className={`py-2.5 px-4 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
+                ${resources.COINS >= upgradeCost ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+            >
+              <ArrowUpCircle size={16} /> Upgrade
+              <span className="flex items-center gap-0.5 text-[12px] bg-black/20 px-1.5 py-0.5 rounded"><Coins size={11} /> {upgradeCost}</span>
+            </button>
+          )}
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 bg-gradient-to-br from-slate-900 to-slate-950">
+      }
+    >
+        <div className="p-5">
           {recruitSlot ? (
             renderInProgress()
           ) : rosterFull ? (
@@ -200,30 +213,6 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
             </>
           )}
         </div>
-
-        {/* Footer: facility upgrade */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between">
-          <div className="text-sm">
-            <div className="text-slate-300 font-bold">Expand Facility</div>
-            <div className="text-[11px] text-slate-500">Lv {academy.level} → {academy.level + 1} • roster cap {cap} → {cap + RECRUIT_CONFIG.capPerLevel}</div>
-          </div>
-          {upgradeGated ? (
-            <div className="py-2.5 px-4 rounded-xl font-bold text-xs flex items-center gap-2 bg-slate-800 text-slate-400 border border-slate-700">
-              <Lock size={14} className="text-slate-500" /> Requires Stadium Lv {academy.level + 1}
-            </div>
-          ) : (
-            <button
-              onClick={() => onUpgrade(academy.id, upgradeCost)}
-              disabled={resources.COINS < upgradeCost}
-              className={`py-2.5 px-4 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
-                ${resources.COINS >= upgradeCost ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
-            >
-              <ArrowUpCircle size={16} /> Upgrade
-              <span className="flex items-center gap-0.5 text-xs bg-black/20 px-1.5 py-0.5 rounded"><Coins size={11} /> {upgradeCost}</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };
