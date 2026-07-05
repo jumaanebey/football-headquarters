@@ -4,7 +4,7 @@ import {
   BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS,
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
-  SpecialDef, SpecialKind,
+  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef,
 } from '../battle';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
 import { sfx } from '../sound';
@@ -108,6 +108,17 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const [pendingHero, setPendingHero] = useState<RaidHero | null>(null);
   const [castMode, setCastMode] = useState<PlayDef | null>(null);
   const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense ? 'fighting' : 'deploy');
+  // Pre-snap coaching call — locks once the first player is on the field.
+  const [plan, setPlan] = useState<GamePlanDef>(GAME_PLANS[1]);
+  const planRef = useRef(plan); planRef.current = plan;
+  // Every unit sent in plays to the scheme.
+  const coach = (t: BTroop): BTroop => {
+    if (isDefense) return t;
+    const p = planRef.current;
+    t.hp = Math.round(t.hp * p.hp); t.maxHp = t.hp;
+    t.dps *= p.dps; t.speed *= p.speed;
+    return t;
+  };
   const [, forceTick] = useState(0);
   const [result, setResult] = useState<BattleResult | null>(null);
 
@@ -188,7 +199,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               const scored = target.kind === 'hq'; // taking their stadium = the score
               s.fx.push({ type: 'yards', text: scored ? 'TOUCHDOWN!' : 'SACKED!', x: target.x, y: target.y, life: scored ? 1.5 : 1.0, maxLife: scored ? 1.5 : 1.0 });
               say(scored ? '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!' : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(Math.random() * 3)]);
-              s.momentum = Math.min(100, s.momentum + (scored ? 25 : 12));
+              s.momentum = Math.min(100, s.momentum + (scored ? 25 : 12) * planRef.current.momentum);
               if (scored) { s.freezeT = 0.45; sfx.crowdRoar(); } // freeze-frame + the stadium erupts
               // Loot burst — coins pop out of the wreckage
               for (let ci = 0; ci < (scored ? 7 : 4); ci++) {
@@ -242,7 +253,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           if (g.hp <= 0) {
             g.hp = 0; g.dead = true;
             prey.kills = (prey.kills ?? 0) + 1;
-            s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10);
+            s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10 * planRef.current.momentum);
             say(`💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
             for (let ci = 0; ci < 3; ci++) { const ca = Math.random() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
             s.fx.push({ type: 'impact', x: g.x, y: g.y, life: 0.3, maxLife: 0.3 });
@@ -373,7 +384,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       // Summon a burst of skill players around the hero.
       for (let i = 0; i < 3; i++) {
         const a = (i / 3) * Math.PI * 2;
-        s.troops.push(makeTroop(UnitGroup.OFFENSE_SKILL, h.x + Math.cos(a) * 3, h.y + Math.sin(a) * 3, config.power?.[UnitGroup.OFFENSE_SKILL] ?? 1));
+        s.troops.push(coach(makeTroop(UnitGroup.OFFENSE_SKILL, h.x + Math.cos(a) * 3, h.y + Math.sin(a) * 3, config.power?.[UnitGroup.OFFENSE_SKILL] ?? 1)));
       }
       s.pulses.push({ x: h.x, y: h.y, r: 10, life: 0.5, maxLife: 0.5, color: '#ec4899' });
     } else if (h.ability === 'hall_of_fame') {
@@ -411,7 +422,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
     if (pendingHero) {
       if (!perimeterOk(wx, wy)) return;
-      sim.current.troops.push(makeHeroTroop(pendingHero, wx, wy));
+      sim.current.troops.push(coach(makeHeroTroop(pendingHero, wx, wy)));
       setDeployedHeroes(prev => new Set(prev).add(pendingHero.key));
       say(`${pendingHero.name.toUpperCase()} TAKES THE FIELD!`);
       setPendingHero(null);
@@ -425,7 +436,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       for (let i = 0; i < pendingSpecial.count; i++) {
         const a = (i / pendingSpecial.count) * Math.PI * 2;
         const off = pendingSpecial.count > 1 ? 2.5 : 0;
-        sim.current.troops.push(makeSpecialTroop(pendingSpecial, wx + Math.cos(a) * off, wy + Math.sin(a) * off));
+        sim.current.troops.push(coach(makeSpecialTroop(pendingSpecial, wx + Math.cos(a) * off, wy + Math.sin(a) * off)));
       }
       setSpecialCharges(c => ({ ...c, [pendingSpecial.key]: c[pendingSpecial.key] - 1 }));
       setPendingSpecial(null);
@@ -434,7 +445,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     }
 
     if (army[selected] <= 0 || !perimeterOk(wx, wy)) return;
-    sim.current.troops.push(makeTroop(selected, wx, wy, config.power?.[selected] ?? 1));
+    sim.current.troops.push(coach(makeTroop(selected, wx, wy, config.power?.[selected] ?? 1)));
     setArmy(a => ({ ...a, [selected]: a[selected] - 1 }));
     if (phase === 'deploy') setPhase('fighting');
   };
@@ -685,7 +696,26 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
           ) : (
             <>
-              <div className="text-center text-xs text-orange-300 font-bold mb-2">{instruction}</div>
+              {phase === 'deploy' && (
+                <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">🧠 Game Plan</span>
+                  {GAME_PLANS.map(gp => {
+                    const active = plan.key === gp.key;
+                    return (
+                      <button key={gp.key} onClick={() => setPlan(gp)}
+                        className={`flex flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
+                          ${active ? 'border-orange-400 bg-orange-900/40' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
+                        <span className={`text-[10px] font-bold uppercase leading-tight ${active ? 'text-orange-200' : 'text-white'}`}>{gp.emoji} {gp.name}</span>
+                        <span className="text-[8px] text-slate-400 leading-tight">{gp.blurb}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="text-center text-xs text-orange-300 font-bold mb-2">
+                {phase === 'fighting' && <span className="inline-block mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle">{plan.emoji} {plan.name}</span>}
+                {instruction}
+              </div>
               <div className="flex items-center justify-center gap-2 flex-wrap">
                 {/* Troops */}
                 {UNIT_ORDER.map(u => {
