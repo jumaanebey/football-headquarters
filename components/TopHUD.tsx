@@ -10,6 +10,9 @@ interface Props {
   onRally?: () => void;
 }
 
+// Big numbers stay scannable: 98,785 → 98.8k
+const fmtNum = (n: number) => n >= 100000 ? `${Math.round(n / 1000)}k` : n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString();
+
 export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
   const { resources, level, xp, xpToNextLevel } = gameState;
   const xpPercent = (xp / xpToNextLevel) * 100;
@@ -62,13 +65,13 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
           {/* Coins */}
           <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg">
             <img src={RESOURCE_ICON.coins} alt="Coins" className="w-4 h-4 object-contain" draggable={false} />
-            <span className="font-display font-bold text-lg">{resources.COINS}</span>
+            <span className="font-display font-bold text-lg" title={resources.COINS.toLocaleString()}>{fmtNum(resources.COINS)}</span>
           </div>
 
           {/* Fans */}
           <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-rose-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg">
             <Users size={16} className="text-rose-400 fill-rose-400" />
-            <span className="font-display font-bold text-lg">{resources.FANS}</span>
+            <span className="font-display font-bold text-lg" title={resources.FANS.toLocaleString()}>{fmtNum(resources.FANS)}</span>
           </div>
 
           {/* Gems */}

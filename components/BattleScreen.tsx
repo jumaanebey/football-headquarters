@@ -7,6 +7,7 @@ import {
   SpecialDef, SpecialKind,
 } from '../battle';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
+import { sfx } from '../sound';
 import { X, Clock, Flag, Shield } from 'lucide-react';
 
 export interface BattleConfig {
@@ -100,6 +101,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
   const total = config.buildings.filter(b => b.kind !== 'wall').length; // walls don't count toward %
 
+  // Kickoff: referee whistle + crowd stir the moment play starts.
+  useEffect(() => { if (phase === 'fighting') sfx.kickoff(); }, [phase]);
+
   const endBattle = () => {
     if (sim.current.ended) return;
     sim.current.ended = true;
@@ -152,6 +156,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             if (target.kind !== 'wall') {
               const scored = target.kind === 'hq'; // taking their stadium = the score
               s.fx.push({ type: 'yards', text: scored ? 'TOUCHDOWN!' : 'SACKED!', x: target.x, y: target.y, life: scored ? 1.5 : 1.0, maxLife: scored ? 1.5 : 1.0 });
+              if (scored) sfx.crowdRoar(); // the stadium erupts
               // Loot burst — coins pop out of the wreckage
               for (let ci = 0; ci < (scored ? 7 : 4); ci++) {
                 const ca = Math.random() * Math.PI * 2;

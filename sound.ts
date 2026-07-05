@@ -44,8 +44,35 @@ const seq = (notes: Array<[freq: number, at: number, dur: number]>, type: Oscill
   notes.forEach(([f, at, d]) => blip(f, at, d, type, peak));
 };
 
+/** Stadium crowd roar — a band-passed noise swell (no samples needed). */
+const roar = (dur = 1.5, peak = 0.22) => {
+  if (muted) return;
+  const a = ac();
+  if (!a) return;
+  const t0 = a.currentTime;
+  const len = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 0.6;
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  const filt = a.createBiquadFilter();
+  filt.type = 'bandpass';
+  filt.frequency.value = 850;
+  filt.Q.value = 0.5;
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + 0.28); // swells like a crowd rising
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(filt).connect(g).connect(a.destination);
+  src.start(t0);
+  src.stop(t0 + dur);
+};
+
 export const sfx = {
   click:   () => seq([[880, 0, 0.06]], 'square', 0.12),
+  crowdRoar: () => { roar(); seq([[659, 0.12, 0.12], [880, 0.26, 0.22]], 'triangle', 0.1); }, // roar + cheer sparkle
+  kickoff:  () => { seq([[2100, 0, 0.14], [1800, 0.12, 0.1]], 'square', 0.14); roar(0.9, 0.12); }, // whistle + crowd stir
   collect: () => seq([[880, 0, 0.09], [1320, 0.05, 0.12]]),          // coin ding
   upgrade: () => seq([[523, 0, 0.1], [659, 0.08, 0.1], [784, 0.16, 0.18]]), // C-E-G rise
   sign:    () => seq([[523, 0, 0.1], [659, 0.09, 0.1], [784, 0.18, 0.1], [1046, 0.27, 0.28]]), // fanfare

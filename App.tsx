@@ -642,6 +642,13 @@ function App() {
       // Daily Practice progress
       if (r.won) bumpDaily('win_attack');
       if (r.stars > 0) bumpDaily('game_balls', r.stars);
+      // Rank-up celebration — crossing a trophy tier is a moment.
+      const rBefore = rankFor(gameState.trophies).index;
+      const after = rankFor(Math.max(0, gameState.trophies + trophyDelta));
+      if (after.index > rBefore) {
+        spawnText(`RANK UP! ${after.rank.emoji} ${after.rank.name.toUpperCase()}`, window.innerWidth / 2, window.innerHeight / 2 - 60, after.rank.color);
+        sfx.victory();
+      }
       // LIVE rival raided → their defense log hears about it; and republish my base state.
       if (r.pvpTarget) reportAttack(r.pvpTarget, gameState.teamName, r.stars, r.pct, r.coins);
       setTimeout(publishMyBase, 500);
@@ -1174,7 +1181,7 @@ function App() {
 }
 
 const NavBtn = ({ icon, label, active, onClick, tourId, badge }: any) => (
-  <button data-tour={tourId} onClick={onClick} className={`relative flex flex-col items-center gap-1 ${active ? 'text-white' : 'text-slate-500'}`}>
+  <button data-tour={tourId} onClick={onClick} className={`relative flex flex-col items-center gap-1 transition-all active:scale-90 ${active ? 'text-white' : 'text-slate-500 hover:text-slate-200'}`}>
     {icon}
     <span className="text-[10px] uppercase font-bold">{label}</span>
     {badge > 0 && (
