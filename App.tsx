@@ -83,8 +83,10 @@ const loadState = (): GameState => {
         // Pull any off-map building back onto the field (cells 2..8 are safely on the diamond).
         let gridX = Math.min(8, Math.max(2, b.gridX));
         let gridY = Math.min(8, Math.max(2, b.gridY));
-        // One-time migration: War Room's old default (3,3) crowded the top of the board.
-        if (b.id === 'tactics-1' && gridX === 3 && gridY === 3) { gridX = 8; gridY = 5; }
+        // One-time migrations off bad default spots (old defaults crowded/spilled; only fires
+        // if the building still sits exactly on an old default, so player moves are respected).
+        if (b.id === 'tactics-1' && ((gridX === 3 && gridY === 3) || (gridX === 8 && gridY === 5))) { gridX = 3; gridY = 8; }
+        if (b.id === 'med-1' && ((gridX === 2 && gridY === 6) || (gridX === 3 && gridY === 6))) { gridX = 3; gridY = 5; }
         const cfg = COLLECTOR_CONFIG[b.type];
         if (!cfg) return { ...b, gridX, gridY };
         const secs = Math.min(offlineSecs, cfg.maxOfflineSeconds);

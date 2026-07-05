@@ -151,7 +151,7 @@ const BuildingSprite: React.FC<{
     else onBuildingClick(building, screenPos);
   };
 
-  const SPRITE_W = TILE_W * 1.7;
+  const SPRITE_W = TILE_W * 1.5; // sized to roughly match a tile footprint — edge cells no longer spill off the board
 
   return (
     <div className={`absolute group ${editMode ? '' : 'cursor-pointer'}`} style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 5, pointerEvents: editMode ? 'none' : 'auto' }} onClick={editMode ? undefined : handleClick}>
