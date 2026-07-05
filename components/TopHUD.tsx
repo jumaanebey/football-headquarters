@@ -33,7 +33,10 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
             <div className="absolute -bottom-1 -right-1 bg-yellow-500 text-[8px] font-bold text-black px-1 rounded">COACH</div>
           </div>
           <div className="flex flex-col w-24">
-            <span className="text-xs font-bold flex items-center gap-1 leading-tight" style={{ color: rank.color }}>{rank.emoji} {rank.name}</span>
+            <span className="text-xs font-bold flex items-center gap-1 leading-tight" style={{ color: rank.color }}>
+              {rank.emoji} {rank.name}
+              {gameState.campaign?.claimed?.includes(12) && <span title="League Champion — conquered the full Season">💍</span>}
+            </span>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-mono text-amber-300 shrink-0">🏆 {gameState.trophies}</span>
               <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">

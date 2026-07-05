@@ -119,6 +119,27 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const [pendingHero, setPendingHero] = useState<RaidHero | null>(null);
   const [castMode, setCastMode] = useState<PlayDef | null>(null);
   const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense ? 'fighting' : 'deploy');
+  // DEFENSE AGENCY: when YOUR stadium is under attack you call plays, not just watch.
+  const [defPlays, setDefPlays] = useState({ noise: 2, pkg: 1 });
+  const callCrowdNoise = () => {
+    if (defPlays.noise <= 0 || phase !== 'fighting') return;
+    setDefPlays(p => ({ ...p, noise: p.noise - 1 }));
+    const s = sim.current;
+    s.troops.forEach(t => { if (!t.dead) t.slowT = Math.max(t.slowT ?? 0, 2.5); });
+    say('📣 The home crowd ERUPTS — their drive stalls!');
+    sfx.crowdRoar();
+    s.shakeT = 0.2;
+  };
+  const callGoalLinePkg = () => {
+    if (defPlays.pkg <= 0 || phase !== 'fighting') return;
+    const s = sim.current;
+    const hq = s.buildings.find(b => b.kind === 'hq' && !b.dead) ?? s.buildings.find(b => !b.dead && b.kind !== 'wall');
+    if (!hq) return;
+    setDefPlays(p => ({ ...p, pkg: p.pkg - 1 }));
+    for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: hq.x + (gi ? 3.5 : -3.5), y: hq.y + 2, hp: Math.round(170 * guardMult), maxHp: Math.round(170 * guardMult), dps: 13 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(Math.random() * 49) });
+    say('🛡 GOAL-LINE PACKAGE — fresh legs fly onto the field!');
+    s.shakeT = 0.2;
+  };
   // Pre-snap coaching call — locks once the first player is on the field.
   const [plan, setPlan] = useState<GamePlanDef>(GAME_PLANS[1]);
   const planRef = useRef(plan); planRef.current = plan;
@@ -208,7 +229,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           if (!s.goalLine && target.kind === 'hq' && target.hp < target.maxHp * 0.5) {
             s.goalLine = true;
             for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: target.x + (gi ? 3 : -3), y: target.y + 2, hp: Math.round(150 * guardMult), maxHp: Math.round(150 * guardMult), dps: 12 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(Math.random() * 49) });
-            say('🚨 GOAL-LINE STAND — they\'re throwing EVERYBODY at you!');
+            say(isDefense ? '🚨 GOAL-LINE STAND — your boys dig in at the goal line!' : '🚨 GOAL-LINE STAND — they\'re throwing EVERYBODY at you!');
             s.shakeT = 0.25;
           }
           if (Math.random() < 0.12) s.fx.push({ type: 'impact', x: target.x, y: target.y - target.size * 0.3, life: 0.22, maxLife: 0.22 });
@@ -242,7 +263,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         s.guardT = 0;
         const src = aliveDef[Math.floor(Math.random() * aliveDef.length)];
         s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: src.x, y: src.y, hp: Math.round(140 * guardMult), maxHp: Math.round(140 * guardMult), dps: 11 * guardMult, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 40 + Math.floor(Math.random() * 59) });
-        say('The defense sends out a LINEBACKER!');
+        say(isDefense ? 'YOUR defense sends out a linebacker!' : 'The defense sends out a LINEBACKER!');
       }
       for (const g of s.guards) {
         if (g.dead) continue;
@@ -273,17 +294,23 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           if (prey.hp <= 0) {
             prey.hp = 0; prey.dead = true;
             s.lost++; s.momentum = Math.max(0, s.momentum - 10);
-            say(prey.isHero ? `${(heroes.find(h => h.key === prey.heroKey)?.name || 'Your hero').toUpperCase()} IS DOWN!` : `#${prey.jersey ?? '??'} gets STUFFED at the line!`);
+            say(isDefense ? `Your defense STUFFS #${prey.jersey ?? '??'} at the line!`
+              : prey.isHero ? `${(heroes.find(h => h.key === prey.heroKey)?.name || 'Your hero').toUpperCase()} IS DOWN!` : `#${prey.jersey ?? '??'} gets STUFFED at the line!`);
             s.fx.push({ type: 'impact', x: prey.x, y: prey.y, life: 0.3, maxLife: 0.3 });
-            s.fx.push({ type: 'down', text: `${prey.jersey ?? ''}`, color: '#111827', x: prey.x, y: prey.y, life: 1.1, maxLife: 1.1 });
+            s.fx.push({ type: 'down', text: `${prey.jersey ?? ''}`, color: isDefense ? '#b91c1c' : '#111827', x: prey.x, y: prey.y, life: 1.1, maxLife: 1.1 });
           }
           if (g.hp <= 0) {
             g.hp = 0; g.dead = true;
-            s.fx.push({ type: 'down', text: `${g.jersey ?? ''}`, color: '#b91c1c', x: g.x, y: g.y, life: 1.1, maxLife: 1.1 });
+            s.fx.push({ type: 'down', text: `${g.jersey ?? ''}`, color: isDefense ? '#111827' : '#b91c1c', x: g.x, y: g.y, life: 1.1, maxLife: 1.1 });
             prey.kills = (prey.kills ?? 0) + 1;
-            s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10 * planRef.current.momentum);
-            say(`💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
-            for (let ci = 0; ci < 3; ci++) { const ca = Math.random() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
+            if (!isDefense) {
+              // Takeaway pays the ATTACKER only — never inflate your own defense losses.
+              s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10 * planRef.current.momentum);
+              say(`💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
+              for (let ci = 0; ci < 3; ci++) { const ca = Math.random() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
+            } else {
+              say(`Your #${g.jersey ?? '??'} gets flattened — they keep coming!`);
+            }
             s.fx.push({ type: 'impact', x: g.x, y: g.y, life: 0.3, maxLife: 0.3 });
           }
         }
@@ -698,21 +725,27 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             );
           })}
 
-          {/* RIVAL DEFENDERS — crimson linebackers hunting your players */}
-          {s.guards.filter(g => !g.dead).map(g => (
-            <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-              style={{ left: `${g.x}%`, top: `${g.y}%`, width: '4.4%', minWidth: 24, maxWidth: 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
-              <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className="h-full bg-red-400" style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>
-              <div className="relative w-full" style={{ aspectRatio: '1', opacity: g.hitFlash > 0 ? 0.5 : 1, animation: g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite' }}>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="relative" style={{ width: '46%', height: '40%', borderRadius: '50% 50% 42% 42%', background: '#1f2937', border: '1px solid rgba(255,255,255,0.3)', marginBottom: '-9%', zIndex: 2 }}>
-                    <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '18%', width: '70%', height: '14%', background: '#b91c1c', borderRadius: 2 }} />
+          {/* DEFENDERS chasing the attackers — crimson rivals when you raid, YOUR black/orange
+              linebackers when it's your stadium being defended */}
+          {s.guards.filter(g => !g.dead).map(g => {
+            const helm = isDefense ? '#111827' : '#1f2937';
+            const stripe = isDefense ? '#f97316' : '#b91c1c';
+            const jersey = isDefense ? '#1f2937' : '#b91c1c';
+            return (
+              <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
+                style={{ left: `${g.x}%`, top: `${g.y}%`, width: '4.4%', minWidth: 24, maxWidth: 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>
+                <div className="relative w-full" style={{ aspectRatio: '1', opacity: g.hitFlash > 0 ? 0.5 : 1, animation: g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite' }}>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="relative" style={{ width: '46%', height: '40%', borderRadius: '50% 50% 42% 42%', background: helm, border: '1px solid rgba(255,255,255,0.3)', marginBottom: '-9%', zIndex: 2 }}>
+                      <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '18%', width: '70%', height: '14%', background: stripe, borderRadius: 2 }} />
+                    </div>
+                    <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: jersey, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{g.jersey}</div>
                   </div>
-                  <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: '#b91c1c', border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{g.jersey}</div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {s.troops.filter(t => !t.dead).map(t => {
             const st = TROOP_STATS[t.unit];
@@ -772,8 +805,26 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       {phase !== 'result' && (
         <div className="shrink-0 bg-slate-900 border-t border-slate-800 px-3 py-2">
           {isDefense ? (
-            <div className="text-center text-sm text-orange-200 font-bold flex items-center justify-center gap-2 py-2">
-              <Shield size={16} className="text-orange-400" /> Rival offense is driving on your stadium — your crowd & walls hold the line!
+            <div className="py-1">
+              <div className="text-center text-xs text-orange-200 font-bold flex items-center justify-center gap-2 mb-2">
+                <Shield size={14} className="text-orange-400" /> Rival offense is driving on your stadium — call your defense!
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <button onClick={callCrowdNoise} disabled={defPlays.noise <= 0}
+                  className={`relative flex flex-col items-center px-4 py-1.5 rounded-xl border-2 transition-all active:scale-95 ${defPlays.noise <= 0 ? 'opacity-30 border-slate-800 cursor-not-allowed' : 'border-orange-400 bg-orange-900/30 hover:bg-orange-900/50'}`}>
+                  <span className="text-lg leading-none">📣</span>
+                  <span className="text-[9px] font-bold text-white uppercase mt-0.5">Crowd Noise</span>
+                  <span className="text-[8px] font-bold text-slate-300">SLOWS THE DRIVE</span>
+                  <span className="absolute -top-2 -right-1 min-w-5 h-5 px-1 rounded-full bg-orange-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center">{defPlays.noise}</span>
+                </button>
+                <button onClick={callGoalLinePkg} disabled={defPlays.pkg <= 0}
+                  className={`relative flex flex-col items-center px-4 py-1.5 rounded-xl border-2 transition-all active:scale-95 ${defPlays.pkg <= 0 ? 'opacity-30 border-slate-800 cursor-not-allowed' : 'border-blue-400 bg-blue-900/30 hover:bg-blue-900/50'}`}>
+                  <span className="text-lg leading-none">🛡</span>
+                  <span className="text-[9px] font-bold text-white uppercase mt-0.5">Goal-Line Pkg</span>
+                  <span className="text-[8px] font-bold text-slate-300">+2 DEFENDERS</span>
+                  <span className="absolute -top-2 -right-1 min-w-5 h-5 px-1 rounded-full bg-blue-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center">{defPlays.pkg}</span>
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -892,7 +943,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           <div className="relative bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl overflow-hidden">
             <div className={`py-6 text-center ${result.won ? 'bg-gradient-to-b from-green-700 to-green-900' : 'bg-gradient-to-b from-red-800 to-red-950'}`}>
               <div className="text-3xl font-display font-black text-white uppercase mb-3">
-                {isDefense ? (result.won ? 'Goal-Line Stand!' : 'They Scored!') : (result.won ? 'Crowd Silenced!' : 'Shut Out')}
+                {result.campaignStage === 12 && result.won ? '💍 League Champions!'
+                  : isDefense ? (result.won ? 'Goal-Line Stand!' : 'They Scored!') : (result.won ? 'Crowd Silenced!' : 'Shut Out')}
               </div>
               <div className="flex justify-center gap-3 text-4xl">
                 {[0, 1, 2].map(i => <span key={i} className={i < result.stars ? 'animate-bounce-sm' : ''} style={{ opacity: i < result.stars ? 1 : 0.25, filter: i < result.stars ? 'none' : 'grayscale(1)', animationDelay: `${i * 120}ms` }}>🏈</span>)}
