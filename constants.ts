@@ -177,13 +177,13 @@ export const collectorCap = (type: BuildingType, level: number): number => {
 // --- DECOR -------------------------------------------------------------------
 // Non-interactive scenery placed on empty grid tiles (avoiding building tiles
 // 2,2 / 6,1 / 1,6 / 6,6).
+// (team-bus is NOT decor anymore — it's a movable blocker piece on GameState.bus)
 export const DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
   { slug: 'statue-legends', gridX: 4, gridY: 3, scale: 0.8 },
   { slug: 'merch-stand',    gridX: 8, gridY: 3, scale: 0.75 },
-  { slug: 'club-fountain',  gridX: 0, gridY: 6, scale: 0.75 },
+  { slug: 'club-fountain',  gridX: 1, gridY: 7, scale: 0.6 },
   { slug: 'tailgate-tent',  gridX: 8, gridY: 7, scale: 0.8 },
-  { slug: 'team-bus',       gridX: 4, gridY: 9, scale: 0.9 },
-  { slug: 'parking-lot',    gridX: 0, gridY: 4, scale: 0.85 },
+  { slug: 'parking-lot',    gridX: 1, gridY: 3, scale: 0.7 },
 ];
 
 // Steeper curve so upgrades are a real coin sink: you can't afford every building's

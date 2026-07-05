@@ -63,7 +63,9 @@ const INITIAL_STATE: GameState = {
   campaign: { unlocked: 1, stars: {}, claimed: [] },
   teamName: genTeamName(),
   dailies: freshDailies(),
-  defenses: [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }] // starter JUGS machine
+  defenses: [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }], // starter JUGS machine
+  inventory: { sleds: 0, defenses: [], bus: false },
+  bus: { gridX: 4, gridY: 9 } // the Team Bus — a movable big blocker (was static decor)
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -120,6 +122,9 @@ const loadState = (): GameState => {
       const dailies = (saved.dailies && saved.dailies.date === todayKey()) ? saved.dailies : freshDailies();
       const teamName = saved.teamName || genTeamName();
       const defenses = saved.defenses ?? [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }];
+      const inventory = saved.inventory ?? { sleds: 0, defenses: [], bus: false };
+      // Backfill the Team Bus for old saves (it graduated from decor to a movable blocker).
+      const bus = saved.bus !== undefined ? saved.bus : (inventory.bus ? null : { gridX: 4, gridY: 9 });
       // "While you were away" — resolve rival raids against your ACTUAL base for the
       // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
       let defenseLog = [...(saved.defenseLog || [])];
@@ -131,7 +136,7 @@ const loadState = (): GameState => {
       const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
       if (numAttacks > 0) {
         const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS, defenseTroopBoost(roster), defenses);
+        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS, defenseTroopBoost(roster), defenses, bus);
         let worstPct = 0;
         for (let a = 0; a < numAttacks; a++) {
           const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
@@ -150,7 +155,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -178,7 +183,8 @@ function App() {
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
   const [isDailyOpen, setIsDailyOpen] = useState(false);
   const [liveTargets, setLiveTargets] = useState<LiveBase[]>([]);
-  const [placingDefense, setPlacingDefense] = useState<string | null>(null); // DEFENSE_TYPES kind being placed
+  const [placingDefense, setPlacingDefense] = useState<string | null>(null); // DEFENSE_TYPES kind being placed (shop buy)
+  const [placingInv, setPlacingInv] = useState<{ type: 'sled' | 'bus' | 'defense'; kind?: string } | null>(null); // inventory piece being placed back
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
@@ -187,7 +193,7 @@ function App() {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
-    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses)), 400);
+    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus)), 400);
     if (startRaid) openRaid();
   };
 
@@ -611,7 +617,7 @@ function App() {
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
-      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses),
+      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
       loot: { coins: coinsAtRisk, fans: 0 },
@@ -764,7 +770,7 @@ function App() {
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
-    publishBase(gameState.teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses));
+    publishBase(gameState.teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus));
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -841,7 +847,72 @@ function App() {
     gx >= 0 && gx < 10 && gy >= 0 && gy < 10
     && !gameState.buildings.some(b => b.id !== ignoreId && b.gridX === gx && b.gridY === gy)
     && !gameState.walls.some(w => w.gridX === gx && w.gridY === gy)
-    && !gameState.defenses.some(d => d.id !== ignoreId && d.gridX === gx && d.gridY === gy);
+    && !gameState.defenses.some(d => d.id !== ignoreId && d.gridX === gx && d.gridY === gy)
+    && !(gameState.bus && ignoreId !== 'team-bus' && gameState.bus.gridX === gx && gameState.bus.gridY === gy);
+
+  // 📦 STORE ALL: sweep every movable piece (sleds, equipment, the bus) into inventory
+  // so you can redesign from a clean board and place them back one by one.
+  const handleStoreAll = () => {
+    setGameState(prev => ({
+      ...prev,
+      walls: [],
+      defenses: [],
+      bus: null,
+      inventory: {
+        sleds: prev.inventory.sleds + prev.walls.length,
+        defenses: [...prev.inventory.defenses, ...prev.defenses.map(d => ({ kind: d.kind }))],
+        bus: prev.inventory.bus || !!prev.bus,
+      },
+    }));
+    setPlacingDefense(null);
+    setPlacingInv(null);
+    sfx.click();
+    spawnText('Board cleared — pieces stored 📦', window.innerWidth / 2, window.innerHeight / 2, '#60a5fa');
+  };
+
+  // Place a stored piece back: tap its inventory chip, then tap a free tile.
+  const handlePlaceFromInventory = (gx: number, gy: number): boolean => {
+    if (!placingInv) return false;
+    if (!tileFree(gx, gy)) { sfx.error(); return true; }
+    if (placingInv.type === 'sled') {
+      if (gameState.inventory.sleds <= 0) { setPlacingInv(null); return true; }
+      setGameState(prev => ({
+        ...prev,
+        walls: [...prev.walls, { gridX: gx, gridY: gy }],
+        inventory: { ...prev.inventory, sleds: prev.inventory.sleds - 1 },
+      }));
+      if (gameState.inventory.sleds <= 1) setPlacingInv(null); // that was the last one
+    } else if (placingInv.type === 'bus') {
+      setGameState(prev => ({ ...prev, bus: { gridX: gx, gridY: gy }, inventory: { ...prev.inventory, bus: false } }));
+      setPlacingInv(null);
+    } else {
+      const kind = placingInv.kind!;
+      if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); setPlacingInv(null); return true; }
+      setGameState(prev => {
+        const idx = prev.inventory.defenses.findIndex(d => d.kind === kind);
+        if (idx < 0) return prev;
+        return {
+          ...prev,
+          defenses: [...prev.defenses, { id: `def_${Date.now()}`, kind, gridX: gx, gridY: gy }],
+          inventory: { ...prev.inventory, defenses: prev.inventory.defenses.filter((_, i) => i !== idx) },
+        };
+      });
+      if (gameState.inventory.defenses.filter(d => d.kind === kind).length <= 1) setPlacingInv(null);
+    }
+    sfx.upgrade();
+    return true;
+  };
+
+  // Tap a piece in Design mode → rotate it (mirror flip). Buildings select-to-move instead.
+  const handleFlipDefense = (id: string) =>
+    setGameState(prev => ({ ...prev, defenses: prev.defenses.map(d => d.id === id ? { ...d, flip: !d.flip } : d) }));
+  const handleFlipBus = () =>
+    setGameState(prev => prev.bus ? { ...prev, bus: { ...prev.bus, flip: !prev.bus.flip } } : prev);
+  const handleMoveBus = (gx: number, gy: number) => {
+    if (!tileFree(gx, gy, 'team-bus')) { sfx.error(); return; }
+    setGameState(prev => prev.bus ? { ...prev, bus: { ...prev.bus, gridX: gx, gridY: gy } } : prev);
+    sfx.click();
+  };
 
   // Buy-and-place flow: pick a defense in the shop, tap a free tile to install it.
   const handlePlaceDefense = (gx: number, gy: number) => {
@@ -868,12 +939,14 @@ function App() {
   };
 
   const handleTileEdit = (gx: number, gy: number) => {
+    if (placingInv && handlePlaceFromInventory(gx, gy)) return;
     if (placingDefense && handlePlaceDefense(gx, gy)) return;
     const bAt = gameState.buildings.find(b => b.gridX === gx && b.gridY === gy);
     const wIdx = gameState.walls.findIndex(w => w.gridX === gx && w.gridY === gy);
     const dAt = gameState.defenses.find(d => d.gridX === gx && d.gridY === gy);
+    const busAt = gameState.bus && gameState.bus.gridX === gx && gameState.bus.gridY === gy;
     if (moveSel) {
-      if (!bAt && wIdx < 0 && !dAt) {
+      if (!bAt && wIdx < 0 && !dAt && !busAt) {
         setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === moveSel ? { ...b, gridX: gx, gridY: gy } : b) }));
         sfx.click();
       }
@@ -881,7 +954,8 @@ function App() {
       return;
     }
     if (bAt) { setMoveSel(bAt.id); sfx.click(); return; }
-    if (dAt) return; // defenses move by drag; taps on them are inert
+    if (dAt) { handleFlipDefense(dAt.id); sfx.click(); return; } // tap equipment = rotate (mirror)
+    if (busAt) { handleFlipBus(); sfx.click(); return; }
     if (wIdx >= 0) { setGameState(prev => ({ ...prev, walls: prev.walls.filter((_, i) => i !== wIdx) })); return; }
     if (gameState.walls.length >= WALL_CAP) { spawnText('Wall limit reached', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
     setGameState(prev => ({ ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] }));
@@ -890,10 +964,7 @@ function App() {
 
   // Drag-and-drop building move (Design mode) — validated: in-bounds, not onto a building/wall.
   const handleMoveBuilding = (id: string, gx: number, gy: number) => {
-    if (gx < 0 || gx >= 10 || gy < 0 || gy >= 10) { sfx.error(); return; }
-    const occupied = gameState.buildings.some(b => b.id !== id && b.gridX === gx && b.gridY === gy)
-      || gameState.walls.some(w => w.gridX === gx && w.gridY === gy);
-    if (occupied) { sfx.error(); return; }
+    if (!tileFree(gx, gy, id)) { sfx.error(); return; }
     setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === id ? { ...b, gridX: gx, gridY: gy } : b) }));
     sfx.click();
   };
@@ -927,9 +998,12 @@ function App() {
         editMode={editMode}
         moveSel={moveSel}
         defenses={gameState.defenses}
+        bus={gameState.bus}
+        placing={!!(placingDefense || placingInv)}
         onTileEdit={handleTileEdit}
         onMoveBuilding={handleMoveBuilding}
         onMoveDefense={handleMoveDefense}
+        onMoveBus={handleMoveBus}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
           else setSelectedBuilding(b);
@@ -1186,10 +1260,42 @@ function App() {
               </div>
               {placingDefense && <div className="text-[10px] text-green-300 font-bold mt-1 animate-pulse">Tap a free tile to install the {DEFENSE_TYPES.find(t => t.kind === placingDefense)?.name}</div>}
             </div>
+            {/* 📦 Inventory — stored pieces waiting to go back on the board */}
+            {(() => {
+              const inv = gameState.inventory;
+              const defCounts: Record<string, number> = {};
+              inv.defenses.forEach(d => { defCounts[d.kind] = (defCounts[d.kind] || 0) + 1; });
+              const hasStored = inv.sleds > 0 || inv.bus || inv.defenses.length > 0;
+              const hasOnBoard = gameState.walls.length > 0 || gameState.defenses.length > 0 || !!gameState.bus;
+              const Chip = ({ label, emoji, count, active, onClick }: any) => (
+                <button onClick={onClick}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-all active:scale-95 ${active ? 'border-green-400 bg-green-900/40 text-white animate-pulse' : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-orange-400'}`}>
+                  <span>{emoji}</span>{label}{count > 1 && <span className="text-orange-300">×{count}</span>}
+                </button>
+              );
+              return (
+                <div className="mt-2 pt-2 border-t border-slate-800 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">📦 Inventory</span>
+                  {inv.sleds > 0 && <Chip label="Sled" emoji="🛑" count={inv.sleds} active={placingInv?.type === 'sled'} onClick={() => { setPlacingInv(placingInv?.type === 'sled' ? null : { type: 'sled' }); setPlacingDefense(null); }} />}
+                  {Object.entries(defCounts).map(([kind, n]) => {
+                    const t = DEFENSE_TYPES.find(x => x.kind === kind);
+                    return <Chip key={kind} label={t?.name.split(' ')[0] ?? kind} emoji={t?.emoji ?? '🛡'} count={n} active={placingInv?.type === 'defense' && placingInv.kind === kind} onClick={() => { setPlacingInv(placingInv?.kind === kind ? null : { type: 'defense', kind }); setPlacingDefense(null); }} />;
+                  })}
+                  {inv.bus && <Chip label="Team Bus" emoji="🚌" count={1} active={placingInv?.type === 'bus'} onClick={() => { setPlacingInv(placingInv?.type === 'bus' ? null : { type: 'bus' }); setPlacingDefense(null); }} />}
+                  {!hasStored && <span className="text-[10px] text-slate-600 italic">empty — Store All sweeps the board in here</span>}
+                  {placingInv && <span className="text-[10px] text-green-300 font-bold animate-pulse w-full">Tap a free tile to place it</span>}
+                  {hasOnBoard && (
+                    <button onClick={handleStoreAll} className="ml-auto px-2.5 py-1 rounded-lg border border-blue-600 bg-blue-900/30 hover:bg-blue-900/60 text-blue-200 text-[10px] font-bold transition-all active:scale-95">
+                      📦 Store All
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
             <div className="text-[10px] text-slate-500 mt-1.5">
-              <span className="text-yellow-300 font-bold">Drag</span> buildings & equipment to move them • Tap empty tiles for <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP})
+              <span className="text-yellow-300 font-bold">Drag</span> pieces to move • <span className="text-yellow-300 font-bold">Tap</span> equipment/bus to rotate • Tap empty tiles for <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP})
             </div>
-            <button onClick={() => { setEditMode(false); setMoveSel(null); setPlacingDefense(null); }} className="mt-2 w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Done</button>
+            <button onClick={() => { setEditMode(false); setMoveSel(null); setPlacingDefense(null); setPlacingInv(null); }} className="mt-2 w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Done</button>
           </div>
         );
       })()}

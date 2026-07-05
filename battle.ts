@@ -353,7 +353,7 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
 // structure: an Anchor/Iron Wall-heavy roster literally makes your stadium harder to break.
 // `defenses` = the player's PLACED equipment pieces (JUGS/sleds/towers) — real turrets at
 // exactly the tiles the player chose. Positioning them IS the defensive strategy.
-export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number }[] = []): BattleBuildingDef[] => {
+export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number }[] = [], bus: { gridX: number; gridY: number } | null = null): BattleBuildingDef[] => {
   const bs: BattleBuildingDef[] = buildings.map(b => {
     const x = Math.min(86, Math.max(14, b.gridX * 10));
     const y = Math.min(86, Math.max(14, b.gridY * 10));
@@ -375,7 +375,14 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
       hp: Math.round(t.hp * defBoost), size: 5, damage: Math.round(t.damage * defBoost), range: t.range,
     };
   });
-  return [...bs, ...ws, ...ds];
+  // The Team Bus: one BIG wall-tier blocker — parks a whole lane shut (pathfinding
+  // treats its cell like any wall, but it takes far more smashing).
+  const busB: BattleBuildingDef[] = bus ? [{
+    id: 'team-bus', kind: 'wall',
+    x: Math.min(90, Math.max(10, bus.gridX * 10)), y: Math.min(90, Math.max(10, bus.gridY * 10)),
+    hp: Math.round(WALL_HP * 2.2 * defBoost), size: 6,
+  }] : [];
+  return [...bs, ...ws, ...ds, ...busB];
 };
 
 // The AI raiding party, pre-placed around the perimeter of your base.

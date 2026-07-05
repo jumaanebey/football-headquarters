@@ -183,6 +183,15 @@ export interface GameState {
   teamName: string;         // your club's public name (shown to Live Rivals)
   dailies: import('./dailies').DailiesState; // today's Daily Practice quests
   defenses: DefensePiece[]; // player-placed defensive equipment (JUGS, sleds, ref towers…)
+  inventory: StoredPieces;  // pieces stored off the board (Design "Store All" → drag back)
+  bus: { gridX: number; gridY: number; flip?: boolean } | null; // the Team Bus — a movable BIG blocker (walls-tier obstacle)
+}
+
+// Pieces you own but currently have OFF the board (Design-mode inventory).
+export interface StoredPieces {
+  sleds: number;              // blocking-sled walls stored
+  defenses: { kind: string }[]; // stored equipment (kind preserved — they were paid for)
+  bus: boolean;               // the Team Bus parked off-board
 }
 
 // A placeable defense piece — bought and positioned by the player in Design mode;
@@ -192,6 +201,7 @@ export interface DefensePiece {
   kind: string; // key into DEFENSE_TYPES
   gridX: number;
   gridY: number;
+  flip?: boolean; // mirrored facing (tap-to-rotate in Design)
 }
 
 // A hero's persistent progression: level (coins), stars (evolution via shards), shards (from
