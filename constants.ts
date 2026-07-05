@@ -252,7 +252,10 @@ export const VOXEL_CONFIG = {
 };
 
 // --- WALLS ("Blocking Sleds") ---
-export const WALL_CAP = 24;
+export const WALL_CAP = 24; // legacy flat cap (still used by the balance-sim tier model)
+/** Wall capacity scales with your Stadium: L1=18 → L4=24 (old parity) → L11=38, capped 40.
+ *  Sealing lanes is the game now (pathfinding) — capacity is an upgrade payoff. */
+export const wallCap = (stadiumLevel: number) => Math.min(40, 16 + 2 * stadiumLevel);
 export const WALL_HP = 220;
 // Starter ring protecting the Stadium (HQ) at grid (6,6).
 export const INITIAL_WALLS: { gridX: number; gridY: number }[] = [

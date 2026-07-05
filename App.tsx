@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT } from './constants';
+import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap } from './components/IsometricMap';
@@ -906,7 +906,8 @@ function App() {
   const handlePaintWall = (gx: number, gy: number) => {
     if (!tileFree(gx, gy)) return;
     setGameState(prev => {
-      if (prev.walls.length >= WALL_CAP) return prev;
+      const cap = wallCap(prev.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1);
+      if (prev.walls.length >= cap) return prev;
       if (prev.walls.some(w => w.gridX === gx && w.gridY === gy)) return prev;
       return { ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] };
     });
@@ -1050,7 +1051,7 @@ function App() {
     if (dAt) { handleFlipDefense(dAt.id); sfx.click(); return; } // tap equipment = rotate (mirror)
     if (busAt) { handleFlipBus(); sfx.click(); return; }
     if (wIdx >= 0) { pushUndo(); setGameState(prev => ({ ...prev, walls: prev.walls.filter((_, i) => i !== wIdx) })); return; }
-    if (gameState.walls.length >= WALL_CAP) { spawnText('Wall limit reached', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
+    if (gameState.walls.length >= wallCap(stadiumLevel)) { spawnText('Wall limit reached — upgrade your Stadium for more', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
     pushUndo();
     setGameState(prev => ({ ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] }));
     sfx.click();
@@ -1443,7 +1444,7 @@ function App() {
               );
             })()}
             <div className="text-[10px] text-slate-500 mt-1.5">
-              <span className="text-yellow-300 font-bold">Drag</span> pieces to move • <span className="text-yellow-300 font-bold">Tap</span> equipment/bus to rotate • Tap empty tiles for <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP})
+              <span className="text-yellow-300 font-bold">Drag</span> pieces to move • <span className="text-yellow-300 font-bold">Tap</span> equipment/bus to rotate • <span className="text-yellow-300 font-bold">Drag on grass</span> to paint Blocking Sleds ({gameState.walls.length}/{wallCap(stadiumLevel)} — grows with Stadium)
             </div>
             </>}
           </div>
