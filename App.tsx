@@ -7,7 +7,6 @@ import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap } from './components/IsometricMap';
 import { TopHUD } from './components/TopHUD';
 import { SquadModal } from './components/SquadModal';
-import { SeasonModal } from './components/SeasonModal';
 import { ActionModal } from './components/ActionModal';
 import { ScoutingModal } from './components/ScoutingModal';
 import { StandingsModal } from './components/StandingsModal';
@@ -160,7 +159,6 @@ const loadState = (): GameState => {
 function App() {
   const [gameState, setGameState] = useState<GameState>(loadState);
   const [isSquadOpen, setIsSquadOpen] = useState(false);
-  const [isSeasonOpen, setIsSeasonOpen] = useState(false);
   const [isScoutingOpen, setIsScoutingOpen] = useState(false);
   const [isStandingsOpen, setIsStandingsOpen] = useState(false);
   const [attackSelectOpen, setAttackSelectOpen] = useState(false);
@@ -182,9 +180,12 @@ function App() {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
 
-  const finishTutorial = () => {
+  const finishTutorial = (teamName: string, startRaid: boolean) => {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     setShowTutorial(false);
+    setGameState(prev => ({ ...prev, teamName }));
+    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster))), 400);
+    if (startRaid) openRaid();
   };
 
   const lastUpdateRef = useRef(Date.now());
@@ -392,20 +393,17 @@ function App() {
      bumpDaily('drills');
   };
 
-  const handleMatchComplete = (result: MatchResult) => {
-      setGameState(prev => ({
-          ...prev,
-          matchHistory: [result, ...prev.matchHistory],
-          currentMatch: prev.currentMatch + 1,
-          resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS + result.reward, [ResourceType.FANS]: prev.resources.FANS + (result.won ? 50 : 10) },
-          teamReadiness: Math.max(0, prev.teamReadiness - 20) // Fatigue: Readiness drops after match
-      }));
-      setIsSeasonOpen(false);
-      spawnText(result.won ? "VICTORY!" : "DEFEAT", window.innerWidth/2, window.innerHeight/2, result.won ? '#10b981' : '#ef4444');
-      if (result.won) sfx.victory(); else sfx.defeat();
-  };
-
   const newJobId = () => `up_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+
+  // Team Readiness feeds RAIDS now (the legacy auto-sim match is gone): a FIRED UP squad
+  // (readiness 100) hits +15% harder, then fatigue drops readiness after any attack.
+  const raidPower = (): Record<UnitGroup, number> => {
+    const p = armyStrength(gameState.roster);
+    if (gameState.teamReadiness >= 100) {
+      (Object.keys(p) as UnitGroup[]).forEach(k => { p[k] = Math.min(4.5, p[k] * 1.15); });
+    }
+    return p;
+  };
 
   const handleUpgradeBuilding = (buildingId: string, cost: number) => {
     const building = gameState.buildings.find(b => b.id === buildingId);
@@ -544,7 +542,7 @@ function App() {
     switch (id) {
       case 'collect-drill': { const d = gameState.buildings.find(b => b.state === DrillState.COMPLETED); if (d) handleCollect(d, center); break; }
       case 'collect-coins': { const st = find(BuildingType.STADIUM); if (st) handleCollectResource(st, center); break; }
-      case 'play': setIsSeasonOpen(true); break;
+      case 'play': openRaid(); break;
       case 'fortify': setEditMode(true); setMoveSel(null); setSelectedBuilding(null); break;
       case 'train': setIsSquadOpen(true); break;
       case 'upgrade': { const st = find(BuildingType.STADIUM); if (st) setSelectedBuilding(st); break; }
@@ -579,7 +577,7 @@ function App() {
       title: `Revenge — ${entry.attacker}`,
       buildings: makeRevengeBase(opp?.defenseRating ?? 50),
       playerArmy: armyFromRoster(gameState.roster),
-      power: armyStrength(gameState.roster),
+      power: raidPower(),
       heroes: heroesForBattle(gameState.heroes),
       specials: specialsForBattle(gameState.resources.FANS),
       loot: { coins: Math.round(entry.coinsLost * 1.5) + 200, fans: 25 }, // reclaim more than they took
@@ -632,6 +630,7 @@ function App() {
           matchHistory: [{ week: prev.currentMatch, opponent: r.title.replace('Attacking ', ''), ourScore: r.stars, theirScore: 0, won: r.won, reward: r.coins }, ...prev.matchHistory],
           currentMatch: prev.currentMatch + 1,
           trophies: Math.max(0, prev.trophies + trophyDelta),
+          teamReadiness: Math.max(0, prev.teamReadiness - 20), // fatigue after taking the field
           shieldUntil: 0, // going on offense drops your protective shield
         };
       });
@@ -790,7 +789,7 @@ function App() {
       title: `${st.name} — ${st.opponent}`,
       buildings: base.buildings,
       playerArmy: armyFromRoster(gameState.roster),
-      power: armyStrength(gameState.roster),
+      power: raidPower(),
       heroes: heroesForBattle(gameState.heroes),
       specials: specialsForBattle(gameState.resources.FANS),
       loot: st.reward,
@@ -851,7 +850,7 @@ function App() {
 
   return (
     <div className="relative w-full h-screen bg-slate-900 overflow-hidden font-sans select-none">
-      {showTutorial && <TutorialOverlay onDone={finishTutorial} />}
+      {showTutorial && <TutorialOverlay initialName={gameState.teamName} onRerollName={genTeamName} onDone={finishTutorial} />}
 
       <TopHUD gameState={gameState} onRally={handleRally} />
 
@@ -884,14 +883,6 @@ function App() {
           onClose={() => setIsSquadOpen(false)}
           onTrainGroup={handleTrainGroup}
           onOpenHeroes={() => { setIsSquadOpen(false); setIsHeroOpen(true); }}
-        />
-      )}
-
-      {isSeasonOpen && (
-        <SeasonModal
-          gameState={gameState}
-          onClose={() => setIsSeasonOpen(false)}
-          onMatchComplete={handleMatchComplete}
         />
       )}
 
@@ -970,7 +961,7 @@ function App() {
                 <>
                   <div className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-300 flex items-center gap-1.5">⚡ Live Rivals <span className="text-slate-500 normal-case tracking-normal">— real coaches' stadiums</span></div>
                   {liveTargets.map(b => (
-                    <button key={b.pid} onClick={() => { setBattleConfig({ mode: 'attack', title: `Raiding ${b.name}`, buildings: b.layout, playerArmy: armyFromRoster(gameState.roster), power: armyStrength(gameState.roster), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: { coins: 500 + b.trophies * 3, fans: 25 }, pvpTarget: b.pid }); setAttackSelectOpen(false); }}
+                    <button key={b.pid} onClick={() => { setBattleConfig({ mode: 'attack', title: `Raiding ${b.name}`, buildings: b.layout, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: { coins: 500 + b.trophies * 3, fans: 25 }, pvpTarget: b.pid }); setAttackSelectOpen(false); }}
                       className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-fuchsia-700/70 hover:border-fuchsia-400 bg-fuchsia-950/30 hover:bg-fuchsia-900/30 transition-all active:scale-95 text-left">
                       <div>
                         <div className="font-bold text-white text-lg">⚡ {b.name}</div>
@@ -989,7 +980,7 @@ function App() {
                 <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> not connected — raid real players by wiring Supabase (see <span className="font-mono">PVP-SETUP.md</span>).</div>
               )}
               {raidTargets.map(b => (
-                <button key={b.id} onClick={() => { setBattleConfig({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: armyStrength(gameState.roster), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward }); setAttackSelectOpen(false); }}
+                <button key={b.id} onClick={() => { setBattleConfig({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward }); setAttackSelectOpen(false); }}
                   className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
                   <div>
                     <div className="font-bold text-white text-lg">{b.name}</div>
@@ -1065,7 +1056,7 @@ function App() {
       {!editMode && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} />}
       <TourPointer
         gameState={gameState}
-        active={!editMode && !(isSquadOpen || isSeasonOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial)}
+        active={!editMode && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial)}
       />
 
       {/* Base design (edit) mode banner */}

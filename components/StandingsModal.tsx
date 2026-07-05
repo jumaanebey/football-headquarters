@@ -109,18 +109,17 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
         <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between gap-3">
           <div className="text-xs text-slate-400 flex items-center gap-2 min-w-0">
             {ready
-              ? <><span className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0"><Trophy size={13} className="text-white" /></span> Team ready — play your next match!</>
-              : <><Dumbbell size={14} className="text-blue-400 shrink-0" /> <span className="truncate">Readiness {gameState.teamReadiness}% — train to 100% to unlock</span></>}
+              ? <><span className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0"><Trophy size={13} className="text-white" /></span> Squad FIRED UP — your next raid hits <span className="text-green-400 font-bold">+15%</span> harder!</>
+              : <><Dumbbell size={14} className="text-blue-400 shrink-0" /> <span className="truncate">Readiness {gameState.teamReadiness}% — reach 100% for a +15% raid bonus</span></>}
           </div>
           <button
             onClick={onPlay}
-            disabled={!ready}
             className={`shrink-0 py-3 px-5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
               ${ready
                 ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg ring-2 ring-green-400/50 animate-pulse'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
+                : 'bg-red-600 hover:bg-red-500 text-white'}`}
           >
-            {ready ? <><Trophy size={16} /> Play Match</> : <><Lock size={15} /> Reach 100%</>}
+            <Trophy size={16} /> Raid{ready ? ' (+15%)' : ''}
           </button>
         </div>
       </div>

@@ -93,8 +93,8 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
         </div>
 
         <div className="p-4 border-t border-slate-800 bg-slate-900">
-          <button onClick={onWatchLive} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-2 transition-colors active:scale-95">
-            <Shield size={18} /> Watch a Live Defense
+          <button onClick={onWatchLive} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-2 transition-colors active:scale-95" title="Simulates a fresh raid on your current layout — a practice rep, not a replay">
+            <Shield size={18} /> Run a Defense Scrimmage
           </button>
         </div>
       </div>

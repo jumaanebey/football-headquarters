@@ -156,7 +156,6 @@ export const heroesForBattle = (heroStates: { key: string; level: number; unlock
 export const heroMaxLevel = (stadiumLevel: number) => stadiumLevel + 5;
 
 export const ABILITY_CD = 11;      // seconds between hero ability uses
-export const HAILMARY_DAMAGE = 260; // base burst (scaled by OVR at build time)
 export const RAGE_SECONDS = 5;
 export const HEAL_SECONDS = 4;
 export const HEAL_PER_SEC = 45;

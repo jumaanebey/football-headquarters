@@ -28,9 +28,9 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
 
         {/* Profile / Level */}
         <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur border border-slate-700 rounded-full p-1 pr-4 pointer-events-auto shadow-lg">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center border-2 border-white relative">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center border-2 border-white relative" title={`Coach level ${level} — earn XP from training drills`}>
             <span className="font-display font-bold text-lg">{level}</span>
-            <div className="absolute -bottom-1 -right-1 bg-yellow-500 text-[8px] font-bold text-black px-1 rounded">MGR</div>
+            <div className="absolute -bottom-1 -right-1 bg-yellow-500 text-[8px] font-bold text-black px-1 rounded">COACH</div>
           </div>
           <div className="flex flex-col w-24">
             <span className="text-xs font-bold flex items-center gap-1 leading-tight" style={{ color: rank.color }}>{rank.emoji} {rank.name}</span>
@@ -75,7 +75,7 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
           </div>
 
           {/* Gems */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-purple-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-purple-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Crowns — earned from raids & dailies; spent on Scout Searches, finishing timers, and builders">
             <Crown size={16} className="text-purple-400 fill-purple-400" />
             <span className="font-display font-bold text-lg">{resources.GEMS}</span>
           </div>

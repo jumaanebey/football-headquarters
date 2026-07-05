@@ -47,7 +47,7 @@ export const getObjectives = (gs: GameState): ObjectiveItem[] => {
 
   const pool: (ObjectiveItem & { prio: number })[] = [];
   if (completedDrill) pool.push({ prio: 1, id: 'collect-drill', text: 'Collect your finished drill (green ✓)', iconKey: 'check', target: 'drill-done' });
-  if (gs.teamReadiness >= 100) pool.push({ prio: 2, id: 'play', text: "Team's ready — play your match!", iconKey: 'trophy', target: 'trophy' });
+  if (gs.teamReadiness >= 100) pool.push({ prio: 2, id: 'play', text: 'Squad FIRED UP (+15% raid power) — raid now!', iconKey: 'trophy', target: 'trophy' });
   if (banked >= Math.max(30, cap * 0.25)) pool.push({ prio: 3, id: 'collect-coins', text: 'Bank your Stadium revenue', iconKey: 'coins', target: 'collect' });
   if (gs.walls.length < FORTIFY_MIN_WALLS) pool.push({ prio: 4, id: 'fortify', text: 'Fortify your base — add Blocking Sleds', iconKey: 'shield', target: 'design', progress: { cur: gs.walls.length, max: FORTIFY_MIN_WALLS } });
   if (gs.teamReadiness < 100) pool.push({ prio: 5, id: 'train', text: 'Train up to match-ready', iconKey: 'dumbbell', target: 'coach', progress: { cur: Math.round(gs.teamReadiness), max: 100 } });
@@ -69,7 +69,7 @@ export const getObjective = (gs: GameState): Objective => {
   if (completedDrill)
     return { text: 'Tap the green ✓ over your Training Field to collect', iconKey: 'check', tone: 'go', target: 'drill-done' };
   if (gs.teamReadiness >= 100)
-    return { text: 'Your team is READY — tap the 🏆 to play your match!', iconKey: 'trophy', tone: 'go', target: 'trophy' };
+    return { text: 'Squad FIRED UP (+15% power) — tap the ⚔️ to raid!', iconKey: 'trophy', tone: 'go', target: 'trophy' };
   if (banked >= Math.max(30, cap * 0.25))
     return { text: 'Tap the coin bubble on your Stadium to bank revenue', iconKey: 'coins', tone: 'go', target: 'collect' };
   if (activeDrill)
