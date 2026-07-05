@@ -32,7 +32,7 @@ import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, 
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
-import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Hammer, Star } from 'lucide-react';
+import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Star, ClipboardList } from 'lucide-react';
 
 const INITIAL_STATE: GameState = {
   resources: {
@@ -187,7 +187,9 @@ function App() {
   const [liveTargets, setLiveTargets] = useState<LiveBase[]>([]);
   const [placingDefense, setPlacingDefense] = useState<string | null>(null); // DEFENSE_TYPES kind being placed (shop buy)
   const [placingInv, setPlacingInv] = useState<{ type: 'sled' | 'bus' | 'defense'; kind?: string } | null>(null); // inventory piece being placed back
-  const [designExpanded, setDesignExpanded] = useState(false); // Design HUD starts slim so the board (and funnel lanes) stay visible
+  const [designExpanded, setDesignExpanded] = useState(false); // Chalkboard HUD starts slim so the board (and funnel lanes) stay visible
+  const [chalkIntro, setChalkIntro] = useState(() => { try { return localStorage.getItem('fhq_chalk_intro_v1') !== '1'; } catch { return true; } });
+  const dismissChalkIntro = () => { setChalkIntro(false); try { localStorage.setItem('fhq_chalk_intro_v1', '1'); } catch { /* ignore */ } };
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
@@ -1243,6 +1245,23 @@ function App() {
         active={!editMode && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial)}
       />
 
+      {/* 🏈 First visit to the Chalkboard — one card, four moves, then out of the way */}
+      {editMode && chalkIntro && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={dismissChalkIntro}>
+          <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-blue-600 shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-display font-black text-white uppercase mb-1">📋 The Chalkboard</h3>
+            <p className="text-slate-400 text-xs mb-4">Where you scheme your stadium's defense. Four moves:</p>
+            <div className="space-y-2.5 text-sm text-slate-200">
+              <div className="flex gap-2.5"><span className="shrink-0">✋</span><span><b className="text-white">Drag</b> any building, equipment, or the bus to move it</span></div>
+              <div className="flex gap-2.5"><span className="shrink-0">🔄</span><span><b className="text-white">Tap</b> equipment or the bus to rotate it</span></div>
+              <div className="flex gap-2.5"><span className="shrink-0">🛑</span><span><b className="text-white">Tap empty grass</b> to drop a Blocking Sled (tap a sled to remove it)</span></div>
+              <div className="flex gap-2.5"><span className="shrink-0">🛣</span><span>The dashed lines are <b className="text-red-300">raider routes</b> — <b className="text-red-300">red walks in free</b>, <b className="text-green-300">green means your walls stop them</b>. Seal the red.</span></div>
+            </div>
+            <button onClick={dismissChalkIntro} className="mt-5 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Chalk it up 🏈</button>
+          </div>
+        </div>
+      )}
+
       {/* Base design (edit) mode banner */}
       {editMode && (() => {
         const dr = computeDefenseRating(gameState.buildings, gameState.walls, gameState.roster, gameState.resources.FANS, gameState.defenses.length, gameState.parkingLot);
@@ -1432,7 +1451,7 @@ function App() {
 
           <NavBtn icon={<Calendar />} label="Standings" onClick={() => setIsStandingsOpen(true)} />
 
-          <NavBtn icon={<Hammer />} label="Design" active={editMode} tourId="design" onClick={() => { setEditMode(true); setMoveSel(null); setSelectedBuilding(null); }} />
+          <NavBtn icon={<ClipboardList />} label="Chalkboard" active={editMode} tourId="design" onClick={() => { setEditMode(true); setMoveSel(null); setSelectedBuilding(null); }} />
         </div>
       </div>
     </div>

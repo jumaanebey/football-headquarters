@@ -83,7 +83,7 @@ export const computeDefenseRating = (
     ['Seal the wall ring — attackers walk through gaps', wallScore],
     ['Upgrade your buildings', structScore],
     ['Recruit defenders (Anchor / Iron Wall)', defScore],
-    ['Place defensive equipment (Design → shop)', Math.min(1, defenseCount / 3)],
+    ['Place defensive equipment (Chalkboard → shop)', Math.min(1, defenseCount / 3)],
   ];
   factors.sort((a, b) => a[1] - b[1]);
   const weakness = factors[0][1] >= 0.85 ? 'Your stadium is a fortress! 🏰' : factors[0][0];
