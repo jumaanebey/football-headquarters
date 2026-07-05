@@ -225,7 +225,7 @@ const BuildingSprite: React.FC<{
   onCollect: Props['onCollect'];
   onCollectResource?: Props['onCollectResource'];
 }> = ({ building, recruitSlot, upgradeJob, editMode, moveSel, dimmed, clickGuard, onBuildingClick, onCollect, onCollectResource }) => {
-  const c = tileToScreen(building.gridX, building.gridY);
+  const c = tileToScreen(building.gridX + 0.5, building.gridY + 0.5); // 2×2 footprint center
   const info = BUILDING_INFO[building.type];
   const src = buildingSprite(building.type, building.level);
 
@@ -257,10 +257,10 @@ const BuildingSprite: React.FC<{
     else onBuildingClick(building, screenPos);
   };
 
-  const SPRITE_W = TILE_W * 1.5; // sized to roughly match a tile footprint — edge cells no longer spill off the board
+  const SPRITE_W = TILE_W * 1.9; // fills the 2×2 footprint — buildings finally OWN their 4 tiles
 
   return (
-    <div className={`absolute group ${editMode ? '' : 'cursor-pointer'}`} style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 5, pointerEvents: editMode ? 'none' : 'auto', opacity: dimmed ? 0.35 : 1 }} onClick={editMode ? undefined : handleClick}>
+    <div className={`absolute group ${editMode ? '' : 'cursor-pointer'}`} style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6, pointerEvents: editMode ? 'none' : 'auto', opacity: dimmed ? 0.35 : 1 }} onClick={editMode ? undefined : handleClick}>
       {/* Move-selection highlight (edit mode) */}
       {moveSel === building.id && (
         <div className="absolute -translate-x-1/2 rounded-full bg-blue-400/50 blur-sm animate-pulse pointer-events-none" style={{ left: 0, bottom: -TILE_H / 2 - 6, width: SPRITE_W * 0.9, height: TILE_H * 1.5 }} />
@@ -410,16 +410,15 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   // the tile BEHIND the art you clicked. Instead, test the pointer against each piece's
   // on-screen bounding box, front-most (highest gx+gy) first — what you see is what you grab.
   const pieceAtPoint = (bx: number, by: number): { id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number } | null => {
-    type Hit = { id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number; w: number; h: number };
+    type Hit = { id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number; w: number; h: number; cx: number; cy: number };
     const hits: Hit[] = [
-      ...defenses.map(d => ({ id: d.id, piece: 'defense' as const, gx: d.gridX, gy: d.gridY, w: TILE_W * 0.92, h: TILE_W * 0.92 })),
-      ...(bus ? [{ id: 'team-bus', piece: 'bus' as const, gx: bus.gridX, gy: bus.gridY, w: TILE_W * 1.5, h: TILE_W * 1.1 }] : []),
-      ...buildings.map(b => ({ id: b.id, piece: 'building' as const, gx: b.gridX, gy: b.gridY, w: TILE_W * 1.5, h: TILE_W * 1.5 })),
+      ...defenses.map(d => { const c = tileToScreen(d.gridX, d.gridY); return { id: d.id, piece: 'defense' as const, gx: d.gridX, gy: d.gridY, w: TILE_W * 0.92, h: TILE_W * 0.92, cx: c.x, cy: c.y + TILE_H / 2 }; }),
+      ...(bus ? [(() => { const c = tileToScreen(bus.gridX, bus.gridY); return { id: 'team-bus', piece: 'bus' as const, gx: bus.gridX, gy: bus.gridY, w: TILE_W * 1.5, h: TILE_W * 1.1, cx: c.x, cy: c.y + TILE_H / 2 }; })()] : []),
+      // Buildings hit-test over their FULL 2×2 art (center anchor, bottom = footprint's low vertex).
+      ...buildings.map(b => { const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5); return { id: b.id, piece: 'building' as const, gx: b.gridX, gy: b.gridY, w: TILE_W * 1.9, h: TILE_W * 1.9, cx: c.x, cy: c.y + TILE_H }; }),
     ].sort((a, b) => (b.gx + b.gy) - (a.gx + a.gy)); // front-most first
     for (const p of hits) {
-      const c = tileToScreen(p.gx, p.gy);
-      const bottom = c.y + TILE_H / 2;
-      if (bx >= c.x - p.w / 2 && bx <= c.x + p.w / 2 && by >= bottom - p.h && by <= bottom) return p;
+      if (bx >= p.cx - p.w / 2 && bx <= p.cx + p.w / 2 && by >= p.cy - p.h && by <= p.cy) return p;
     }
     return null;
   };
@@ -486,12 +485,16 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   };
 
   const dragMoved = !!drag && (drag.gx !== drag.startGx || drag.gy !== drag.startGy);
+  const cellBlocked = (gx: number, gy: number, ignoreId: string) =>
+    buildings.some(b => b.id !== ignoreId && gx >= b.gridX && gx <= b.gridX + 1 && gy >= b.gridY && gy <= b.gridY + 1)
+    || walls.some(w => w.gridX === gx && w.gridY === gy)
+    || defenses.some(x => x.id !== ignoreId && x.gridX === gx && x.gridY === gy)
+    || !!(bus && ignoreId !== 'team-bus' && bus.gridX === gx && bus.gridY === gy);
   const dragTileFree = drag
-    ? drag.gx >= 0 && drag.gx < GRID && drag.gy >= 0 && drag.gy < GRID
-      && !buildings.some(b => b.id !== drag.id && b.gridX === drag.gx && b.gridY === drag.gy)
-      && !walls.some(w => w.gridX === drag.gx && w.gridY === drag.gy)
-      && !defenses.some(x => x.id !== drag.id && x.gridX === drag.gx && x.gridY === drag.gy)
-      && !(bus && drag.id !== 'team-bus' && bus.gridX === drag.gx && bus.gridY === drag.gy)
+    ? (drag.piece === 'building'
+      ? drag.gx >= 0 && drag.gx <= GRID - 2 && drag.gy >= 0 && drag.gy <= GRID - 2
+        && ![[0, 0], [1, 0], [0, 1], [1, 1]].some(([dx, dy]) => cellBlocked(drag.gx + dx, drag.gy + dy, drag.id))
+      : drag.gx >= 0 && drag.gx < GRID && drag.gy >= 0 && drag.gy < GRID && !cellBlocked(drag.gx, drag.gy, drag.id))
     : false;
 
   const night = timeOfDay < 6 || timeOfDay > 20;
@@ -539,7 +542,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {editMode && (() => {
             const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
             if (!stadium) return null;
-            const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadium.gridX * 10, y: stadium.gridY * 10, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
+            const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadium.gridX * 10 + 5, y: stadium.gridY * 10 + 5, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
             const obstacles: BBuilding[] = [
               ...walls.map((w, i) => ({ id: `w${i}`, kind: 'wall' as const, x: w.gridX * 10, y: w.gridY * 10, hp: 1, maxHp: 1, size: 4, dead: false, cooldown: 0 })),
               ...(bus ? [{ id: 'bus', kind: 'wall' as const, x: bus.gridX * 10, y: bus.gridY * 10, hp: 1, maxHp: 1, size: 6, dead: false, cooldown: 0 }] : []),
@@ -565,8 +568,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           })()}
           {/* Drag ghost: green = drop OK, red = blocked */}
           {drag && (editMode || dragMoved) && (() => {
-            const c = tileToScreen(drag.gx, drag.gy);
-            const pts = `${c.x},${c.y - TILE_H / 2} ${c.x + TILE_W / 2},${c.y} ${c.x},${c.y + TILE_H / 2} ${c.x - TILE_W / 2},${c.y}`;
+            const big = drag.piece === 'building'; // 2×2 footprint ghost
+            const c = big ? tileToScreen(drag.gx + 0.5, drag.gy + 0.5) : tileToScreen(drag.gx, drag.gy);
+            const hw = big ? TILE_W : TILE_W / 2, hh = big ? TILE_H : TILE_H / 2;
+            const pts = `${c.x},${c.y - hh} ${c.x + hw},${c.y} ${c.x},${c.y + hh} ${c.x - hw},${c.y}`;
             // Dragging equipment? Show its coverage at the drop spot — position by RANGE, not vibes.
             const dKind = drag.piece === 'defense' ? defenses.find(x => x.id === drag.id)?.kind : null;
             const dType = dKind ? DEFENSE_TYPES.find(x => x.kind === dKind) : null;
@@ -593,7 +598,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             let src = ''; let w = TILE_W;
             if (drag.piece === 'building') {
               const b = buildings.find(x => x.id === drag.id);
-              if (b) { src = buildingSprite(b.type, b.level); w = TILE_W * 1.35; }
+              if (b) { src = buildingSprite(b.type, b.level); w = TILE_W * 1.7; }
             } else if (drag.piece === 'defense') {
               const d = defenses.find(x => x.id === drag.id);
               const t = d && DEFENSE_TYPES.find(x => x.kind === d.kind);

@@ -360,8 +360,9 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
   const squeeze = 1 - PARKING_LOT.compressPerLevel * Math.min(PARKING_LOT.maxLevel, Math.max(0, parkingLot));
   const cx = (v: number) => 50 + (v - 50) * squeeze;
   const bs: BattleBuildingDef[] = buildings.map(b => {
-    const x = cx(Math.min(86, Math.max(14, b.gridX * 10)));
-    const y = cx(Math.min(86, Math.max(14, b.gridY * 10)));
+    // 2×2 footprint → the battle entity sits at the footprint CENTER (anchor tile + half).
+    const x = cx(Math.min(86, Math.max(14, b.gridX * 10 + 5)));
+    const y = cx(Math.min(86, Math.max(14, b.gridY * 10 + 5)));
     const lvl = b.level;
     if (b.type === BuildingType.STADIUM)
       return { id: b.id, kind: 'hq', x, y, hp: Math.round(500 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 8 };

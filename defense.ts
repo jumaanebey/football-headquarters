@@ -38,7 +38,7 @@ export const defenseTroopBoost = (roster: Player[]): number => {
 const sealScore = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[]): number => {
   const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
   if (!stadium || !walls.length) return 0;
-  const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadium.gridX * 10, y: stadium.gridY * 10, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
+  const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadium.gridX * 10 + 5, y: stadium.gridY * 10 + 5, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
   const wallBs: BBuilding[] = walls.map((w, i) => ({ id: `w${i}`, kind: 'wall', x: w.gridX * 10, y: w.gridY * 10, hp: 1, maxHp: 1, size: 4, dead: false, cooldown: 0 }));
   const lanes: [number, number][] = [[0, 0], [90, 0], [0, 90], [90, 90], [45, 0], [0, 45], [90, 45], [45, 90]];
   let sealed = 0;

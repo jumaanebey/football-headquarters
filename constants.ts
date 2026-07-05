@@ -179,10 +179,10 @@ export const collectorCap = (type: BuildingType, level: number): number => {
 // 2,2 / 6,1 / 1,6 / 6,6).
 // (team-bus is NOT decor anymore — it's a movable blocker piece on GameState.bus)
 export const DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
-  { slug: 'statue-legends', gridX: 4, gridY: 3, scale: 0.8 },
-  { slug: 'merch-stand',    gridX: 8, gridY: 3, scale: 0.75 },
+  { slug: 'statue-legends', gridX: 5, gridY: 3, scale: 0.75 },
+  { slug: 'merch-stand',    gridX: 9, gridY: 4, scale: 0.7 },
   { slug: 'club-fountain',  gridX: 1, gridY: 7, scale: 0.6 },
-  { slug: 'tailgate-tent',  gridX: 8, gridY: 7, scale: 0.8 },
+  { slug: 'tailgate-tent',  gridX: 9, gridY: 7, scale: 0.75 },
   { slug: 'parking-lot',    gridX: 1, gridY: 3, scale: 0.7 },
 ];
 
@@ -243,8 +243,20 @@ export const DEFENSE_TYPES: DefenseTypeDef[] = [
   { kind: 'ref',    name: 'Ref Tower',      sprite: '/assets/battle/ref-tower.png',      emoji: '🚩', desc: 'Penalty flags SLOW runners, longest range', cost: 3200, hp: 220, damage: 13, range: 30 },
   { kind: 'tshirt', name: 'T-Shirt Cannon', sprite: '/assets/battle/tshirt-cannon.png',  emoji: '👕', desc: 'Splash — blasts the whole cluster',       cost: 2200, hp: 240, damage: 18, range: 20 },
 ];
-/** How many defense pieces your Stadium level supports. */
+/** How many defense pieces your Stadium level supports (before purchased bonus slots). */
 export const maxDefenses = (stadiumLevel: number) => Math.min(6, 2 + Math.floor(stadiumLevel / 3));
+/** Extra equipment slots are purchasable with Crowns — a real gem sink (+1 each, max +3). */
+export const EXTRA_SLOT_COSTS = [40, 80, 120];
+
+// --- BUILDING FOOTPRINTS ---
+// Facilities are REAL 2×2 buildings now (4 tiles), matching their art scale — no more
+// giant sprites squatting on single tiles. gridX/gridY is the TOP anchor cell.
+export const BUILDING_SIZE = 2;
+export const buildingTiles = (gx: number, gy: number): [number, number][] =>
+  [[gx, gy], [gx + 1, gy], [gx, gy + 1], [gx + 1, gy + 1]];
+/** True when (tx,ty) is inside the 2×2 footprint anchored at (gx,gy). */
+export const inFootprint = (tx: number, ty: number, gx: number, gy: number) =>
+  tx >= gx && tx <= gx + 1 && ty >= gy && ty <= gy + 1;
 
 export const VOXEL_CONFIG = {
   tileSize: 80,
@@ -257,11 +269,12 @@ export const WALL_CAP = 24; // legacy flat cap (still used by the balance-sim ti
  *  Sealing lanes is the game now (pathfinding) — capacity is an upgrade payoff. */
 export const wallCap = (stadiumLevel: number) => Math.min(40, 16 + 2 * stadiumLevel);
 export const WALL_HP = 220;
-// Starter ring protecting the Stadium (HQ) at grid (6,6).
+// Starter ring protecting the 2×2 Stadium (anchor 6,6 → covers 6-7 × 6-7).
 export const INITIAL_WALLS: { gridX: number; gridY: number }[] = [
-  { gridX: 5, gridY: 5 }, { gridX: 6, gridY: 5 }, { gridX: 7, gridY: 5 },
-  { gridX: 5, gridY: 6 }, { gridX: 7, gridY: 6 },
-  { gridX: 5, gridY: 7 }, { gridX: 6, gridY: 7 }, { gridX: 7, gridY: 7 },
+  { gridX: 5, gridY: 5 }, { gridX: 6, gridY: 5 }, { gridX: 7, gridY: 5 }, { gridX: 8, gridY: 5 },
+  { gridX: 5, gridY: 6 }, { gridX: 8, gridY: 6 },
+  { gridX: 5, gridY: 7 }, { gridX: 8, gridY: 7 },
+  { gridX: 5, gridY: 8 }, { gridX: 6, gridY: 8 }, { gridX: 7, gridY: 8 }, { gridX: 8, gridY: 8 },
 ];
 
 // HELPER: Generate roster

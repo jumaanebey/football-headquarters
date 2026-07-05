@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap } from './constants';
+import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap, buildingTiles, inFootprint, EXTRA_SLOT_COSTS } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap, screenToTile, BOARD_DIMS } from './components/IsometricMap';
@@ -65,8 +65,9 @@ const INITIAL_STATE: GameState = {
   dailies: freshDailies(),
   defenses: [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }], // starter JUGS machine
   inventory: { sleds: 0, defenses: [], bus: false },
-  bus: { gridX: 4, gridY: 9 }, // the Team Bus — a movable big blocker (was static decor)
-  parkingLot: 0
+  bus: { gridX: 6, gridY: 9 }, // the Team Bus — a movable big blocker (was static decor)
+  parkingLot: 0,
+  bonusDefSlots: 0
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -122,11 +123,49 @@ const loadState = (): GameState => {
       // Daily quests reset when the calendar day changes; team name backfills once.
       const dailies = (saved.dailies && saved.dailies.date === todayKey()) ? saved.dailies : freshDailies();
       const teamName = saved.teamName || genTeamName();
-      const defenses = saved.defenses ?? [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }];
-      const inventory = saved.inventory ?? { sleds: 0, defenses: [], bus: false };
+      const defenses = [...(saved.defenses ?? [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }])];
+      const inventory = { ...(saved.inventory ?? { sleds: 0, defenses: [], bus: false }) };
+      inventory.defenses = [...inventory.defenses];
       // Backfill the Team Bus for old saves (it graduated from decor to a movable blocker).
-      const bus = saved.bus !== undefined ? saved.bus : (inventory.bus ? null : { gridX: 4, gridY: 9 });
+      let bus = saved.bus !== undefined ? saved.bus : (inventory.bus ? null : { gridX: 6, gridY: 9 });
       const parkingLot = saved.parkingLot ?? 0;
+      const bonusDefSlots = saved.bonusDefSlots ?? 0;
+
+      // --- 2×2 FOOTPRINT MIGRATION (idempotent) ---
+      // Facilities occupy 4 tiles now. De-overlap buildings (Stadium keeps its spot first),
+      // then free any walls/equipment/bus trapped inside a footprint into the inventory.
+      {
+        const occ = new Set<string>();
+        const fits = (gx: number, gy: number) =>
+          gx >= 0 && gx <= 8 && gy >= 0 && gy <= 8 && !buildingTiles(gx, gy).some(([x, y]) => occ.has(`${x},${y}`));
+        const order = [...buildings].sort((a, b) => (a.type === BuildingType.STADIUM ? -1 : b.type === BuildingType.STADIUM ? 1 : 0));
+        for (const b of order) {
+          let gx = Math.min(8, Math.max(0, b.gridX));
+          let gy = Math.min(8, Math.max(0, b.gridY));
+          if (!fits(gx, gy)) {
+            // spiral out to the nearest anchor that fits
+            outer: for (let rad = 1; rad <= 9; rad++) {
+              for (let dx = -rad; dx <= rad; dx++) for (let dy = -rad; dy <= rad; dy++) {
+                if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
+                if (fits(gx + dx, gy + dy)) { gx += dx; gy += dy; break outer; }
+              }
+            }
+          }
+          b.gridX = gx; b.gridY = gy;
+          buildingTiles(gx, gy).forEach(([x, y]) => occ.add(`${x},${y}`));
+        }
+        // Free trapped pieces → inventory (never delete what the player owns).
+        const trappedWalls = (saved.walls || INITIAL_WALLS).filter((w: { gridX: number; gridY: number }) => occ.has(`${w.gridX},${w.gridY}`)).length;
+        if (trappedWalls > 0) inventory.sleds += trappedWalls;
+        var migratedWalls = (saved.walls || INITIAL_WALLS).filter((w: { gridX: number; gridY: number }) => !occ.has(`${w.gridX},${w.gridY}`));
+        for (const d of [...defenses]) {
+          if (occ.has(`${d.gridX},${d.gridY}`)) {
+            inventory.defenses.push({ kind: d.kind });
+            defenses.splice(defenses.indexOf(d), 1);
+          }
+        }
+        if (bus && occ.has(`${bus.gridX},${bus.gridY}`)) { inventory.bus = true; bus = null; }
+      }
       // "While you were away" — resolve rival raids against your ACTUAL base for the
       // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
       let defenseLog = [...(saved.defenseLog || [])];
@@ -138,7 +177,7 @@ const loadState = (): GameState => {
       const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
       if (numAttacks > 0) {
         const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS, defenseTroopBoost(roster), defenses, bus, parkingLot);
+        const layout = defenseLayoutFromBase(buildings, migratedWalls, defenseTroopBoost(roster), defenses, bus, parkingLot);
         let worstPct = 0;
         for (let a = 0; a < numAttacks; a++) {
           const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
@@ -157,7 +196,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -221,16 +260,17 @@ function App() {
       const { gx, gy } = screenToTile(bx, by);
       if (gx < 0 || gx > 9 || gy < 0 || gy > 9) { carryGhostRef.current = null; setCarryGhost(null); return; }
       const g = stateRef.current;
-      const free = !g.buildings.some(b => b.gridX === gx && b.gridY === gy)
+      const free = !g.buildings.some(b => inFootprint(gx, gy, b.gridX, b.gridY))
         && !g.walls.some(w => w.gridX === gx && w.gridY === gy)
         && !g.defenses.some(d => d.gridX === gx && d.gridY === gy)
         && !(g.bus && g.bus.gridX === gx && g.bus.gridY === gy);
       const lvl = g.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+      const cap = maxDefenses(lvl) + g.bonusDefSlots;
       const ok = free && (
         carry.source === 'sled' ? (g.inventory.sleds > 0 && g.walls.length < wallCap(lvl))
         : carry.source === 'bus' ? g.inventory.bus
-        : carry.source === 'defense' ? (g.inventory.defenses.some(d => d.kind === carry.kind) && g.defenses.length < maxDefenses(lvl))
-        : (g.resources.COINS >= (DEFENSE_TYPES.find(t => t.kind === carry.kind)?.cost ?? Infinity) && g.defenses.length < maxDefenses(lvl))
+        : carry.source === 'defense' ? (g.inventory.defenses.some(d => d.kind === carry.kind) && g.defenses.length < cap)
+        : (g.resources.COINS >= (DEFENSE_TYPES.find(t => t.kind === carry.kind)?.cost ?? Infinity) && g.defenses.length < cap)
       );
       carryGhostRef.current = { gx, gy, ok };
       setCarryGhost(carryGhostRef.current);
@@ -322,7 +362,7 @@ function App() {
         //    defense isn't an abstract stat: the guys you recruited walk the beat).
         const stadiumB = prev.buildings.find(b => b.type === BuildingType.STADIUM);
         const patrolPoint = () => {
-          const cx = (stadiumB?.gridX ?? 6) * 10, cy = (stadiumB?.gridY ?? 6) * 10;
+          const cx = (stadiumB?.gridX ?? 6) * 10 + 5, cy = (stadiumB?.gridY ?? 6) * 10 + 5; // 2×2 footprint center
           const ang = Math.random() * Math.PI * 2, rad = 11 + Math.random() * 6;
           return {
             x: Math.min(94, Math.max(6, cx + Math.cos(ang) * rad)),
@@ -427,8 +467,8 @@ function App() {
     sfx.click();
 
     setGameState(prev => {
-      const pitchTargetX = freePitch.gridX * 10 + 5;
-      const pitchTargetY = freePitch.gridY * 10 + 5;
+      const pitchTargetX = freePitch.gridX * 10 + 10; // center of the 2×2 practice field
+      const pitchTargetY = freePitch.gridY * 10 + 10;
 
       return {
         ...prev,
@@ -954,10 +994,28 @@ function App() {
   // --- BASE DESIGN (edit mode): place/remove walls, buy+place defenses, move pieces ---
   const tileFree = (gx: number, gy: number, ignoreId?: string) =>
     gx >= 0 && gx < 10 && gy >= 0 && gy < 10
-    && !gameState.buildings.some(b => b.id !== ignoreId && b.gridX === gx && b.gridY === gy)
+    && !gameState.buildings.some(b => b.id !== ignoreId && inFootprint(gx, gy, b.gridX, b.gridY))
     && !gameState.walls.some(w => w.gridX === gx && w.gridY === gy)
     && !gameState.defenses.some(d => d.id !== ignoreId && d.gridX === gx && d.gridY === gy)
     && !(gameState.bus && ignoreId !== 'team-bus' && gameState.bus.gridX === gx && gameState.bus.gridY === gy);
+
+  // A 2×2 building can sit at (gx,gy) when all four tiles are clear of everything else.
+  const canPlaceBuilding = (id: string, gx: number, gy: number) =>
+    gx >= 0 && gx <= 8 && gy >= 0 && gy <= 8
+    && buildingTiles(gx, gy).every(([x, y]) => tileFree(x, y, id));
+
+  // Equipment capacity = Stadium-granted slots + purchased bonus slots.
+  const defenseCap = () => maxDefenses(stadiumLevel) + gameState.bonusDefSlots;
+  const handleBuySlot = () => {
+    setGameState(prev => {
+      if (prev.bonusDefSlots >= EXTRA_SLOT_COSTS.length) return prev;
+      const cost = EXTRA_SLOT_COSTS[prev.bonusDefSlots];
+      if (prev.resources.GEMS < cost) { sfx.error(); return prev; }
+      return { ...prev, resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - cost }, bonusDefSlots: prev.bonusDefSlots + 1 };
+    });
+    const ok = gameState.bonusDefSlots < EXTRA_SLOT_COSTS.length && gameState.resources.GEMS >= EXTRA_SLOT_COSTS[gameState.bonusDefSlots];
+    if (ok) { sfx.upgrade(); spawnText('+1 equipment slot!', window.innerWidth / 2, window.innerHeight / 2, '#a855f7'); }
+  };
 
   // ↩️ UNDO (Chalkboard): snapshot every board-mutating action. Coins/parking are included
   // so undoing a purchase refunds it — the snapshot is always internally consistent.
@@ -1042,7 +1100,7 @@ function App() {
       setGameState(prev => ({ ...prev, bus: { gridX: gx, gridY: gy }, inventory: { ...prev.inventory, bus: false } }));
     } else {
       if (!kind || !gameState.inventory.defenses.some(d => d.kind === kind)) return false;
-      if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
+      if (gameState.defenses.length >= defenseCap()) { spawnText('Slot limit — buy a slot or upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
       pushUndo();
       setGameState(prev => {
         const idx = prev.inventory.defenses.findIndex(d => d.kind === kind);
@@ -1103,7 +1161,7 @@ function App() {
     const t = DEFENSE_TYPES.find(x => x.kind === kind);
     if (!t) return false;
     if (!tileFree(gx, gy)) { sfx.error(); return false; }
-    if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
+    if (gameState.defenses.length >= defenseCap()) { spawnText('Slot limit — buy a slot or upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
     if (gameState.resources.COINS < t.cost) { sfx.error(); spawnText('Need coins', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
     pushUndo();
     setGameState(prev => ({
@@ -1132,12 +1190,12 @@ function App() {
   const handleTileEdit = (gx: number, gy: number) => {
     if (placingInv && handlePlaceFromInventory(gx, gy)) return;
     if (placingDefense && handlePlaceDefense(gx, gy)) return;
-    const bAt = gameState.buildings.find(b => b.gridX === gx && b.gridY === gy);
+    const bAt = gameState.buildings.find(b => inFootprint(gx, gy, b.gridX, b.gridY));
     const wIdx = gameState.walls.findIndex(w => w.gridX === gx && w.gridY === gy);
     const dAt = gameState.defenses.find(d => d.gridX === gx && d.gridY === gy);
     const busAt = gameState.bus && gameState.bus.gridX === gx && gameState.bus.gridY === gy;
     if (moveSel) {
-      if (!bAt && wIdx < 0 && !dAt && !busAt) {
+      if (!bAt && wIdx < 0 && !dAt && !busAt && canPlaceBuilding(moveSel, gx, gy)) {
         pushUndo();
         setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === moveSel ? { ...b, gridX: gx, gridY: gy } : b) }));
         sfx.click();
@@ -1157,7 +1215,7 @@ function App() {
 
   // Drag-and-drop building move (Design mode) — validated: in-bounds, not onto a building/wall.
   const handleMoveBuilding = (id: string, gx: number, gy: number) => {
-    if (!tileFree(gx, gy, id)) { sfx.error(); return; }
+    if (!canPlaceBuilding(id, gx, gy)) { sfx.error(); return; }
     pushUndo();
     setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === id ? { ...b, gridX: gx, gridY: gy } : b) }));
     sfx.click();
@@ -1432,7 +1490,7 @@ function App() {
       {/* Base design (edit) mode banner */}
       {editMode && (() => {
         const dr = computeDefenseRating(gameState.buildings, gameState.walls, gameState.roster, gameState.resources.FANS, gameState.defenses.length, gameState.parkingLot);
-        const defCap = maxDefenses(stadiumLevel);
+        const defCap = defenseCap();
         const gradeColor = dr.score >= 70 ? '#22c55e' : dr.score >= 40 ? '#eab308' : '#ef4444';
         const Bar = ({ label, v }: { label: string; v: number }) => (
           <div className="flex items-center gap-2">
@@ -1479,7 +1537,16 @@ function App() {
             </div>
             {/* Defense shop — buy football equipment, then tap a tile to install it */}
             <div className="mt-2 pt-2 border-t border-slate-800">
-              <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1.5">🛡 Defensive Equipment <span className="font-mono text-slate-500">({gameState.defenses.length}/{defCap})</span></div>
+              <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1.5 flex items-center gap-2">
+                🛡 Defensive Equipment <span className="font-mono text-slate-500">({gameState.defenses.length}/{defCap})</span>
+                {gameState.bonusDefSlots < EXTRA_SLOT_COSTS.length && (
+                  <button onClick={handleBuySlot} disabled={gameState.resources.GEMS < EXTRA_SLOT_COSTS[gameState.bonusDefSlots]}
+                    title="Buy a permanent extra equipment slot"
+                    className={`ml-auto normal-case tracking-normal px-2 py-0.5 rounded-lg border text-[10px] font-bold transition-all active:scale-95 ${gameState.resources.GEMS >= EXTRA_SLOT_COSTS[gameState.bonusDefSlots] ? 'border-purple-500 bg-purple-900/30 hover:bg-purple-900/60 text-purple-200' : 'border-slate-800 text-slate-600 cursor-not-allowed opacity-60'}`}>
+                    +1 Slot · {EXTRA_SLOT_COSTS[gameState.bonusDefSlots]}👑
+                  </button>
+                )}
+              </div>
               <div className="flex gap-1.5">
                 {DEFENSE_TYPES.map(t => {
                   const affordable = gameState.resources.COINS >= t.cost;
