@@ -427,6 +427,12 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   // tile crossed lays a sled. A plain tap (no movement) still falls through to click-toggle.
   const paintRef = React.useRef<{ last: string; startGx: number; startGy: number; started: boolean } | null>(null);
 
+  // DEFERRED GRAB: pressing a piece must NOT capture the pointer immediately — capture
+  // retargets the eventual click to the board, silently eating taps on collect bubbles,
+  // buildings, everything ("I can't click on anything"). The drag only becomes real (and
+  // only then captures) once the pointer crosses into another tile.
+  const pendingRef = React.useRef<{ id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number } | null>(null);
+
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!boardRef.current) return; // drag works in BOTH view and Design mode
     const { bx, by } = eventToBoard(e);
@@ -443,13 +449,25 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       }
       return; // single taps keep the click flow (wall toggle / placement)
     }
-    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* synthetic/edge pointers */ }
     dragMovedRef.current = false;
-    setDrag({ id: hit.id, piece: hit.piece, gx: hit.gx, gy: hit.gy, startGx: hit.gx, startGy: hit.gy, bx, by });
+    pendingRef.current = hit; // arm — becomes a drag only if the pointer moves a tile
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!boardRef.current) return;
+    // Pending grab crosses into another tile → NOW it's a drag (capture + ghost).
+    if (pendingRef.current && !drag) {
+      const { gx, gy } = eventToTile(e);
+      const p = pendingRef.current;
+      if (gx !== p.gx || gy !== p.gy) {
+        try { boardRef.current.setPointerCapture(e.pointerId); } catch { /* synthetic pointers */ }
+        const { bx, by } = eventToBoard(e);
+        dragMovedRef.current = true;
+        setDrag({ id: p.id, piece: p.piece, gx, gy, startGx: p.gx, startGy: p.gy, bx, by });
+        pendingRef.current = null;
+        return;
+      }
+    }
     if (paintRef.current && onPaintWall) {
       const { gx, gy } = eventToTile(e);
       if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID) return;
@@ -475,6 +493,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
 
   const handlePointerUp = () => {
     paintRef.current = null;
+    pendingRef.current = null;
     if (!drag) return;
     if (dragMovedRef.current && (drag.gx !== drag.startGx || drag.gy !== drag.startGy)) {
       if (drag.piece === 'defense') onMoveDefense?.(drag.id, drag.gx, drag.gy);
