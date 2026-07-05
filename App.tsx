@@ -4,7 +4,7 @@ import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, Fl
 import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
-import { IsometricMap } from './components/IsometricMap';
+import { IsometricMap, screenToTile, BOARD_DIMS } from './components/IsometricMap';
 import { TopHUD } from './components/TopHUD';
 import { SquadModal } from './components/SquadModal';
 import { ActionModal } from './components/ActionModal';
@@ -190,6 +190,71 @@ function App() {
   const [designExpanded, setDesignExpanded] = useState(false); // Chalkboard HUD starts slim so the board (and funnel lanes) stay visible
   const [chalkIntro, setChalkIntro] = useState(() => { try { return localStorage.getItem('fhq_chalk_intro_v1') !== '1'; } catch { return true; } });
   const dismissChalkIntro = () => { setChalkIntro(false); try { localStorage.setItem('fhq_chalk_intro_v1', '1'); } catch { /* ignore */ } };
+
+  // 🫳 CARRY: real drag-and-drop from the HUD (inventory chips + shop) onto the board.
+  // Pointer down on a chip picks the piece up; it rides the cursor; release on a green
+  // tile places it. A plain tap (no movement) still arms the tap-to-place flow.
+  const [carry, setCarry] = useState<{ source: 'sled' | 'bus' | 'defense' | 'shop'; kind?: string; sprite: string } | null>(null);
+  const [carryPos, setCarryPos] = useState({ x: 0, y: 0 });
+  const [carryGhost, setCarryGhost] = useState<{ gx: number; gy: number; ok: boolean } | null>(null);
+  const carryGhostRef = useRef<{ gx: number; gy: number; ok: boolean } | null>(null);
+  const carryMovedRef = useRef(false);
+  const carryStartRef = useRef({ x: 0, y: 0 });
+  const startCarry = (e: React.PointerEvent, source: 'sled' | 'bus' | 'defense' | 'shop', kind: string | undefined, sprite: string) => {
+    e.preventDefault();
+    carryStartRef.current = { x: e.clientX, y: e.clientY };
+    carryMovedRef.current = false;
+    carryGhostRef.current = null;
+    setCarryPos({ x: e.clientX, y: e.clientY });
+    setCarry({ source, kind, sprite });
+  };
+  useEffect(() => {
+    if (!carry) return;
+    const move = (e: PointerEvent) => {
+      setCarryPos({ x: e.clientX, y: e.clientY });
+      if (Math.hypot(e.clientX - carryStartRef.current.x, e.clientY - carryStartRef.current.y) > 7) carryMovedRef.current = true;
+      const el = document.querySelector('[data-fhq-board]') as HTMLElement | null;
+      if (!el) { carryGhostRef.current = null; setCarryGhost(null); return; }
+      const r = el.getBoundingClientRect();
+      const bx = (e.clientX - r.left) * BOARD_DIMS.w / r.width;
+      const by = (e.clientY - r.top) * BOARD_DIMS.h / r.height;
+      const { gx, gy } = screenToTile(bx, by);
+      if (gx < 0 || gx > 9 || gy < 0 || gy > 9) { carryGhostRef.current = null; setCarryGhost(null); return; }
+      const g = stateRef.current;
+      const free = !g.buildings.some(b => b.gridX === gx && b.gridY === gy)
+        && !g.walls.some(w => w.gridX === gx && w.gridY === gy)
+        && !g.defenses.some(d => d.gridX === gx && d.gridY === gy)
+        && !(g.bus && g.bus.gridX === gx && g.bus.gridY === gy);
+      const lvl = g.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+      const ok = free && (
+        carry.source === 'sled' ? (g.inventory.sleds > 0 && g.walls.length < wallCap(lvl))
+        : carry.source === 'bus' ? g.inventory.bus
+        : carry.source === 'defense' ? (g.inventory.defenses.some(d => d.kind === carry.kind) && g.defenses.length < maxDefenses(lvl))
+        : (g.resources.COINS >= (DEFENSE_TYPES.find(t => t.kind === carry.kind)?.cost ?? Infinity) && g.defenses.length < maxDefenses(lvl))
+      );
+      carryGhostRef.current = { gx, gy, ok };
+      setCarryGhost(carryGhostRef.current);
+    };
+    const up = () => {
+      const ghost = carryGhostRef.current;
+      const moved = carryMovedRef.current;
+      const c = carry;
+      setCarry(null); setCarryGhost(null); carryGhostRef.current = null;
+      if (!moved) {
+        // tap → arm/toggle the classic tap-to-place flow
+        if (c.source === 'shop') { setPlacingDefense(p => p === c.kind ? null : c.kind!); setPlacingInv(null); }
+        else { setPlacingInv(p => (p && p.type === c.source && p.kind === c.kind) ? null : { type: c.source, kind: c.kind }); setPlacingDefense(null); }
+        return;
+      }
+      if (ghost?.ok) {
+        if (c.source === 'shop') buyAndPlaceDefense(c.kind!, ghost.gx, ghost.gy);
+        else placeInvPiece(c.source, c.kind, ghost.gx, ghost.gy);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  }, [carry]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
@@ -959,26 +1024,25 @@ function App() {
     spawnText('Board cleared — pieces stored 📦', window.innerWidth / 2, window.innerHeight / 2, '#60a5fa');
   };
 
-  // Place a stored piece back: tap its inventory chip, then tap a free tile.
-  const handlePlaceFromInventory = (gx: number, gy: number): boolean => {
-    if (!placingInv) return false;
-    if (!tileFree(gx, gy)) { sfx.error(); return true; }
-    if (placingInv.type === 'sled') {
-      if (gameState.inventory.sleds <= 0) { setPlacingInv(null); return true; }
+  // CORE inventory placement — used by tap-to-place AND chip→board drag-drop.
+  const placeInvPiece = (type: 'sled' | 'bus' | 'defense', kind: string | undefined, gx: number, gy: number): boolean => {
+    if (!tileFree(gx, gy)) { sfx.error(); return false; }
+    if (type === 'sled') {
+      if (gameState.inventory.sleds <= 0) return false;
+      if (gameState.walls.length >= wallCap(stadiumLevel)) { spawnText('Wall limit reached — upgrade your Stadium for more', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
       pushUndo();
       setGameState(prev => ({
         ...prev,
         walls: [...prev.walls, { gridX: gx, gridY: gy }],
         inventory: { ...prev.inventory, sleds: prev.inventory.sleds - 1 },
       }));
-      if (gameState.inventory.sleds <= 1) setPlacingInv(null); // that was the last one
-    } else if (placingInv.type === 'bus') {
+    } else if (type === 'bus') {
+      if (!gameState.inventory.bus) return false;
       pushUndo();
       setGameState(prev => ({ ...prev, bus: { gridX: gx, gridY: gy }, inventory: { ...prev.inventory, bus: false } }));
-      setPlacingInv(null);
     } else {
-      const kind = placingInv.kind!;
-      if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); setPlacingInv(null); return true; }
+      if (!kind || !gameState.inventory.defenses.some(d => d.kind === kind)) return false;
+      if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
       pushUndo();
       setGameState(prev => {
         const idx = prev.inventory.defenses.findIndex(d => d.kind === kind);
@@ -989,9 +1053,19 @@ function App() {
           inventory: { ...prev.inventory, defenses: prev.inventory.defenses.filter((_, i) => i !== idx) },
         };
       });
-      if (gameState.inventory.defenses.filter(d => d.kind === kind).length <= 1) setPlacingInv(null);
     }
     sfx.upgrade();
+    return true;
+  };
+
+  // Tap-armed flow (chip tapped, then a tile tapped) — wraps the core + manages arming.
+  const handlePlaceFromInventory = (gx: number, gy: number): boolean => {
+    if (!placingInv) return false;
+    const placed = placeInvPiece(placingInv.type, placingInv.kind, gx, gy);
+    if (!placed) return true; // consumed the tap; feedback already shown
+    if (placingInv.type === 'sled') { if (gameState.inventory.sleds <= 1) setPlacingInv(null); }
+    else if (placingInv.type === 'bus') setPlacingInv(null);
+    else if (gameState.inventory.defenses.filter(d => d.kind === placingInv.kind).length <= 1) setPlacingInv(null);
     return true;
   };
 
@@ -1024,22 +1098,27 @@ function App() {
     sfx.click();
   };
 
-  // Buy-and-place flow: pick a defense in the shop, tap a free tile to install it.
-  const handlePlaceDefense = (gx: number, gy: number) => {
-    const t = DEFENSE_TYPES.find(x => x.kind === placingDefense);
+  // CORE shop buy+place — used by tap-to-place AND shop→board drag-drop.
+  const buyAndPlaceDefense = (kind: string, gx: number, gy: number): boolean => {
+    const t = DEFENSE_TYPES.find(x => x.kind === kind);
     if (!t) return false;
-    if (!tileFree(gx, gy)) { sfx.error(); return true; }
-    if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); setPlacingDefense(null); return true; }
-    if (gameState.resources.COINS < t.cost) { sfx.error(); spawnText('Need coins', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return true; }
+    if (!tileFree(gx, gy)) { sfx.error(); return false; }
+    if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
+    if (gameState.resources.COINS < t.cost) { sfx.error(); spawnText('Need coins', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
     pushUndo();
     setGameState(prev => ({
       ...prev,
       resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - t.cost },
       defenses: [...prev.defenses, { id: `def_${Date.now()}`, kind: t.kind, gridX: gx, gridY: gy }],
     }));
-    setPlacingDefense(null);
     sfx.upgrade();
     spawnText(`${t.name} installed!`, window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
+    return true;
+  };
+
+  const handlePlaceDefense = (gx: number, gy: number) => {
+    if (!placingDefense) return false;
+    if (buyAndPlaceDefense(placingDefense, gx, gy)) setPlacingDefense(null);
     return true;
   };
 
@@ -1115,6 +1194,7 @@ function App() {
         defenses={gameState.defenses}
         bus={gameState.bus}
         placing={!!(placingDefense || placingInv)}
+        externalGhost={carryGhost}
         onTileEdit={handleTileEdit}
         onPaintWall={handlePaintWall}
         onPaintStart={pushUndo}
@@ -1131,6 +1211,12 @@ function App() {
       />
 
       <FloatingTextLayer items={floatingTexts} />
+
+      {/* The carried piece rides the cursor from HUD chip → board */}
+      {carry && (
+        <img src={carry.sprite} alt="" draggable={false} className="fixed pointer-events-none z-[80]"
+          style={{ left: carryPos.x - 38, top: carryPos.y - 52, width: 76, filter: 'drop-shadow(0 12px 10px rgba(0,0,0,0.55))' }} />
+      )}
 
       {isSquadOpen && (
         <SquadModal
@@ -1400,8 +1486,9 @@ function App() {
                   const capped = gameState.defenses.length >= defCap;
                   const active = placingDefense === t.kind;
                   return (
-                    <button key={t.kind} onClick={() => setPlacingDefense(active ? null : t.kind)} disabled={!affordable || capped} title={`${t.name} — ${t.desc} · DMG ${t.damage} · RNG ${t.range}`}
-                      className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-[9px] font-bold transition-all active:scale-95
+                    <button key={t.kind} onPointerDown={e => { if (affordable && !capped) startCarry(e, 'shop', t.kind, t.sprite); }} disabled={!affordable || capped} title={`${t.name} — ${t.desc} · DMG ${t.damage} · RNG ${t.range} · drag onto the board to buy & place`}
+                      style={{ touchAction: 'none' }}
+                      className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-[9px] font-bold transition-all active:scale-95 cursor-grab
                         ${active ? 'border-green-400 bg-green-900/40 text-white' : (!affordable || capped) ? 'border-slate-800 text-slate-600 cursor-not-allowed opacity-50' : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-orange-400'}`}>
                       <span className="text-base leading-none">{t.emoji}</span>
                       <span className="leading-tight mt-0.5">{t.name.split(' ')[0]}</span>
@@ -1438,23 +1525,23 @@ function App() {
               inv.defenses.forEach(d => { defCounts[d.kind] = (defCounts[d.kind] || 0) + 1; });
               const hasStored = inv.sleds > 0 || inv.bus || inv.defenses.length > 0;
               const hasOnBoard = gameState.walls.length > 0 || gameState.defenses.length > 0 || !!gameState.bus;
-              const Chip = ({ label, emoji, count, active, onClick }: any) => (
-                <button onClick={onClick}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-all active:scale-95 ${active ? 'border-green-400 bg-green-900/40 text-white animate-pulse' : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-orange-400'}`}>
+              const Chip = ({ label, emoji, count, active, onPick }: any) => (
+                <button onPointerDown={onPick} style={{ touchAction: 'none' }}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-all active:scale-95 cursor-grab ${active ? 'border-green-400 bg-green-900/40 text-white animate-pulse' : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-orange-400'}`}>
                   <span>{emoji}</span>{label}{count > 1 && <span className="text-orange-300">×{count}</span>}
                 </button>
               );
               return (
                 <div className="mt-2 pt-2 border-t border-slate-800 flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">📦 Inventory</span>
-                  {inv.sleds > 0 && <Chip label="Sled" emoji="🛑" count={inv.sleds} active={placingInv?.type === 'sled'} onClick={() => { setPlacingInv(placingInv?.type === 'sled' ? null : { type: 'sled' }); setPlacingDefense(null); }} />}
+                  {inv.sleds > 0 && <Chip label="Sled" emoji="🛑" count={inv.sleds} active={placingInv?.type === 'sled'} onPick={(e: React.PointerEvent) => startCarry(e, 'sled', undefined, '/assets/battle/blocking-sled.png')} />}
                   {Object.entries(defCounts).map(([kind, n]) => {
                     const t = DEFENSE_TYPES.find(x => x.kind === kind);
-                    return <Chip key={kind} label={t?.name.split(' ')[0] ?? kind} emoji={t?.emoji ?? '🛡'} count={n} active={placingInv?.type === 'defense' && placingInv.kind === kind} onClick={() => { setPlacingInv(placingInv?.kind === kind ? null : { type: 'defense', kind }); setPlacingDefense(null); }} />;
+                    return <Chip key={kind} label={t?.name.split(' ')[0] ?? kind} emoji={t?.emoji ?? '🛡'} count={n} active={placingInv?.type === 'defense' && placingInv.kind === kind} onPick={(e: React.PointerEvent) => startCarry(e, 'defense', kind, t?.sprite ?? '')} />;
                   })}
-                  {inv.bus && <Chip label="Team Bus" emoji="🚌" count={1} active={placingInv?.type === 'bus'} onClick={() => { setPlacingInv(placingInv?.type === 'bus' ? null : { type: 'bus' }); setPlacingDefense(null); }} />}
+                  {inv.bus && <Chip label="Team Bus" emoji="🚌" count={1} active={placingInv?.type === 'bus'} onPick={(e: React.PointerEvent) => startCarry(e, 'bus', undefined, '/assets/decor/team-bus.png')} />}
                   {!hasStored && <span className="text-[10px] text-slate-600 italic">empty — Store All sweeps the board in here</span>}
-                  {placingInv && <span className="text-[10px] text-green-300 font-bold animate-pulse w-full">Tap a free tile to place it</span>}
+                  {(placingInv || hasStored) && <span className="text-[10px] text-green-300 font-bold w-full">{placingInv ? 'Tap a free tile to place it — or just drag a chip onto the board' : 'Drag a chip straight onto the board, or tap it then tap tiles'}</span>}
                   {hasOnBoard && (
                     <button onClick={handleStoreAll} className="ml-auto px-2.5 py-1 rounded-lg border border-blue-600 bg-blue-900/30 hover:bg-blue-900/60 text-blue-200 text-[10px] font-bold transition-all active:scale-95">
                       📦 Store All
