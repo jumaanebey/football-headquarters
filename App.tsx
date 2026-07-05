@@ -32,7 +32,7 @@ import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, 
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
-import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Hammer } from 'lucide-react';
+import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Hammer, Star } from 'lucide-react';
 
 const INITIAL_STATE: GameState = {
   resources: {
@@ -836,6 +836,16 @@ function App() {
     sfx.click();
   };
 
+  // Drag-and-drop building move (Design mode) — validated: in-bounds, not onto a building/wall.
+  const handleMoveBuilding = (id: string, gx: number, gy: number) => {
+    if (gx < 0 || gx >= 10 || gy < 0 || gy >= 10) { sfx.error(); return; }
+    const occupied = gameState.buildings.some(b => b.id !== id && b.gridX === gx && b.gridY === gy)
+      || gameState.walls.some(w => w.gridX === gx && w.gridY === gy);
+    if (occupied) { sfx.error(); return; }
+    setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === id ? { ...b, gridX: gx, gridY: gy } : b) }));
+    sfx.click();
+  };
+
   const handleResetGame = () => {
       try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(TUTORIAL_KEY); } catch (e) { /* ignore */ }
       setGameState({ ...INITIAL_STATE, lastTick: Date.now() });
@@ -865,6 +875,7 @@ function App() {
         editMode={editMode}
         moveSel={moveSel}
         onTileEdit={handleTileEdit}
+        onMoveBuilding={handleMoveBuilding}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
           else setSelectedBuilding(b);
@@ -1090,7 +1101,7 @@ function App() {
               {dr.crowd > 0 && <span className="text-rose-300 font-bold ml-auto">🔊 +{dr.crowd} home crowd</span>}
             </div>
             <div className="text-[10px] text-slate-500 mt-1">
-              Tap empty tiles to add/remove <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP}) • Tap a building then an empty tile to move it
+              <span className="text-yellow-300 font-bold">Drag buildings</span> to move them • Tap empty tiles to add/remove <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP})
             </div>
             <button onClick={() => { setEditMode(false); setMoveSel(null); }} className="mt-2 w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Done</button>
           </div>
@@ -1151,6 +1162,8 @@ function App() {
       <div className="fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur border-t border-slate-700 pb-safe pt-2 px-4 z-40">
         <div className="flex justify-between items-center max-w-md mx-auto pb-4">
           <NavBtn icon={<Users />} label="Coach" active={isSquadOpen} onClick={() => setIsSquadOpen(true)} tourId="coach" />
+
+          <NavBtn icon={<Star />} label="Heroes" active={isHeroOpen} onClick={() => setIsHeroOpen(true)} />
 
           <NavBtn icon={<Shield />} label="Defend" onClick={openDefenseLog} badge={unseenDefenses} />
 

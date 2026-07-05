@@ -16,6 +16,7 @@ interface Props {
   editMode?: boolean;
   moveSel?: string | null;
   onTileEdit?: (gridX: number, gridY: number) => void;
+  onMoveBuilding?: (id: string, gridX: number, gridY: number) => void;
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollectResource?: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -167,14 +168,16 @@ const screenToTile = (bx: number, by: number) => {
   return { gx: Math.round((a + b) / 2), gy: Math.round((b - a) / 2) };
 };
 
-// Blocking Sled — real generated sprite (hazard-striped padded sled).
+// Blocking Sled — smaller + alternately mirrored so a ring reads as a tidy fence
+// line instead of a cluttered repeat of one big sprite.
 const WallSprite: React.FC<{ gridX: number; gridY: number }> = ({ gridX, gridY }) => {
   const c = tileToScreen(gridX, gridY);
-  const w = TILE_W * 0.82;
+  const w = TILE_W * 0.6;
+  const flip = (gridX + gridY) % 2 === 1;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: gridX + gridY + 1 }}>
       <img src="/assets/battle/blocking-sled.png" alt="" draggable={false}
-        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2 - 2, filter: 'drop-shadow(0 4px 4px rgba(0,0,0,0.35))' }} />
+        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2 + 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))', opacity: 0.96 }} />
     </div>
   );
 };
@@ -357,9 +360,53 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], walls = [], editMode = false, moveSel, onTileEdit, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], walls = [], editMode = false, moveSel, onTileEdit, onMoveBuilding, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
+
+  // --- Drag-and-drop building moves (Design mode) ---
+  const [drag, setDrag] = useState<{ id: string; gx: number; gy: number; startGx: number; startGy: number } | null>(null);
+  const dragMovedRef = React.useRef(false);
+
+  const eventToTile = (e: React.PointerEvent | React.MouseEvent) => {
+    const rect = boardRef.current!.getBoundingClientRect();
+    const bx = (e.clientX - rect.left) * BOARD_W / rect.width;
+    const by = (e.clientY - rect.top) * BOARD_H / rect.height;
+    return screenToTile(bx, by);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!editMode || !boardRef.current) return;
+    const { gx, gy } = eventToTile(e);
+    const b = buildings.find(x => x.gridX === gx && x.gridY === gy);
+    if (!b) return; // empty tile: leave click flow (wall toggle) alone
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* synthetic/edge pointers */ }
+    dragMovedRef.current = false;
+    setDrag({ id: b.id, gx, gy, startGx: gx, startGy: gy });
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!drag || !boardRef.current) return;
+    const { gx, gy } = eventToTile(e);
+    if (gx !== drag.gx || gy !== drag.gy) {
+      dragMovedRef.current = true;
+      setDrag(d => d ? { ...d, gx, gy } : d);
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (!drag) return;
+    if (dragMovedRef.current && (drag.gx !== drag.startGx || drag.gy !== drag.startGy)) {
+      onMoveBuilding?.(drag.id, drag.gx, drag.gy);
+    }
+    setDrag(null);
+  };
+
+  const dragTileFree = drag
+    ? drag.gx >= 0 && drag.gx < GRID && drag.gy >= 0 && drag.gy < GRID
+      && !buildings.some(b => b.id !== drag.id && b.gridX === drag.gx && b.gridY === drag.gy)
+      && !walls.some(w => w.gridX === drag.gx && w.gridY === drag.gy)
+    : false;
 
   const night = timeOfDay < 6 || timeOfDay > 20;
   const dusk = (timeOfDay >= 6 && timeOfDay < 8) || (timeOfDay > 18 && timeOfDay <= 20);
@@ -371,10 +418,8 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
 
   const handleBoardClick = (e: React.MouseEvent) => {
     if (!editMode || !onTileEdit || !boardRef.current) return;
-    const rect = boardRef.current.getBoundingClientRect();
-    const bx = (e.clientX - rect.left) * BOARD_W / rect.width;
-    const by = (e.clientY - rect.top) * BOARD_H / rect.height;
-    const { gx, gy } = screenToTile(bx, by);
+    if (dragMovedRef.current) { dragMovedRef.current = false; return; } // a drag just ended — not a tap
+    const { gx, gy } = eventToTile(e);
     if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) onTileEdit(gx, gy);
   };
 
@@ -392,8 +437,19 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ bottom: '4%', width: '135%', height: '46%', background: 'radial-gradient(ellipse at center, rgba(45,158,68,0.30) 0%, rgba(22,90,52,0.12) 52%, transparent 72%)', filter: 'blur(10px)' }} />
       {/* Board fills space between HUD (top) and nav (bottom), scaled to fit */}
       <div className="absolute left-0 right-0 flex items-center justify-center" style={{ top: 88, bottom: 88 }}>
-        <div ref={boardRef} onClick={handleBoardClick} className={`relative ${editMode ? 'cursor-pointer' : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `scale(${scale})`, transformOrigin: 'center' }}>
+        <div ref={boardRef} onClick={handleBoardClick} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}
+          className={`relative ${editMode ? (drag ? 'cursor-grabbing' : 'cursor-pointer') : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `scale(${scale})`, transformOrigin: 'center', touchAction: editMode ? 'none' : undefined }}>
           <GroundLayer buildings={buildings} />
+          {/* Drag ghost: green = drop OK, red = blocked */}
+          {editMode && drag && (() => {
+            const c = tileToScreen(drag.gx, drag.gy);
+            const pts = `${c.x},${c.y - TILE_H / 2} ${c.x + TILE_W / 2},${c.y} ${c.x},${c.y + TILE_H / 2} ${c.x - TILE_W / 2},${c.y}`;
+            return (
+              <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ zIndex: 60, overflow: 'visible' }}>
+                <polygon points={pts} fill={dragTileFree ? 'rgba(74,222,128,0.35)' : 'rgba(248,113,113,0.4)'} stroke={dragTileFree ? '#4ade80' : '#f87171'} strokeWidth={3} strokeDasharray="8 5" />
+              </svg>
+            );
+          })()}
           {DECOR.map((d) => (
             <DecorSprite key={d.slug} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
