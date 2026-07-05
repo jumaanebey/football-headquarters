@@ -142,6 +142,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const [pendingSpecial, setPendingSpecial] = useState<SpecialDef | null>(null);
   const [specialCharges, setSpecialCharges] = useState<Record<string, number>>(() => Object.fromEntries(specials.map(sp => [sp.key, sp.charges])));
   const [selected, setSelected] = useState<UnitGroup>(() => UNIT_ORDER.find(u => (config.playerArmy?.[u] ?? 0) > 0) ?? UnitGroup.OFFENSE_LINE);
+  // Refs mirror deploy state so rapid pours (hold-drag) never read stale closures.
+  const armyRef = useRef(army); useEffect(() => { armyRef.current = army; }, [army]);
+  const selectedRef = useRef(selected); useEffect(() => { selectedRef.current = selected; }, [selected]);
+  const deployedHeroesRef = useRef<Set<string>>(new Set());
   const [pendingHero, setPendingHero] = useState<RaidHero | null>(null);
   const [castMode, setCastMode] = useState<PlayDef | null>(null);
   const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense || isReplay ? 'fighting' : 'deploy');
@@ -599,8 +603,45 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
   const perimeterOk = (wx: number, wy: number) => !sim.current.buildings.some(b => !b.dead && dist(wx, wy, b.x, b.y) < 14);
 
+  // 🔁 ROLLING DEPLOY: when a position group runs dry, selection rolls to the next group
+  // with players — and when the whole roster is on the field, the next tap sends a HERO.
+  // One finger, the entire team. (Phase C finding: "it should roll from group to group.")
+  const rollSelection = () => {
+    const rem = armyRef.current;
+    const next = UNIT_ORDER.find(u => rem[u] > 0);
+    if (next) { setSelected(next); selectedRef.current = next; setPendingHero(null); return; }
+    const nextHero = heroes.find(h => !deployedHeroesRef.current.has(h.key));
+    if (nextHero) setPendingHero(nextHero);
+  };
+
+  /** Deploy one troop of the current group at (wx,wy). Ref-based so pours can't go stale. */
+  const deployTroopAt = (wx: number, wy: number): boolean => {
+    const u = selectedRef.current;
+    if ((armyRef.current[u] ?? 0) <= 0 || !perimeterOk(wx, wy)) return false;
+    doDeployTroop(u, wx, wy);
+    record({ k: 't', u, x: wx, y: wy });
+    armyRef.current = { ...armyRef.current, [u]: armyRef.current[u] - 1 };
+    setArmy(a => ({ ...a, [u]: a[u] - 1 }));
+    if (phase === 'deploy') setPhase('fighting');
+    if (armyRef.current[u] <= 0) rollSelection(); // group empty → roll on
+    return true;
+  };
+
+  // 🫗 HOLD & DRAG on the field = pour the group out continuously (throttled).
+  const pourRef = useRef<{ down: boolean; lastT: number; poured: boolean }>({ down: false, lastT: 0, poured: false });
+  const tryPour = (e: React.PointerEvent) => {
+    if (isDefense || isReplay || phase === 'result' || castMode || pendingSpecial || pendingHero) return;
+    const now = performance.now();
+    if (now - pourRef.current.lastT < 170) return;
+    const rect = fieldRef.current!.getBoundingClientRect();
+    const wx = ((e.clientX - rect.left) / rect.width) * 100;
+    const wy = ((e.clientY - rect.top) / rect.height) * 100;
+    if (deployTroopAt(wx, wy)) { pourRef.current.lastT = now; pourRef.current.poured = true; }
+  };
+
   const handleFieldClick = (e: React.MouseEvent) => {
     if (isDefense || phase === 'result') return;
+    if (pourRef.current.poured) { pourRef.current.poured = false; return; } // this click is a pour's tail
     const rect = fieldRef.current!.getBoundingClientRect();
     const wx = ((e.clientX - rect.left) / rect.width) * 100;
     const wy = ((e.clientY - rect.top) / rect.height) * 100;
@@ -618,9 +659,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       if (!perimeterOk(wx, wy)) return;
       doDeployHero(pendingHero.key, wx, wy);
       record({ k: 'h', key: pendingHero.key, x: wx, y: wy });
+      deployedHeroesRef.current.add(pendingHero.key);
       setDeployedHeroes(prev => new Set(prev).add(pendingHero.key));
       setPendingHero(null);
       if (phase === 'deploy') setPhase('fighting');
+      rollSelection(); // keep the flow: back to remaining players, or arm the next hero
       return;
     }
 
@@ -634,11 +677,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       return;
     }
 
-    if (army[selected] <= 0 || !perimeterOk(wx, wy)) return;
-    doDeployTroop(selected, wx, wy);
-    record({ k: 't', u: selected, x: wx, y: wy });
-    setArmy(a => ({ ...a, [selected]: a[selected] - 1 }));
-    if (phase === 'deploy') setPhase('fighting');
+    deployTroopAt(wx, wy);
   };
 
   const s = sim.current;
@@ -651,7 +690,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const instruction = castMode ? `Tap the field to call ${castMode.name}`
     : pendingSpecial ? `Tap the sideline to send in the ${pendingSpecial.name}`
     : pendingHero ? `Tap the sideline to send in ${pendingHero.name}`
-    : army[selected] > 0 ? `${TROOP_STATS[selected].label}: ${TROOP_STATS[selected].hint} — tap the sideline`
+    : army[selected] > 0 ? `${TROOP_STATS[selected].label}: ${TROOP_STATS[selected].hint} — tap, or HOLD & DRAG to pour them in`
     : 'Pick your offense — players, heroes, or plays';
 
   return (
@@ -684,8 +723,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       {/* Battlefield */}
       <div className="flex-1 flex items-center justify-center p-3 overflow-hidden bg-gradient-to-b from-emerald-900 to-emerald-950">
         <div ref={fieldRef} onClick={handleFieldClick}
+          onPointerDown={() => { pourRef.current.down = true; }}
+          onPointerMove={e => { if (pourRef.current.down) tryPour(e); }}
+          onPointerUp={() => { pourRef.current.down = false; }}
+          onPointerLeave={() => { pourRef.current.down = false; }}
           className={`relative rounded-2xl overflow-hidden shadow-2xl ${isDefense ? '' : castMode ? 'cursor-pointer ring-4 ring-offset-0' : 'cursor-crosshair'}`}
-          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-conic-gradient(#2f9e44 0% 25%, #2b8a3e 0% 50%) 50% / 14% 14%', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
+          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-conic-gradient(#2f9e44 0% 25%, #2b8a3e 0% 50%) 50% / 14% 14%', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
 
           {/* Stadium surround — a dark stands ring + crowd doing the wave on all four sides,
               with tailgaters in the corners. Makes every battle read as being INSIDE a stadium. */}
