@@ -14,8 +14,7 @@ interface Props {
 const fmtNum = (n: number) => n >= 100000 ? `${Math.round(n / 1000)}k` : n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString();
 
 export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
-  const { resources, level, xp, xpToNextLevel } = gameState;
-  const xpPercent = (xp / xpToNextLevel) * 100;
+  const { resources } = gameState;
   const { rank } = rankFor(gameState.trophies ?? 0);
 
   const canRally = resources.ENERGY < 100 && resources.FANS >= RALLY_CONFIG.fanCost;
@@ -23,26 +22,25 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
   return (
     <div className="fixed top-0 left-0 w-full z-40 pointer-events-none p-2 flex flex-col gap-2 bg-gradient-to-b from-black/80 to-transparent pb-12">
 
-      {/* Top Row: Profile & Currency */}
+      {/* Top Row: Club identity & Currency */}
       <div className="flex justify-between items-start w-full max-w-4xl mx-auto">
 
-        {/* Profile / Level */}
+        {/* YOUR CLUB — crest, name, rank, trophies. (The old XP meter did nothing; this slot
+            now shows the identity that used to vanish after the tutorial.) */}
         <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur border border-slate-700 rounded-full p-1 pr-4 pointer-events-auto shadow-lg">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center border-2 border-white relative" title={`Coach level ${level} — earn XP from training drills`}>
-            <span className="font-display font-bold text-lg">{level}</span>
-            <div className="absolute -bottom-1 -right-1 bg-yellow-500 text-[8px] font-bold text-black px-1 rounded">COACH</div>
+          <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border-2 border-orange-500 bg-[#111827] relative" title={`${gameState.teamName} — your club`}>
+            <span className="text-lg">🏈</span>
+            <img src="/assets/brand/app-icon.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
           </div>
-          <div className="flex flex-col w-24">
-            <span className="text-xs font-bold flex items-center gap-1 leading-tight" style={{ color: rank.color }}>
-              {rank.emoji} {rank.name}
-              {gameState.campaign?.claimed?.includes(12) && <span title="League Champion — conquered the full Season">💍</span>}
+          <div className="flex flex-col max-w-[130px]">
+            <span className="text-xs font-bold text-white leading-tight truncate" title={gameState.teamName}>
+              {gameState.teamName}
+              {gameState.campaign?.claimed?.includes(12) && <span title="League Champion — conquered the full Season"> 💍</span>}
             </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono text-amber-300 shrink-0">🏆 {gameState.trophies}</span>
-              <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-green-400" style={{ width: `${xpPercent}%` }}></div>
-              </div>
-            </div>
+            <span className="text-[11px] font-bold flex items-center gap-1.5 leading-tight" style={{ color: rank.color }} title={`${rank.name} tier — win raids to climb the trophy ladder`}>
+              {rank.emoji} {rank.name}
+              <span className="font-mono text-amber-300">🏆 {gameState.trophies}</span>
+            </span>
           </div>
         </div>
 

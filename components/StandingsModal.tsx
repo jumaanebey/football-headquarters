@@ -156,7 +156,11 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
                           </span>
                           <span className="text-slate-300 text-sm">Wk {m.week} vs <span className="font-bold">{m.opponent}</span></span>
                         </div>
-                        <span className={`font-mono font-bold ${m.won ? 'text-green-400' : 'text-red-400'}`}>{m.ourScore}–{m.theirScore}</span>
+                        {/* ourScore holds Game Balls (0-3) — show them AS game balls, never as a fake football score */}
+                        <span className="flex items-center gap-1">
+                          {[0, 1, 2].map(i => <span key={i} className="text-sm" style={{ opacity: i < m.ourScore ? 1 : 0.2, filter: i < m.ourScore ? 'none' : 'grayscale(1)' }}>🏈</span>)}
+                          <span className={`ml-1 text-[11px] font-bold uppercase ${m.won ? 'text-green-400' : 'text-red-400'}`}>{m.won ? 'Won' : 'Lost'}</span>
+                        </span>
                       </div>
                     ))}
                   </div>

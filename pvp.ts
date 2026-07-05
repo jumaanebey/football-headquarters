@@ -89,7 +89,7 @@ const authedHeaders = async (): Promise<Record<string, string> | null> => {
 const readHeaders = () => ({ apikey: ANON!, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' });
 
 export interface LiveBase { pid: string; name: string; trophies: number; layout: BattleBuildingDef[]; }
-export interface LiveAttack { id: number; attacker_name: string; stars: number; pct: number; coins_lost: number; created_at: string; replay?: unknown; }
+export interface LiveAttack { id: number; attacker_name: string; attacker_pid?: string; stars: number; pct: number; coins_lost: number; created_at: string; replay?: unknown; }
 export interface LeaderRow { pid: string; name: string; trophies: number; }
 
 /** Publish (upsert) my base snapshot so other players can raid it. Fire-and-forget. */
@@ -136,6 +136,19 @@ export const reportAttack = async (targetPid: string, attackerName: string, star
   } catch { /* fire-and-forget */ }
 };
 
+/** One specific rival's CURRENT published base (revenge hits the real thing). */
+export const fetchBase = async (pid: string): Promise<LiveBase | null> => {
+  if (!pvpEnabled()) return null;
+  try {
+    const res = await fetch(
+      `${URL_}/rest/v1/fhq_bases?pid=eq.${encodeURIComponent(pid)}&select=pid,name,trophies,layout&limit=1`,
+      { headers: readHeaders() },
+    );
+    const rows: LiveBase[] = res.ok ? await res.json() : [];
+    return rows[0] ?? null;
+  } catch { return null; }
+};
+
 /** Top real coaches by trophies — the LIVE leaderboard (no fake teams). */
 export const fetchLeaderboard = async (limit = 20): Promise<LeaderRow[]> => {
   if (!pvpEnabled()) return [];
@@ -154,7 +167,7 @@ export const fetchAttacksOnMe = async (sinceIso: string): Promise<LiveAttack[]> 
   try {
     await ensureSession(); // makes sure fhq_pid is my auth uid before we query by it
     const res = await fetch(
-      `${URL_}/rest/v1/fhq_attacks?target_pid=eq.${playerId()}&created_at=gt.${encodeURIComponent(sinceIso)}&select=id,attacker_name,stars,pct,coins_lost,created_at,replay&order=created_at.asc&limit=20`,
+      `${URL_}/rest/v1/fhq_attacks?target_pid=eq.${playerId()}&created_at=gt.${encodeURIComponent(sinceIso)}&select=id,attacker_name,attacker_pid,stars,pct,coins_lost,created_at,replay&order=created_at.asc&limit=20`,
       { headers: readHeaders() },
     );
     return res.ok ? await res.json() : [];

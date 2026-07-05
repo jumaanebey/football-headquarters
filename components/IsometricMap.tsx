@@ -497,6 +497,28 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       : drag.gx >= 0 && drag.gx < GRID && drag.gy >= 0 && drag.gy < GRID && !cellBlocked(drag.gx, drag.gy, drag.id))
     : false;
 
+  // 🛣 Funnel lanes — memoized: patrolling players tick the game state ~10×/s, but the
+  // lanes only change when walls, the bus, or the stadium move. 8 A* runs per EDIT, not per tick.
+  const stadiumForLanes = buildings.find(b => b.type === BuildingType.STADIUM);
+  const funnelLanes = React.useMemo(() => {
+    if (!editMode || !stadiumForLanes) return null;
+    const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadiumForLanes.gridX * 10 + 5, y: stadiumForLanes.gridY * 10 + 5, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
+    const obstacles: BBuilding[] = [
+      ...walls.map((w, i) => ({ id: `w${i}`, kind: 'wall' as const, x: w.gridX * 10, y: w.gridY * 10, hp: 1, maxHp: 1, size: 4, dead: false, cooldown: 0 })),
+      ...(bus ? [{ id: 'bus', kind: 'wall' as const, x: bus.gridX * 10, y: bus.gridY * 10, hp: 1, maxHp: 1, size: 6, dead: false, cooldown: 0 }] : []),
+    ];
+    const lanes: [number, number][] = [[0, 0], [90, 0], [0, 90], [90, 90], [45, 0], [0, 45], [90, 45], [45, 90]];
+    return lanes.map(([sx, sy]) => {
+      const plan = planPath(sx, sy, hq, [hq, ...obstacles]);
+      const sealed = !!plan.targetWallId;
+      const pts = [{ x: sx, y: sy }, ...plan.path]
+        .map(p => { const c = worldToScreen(p.x, p.y); return `${c.x},${c.y}`; }).join(' ');
+      const start = worldToScreen(sx, sy);
+      return { pts, sealed, start };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode, walls, bus?.gridX, bus?.gridY, bus == null, stadiumForLanes?.gridX, stadiumForLanes?.gridY]);
+
   const night = timeOfDay < 6 || timeOfDay > 20;
   const dusk = (timeOfDay >= 6 && timeOfDay < 8) || (timeOfDay > 18 && timeOfDay <= 20);
   const ambient = night ? 'rgba(15,23,42,0.5)' : dusk ? 'rgba(251,146,60,0.16)' : 'rgba(0,0,0,0)';
@@ -539,33 +561,18 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {/* 🛣 FUNNEL OVERLAY (Design mode): the 8 attacker approach lanes, computed with
               the SAME pathfinder raiders use. RED = they walk in free (gap!), GREEN = your
               walls force a smash. Move a sled and watch the lanes react. */}
-          {editMode && (() => {
-            const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
-            if (!stadium) return null;
-            const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadium.gridX * 10 + 5, y: stadium.gridY * 10 + 5, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
-            const obstacles: BBuilding[] = [
-              ...walls.map((w, i) => ({ id: `w${i}`, kind: 'wall' as const, x: w.gridX * 10, y: w.gridY * 10, hp: 1, maxHp: 1, size: 4, dead: false, cooldown: 0 })),
-              ...(bus ? [{ id: 'bus', kind: 'wall' as const, x: bus.gridX * 10, y: bus.gridY * 10, hp: 1, maxHp: 1, size: 6, dead: false, cooldown: 0 }] : []),
-            ];
-            const lanes: [number, number][] = [[0, 0], [90, 0], [0, 90], [90, 90], [45, 0], [0, 45], [90, 45], [45, 90]];
-            return (
-              <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ zIndex: 55, overflow: 'visible' }}>
-                {lanes.map(([sx, sy], li) => {
-                  const plan = planPath(sx, sy, hq, [hq, ...obstacles]);
-                  const sealed = !!plan.targetWallId;
-                  const pts = [{ x: sx, y: sy }, ...plan.path]
-                    .map(p => { const c = worldToScreen(p.x, p.y); return `${c.x},${c.y}`; }).join(' ');
-                  const start = worldToScreen(sx, sy);
-                  return (
-                    <g key={li} opacity={sealed ? 0.35 : 0.75}>
-                      <polyline points={pts} fill="none" stroke={sealed ? '#4ade80' : '#f87171'} strokeWidth={3.5} strokeDasharray="7 6" strokeLinejoin="round" />
-                      <circle cx={start.x} cy={start.y} r={7} fill={sealed ? '#4ade80' : '#f87171'} opacity={0.9} />
-                    </g>
-                  );
-                })}
-              </svg>
-            );
-          })()}
+          {funnelLanes && (
+            <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ zIndex: 55, overflow: 'visible' }}>
+              {funnelLanes.map((l, li) => (
+                <g key={li} opacity={l.sealed ? 0.4 : 0.75}>
+                  {/* Accessibility: PATTERN carries the meaning (open = dashed, sealed = solid + lock) — color is reinforcement */}
+                  <polyline points={l.pts} fill="none" stroke={l.sealed ? '#4ade80' : '#f87171'} strokeWidth={3.5} strokeDasharray={l.sealed ? undefined : '7 6'} strokeLinejoin="round" />
+                  <circle cx={l.start.x} cy={l.start.y} r={9} fill={l.sealed ? '#4ade80' : '#f87171'} opacity={0.9} />
+                  <text x={l.start.x} y={l.start.y + 4.5} textAnchor="middle" fontSize={12} fill="#0f172a" fontWeight={900}>{l.sealed ? '🔒' : '➜'}</text>
+                </g>
+              ))}
+            </svg>
+          )}
           {/* Drag ghost: green = drop OK, red = blocked */}
           {drag && (editMode || dragMoved) && (() => {
             const big = drag.piece === 'building'; // 2×2 footprint ghost

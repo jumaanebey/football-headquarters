@@ -89,6 +89,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
 export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const isDefense = config.mode === 'defense';
   const isReplay = !!config.replay;
+  const povDefense = isDefense || isReplay; // whose broadcast is this? replays are watched by the DEFENDER
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
   // Deterministic battle RNG — a replay re-seeds with the recorded seed and every random
@@ -331,7 +332,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           if (!s.goalLine && target.kind === 'hq' && target.hp < target.maxHp * 0.5) {
             s.goalLine = true;
             for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: target.x + (gi ? 3 : -3), y: target.y + 2, hp: Math.round(150 * guardMult), maxHp: Math.round(150 * guardMult), dps: 12 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(rand() * 49) });
-            say(isDefense ? '🚨 GOAL-LINE STAND — your boys dig in at the goal line!' : '🚨 GOAL-LINE STAND — they\'re throwing EVERYBODY at you!');
+            say(povDefense ? '🚨 GOAL-LINE STAND — your boys dig in at the goal line!' : '🚨 GOAL-LINE STAND — they\'re throwing EVERYBODY at you!');
             s.shakeT = 0.25;
           }
           if (rand() < 0.12) s.fx.push({ type: 'impact', x: target.x, y: target.y - target.size * 0.3, life: 0.22, maxLife: 0.22 });
@@ -365,7 +366,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         s.guardT = 0;
         const src = aliveDef[Math.floor(rand() * aliveDef.length)];
         s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: src.x, y: src.y, hp: Math.round(140 * guardMult), maxHp: Math.round(140 * guardMult), dps: 11 * guardMult, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 40 + Math.floor(rand() * 59) });
-        say(isDefense ? 'YOUR defense sends out a linebacker!' : 'The defense sends out a LINEBACKER!');
+        say(povDefense ? 'YOUR defense sends out a linebacker!' : 'The defense sends out a LINEBACKER!');
       }
       for (const g of s.guards) {
         if (g.dead) continue;
@@ -396,7 +397,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           if (prey.hp <= 0) {
             prey.hp = 0; prey.dead = true;
             s.lost++; s.momentum = Math.max(0, s.momentum - 10);
-            say(isDefense ? `Your defense STUFFS #${prey.jersey ?? '??'} at the line!`
+            say(povDefense ? `Your defense STUFFS #${prey.jersey ?? '??'} at the line!`
               : prey.isHero ? `${(heroes.find(h => h.key === prey.heroKey)?.name || 'Your hero').toUpperCase()} IS DOWN!` : `#${prey.jersey ?? '??'} gets STUFFED at the line!`);
             s.fx.push({ type: 'impact', x: prey.x, y: prey.y, life: 0.3, maxLife: 0.3 });
             s.fx.push({ type: 'down', text: `${prey.jersey ?? ''}`, color: isDefense ? '#b91c1c' : '#111827', x: prey.x, y: prey.y, life: 1.1, maxLife: 1.1 });
@@ -408,7 +409,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             if (!isDefense) {
               // Takeaway pays the ATTACKER only — never inflate your own defense losses.
               s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10 * planRef.current.momentum);
-              say(`💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
+              say(isReplay ? `💥 They PANCAKE your linebacker!` : `💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
               for (let ci = 0; ci < 3; ci++) { const ca = rand() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
             } else {
               say(`Your #${g.jersey ?? '??'} gets flattened — they keep coming!`);
@@ -1070,6 +1071,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <div className={`py-6 text-center ${result.won ? 'bg-gradient-to-b from-green-700 to-green-900' : 'bg-gradient-to-b from-red-800 to-red-950'}`}>
               <div className="text-3xl font-display font-black text-white uppercase mb-3">
                 {result.campaignStage === 12 && result.won ? '💍 League Champions!'
+                  : isReplay ? (result.won ? 'They Scored On You' : 'Your Defense Held!')
                   : isDefense ? (result.won ? 'Goal-Line Stand!' : 'They Scored!') : (result.won ? 'Crowd Silenced!' : 'Shut Out')}
               </div>
               <div className="flex justify-center gap-3 text-4xl">

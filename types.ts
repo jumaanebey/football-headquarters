@@ -235,6 +235,7 @@ export interface DefenseLogEntry {
   seen: boolean;    // false until the player views the log (drives the "new" badge)
   avenged?: boolean; // true once the player has taken revenge on this raid
   replay?: unknown;  // recorded attack script (live rivals) — watch the actual drive
+  attackerPid?: string; // live rivals: their identity — revenge hits their REAL base
 }
 
 export interface FloatingText {

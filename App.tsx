@@ -21,7 +21,7 @@ import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
 import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase } from './campaign';
 import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
-import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, LiveBase } from './pvp';
+import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
 
@@ -32,7 +32,7 @@ import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, 
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
-import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Star, ClipboardList } from 'lucide-react';
+import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Star, ClipboardList, Settings as SettingsIcon } from 'lucide-react';
 
 const INITIAL_STATE: GameState = {
   resources: {
@@ -298,6 +298,52 @@ function App() {
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hasExported, setHasExported] = useState(() => { try { return localStorage.getItem('fhq_exported_v1') === '1'; } catch { return false; } });
+  const [importPending, setImportPending] = useState<Record<string, string | null> | null>(null);
+
+  // 💾 DATA SAFETY: localStorage is the only home your club has — one cleared browser
+  // and it's gone. Export bundles everything (save + PvP identity) into a file.
+  const exportSave = () => {
+    const bundle: Record<string, string | null> = {
+      v: '1', exported: new Date().toISOString(),
+      fhq_save_v1: localStorage.getItem(SAVE_KEY),
+      fhq_pid: localStorage.getItem('fhq_pid'),
+      fhq_session_v1: localStorage.getItem('fhq_session_v1'),
+      fhq_pvp_since: localStorage.getItem('fhq_pvp_since'),
+      fhq_tutorial_done_v1: localStorage.getItem(TUTORIAL_KEY),
+      fhq_chalk_intro_v1: localStorage.getItem('fhq_chalk_intro_v1'),
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `football-hq-${(gameState.teamName || 'club').replace(/\s+/g, '-').toLowerCase()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    try { localStorage.setItem('fhq_exported_v1', '1'); } catch { /* ignore */ }
+    setHasExported(true);
+    spawnText('Club backed up 💾', window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
+  };
+  const handleImportFile = (file: File) => {
+    file.text().then(txt => {
+      const b = JSON.parse(txt);
+      if (!b || b.v !== '1' || !b.fhq_save_v1) throw new Error('bad bundle');
+      JSON.parse(b.fhq_save_v1); // must be valid save JSON
+      setImportPending(b); // in-app confirm (never native dialogs)
+    }).catch(() => { sfx.error(); spawnText("That file isn't a Football HQ backup", window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); });
+  };
+  const applyImport = () => {
+    if (!importPending) return;
+    const KEYS = ['fhq_save_v1', 'fhq_pid', 'fhq_session_v1', 'fhq_pvp_since', 'fhq_tutorial_done_v1', 'fhq_chalk_intro_v1'];
+    // The autosave's beforeunload persist would clobber the imported save — write LAST.
+    window.addEventListener('beforeunload', () => {
+      for (const k of KEYS) {
+        const v = (importPending as Record<string, string | null>)[k];
+        if (v != null) localStorage.setItem(k, v); else localStorage.removeItem(k);
+      }
+    });
+    location.reload();
+  };
 
   const finishTutorial = (teamName: string, startRaid: boolean) => {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
@@ -706,18 +752,35 @@ function App() {
   };
 
   // Take REVENGE on a rival who raided you — storm their (scaled) base for extra loot.
-  const handleRevenge = (entry: DefenseLogEntry) => {
-    const opp = OPPONENTS.find(o => o.name === entry.attacker);
+  const handleRevenge = async (entry: DefenseLogEntry) => {
+    // LIVE rival? Revenge storms their REAL published base — not a lookalike.
+    let buildings = null as import('./battle').BattleBuildingDef[] | null;
+    let pvpTarget: string | undefined;
+    let title = `Revenge — ${entry.attacker}`;
+    if (entry.attackerPid) {
+      const base = await fetchBase(entry.attackerPid);
+      if (base) {
+        buildings = base.layout;
+        pvpTarget = base.pid; // they'll see YOUR revenge in their defense log, replay included
+        title = `Revenge — ${base.name}`;
+      }
+    }
+    if (!buildings) {
+      // Bot raider (or the rival deleted their base): scaled scrimmage stand-in.
+      const opp = OPPONENTS.find(o => o.name === entry.attacker);
+      buildings = makeRevengeBase(opp?.defenseRating ?? 50);
+    }
     const launched = launchAttack({
       mode: 'attack',
-      title: `Revenge — ${entry.attacker}`,
-      buildings: makeRevengeBase(opp?.defenseRating ?? 50),
+      title,
+      buildings,
       playerArmy: armyFromRoster(gameState.roster),
       power: raidPower(),
       heroes: heroesForBattle(gameState.heroes),
       specials: specialsForBattle(gameState.resources.FANS),
       loot: { coins: Math.round(entry.coinsLost * 1.5) + 200, fans: 25 }, // reclaim more than they took
-      rival: coachForBase(entry.attacker),
+      rival: entry.attackerPid ? undefined : coachForBase(entry.attacker), // real people speak for themselves
+      pvpTarget,
     });
     if (!launched) return;
     setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => e.id === entry.id ? { ...e, avenged: true } : e) }));
@@ -909,7 +972,7 @@ function App() {
           const coinsLost = Math.min(a.coins_lost, Math.round(coins * 0.12));
           coins -= coinsLost;
           trophies = Math.max(0, trophies + trophiesLostOnDefense(a.pct));
-          return { id: `pvp_${a.id}`, attacker: `${a.attacker_name} ⚡`, at: Date.parse(a.created_at), stars: a.stars, pct: a.pct, coinsLost, seen: false, replay: a.replay ?? undefined };
+          return { id: `pvp_${a.id}`, attacker: `${a.attacker_name} ⚡`, at: Date.parse(a.created_at), stars: a.stars, pct: a.pct, coinsLost, seen: false, replay: a.replay ?? undefined, attackerPid: a.attacker_pid };
         });
         return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: coins }, trophies, defenseLog: [...entries.reverse(), ...prev.defenseLog].slice(0, 20) };
       });
@@ -1475,12 +1538,13 @@ function App() {
         <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={dismissChalkIntro}>
           <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-blue-600 shadow-2xl p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-display font-black text-white uppercase mb-1">📋 The Chalkboard</h3>
-            <p className="text-slate-400 text-xs mb-4">Where you scheme your stadium's defense. Four moves:</p>
+            <p className="text-slate-400 text-xs mb-4">Where you scheme your stadium's defense. Five moves:</p>
             <div className="space-y-2.5 text-sm text-slate-200">
-              <div className="flex gap-2.5"><span className="shrink-0">✋</span><span><b className="text-white">Drag</b> any building, equipment, or the bus to move it</span></div>
+              <div className="flex gap-2.5"><span className="shrink-0">✋</span><span><b className="text-white">Drag</b> any building, equipment, or the bus — it rides your finger</span></div>
+              <div className="flex gap-2.5"><span className="shrink-0">🫳</span><span><b className="text-white">Drag a chip</b> from the shop or inventory straight onto the board</span></div>
               <div className="flex gap-2.5"><span className="shrink-0">🔄</span><span><b className="text-white">Tap</b> equipment or the bus to rotate it</span></div>
-              <div className="flex gap-2.5"><span className="shrink-0">🛑</span><span><b className="text-white">Tap empty grass</b> to drop a Blocking Sled (tap a sled to remove it)</span></div>
-              <div className="flex gap-2.5"><span className="shrink-0">🛣</span><span>The dashed lines are <b className="text-red-300">raider routes</b> — <b className="text-red-300">red walks in free</b>, <b className="text-green-300">green means your walls stop them</b>. Seal the red.</span></div>
+              <div className="flex gap-2.5"><span className="shrink-0">🛑</span><span><b className="text-white">Drag across grass</b> to paint a Blocking Sled line (tap a sled to remove)</span></div>
+              <div className="flex gap-2.5"><span className="shrink-0">🛣</span><span>The lines are raider routes: <b className="text-red-300">dashed ➜ = they walk in free</b>, <b className="text-green-300">solid 🔒 = your walls stop them</b>. Seal the dashed ones.</span></div>
             </div>
             <button onClick={dismissChalkIntro} className="mt-5 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Chalk it up 🏈</button>
           </div>
@@ -1643,23 +1707,65 @@ function App() {
         <DailyQuestsModal dailies={gameState.dailies} onClaim={handleClaimDaily} onClose={() => setIsDailyOpen(false)} />
       )}
 
-      {/* Mute toggle */}
+      {/* ⚙️ Settings — mute, backup, and the dangerous stuff safely behind one door.
+          (Reset used to sit naked next to Mute: one mis-tap from disaster.) */}
       <button
-        onClick={() => setMuted(toggleMute())}
-        className="fixed top-2 right-16 z-40 text-slate-400 hover:text-white bg-black/30 p-1.5 rounded transition-colors"
-        title={muted ? 'Unmute' : 'Mute'}
+        onClick={() => setSettingsOpen(true)}
+        className="fixed top-2 right-2 z-40 text-slate-400 hover:text-white bg-black/30 p-1.5 rounded-lg transition-colors"
+        title="Settings"
       >
-        {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+        <span className="relative flex">
+          <SettingsIcon size={16} />
+          {!hasExported && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" title="Back up your club — your save only lives in this browser" />}
+        </span>
       </button>
 
-      {/* Reset (small, unobtrusive) */}
-      <button
-        onClick={() => setConfirmingReset(true)}
-        className="fixed top-2 right-2 z-40 text-[10px] uppercase font-bold text-slate-500 hover:text-red-400 bg-black/30 px-2 py-1 rounded transition-colors"
-        title="Reset all progress"
-      >
-        Reset
-      </button>
+      {settingsOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setSettingsOpen(false)}>
+          <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="text-xl font-display font-bold text-white uppercase">Settings</h3>
+              <button onClick={() => setSettingsOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div><div className="text-sm font-bold text-white">{gameState.teamName}</div><div className="text-[11px] text-slate-500">your club</div></div>
+                <span className="text-2xl">🏈</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-300">Sound</div>
+                <button onClick={() => setMuted(toggleMute())} className={`px-3 py-1.5 rounded-lg border text-sm font-bold flex items-center gap-2 transition-colors ${muted ? 'border-slate-700 text-slate-400' : 'border-orange-500 text-orange-300 bg-orange-900/20'}`}>
+                  {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}{muted ? 'Muted' : 'On'}
+                </button>
+              </div>
+              <div className="pt-2 border-t border-slate-800">
+                <div className="text-sm text-slate-300 mb-0.5">Back up your club</div>
+                <div className="text-[11px] text-slate-500 mb-2">Your save lives only in this browser. Export a file so clearing data can never cost you the club — PvP identity included.</div>
+                <div className="flex gap-2">
+                  <button onClick={exportSave} className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors active:scale-95">💾 Export</button>
+                  <label className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold text-center cursor-pointer transition-colors active:scale-95">
+                    📂 Import
+                    <input type="file" accept="application/json,.json" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImportFile(f); e.target.value = ''; }} />
+                  </label>
+                </div>
+                {importPending && (
+                  <div className="mt-3 rounded-xl border border-yellow-700 bg-yellow-950/40 p-3">
+                    <div className="text-[12px] text-yellow-200 font-bold mb-2">Replace your current club with this backup? Your current progress here will be overwritten.</div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setImportPending(null)} className="flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-sm font-bold">Cancel</button>
+                      <button onClick={applyImport} className="flex-1 py-1.5 rounded-lg bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold">Import & reload</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                <div className="text-sm text-slate-400">Start a brand-new franchise</div>
+                <button onClick={() => { setSettingsOpen(false); setConfirmingReset(true); }} className="px-3 py-1.5 rounded-lg border border-red-900 text-red-400 hover:bg-red-950/50 text-sm font-bold transition-colors">Reset…</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reset confirmation (in-game, no native dialog) */}
       {confirmingReset && (
