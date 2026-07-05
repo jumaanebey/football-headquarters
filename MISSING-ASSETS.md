@@ -69,6 +69,28 @@ The UI is standardizing: currencies = PNG art icons (coins + energy already exis
 
 ---
 
+## TIER 3 — Round 4b: decor recolors (5 files — AFTER Tiers 1–2)
+
+The board's buildings now wear club colors, so the old blue/teal decor pieces are the
+last off-identity things on the field. Same reference-attached recolor drill: attach the
+existing PNG, identical silhouette/camera, repaint accents to black `#111827` / charcoal
++ orange `#f97316`, white trim, orange shield crest where a mark exists. Keep natural
+materials natural (water stays water, grass stays grass, stone stays stone). 1024²,
+knockout, overwrite in place; skip-on-drift rule applies.
+
+| # | File |
+|---|---|
+| 24 | `public/assets/decor/statue-legends.png` |
+| 25 | `public/assets/decor/merch-stand.png` |
+| 26 | `public/assets/decor/club-fountain.png` |
+| 27 | `public/assets/decor/tailgate-tent.png` |
+| 28 | `public/assets/decor/parking-lot.png` |
+
+(`team-bus.png` is already on-identity — do not touch.)
+
+**After 4b the art pipeline is CLOSED** until the on-device playtest (Phase C) surfaces
+something specific. No speculative art.
+
 ## Wiring notes (code side — do not edit code)
 - Building recolors overwrite existing paths → they appear on every board instantly.
 - Currency icons: code adopts `icons/crowns.png` / `icons/fans.png` during the Phase B
