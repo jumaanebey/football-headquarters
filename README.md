@@ -1,5 +1,7 @@
 # 🏈 Football Headquarters
 
+**▶️ Play it live: [football-headquarters.vercel.app](https://football-headquarters.vercel.app)** — every visitor becomes a Live Rival.
+
 A **Clash-of-Clans / Castle-Clash-style base-builder**, reskinned to an American-football program.
 Build your stadium, train position groups, unlock and level star heroes, then storm rival stadiums
 in real-time raids to score touchdowns and climb the trophy ladder — all client-side, no backend.
