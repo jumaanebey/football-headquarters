@@ -340,10 +340,11 @@ const BuildingSprite: React.FC<{
   );
 };
 
-// Players only appear on the field while actively training (no more idle wandering).
+// Players appear on the field while training OR while patrolling the stadium (defenders).
 const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
   const c = worldToScreen(player.worldPos.x, player.worldPos.y);
   const isTraining = player.state === PlayerState.TRAINING;
+  const isPatrolling = player.state === PlayerState.PATROLLING;
 
   let color = '#94a3b8';
   if (player.unit === UnitGroup.OFFENSE_LINE || player.unit === UnitGroup.OFFENSE_SKILL) color = '#ef4444';
@@ -357,6 +358,7 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
         <span className="text-[7px] font-bold text-white/90 leading-tight mt-0.5">{player.role}</span>
       </div>
       {isTraining && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px]">💪</div>}
+      {isPatrolling && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px]">🛡️</div>}
     </div>
   );
 };

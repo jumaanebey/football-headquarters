@@ -4,7 +4,7 @@ import {
   BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER, UNIT_PREF,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS, planPath, losClear,
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
-  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef,
+  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef, HomeGuardDef,
 } from '../battle';
 import { RivalCoach } from '../campaign';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
@@ -25,6 +25,7 @@ export interface BattleConfig {
   campaignStage?: number; // set when this attack is a Season campaign stage
   pvpTarget?: string;     // set when raiding a LIVE rival's published base (their pid)
   rival?: RivalCoach;     // the coach across the field — trash talk pre-game, reaction post-game
+  homeGuards?: HomeGuardDef[]; // defense mode: YOUR roster's defenders start on the field
 }
 
 export interface BattleResult {
@@ -99,7 +100,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   };
   const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
-    guards: [],
+    // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
+    guards: (() => {
+      const gs = config.homeGuards ?? [];
+      if (!gs.length) return [] as BTroop[];
+      const hq = config.buildings.find(b => b.kind === 'hq') ?? config.buildings[0];
+      return gs.map((g, i) => {
+        const a = (i / gs.length) * Math.PI * 2 + 0.6;
+        return { id: `hg${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: hq.x + Math.cos(a) * 10, y: hq.y + Math.sin(a) * 10, hp: g.hp, maxHp: g.hp, dps: g.dps, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: g.jersey } as BTroop;
+      });
+    })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [], pulses: [], fx: [], shakeT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
     momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false,
@@ -159,7 +169,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // Kickoff: referee whistle + crowd stir the moment play starts; the crowd BED hums
   // underneath the whole battle and dies with the final whistle.
   useEffect(() => {
-    if (phase === 'fighting') { sfx.kickoff(); say(`KICKOFF! ${config.title.toUpperCase()}!`); crowdBedStart(); }
+    if (phase === 'fighting') { sfx.kickoff(); say(config.homeGuards?.length ? `KICKOFF! Your ${config.homeGuards.length} defenders take the field!` : `KICKOFF! ${config.title.toUpperCase()}!`); crowdBedStart(); }
     if (phase === 'result') crowdBedStop();
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => crowdBedStop(), []); // never leak the loop on exit

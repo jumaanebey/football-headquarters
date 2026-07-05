@@ -385,6 +385,33 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
   return [...bs, ...ws, ...ds, ...busB];
 };
 
+// YOUR defenders, on the field: the defensive-tendency players you actually recruited
+// and trained start the defense battle guarding the stadium (balanced tendencies suit up
+// too when there aren't enough true defenders). Stats scale with each player's OVR —
+// recruiting and training your defense is now something you can WATCH work.
+export interface HomeGuardDef { jersey: number; hp: number; dps: number; name: string; }
+export const homeDefenders = (roster: Player[]): HomeGuardDef[] => {
+  const side = (p: Player) => {
+    const t = TENDENCIES[p.tendency as TendencyKey];
+    return t?.side === 'defense' ? 2 : t?.side === 'balanced' ? 1 : 0;
+  };
+  const jerseyOf = (id: string) => { let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return 40 + (h % 59); };
+  return roster
+    .filter(p => side(p) > 0)
+    .sort((a, b) => side(b) - side(a) || playerOvr(b) - playerOvr(a))
+    .slice(0, 4)
+    .map(p => {
+      const ovr = playerOvr(p);
+      const balanced = side(p) === 1;
+      return {
+        jersey: jerseyOf(p.id),
+        hp: Math.round((110 + ovr * 5.5) * (balanced ? 0.8 : 1)),
+        dps: Math.round((7 + ovr * 0.55) * (balanced ? 0.8 : 1) * 10) / 10,
+        name: p.name,
+      };
+    });
+};
+
 // The AI raiding party, pre-placed around the perimeter of your base.
 export const defenseAiTroops = (): { unit: UnitGroup; x: number; y: number }[] => {
   const spec: [UnitGroup, number][] = [

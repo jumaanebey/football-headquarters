@@ -15,7 +15,7 @@ import { ObjectiveBanner } from './components/ObjectiveBanner';
 import { TourPointer } from './components/TourPointer';
 import { GoalId } from './objectives';
 import { computeDefenseRating, defenseTroopBoost } from './defense';
-import { tendencyFromId } from './constants';
+import { tendencyFromId, TENDENCIES, TendencyKey } from './constants';
 import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
@@ -28,7 +28,7 @@ import { RECRUIT_LAST_NAMES } from './constants';
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
 import { BattleScreen, BattleResult, BattleConfig } from './components/BattleScreen';
-import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase } from './battle';
+import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase, homeDefenders } from './battle';
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
@@ -248,22 +248,39 @@ function App() {
           return nb;
         });
 
-        // 3. Player AI
+        // 3. Player AI — off-duty DEFENSIVE players visibly patrol the stadium (your
+        //    defense isn't an abstract stat: the guys you recruited walk the beat).
+        const stadiumB = prev.buildings.find(b => b.type === BuildingType.STADIUM);
+        const patrolPoint = () => {
+          const cx = (stadiumB?.gridX ?? 6) * 10, cy = (stadiumB?.gridY ?? 6) * 10;
+          const ang = Math.random() * Math.PI * 2, rad = 11 + Math.random() * 6;
+          return {
+            x: Math.min(94, Math.max(6, cx + Math.cos(ang) * rad)),
+            y: Math.min(94, Math.max(6, cy + Math.sin(ang) * rad)),
+            z: 0,
+          };
+        };
         const updatedRoster = prev.roster.map(p => {
+          // Idle defender → take up a patrol route around the stadium.
+          if (p.state === PlayerState.IDLE && TENDENCIES[p.tendency as TendencyKey]?.side === 'defense') {
+            return { ...p, state: PlayerState.PATROLLING, targetPos: patrolPoint() };
+          }
           let { x, y } = p.worldPos;
-          let { x: tx, y: ty } = p.targetPos;
+          const { x: tx, y: ty } = p.targetPos;
 
           const dx = tx - x;
           const dy = ty - y;
           const dist = Math.sqrt(dx*dx + dy*dy);
-          const speed = 15 * dt;
+          const patrolling = p.state === PlayerState.PATROLLING;
+          const speed = (patrolling ? 6.5 : 15) * dt; // guards amble; trainees hustle
 
           if (dist > 0.5) {
             x += (dx / dist) * speed;
             y += (dy / dist) * speed;
-            return { ...p, worldPos: { x, y, z: 0 }, state: p.targetPos.z === 1 ? PlayerState.TRAINING : PlayerState.WALKING };
+            return { ...p, worldPos: { x, y, z: 0 }, state: p.targetPos.z === 1 ? PlayerState.TRAINING : patrolling ? PlayerState.PATROLLING : PlayerState.WALKING };
           } else {
-             // Arrival: walking-to-pitch players start training; any other walker settles to idle.
+             // Arrival: walkers-to-pitch train; patrollers pick the next beat; others idle.
+             if (patrolling) return { ...p, targetPos: patrolPoint() };
              if (p.state === PlayerState.WALKING && p.targetPos.z === 1) {
                 return { ...p, state: PlayerState.TRAINING };
              }
@@ -620,6 +637,7 @@ function App() {
       buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
+      homeGuards: homeDefenders(gameState.roster), // your recruited defenders, on the field
       loot: { coins: coinsAtRisk, fans: 0 },
     });
   };

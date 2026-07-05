@@ -53,7 +53,8 @@ export enum PlayerRarity {
 export enum PlayerState {
   IDLE = 'IDLE',
   WALKING = 'WALKING',
-  TRAINING = 'TRAINING'
+  TRAINING = 'TRAINING',
+  PATROLLING = 'PATROLLING' // defensive-tendency players guard the stadium when off-duty
 }
 
 export interface WorldPosition {
