@@ -187,6 +187,7 @@ function App() {
   const [liveTargets, setLiveTargets] = useState<LiveBase[]>([]);
   const [placingDefense, setPlacingDefense] = useState<string | null>(null); // DEFENSE_TYPES kind being placed (shop buy)
   const [placingInv, setPlacingInv] = useState<{ type: 'sled' | 'bus' | 'defense'; kind?: string } | null>(null); // inventory piece being placed back
+  const [designExpanded, setDesignExpanded] = useState(false); // Design HUD starts slim so the board (and funnel lanes) stay visible
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
@@ -1256,22 +1257,31 @@ function App() {
         );
         return (
           <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40 w-[min(92vw,540px)] bg-slate-900/95 backdrop-blur border border-blue-700 rounded-2xl shadow-xl p-3">
-            <div className="flex items-center gap-3">
-              {/* Defense Rating badge */}
-              <div className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2" style={{ borderColor: gradeColor }}>
-                <span className="font-display font-black text-2xl leading-none" style={{ color: gradeColor }}>{dr.grade}</span>
-                <span className="text-[9px] uppercase text-slate-400 font-bold mt-0.5">Defense</span>
-                <span className="text-[10px] font-mono text-slate-300 leading-none">{dr.score}/100</span>
+            {/* Slim header — always visible; the board (and the red/green attacker lanes) stay in view */}
+            <div className="flex items-center gap-2.5">
+              <div className="shrink-0 flex items-baseline gap-1 px-2 py-1 rounded-lg border-2" style={{ borderColor: gradeColor }}>
+                <span className="font-display font-black text-xl leading-none" style={{ color: gradeColor }}>{dr.grade}</span>
+                <span className="text-[10px] font-mono text-slate-300">{dr.score}</span>
               </div>
+              <div className="min-w-0 flex-1 text-[11px] text-slate-400 leading-tight">
+                <span className="text-yellow-300 font-bold">{dr.weakness}</span>
+                <div className="text-[10px] text-slate-500"><span className="text-red-300">red lanes</span> = raiders walk in free · <span className="text-green-300">green</span> = sealed</div>
+              </div>
+              <button onClick={() => setDesignExpanded(x => !x)} className="shrink-0 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800/70 text-slate-200 text-[11px] font-bold transition-colors hover:border-orange-400">
+                {designExpanded ? '▴ Less' : '▾ Shop & More'}
+              </button>
+              <button onClick={() => { setEditMode(false); setMoveSel(null); setPlacingDefense(null); setPlacingInv(null); setDesignExpanded(false); }} className="shrink-0 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold transition-colors active:scale-95">Done</button>
+            </div>
+            {placingDefense && !designExpanded && <div className="text-[10px] text-green-300 font-bold mt-1.5 animate-pulse">Tap a free tile to install the {DEFENSE_TYPES.find(t => t.kind === placingDefense)?.name}</div>}
+            {placingInv && !designExpanded && <div className="text-[10px] text-green-300 font-bold mt-1.5 animate-pulse">Tap a free tile to place it</div>}
+            {designExpanded && <>
+            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-800">
               <div className="flex-1 space-y-1">
                 <Bar label="Walls" v={dr.walls} />
                 <Bar label="Structure" v={dr.structure} />
                 <Bar label="Defenders" v={dr.defenders} />
               </div>
-            </div>
-            <div className="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5 flex-wrap">
-              <Shield size={12} className="text-blue-400 shrink-0" /> Weakest link: <span className="text-yellow-300 font-bold">{dr.weakness}</span>
-              {dr.crowd > 0 && <span className="text-rose-300 font-bold ml-auto">🔊 +{dr.crowd} home crowd</span>}
+              {dr.crowd > 0 && <span className="text-rose-300 font-bold text-[10px] shrink-0">🔊 +{dr.crowd} crowd</span>}
             </div>
             {/* Defense shop — buy football equipment, then tap a tile to install it */}
             <div className="mt-2 pt-2 border-t border-slate-800">
@@ -1348,7 +1358,7 @@ function App() {
             <div className="text-[10px] text-slate-500 mt-1.5">
               <span className="text-yellow-300 font-bold">Drag</span> pieces to move • <span className="text-yellow-300 font-bold">Tap</span> equipment/bus to rotate • Tap empty tiles for <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP})
             </div>
-            <button onClick={() => { setEditMode(false); setMoveSel(null); setPlacingDefense(null); setPlacingInv(null); }} className="mt-2 w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Done</button>
+            </>}
           </div>
         );
       })()}

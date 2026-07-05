@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob, DefensePiece } from '../types';
 import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, DEFENSE_TYPES } from '../constants';
+import { planPath, BBuilding } from '../battle';
 import { buildingSprite } from '../assets';
 import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
 
@@ -490,6 +491,36 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
         <div ref={boardRef} onClick={handleBoardClick} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}
           className={`relative ${drag ? 'cursor-grabbing' : editMode ? 'cursor-pointer' : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `scale(${scale})`, transformOrigin: 'center', touchAction: 'none' }}>
           <GroundLayer buildings={buildings} />
+          {/* 🛣 FUNNEL OVERLAY (Design mode): the 8 attacker approach lanes, computed with
+              the SAME pathfinder raiders use. RED = they walk in free (gap!), GREEN = your
+              walls force a smash. Move a sled and watch the lanes react. */}
+          {editMode && (() => {
+            const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
+            if (!stadium) return null;
+            const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadium.gridX * 10, y: stadium.gridY * 10, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
+            const obstacles: BBuilding[] = [
+              ...walls.map((w, i) => ({ id: `w${i}`, kind: 'wall' as const, x: w.gridX * 10, y: w.gridY * 10, hp: 1, maxHp: 1, size: 4, dead: false, cooldown: 0 })),
+              ...(bus ? [{ id: 'bus', kind: 'wall' as const, x: bus.gridX * 10, y: bus.gridY * 10, hp: 1, maxHp: 1, size: 6, dead: false, cooldown: 0 }] : []),
+            ];
+            const lanes: [number, number][] = [[0, 0], [90, 0], [0, 90], [90, 90], [45, 0], [0, 45], [90, 45], [45, 90]];
+            return (
+              <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ zIndex: 55, overflow: 'visible' }}>
+                {lanes.map(([sx, sy], li) => {
+                  const plan = planPath(sx, sy, hq, [hq, ...obstacles]);
+                  const sealed = !!plan.targetWallId;
+                  const pts = [{ x: sx, y: sy }, ...plan.path]
+                    .map(p => { const c = worldToScreen(p.x, p.y); return `${c.x},${c.y}`; }).join(' ');
+                  const start = worldToScreen(sx, sy);
+                  return (
+                    <g key={li} opacity={sealed ? 0.35 : 0.75}>
+                      <polyline points={pts} fill="none" stroke={sealed ? '#4ade80' : '#f87171'} strokeWidth={3.5} strokeDasharray="7 6" strokeLinejoin="round" />
+                      <circle cx={start.x} cy={start.y} r={7} fill={sealed ? '#4ade80' : '#f87171'} opacity={0.9} />
+                    </g>
+                  );
+                })}
+              </svg>
+            );
+          })()}
           {/* Drag ghost: green = drop OK, red = blocked */}
           {drag && (editMode || dragMoved) && (() => {
             const c = tileToScreen(drag.gx, drag.gy);
