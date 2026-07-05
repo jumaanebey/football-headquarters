@@ -8,6 +8,7 @@ interface Props {
   onClose: () => void;
   onWatchLive: () => void;
   onRevenge: (entry: DefenseLogEntry) => void;
+  onWatchReplay: (entry: DefenseLogEntry) => void;
 }
 
 const ago = (ts: number) => {
@@ -18,7 +19,7 @@ const ago = (ts: number) => {
   return `${Math.round(s / 86400)}d ago`;
 };
 
-export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, onWatchLive, onRevenge }) => {
+export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, onWatchLive, onRevenge, onWatchReplay }) => {
   const held = log.filter(e => e.stars === 0).length;
   const totalLost = log.reduce((s, e) => s + e.coinsLost, 0);
   const shieldMs = (shieldUntil || 0) - Date.now();
@@ -79,13 +80,21 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
                   <div className={`text-xs font-bold ${held ? 'text-green-400' : 'text-red-400'}`}>
                     {held ? 'HELD' : `−${e.coinsLost}`}
                   </div>
-                  {!held && (e.avenged ? (
-                    <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Swords size={11} /> Avenged</span>
-                  ) : (
-                    <button onClick={() => onRevenge(e)} className="text-[11px] font-bold px-2 py-1 rounded-lg bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-1 transition-colors active:scale-95">
-                      <Swords size={12} /> Revenge
-                    </button>
-                  ))}
+                  <div className="flex items-center gap-1.5">
+                    {!!e.replay && (
+                      <button onClick={() => onWatchReplay(e)} title="Watch the actual attack, move for move"
+                        className="text-[11px] font-bold px-2 py-1 rounded-lg bg-red-700 hover:bg-red-600 text-white flex items-center gap-1 transition-colors active:scale-95">
+                        ▶ Watch
+                      </button>
+                    )}
+                    {!held && (e.avenged ? (
+                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Swords size={11} /> Avenged</span>
+                    ) : (
+                      <button onClick={() => onRevenge(e)} className="text-[11px] font-bold px-2 py-1 rounded-lg bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-1 transition-colors active:scale-95">
+                        <Swords size={12} /> Revenge
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             );

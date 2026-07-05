@@ -535,6 +535,30 @@ export const planPath = (fromX: number, fromY: number, goal: BBuilding, building
   return { path: cells.map(n => ({ x: (n % 10) * 10, y: ((n / 10) | 0) * 10 })), targetWallId, goalId: goal.id, blocked, age: 0 };
 };
 
+// --- REPLAYS: deterministic battles. A seeded RNG + a recorded deploy script re-create
+// an attack EXACTLY — so when a live rival raids you, you can watch the actual drive.
+export const mulberry32 = (seed: number) => {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+export interface ReplayAction { tick: number; k: 't' | 'h' | 's' | 'p' | 'a'; u?: UnitGroup; key?: string; x?: number; y?: number; }
+export interface ReplayData {
+  v: 1;
+  seed: number;
+  plan: string;                       // GamePlanKey the attacker locked in
+  power?: Record<UnitGroup, number>;  // attacker's troop multipliers
+  heroes: RaidHero[];                 // attacker's hero kit as fielded
+  specials: SpecialDef[];             // mascot / fan-mob kit
+  layout: BattleBuildingDef[];        // the DEFENDER's base as it was attacked
+  script: ReplayAction[];             // every deploy / play / ability, by tick
+}
+
 // Dev-only test hook: lets browser-console tests drive the pathfinder directly.
 if (typeof window !== 'undefined' && (import.meta as any).env?.DEV) (window as any).__fhqPlanPath = planPath;
 

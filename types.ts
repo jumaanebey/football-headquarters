@@ -233,6 +233,7 @@ export interface DefenseLogEntry {
   coinsLost: number;
   seen: boolean;    // false until the player views the log (drives the "new" badge)
   avenged?: boolean; // true once the player has taken revenge on this raid
+  replay?: unknown;  // recorded attack script (live rivals) — watch the actual drive
 }
 
 export interface FloatingText {

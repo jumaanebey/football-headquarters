@@ -89,7 +89,7 @@ const authedHeaders = async (): Promise<Record<string, string> | null> => {
 const readHeaders = () => ({ apikey: ANON!, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' });
 
 export interface LiveBase { pid: string; name: string; trophies: number; layout: BattleBuildingDef[]; }
-export interface LiveAttack { id: number; attacker_name: string; stars: number; pct: number; coins_lost: number; created_at: string; }
+export interface LiveAttack { id: number; attacker_name: string; stars: number; pct: number; coins_lost: number; created_at: string; replay?: unknown; }
 export interface LeaderRow { pid: string; name: string; trophies: number; }
 
 /** Publish (upsert) my base snapshot so other players can raid it. Fire-and-forget. */
@@ -121,15 +121,17 @@ export const findOpponents = async (trophies: number): Promise<LiveBase[]> => {
 };
 
 /** Tell the defender they were raided (feeds their defense log + revenge). JWT-signed. */
-export const reportAttack = async (targetPid: string, attackerName: string, stars: number, pct: number, coinsLost: number): Promise<void> => {
+export const reportAttack = async (targetPid: string, attackerName: string, stars: number, pct: number, coinsLost: number, replay?: unknown): Promise<void> => {
   if (!pvpEnabled()) return;
   try {
     const h = await authedHeaders();
     if (!h) return;
     const s = loadSession()!;
+    // Attach the recorded drive so the defender can watch it (server caps size at 80KB).
+    const replayJson = replay && JSON.stringify(replay).length < 75000 ? replay : null;
     await fetch(`${URL_}/rest/v1/fhq_attacks`, {
       method: 'POST', headers: h,
-      body: JSON.stringify([{ target_pid: targetPid, attacker_pid: s.uid, attacker_name: attackerName.slice(0, 40), stars, pct, coins_lost: coinsLost }]),
+      body: JSON.stringify([{ target_pid: targetPid, attacker_pid: s.uid, attacker_name: attackerName.slice(0, 40), stars, pct, coins_lost: coinsLost, replay: replayJson }]),
     });
   } catch { /* fire-and-forget */ }
 };
@@ -152,7 +154,7 @@ export const fetchAttacksOnMe = async (sinceIso: string): Promise<LiveAttack[]> 
   try {
     await ensureSession(); // makes sure fhq_pid is my auth uid before we query by it
     const res = await fetch(
-      `${URL_}/rest/v1/fhq_attacks?target_pid=eq.${playerId()}&created_at=gt.${encodeURIComponent(sinceIso)}&select=id,attacker_name,stars,pct,coins_lost,created_at&order=created_at.asc&limit=20`,
+      `${URL_}/rest/v1/fhq_attacks?target_pid=eq.${playerId()}&created_at=gt.${encodeURIComponent(sinceIso)}&select=id,attacker_name,stars,pct,coins_lost,created_at,replay&order=created_at.asc&limit=20`,
       { headers: readHeaders() },
     );
     return res.ok ? await res.json() : [];

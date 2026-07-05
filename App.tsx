@@ -649,7 +649,26 @@ function App() {
     });
   };
 
+  // ▶ Watch the ACTUAL attack a live rival ran on your base — every deploy is theirs.
+  const handleWatchReplay = (entry: DefenseLogEntry) => {
+    const rep = entry.replay as import('./battle').ReplayData | undefined;
+    if (!rep || rep.v !== 1) return;
+    setDefenseLogOpen(false);
+    setBattleConfig({
+      mode: 'attack',
+      title: `${entry.attacker.replace(' ⚡', '')} at your stadium`,
+      buildings: rep.layout,
+      power: rep.power,
+      heroes: rep.heroes,
+      specials: rep.specials,
+      playerArmy: { [UnitGroup.OFFENSE_LINE]: 99, [UnitGroup.OFFENSE_SKILL]: 99, [UnitGroup.DEFENSE_LINE]: 99, [UnitGroup.DEFENSE_SECONDARY]: 99 }, // spectator: never end early on "out of players"
+      loot: { coins: 0, fans: 0 },
+      replay: { seed: rep.seed, script: rep.script, planKey: rep.plan },
+    });
+  };
+
   const handleBattleFinish = (r: BattleResult) => {
+    if (r.isReplay) { setBattleConfig(null); return; } // spectating awards nothing
     if (r.mode === 'attack') {
       const isCampaign = !!r.campaignStage;
       // Raids move the trophy ladder + pay star-gems; campaign pays via first-clear bounties instead.
@@ -697,8 +716,8 @@ function App() {
         spawnText(`RANK UP! ${after.rank.emoji} ${after.rank.name.toUpperCase()}`, window.innerWidth / 2, window.innerHeight / 2 - 60, after.rank.color);
         sfx.victory();
       }
-      // LIVE rival raided → their defense log hears about it; and republish my base state.
-      if (r.pvpTarget) reportAttack(r.pvpTarget, gameState.teamName, r.stars, r.pct, r.coins);
+      // LIVE rival raided → their defense log hears about it (with the full replay); republish my base.
+      if (r.pvpTarget) reportAttack(r.pvpTarget, gameState.teamName, r.stars, r.pct, r.coins, r.replay);
       setTimeout(publishMyBase, 500);
     } else {
       setGameState(prev => ({
@@ -785,7 +804,7 @@ function App() {
           const coinsLost = Math.min(a.coins_lost, Math.round(coins * 0.12));
           coins -= coinsLost;
           trophies = Math.max(0, trophies + trophiesLostOnDefense(a.pct));
-          return { id: `pvp_${a.id}`, attacker: `${a.attacker_name} ⚡`, at: Date.parse(a.created_at), stars: a.stars, pct: a.pct, coinsLost, seen: false };
+          return { id: `pvp_${a.id}`, attacker: `${a.attacker_name} ⚡`, at: Date.parse(a.created_at), stars: a.stars, pct: a.pct, coinsLost, seen: false, replay: a.replay ?? undefined };
         });
         return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: coins }, trophies, defenseLog: [...entries.reverse(), ...prev.defenseLog].slice(0, 20) };
       });
@@ -1277,6 +1296,7 @@ function App() {
           onClose={() => setDefenseLogOpen(false)}
           onWatchLive={() => { setDefenseLogOpen(false); startDefense(); }}
           onRevenge={handleRevenge}
+          onWatchReplay={handleWatchReplay}
         />
       )}
 

@@ -4,7 +4,7 @@ import {
   BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER, UNIT_PREF,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS, planPath, losClear,
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
-  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef, HomeGuardDef,
+  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef, HomeGuardDef, mulberry32, ReplayAction, ReplayData,
 } from '../battle';
 import { RivalCoach } from '../campaign';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
@@ -29,6 +29,7 @@ export interface BattleConfig {
   homeGuards?: HomeGuardDef[]; // defense mode: YOUR roster's defenders start on the field
   fans?: number;          // defense mode: your fanbase — the crowd erupts and stalls drives
   parkingLot?: number;    // defense mode: apron level (visual; the layout is pre-compressed)
+  replay?: { seed: number; script: ReplayAction[]; planKey: string }; // spectate a recorded attack
 }
 
 export interface BattleResult {
@@ -41,6 +42,8 @@ export interface BattleResult {
   won: boolean;
   campaignStage?: number;
   pvpTarget?: string;
+  isReplay?: boolean;    // spectated replays award nothing
+  replay?: ReplayData;   // recorded on live-rival attacks so the defender can watch
 }
 
 interface Props {
@@ -66,10 +69,10 @@ const emptyArmy = (): Record<UnitGroup, number> => ({
   [UnitGroup.DEFENSE_LINE]: 0, [UnitGroup.DEFENSE_SECONDARY]: 0,
 });
 
-const makeTroop = (unit: UnitGroup, x: number, y: number, mult = 1): BTroop => {
+const makeTroop = (unit: UnitGroup, x: number, y: number, mult = 1, rand: () => number = Math.random): BTroop => {
   const st = TROOP_STATS[unit];
   const hp = Math.round(st.hp * mult);
-  return { id: `tr${++troopUid}`, unit, x, y, hp, maxHp: hp, dps: st.dps * mult, speed: st.speed, range: st.range, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 1 + Math.floor(Math.random() * 98) };
+  return { id: `tr${++troopUid}`, unit, x, y, hp, maxHp: hp, dps: st.dps * mult, speed: st.speed, range: st.range, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 1 + Math.floor(rand() * 98) };
 };
 
 const makeHeroTroop = (h: RaidHero, x: number, y: number): BTroop => ({
@@ -85,8 +88,17 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
 
 export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const isDefense = config.mode === 'defense';
+  const isReplay = !!config.replay;
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
+  // Deterministic battle RNG — a replay re-seeds with the recorded seed and every random
+  // decision (jerseys, wave picks, FX jitter) replays identically.
+  const seedRef = useRef(config.replay?.seed ?? Math.floor(Math.random() * 2 ** 31));
+  const rngRef = useRef(mulberry32(seedRef.current));
+  const rand = () => rngRef.current();
+  // Attack recorder: every deploy/play/ability lands here with its tick (live attacks only).
+  const recRef = useRef<ReplayAction[]>([]);
+  const record = (a: Omit<ReplayAction, 'tick'>) => { if (!isReplay) recRef.current.push({ ...a, tick: sim.current.ticks }); };
   // Rival DEFENDERS scale with the base's turret strength (or aiMult when defending).
   const guardMult = config.aiMult ?? (() => {
     const d = config.buildings.find(b => b.kind === 'defense');
@@ -101,7 +113,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
     return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
   };
-  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number }>({
+  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
     guards: (() => {
@@ -115,7 +127,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [], pulses: [], fx: [], shakeT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
-    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0,
+    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0,
   });
   const [driveStats, setDriveStats] = useState<{ mvp: string; mvpDmg: number; pancakes: number; lost: number; bonus: number } | null>(null);
 
@@ -131,7 +143,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const [selected, setSelected] = useState<UnitGroup>(() => UNIT_ORDER.find(u => (config.playerArmy?.[u] ?? 0) > 0) ?? UnitGroup.OFFENSE_LINE);
   const [pendingHero, setPendingHero] = useState<RaidHero | null>(null);
   const [castMode, setCastMode] = useState<PlayDef | null>(null);
-  const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense ? 'fighting' : 'deploy');
+  const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense || isReplay ? 'fighting' : 'deploy');
   // DEFENSE AGENCY: when YOUR stadium is under attack you call plays, not just watch.
   const [defPlays, setDefPlays] = useState({ noise: 2, pkg: 1 });
   const callCrowdNoise = () => {
@@ -149,12 +161,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const hq = s.buildings.find(b => b.kind === 'hq' && !b.dead) ?? s.buildings.find(b => !b.dead && b.kind !== 'wall');
     if (!hq) return;
     setDefPlays(p => ({ ...p, pkg: p.pkg - 1 }));
-    for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: hq.x + (gi ? 3.5 : -3.5), y: hq.y + 2, hp: Math.round(170 * guardMult), maxHp: Math.round(170 * guardMult), dps: 13 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(Math.random() * 49) });
+    for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: hq.x + (gi ? 3.5 : -3.5), y: hq.y + 2, hp: Math.round(170 * guardMult), maxHp: Math.round(170 * guardMult), dps: 13 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(rand() * 49) });
     say('🛡 GOAL-LINE PACKAGE — fresh legs fly onto the field!');
     s.shakeT = 0.2;
   };
   // Pre-snap coaching call — locks once the first player is on the field.
-  const [plan, setPlan] = useState<GamePlanDef>(GAME_PLANS[1]);
+  // Replays restore the exact plan the attacker locked in.
+  const [plan, setPlan] = useState<GamePlanDef>(() => GAME_PLANS.find(g => g.key === config.replay?.planKey) ?? GAME_PLANS[1]);
   const planRef = useRef(plan); planRef.current = plan;
   // Every unit sent in plays to the scheme.
   const coach = (t: BTroop): BTroop => {
@@ -163,6 +176,39 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     t.hp = Math.round(t.hp * p.hp); t.maxHp = t.hp;
     t.dps *= p.dps; t.speed *= p.speed;
     return t;
+  };
+
+  // Shared deploy primitives — live input and the replay script run the SAME code path,
+  // so a recorded attack re-creates itself exactly (including RNG consumption order).
+  const doDeployTroop = (unit: UnitGroup, x: number, y: number) => {
+    sim.current.troops.push(coach(makeTroop(unit, x, y, config.power?.[unit] ?? 1, rand)));
+  };
+  const doDeployHero = (key: string, x: number, y: number) => {
+    const h = heroes.find(hh => hh.key === key);
+    if (!h) return;
+    sim.current.troops.push(coach(makeHeroTroop(h, x, y)));
+    say(`${h.name.toUpperCase()} TAKES THE FIELD!`);
+  };
+  const doDeploySpecial = (key: string, x: number, y: number) => {
+    const sp = specials.find(s2 => s2.key === key);
+    if (!sp) return;
+    for (let i = 0; i < sp.count; i++) {
+      const a = (i / sp.count) * Math.PI * 2;
+      const off = sp.count > 1 ? 2.5 : 0;
+      sim.current.troops.push(coach(makeSpecialTroop(sp, x + Math.cos(a) * off, y + Math.sin(a) * off)));
+    }
+  };
+  const doCastPlay = (key: string, x: number, y: number) => {
+    const p = PLAYBOOK.find(pp => pp.key === key);
+    if (!p) return;
+    sim.current.troops.forEach(t => {
+      if (t.dead) return;
+      if (dist(t.x, t.y, x, y) <= p.radius) {
+        if (p.key === 'blitz') t.rageT = RAGE_SECONDS;
+        else if (p.key === 'medic') t.healT = HEAL_SECONDS;
+      }
+    });
+    sim.current.pulses.push({ x, y, r: p.radius, life: 0.5, maxLife: 0.5, color: p.color });
   };
   const [, forceTick] = useState(0);
   const [result, setResult] = useState<BattleResult | null>(null);
@@ -195,7 +241,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         : `#${best.jersey} ${TROOP_STATS[best.unit].label}`;
       setDriveStats({ mvp: mvpName, mvpDmg: Math.round(best?.dmg ?? 0), pancakes: s.pancakes, lost: s.lost, bonus: s.bonus });
     }
-    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac) + s.bonus, fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget });
+    // Live-rival attack? Package the full recording so the defender can WATCH this drive.
+    const replay: ReplayData | undefined = (!isReplay && config.pvpTarget) ? {
+      v: 1, seed: seedRef.current, plan: planRef.current.key,
+      power: config.power, heroes, specials, layout: config.buildings,
+      script: recRef.current,
+    } : undefined;
+    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac) + s.bonus, fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget, isReplay: isReplay || undefined, replay });
     setPhase('result');
   };
 
@@ -204,6 +256,19 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const iv = setInterval(() => {
       const s = sim.current;
       if (s.ended) return;
+      // REPLAY: fire the attacker's recorded actions scheduled for this tick boundary —
+      // same code path, same RNG order, so the drive unfolds exactly as it happened.
+      if (config.replay) {
+        for (const a of config.replay.script) {
+          if (a.tick !== s.ticks) continue;
+          if (a.k === 't') doDeployTroop(a.u!, a.x!, a.y!);
+          else if (a.k === 'h') { doDeployHero(a.key!, a.x!, a.y!); setDeployedHeroes(prev => new Set(prev).add(a.key!)); }
+          else if (a.k === 's') doDeploySpecial(a.key!, a.x!, a.y!);
+          else if (a.k === 'p') doCastPlay(a.key!, a.x!, a.y!);
+          else if (a.k === 'a') useAbility(a.key!);
+        }
+      }
+      s.ticks++;
       // Freeze-frame on a touchdown — let the moment land.
       if (s.freezeT > 0) { s.freezeT -= DT; forceTick(x => x + 1); return; }
 
@@ -250,7 +315,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           const step = direct ? Math.min(speed * DT, d - stopAt) : speed * DT;
           t.x += ((wp.x - t.x) / md) * step;
           t.y += ((wp.y - t.y) / md) * step;
-          if (Math.random() < 0.05) s.fx.push({ type: 'dust', x: t.x, y: t.y + 1.6, life: 0.4, maxLife: 0.4 });
+          if (rand() < 0.05) s.fx.push({ type: 'dust', x: t.x, y: t.y + 1.6, life: 0.4, maxLife: 0.4 });
         } else {
           t.attacking = true;
           target.hp -= dps * DT;
@@ -259,28 +324,28 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           t.dmgAcc = (t.dmgAcc ?? 0) + dps * DT;
           t.dmgTimer = (t.dmgTimer ?? 0) + DT;
           if (t.dmgTimer >= 0.65) {
-            s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(t.dmgAcc))}`, color: '#fde047', x: target.x + (Math.random() * 4 - 2), y: target.y - target.size * 0.4, life: 0.7, maxLife: 0.7 });
+            s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(t.dmgAcc))}`, color: '#fde047', x: target.x + (rand() * 4 - 2), y: target.y - target.size * 0.4, life: 0.7, maxLife: 0.7 });
             t.dmgAcc = 0; t.dmgTimer = 0;
           }
           // GOAL-LINE STAND: crack their stadium below half and the defense throws everything at you.
           if (!s.goalLine && target.kind === 'hq' && target.hp < target.maxHp * 0.5) {
             s.goalLine = true;
-            for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: target.x + (gi ? 3 : -3), y: target.y + 2, hp: Math.round(150 * guardMult), maxHp: Math.round(150 * guardMult), dps: 12 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(Math.random() * 49) });
+            for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: target.x + (gi ? 3 : -3), y: target.y + 2, hp: Math.round(150 * guardMult), maxHp: Math.round(150 * guardMult), dps: 12 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(rand() * 49) });
             say(isDefense ? '🚨 GOAL-LINE STAND — your boys dig in at the goal line!' : '🚨 GOAL-LINE STAND — they\'re throwing EVERYBODY at you!');
             s.shakeT = 0.25;
           }
-          if (Math.random() < 0.12) s.fx.push({ type: 'impact', x: target.x, y: target.y - target.size * 0.3, life: 0.22, maxLife: 0.22 });
+          if (rand() < 0.12) s.fx.push({ type: 'impact', x: target.x, y: target.y - target.size * 0.3, life: 0.22, maxLife: 0.22 });
           if (target.hp <= 0) {
             target.hp = 0; target.dead = true; t.targetId = null;
             if (target.kind !== 'wall') {
               const scored = target.kind === 'hq'; // taking their stadium = the score
               s.fx.push({ type: 'yards', text: scored ? 'TOUCHDOWN!' : 'SACKED!', x: target.x, y: target.y, life: scored ? 1.5 : 1.0, maxLife: scored ? 1.5 : 1.0 });
-              say(scored ? '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!' : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(Math.random() * 3)]);
+              say(scored ? '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!' : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(rand() * 3)]);
               s.momentum = Math.min(100, s.momentum + (scored ? 25 : 12) * planRef.current.momentum);
               if (scored) { s.freezeT = 0.45; sfx.crowdRoar(); } // freeze-frame + the stadium erupts
               // Loot burst — coins pop out of the wreckage
               for (let ci = 0; ci < (scored ? 7 : 4); ci++) {
-                const ca = Math.random() * Math.PI * 2;
+                const ca = rand() * Math.PI * 2;
                 s.fx.push({ type: 'coin', x: target.x, y: target.y, vx: Math.cos(ca) * 9, vy: Math.sin(ca) * 5 - 9, life: 0.7, maxLife: 0.7 });
               }
               s.shakeT = scored ? 0.4 : 0.25;
@@ -298,8 +363,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       const spawnEvery = Math.max(4.5, 8 - (BATTLE_SECONDS - s.time) / 15);
       if (s.guardT >= spawnEvery && aliveDef.length > 0 && aliveGuards.length < 3 && s.troops.some(t => !t.dead)) {
         s.guardT = 0;
-        const src = aliveDef[Math.floor(Math.random() * aliveDef.length)];
-        s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: src.x, y: src.y, hp: Math.round(140 * guardMult), maxHp: Math.round(140 * guardMult), dps: 11 * guardMult, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 40 + Math.floor(Math.random() * 59) });
+        const src = aliveDef[Math.floor(rand() * aliveDef.length)];
+        s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: src.x, y: src.y, hp: Math.round(140 * guardMult), maxHp: Math.round(140 * guardMult), dps: 11 * guardMult, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 40 + Math.floor(rand() * 59) });
         say(isDefense ? 'YOUR defense sends out a linebacker!' : 'The defense sends out a LINEBACKER!');
       }
       for (const g of s.guards) {
@@ -325,7 +390,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           g.dmgAcc = (g.dmgAcc ?? 0) + g.dps * shieldFactor * DT;
           g.dmgTimer = (g.dmgTimer ?? 0) + DT;
           if (g.dmgTimer >= 0.65) {
-            s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(g.dmgAcc))}`, color: '#f87171', x: prey.x + (Math.random() * 3 - 1.5), y: prey.y - 2.5, life: 0.7, maxLife: 0.7 });
+            s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(g.dmgAcc))}`, color: '#f87171', x: prey.x + (rand() * 3 - 1.5), y: prey.y - 2.5, life: 0.7, maxLife: 0.7 });
             g.dmgAcc = 0; g.dmgTimer = 0;
           }
           if (prey.hp <= 0) {
@@ -344,7 +409,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               // Takeaway pays the ATTACKER only — never inflate your own defense losses.
               s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10 * planRef.current.momentum);
               say(`💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
-              for (let ci = 0; ci < 3; ci++) { const ca = Math.random() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
+              for (let ci = 0; ci < 3; ci++) { const ca = rand() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
             } else {
               say(`Your #${g.jersey ?? '??'} gets flattened — they keep coming!`);
             }
@@ -395,14 +460,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           if (t.dead || t === m || t.special === 'mascot') continue;
           if (dist(m.x, m.y, t.x, t.y) <= r) t.rageT = Math.max(t.rageT, keep);
         }
-        if (Math.random() < 0.08) s.pulses.push({ x: m.x, y: m.y, r: r, life: 0.4, maxLife: 0.4, color: '#f97316' });
+        if (rand() < 0.08) s.pulses.push({ x: m.x, y: m.y, r: r, life: 0.4, maxLife: 0.4, color: '#f97316' });
       }
 
       // Turrets — each equipment kind FIGHTS differently (the Design-shop choice matters).
       const hitTroop = (t: BTroop, raw: number) => {
         const hit = Math.round(raw * ((t.shieldT && t.shieldT > 0) ? 0.5 : 1));
         t.hp -= hit; t.hitFlash = 0.15;
-        s.fx.push({ type: 'dmg', text: `${hit}`, color: '#f87171', x: t.x + (Math.random() * 3 - 1.5), y: t.y - 2.5, life: 0.7, maxLife: 0.7 });
+        s.fx.push({ type: 'dmg', text: `${hit}`, color: '#f87171', x: t.x + (rand() * 3 - 1.5), y: t.y - 2.5, life: 0.7, maxLife: 0.7 });
         if (t.hp <= 0) {
           t.hp = 0; t.dead = true; s.lost++; s.momentum = Math.max(0, s.momentum - 6);
           s.fx.push({ type: 'down', text: `${t.jersey ?? ''}`, color: isDefense ? '#b91c1c' : '#111827', x: t.x, y: t.y, life: 1.1, maxLife: 1.1 });
@@ -434,7 +499,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           hitTroop(prey, b.damage);
           b.cooldown = fl === 'jugs' ? 0.55 : 0.7;
         }
-        s.shots.push({ sx: b.x, sy: b.y, tx: prey.x, ty: prey.y, t: 0, dur: 0.3, rot: Math.random() * 360, flavor: fl });
+        s.shots.push({ sx: b.x, sy: b.y, tx: prey.x, ty: prey.y, t: 0, dur: 0.3, rot: rand() * 360, flavor: fl });
       }
 
       if (s.shots.length) s.shots = s.shots.filter(sh => (sh.t += DT) < sh.dur);
@@ -463,6 +528,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const s = sim.current;
     const h = s.troops.find(t => t.heroKey === heroKey && !t.dead);
     if (!h || (h.abilityCd ?? 0) > 0) return;
+    record({ k: 'a', key: heroKey });
     if (h.ability === 'hailmary') {
       const tgt = nearestBuilding(h.x, h.y, s.buildings);
       if (tgt) {
@@ -517,7 +583,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       // Summon a burst of skill players around the hero.
       for (let i = 0; i < 3; i++) {
         const a = (i / 3) * Math.PI * 2;
-        s.troops.push(coach(makeTroop(UnitGroup.OFFENSE_SKILL, h.x + Math.cos(a) * 3, h.y + Math.sin(a) * 3, config.power?.[UnitGroup.OFFENSE_SKILL] ?? 1)));
+        s.troops.push(coach(makeTroop(UnitGroup.OFFENSE_SKILL, h.x + Math.cos(a) * 3, h.y + Math.sin(a) * 3, config.power?.[UnitGroup.OFFENSE_SKILL] ?? 1, rand)));
       }
       s.pulses.push({ x: h.x, y: h.y, r: 10, life: 0.5, maxLife: 0.5, color: '#ec4899' });
     } else if (h.ability === 'hall_of_fame') {
@@ -540,14 +606,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
     if (castMode) {
       if ((plays[castMode.key] ?? 0) <= 0) return;
-      sim.current.troops.forEach(t => {
-        if (t.dead) return;
-        if (dist(t.x, t.y, wx, wy) <= castMode.radius) {
-          if (castMode.key === 'blitz') t.rageT = RAGE_SECONDS;
-          else if (castMode.key === 'medic') t.healT = HEAL_SECONDS;
-        }
-      });
-      sim.current.pulses.push({ x: wx, y: wy, r: castMode.radius, life: 0.5, maxLife: 0.5, color: castMode.color });
+      doCastPlay(castMode.key, wx, wy);
+      record({ k: 'p', key: castMode.key, x: wx, y: wy });
       setPlays(p => ({ ...p, [castMode.key]: p[castMode.key] - 1 }));
       setCastMode(null);
       return;
@@ -555,9 +615,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
     if (pendingHero) {
       if (!perimeterOk(wx, wy)) return;
-      sim.current.troops.push(coach(makeHeroTroop(pendingHero, wx, wy)));
+      doDeployHero(pendingHero.key, wx, wy);
+      record({ k: 'h', key: pendingHero.key, x: wx, y: wy });
       setDeployedHeroes(prev => new Set(prev).add(pendingHero.key));
-      say(`${pendingHero.name.toUpperCase()} TAKES THE FIELD!`);
       setPendingHero(null);
       if (phase === 'deploy') setPhase('fighting');
       return;
@@ -565,12 +625,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
     if (pendingSpecial) {
       if ((specialCharges[pendingSpecial.key] ?? 0) <= 0 || !perimeterOk(wx, wy)) return;
-      // Fan Mob spawns a whole cluster; Mascot spawns one. Scatter multi-spawns a bit.
-      for (let i = 0; i < pendingSpecial.count; i++) {
-        const a = (i / pendingSpecial.count) * Math.PI * 2;
-        const off = pendingSpecial.count > 1 ? 2.5 : 0;
-        sim.current.troops.push(coach(makeSpecialTroop(pendingSpecial, wx + Math.cos(a) * off, wy + Math.sin(a) * off)));
-      }
+      doDeploySpecial(pendingSpecial.key, wx, wy);
+      record({ k: 's', key: pendingSpecial.key, x: wx, y: wy });
       setSpecialCharges(c => ({ ...c, [pendingSpecial.key]: c[pendingSpecial.key] - 1 }));
       setPendingSpecial(null);
       if (phase === 'deploy') setPhase('fighting');
@@ -578,7 +634,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     }
 
     if (army[selected] <= 0 || !perimeterOk(wx, wy)) return;
-    sim.current.troops.push(coach(makeTroop(selected, wx, wy, config.power?.[selected] ?? 1)));
+    doDeployTroop(selected, wx, wy);
+    record({ k: 't', u: selected, x: wx, y: wy });
     setArmy(a => ({ ...a, [selected]: a[selected] - 1 }));
     if (phase === 'deploy') setPhase('fighting');
   };
@@ -605,6 +662,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           <div>
             <div className="font-display font-bold text-white uppercase tracking-tight leading-none flex items-center gap-2">
               {isDefense && <Shield size={16} className="text-blue-400" />}{config.title}
+              {isReplay && <span className="text-[9px] font-black bg-red-600 text-white px-1.5 py-0.5 rounded animate-pulse">● REPLAY</span>}
             </div>
             <div className="flex items-center gap-1 mt-0.5 text-base leading-none">
               {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < liveStars ? 1 : 0.25, filter: i < liveStars ? 'none' : 'grayscale(1)' }}>🏈</span>)}
@@ -772,7 +830,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             // Buildings: width is a % of the field, so `size` (world radius) maps straight
             // to on-screen footprint. HQ size 8 → 17.6% ; buildings size 5–6 → 11–13%.
             const wpct = b.size * 2.2;
-            const sprite = battleBuildingSprite(b.kind, b.id, !isDefense, b.flavor); // attacking = away game = rival skins; turrets look like what they do
+            const sprite = battleBuildingSprite(b.kind, b.id, !isDefense && !isReplay, b.flavor); // attacking = away game = rival skins; replays show YOUR home base
             return (
               <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${wpct}%`, zIndex: Math.round(b.y) }}>
                 {!b.dead && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
@@ -865,7 +923,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       </div>
 
       {/* Bottom bar */}
-      {phase !== 'result' && (
+      {phase !== 'result' && isReplay && (
+        <div className="shrink-0 bg-slate-900 border-t border-slate-800 px-3 py-3 text-center text-xs text-slate-400 font-bold">
+          ● You're watching the actual attack on your stadium — every move is theirs.
+        </div>
+      )}
+      {phase !== 'result' && !isReplay && (
         <div className="shrink-0 bg-slate-900 border-t border-slate-800 px-3 py-2">
           {isDefense ? (
             <div className="py-1">
@@ -1035,7 +1098,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Coins lost' : 'Coins looted'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
               {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">Fans gained</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
               <button onClick={() => onFinish(result)} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
-                {isDefense ? 'Back to Base' : 'Collect Rewards'}
+                {isReplay ? 'Close Replay' : isDefense ? 'Back to Base' : 'Collect Rewards'}
               </button>
             </div>
           </div>
