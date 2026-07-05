@@ -49,8 +49,9 @@ interface Props {
 // projectile (t: 0→1 over dur), never a bullet.
 interface Shot { sx: number; sy: number; tx: number; ty: number; t: number; dur: number; rot: number; }
 interface Pulse { x: number; y: number; r: number; life: number; maxLife: number; color: string; }
-// Ephemeral battle FX: dust puffs under runners, impact pops on contact, floating "SACKED!" text.
-interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; }
+// Ephemeral battle FX: dust puffs under runners, impact pops on contact, floating "SACKED!" text,
+// Castle-Clash-style floating damage numbers ('dmg') and knocked-down player chips ('down').
+interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
 
 const TICK_MS = 50;
 const DT = TICK_MS / 1000;
@@ -187,6 +188,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           t.attacking = true;
           target.hp -= dps * DT;
           t.dmg = (t.dmg ?? 0) + dps * DT;
+          // Floating damage numbers — throttled per player so hits read without spamming.
+          t.dmgAcc = (t.dmgAcc ?? 0) + dps * DT;
+          t.dmgTimer = (t.dmgTimer ?? 0) + DT;
+          if (t.dmgTimer >= 0.65) {
+            s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(t.dmgAcc))}`, color: '#fde047', x: target.x + (Math.random() * 4 - 2), y: target.y - target.size * 0.4, life: 0.7, maxLife: 0.7 });
+            t.dmgAcc = 0; t.dmgTimer = 0;
+          }
           // GOAL-LINE STAND: crack their stadium below half and the defense throws everything at you.
           if (!s.goalLine && target.kind === 'hq' && target.hp < target.maxHp * 0.5) {
             s.goalLine = true;
@@ -246,14 +254,23 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           prey.hp -= g.dps * shieldFactor * DT; prey.hitFlash = 0.12;
           g.hp -= preyOut; g.hitFlash = 0.12;
           prey.dmg = (prey.dmg ?? 0) + preyOut;
+          // Red numbers when the defense is chewing on your player.
+          g.dmgAcc = (g.dmgAcc ?? 0) + g.dps * shieldFactor * DT;
+          g.dmgTimer = (g.dmgTimer ?? 0) + DT;
+          if (g.dmgTimer >= 0.65) {
+            s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(g.dmgAcc))}`, color: '#f87171', x: prey.x + (Math.random() * 3 - 1.5), y: prey.y - 2.5, life: 0.7, maxLife: 0.7 });
+            g.dmgAcc = 0; g.dmgTimer = 0;
+          }
           if (prey.hp <= 0) {
             prey.hp = 0; prey.dead = true;
             s.lost++; s.momentum = Math.max(0, s.momentum - 10);
             say(prey.isHero ? `${(heroes.find(h => h.key === prey.heroKey)?.name || 'Your hero').toUpperCase()} IS DOWN!` : `#${prey.jersey ?? '??'} gets STUFFED at the line!`);
             s.fx.push({ type: 'impact', x: prey.x, y: prey.y, life: 0.3, maxLife: 0.3 });
+            s.fx.push({ type: 'down', text: `${prey.jersey ?? ''}`, color: '#111827', x: prey.x, y: prey.y, life: 1.1, maxLife: 1.1 });
           }
           if (g.hp <= 0) {
             g.hp = 0; g.dead = true;
+            s.fx.push({ type: 'down', text: `${g.jersey ?? ''}`, color: '#b91c1c', x: g.x, y: g.y, life: 1.1, maxLife: 1.1 });
             prey.kills = (prey.kills ?? 0) + 1;
             s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10 * planRef.current.momentum);
             say(`💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
@@ -298,8 +315,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         if (b.cooldown <= 0) {
           const prey = nearestTroop(b.x, b.y, s.troops, b.range);
           if (prey) {
-            prey.hp -= b.damage * (prey.shieldT && prey.shieldT > 0 ? 0.5 : 1); prey.hitFlash = 0.15;
-            if (prey.hp <= 0) { prey.hp = 0; prey.dead = true; s.lost++; s.momentum = Math.max(0, s.momentum - 6); }
+            const hit = Math.round(b.damage * (prey.shieldT && prey.shieldT > 0 ? 0.5 : 1));
+            prey.hp -= hit; prey.hitFlash = 0.15;
+            s.fx.push({ type: 'dmg', text: `${hit}`, color: '#f87171', x: prey.x + (Math.random() * 3 - 1.5), y: prey.y - 2.5, life: 0.7, maxLife: 0.7 });
+            if (prey.hp <= 0) {
+              prey.hp = 0; prey.dead = true; s.lost++; s.momentum = Math.max(0, s.momentum - 6);
+              s.fx.push({ type: 'down', text: `${prey.jersey ?? ''}`, color: '#111827', x: prey.x, y: prey.y, life: 1.1, maxLife: 1.1 });
+            }
             s.shots.push({ sx: b.x, sy: b.y, tx: prey.x, ty: prey.y, t: 0, dur: 0.3, rot: Math.random() * 360 });
             b.cooldown = 0.7;
           } else b.cooldown = 0.1;
@@ -594,6 +616,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 <div key={i} className="absolute pointer-events-none font-display font-black uppercase" style={{ left: `${f.x}%`, top: `${f.y}%`, color: td ? '#fde047' : '#fef08a', fontSize: td ? '5vmin' : '3.4vmin', letterSpacing: '0.02em', textShadow: td ? '0 0 8px #f59e0b, 0 3px 6px #000' : '0 2px 5px #000, 0 0 3px #000', zIndex: 210, transform: `translate(-50%, calc(-50% - ${(1 - k) * (td ? 46 : 34)}px)) scale(${td ? 1 + (1 - k) * 0.3 : 1})`, opacity: Math.min(1, k * 1.6) }}>{f.text}</div>
               );
             }
+            if (f.type === 'dmg') return (
+              // Floating damage number — rises and fades, gold for your hits, red for theirs.
+              <div key={i} className="absolute pointer-events-none font-black" style={{ left: `${f.x}%`, top: `${f.y}%`, color: f.color, fontSize: '2.1vmin', textShadow: '0 1px 2px #000, 0 0 3px rgba(0,0,0,0.6)', zIndex: 208, transform: `translate(-50%, calc(-50% - ${(1 - k) * 26}px))`, opacity: Math.min(1, k * 1.8) }}>{f.text}</div>
+            );
+            if (f.type === 'down') return (
+              // Knocked-down player — the jersey chip tips over and fades where they fell.
+              <div key={i} className="absolute pointer-events-none flex items-center justify-center font-black text-white" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3vmin', height: '2.1vmin', background: f.color, border: '1px solid rgba(0,0,0,0.5)', borderRadius: 3, fontSize: '1.15vmin', zIndex: 90, transform: `translate(-50%,-30%) rotate(${90 - k * 20}deg)`, opacity: Math.min(0.85, k * 1.4), filter: 'brightness(0.8)' }}>{f.text}</div>
+            );
             if (f.type === 'coin') return (
               <span key={i} className="absolute pointer-events-none" style={{ left: `${f.x}%`, top: `${f.y}%`, fontSize: '1.7vmin', lineHeight: 1, zIndex: 205, transform: 'translate(-50%,-50%)', opacity: Math.min(1, k * 2), filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.6))' }}>🪙</span>
             );

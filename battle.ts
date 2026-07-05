@@ -58,6 +58,8 @@ export interface BTroop {
   jersey?: number;     // individual jersey number (each deployed player is their own person)
   dmg?: number;        // total damage dealt this battle (drives the MVP award)
   kills?: number;      // defenders pancaked by this player
+  dmgAcc?: number;     // damage accumulated since the last floating number popped
+  dmgTimer?: number;   // seconds since the last floating number
 }
 
 // Troop archetypes per position group.
