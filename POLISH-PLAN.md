@@ -1,8 +1,78 @@
 # POLISH PLAN — close every loop before anything new ships
 
-Status date: 2026-07-05. Rule in effect: **feature freeze**. Everything below perfects
-what already exists. Parked until this plan is done: clans, replay sharing, purchasable
-land, music, club rename, new units/heroes/buildings.
+Status date: 2026-07-05 (v2 — expanded after "this is all too rushed" review).
+Rule in effect: **feature freeze**. Everything below perfects what already exists.
+Parked until this plan is done: clans, replay sharing, purchasable land, music,
+club rename, new units/heroes/buildings.
+
+---
+
+## v2 — THE BLIND SPOTS (what a feature audit misses)
+
+### D1. There is no UI design system
+The interface is accreted, not designed: ad-hoc font sizes (8–11px micro-text
+everywhere), six different button styles, border radii from `lg` to `3xl`, spacing off
+any grid, and a mix of THREE icon languages (emoji, lucide icons, PNG icons) that render
+differently per platform. Semantic color is inconsistent (fuchsia=live, purple=gems,
+rose=fans, blue=defense, orange=brand… assigned by whim). Every modal has a slightly
+different header/close/padding anatomy.
+**Fix:** one tokens pass — a type scale (4 sizes), one button anatomy (3 variants), one
+modal shell, a semantic color map, 4-pt spacing — then sweep every screen through it.
+
+### D2. The team identity isn't IN the game's look
+We defined black `#111827` + orange `#f97316` as the club's identity… and the UI chrome
+is generic slate-blue, while the home BUILDINGS are blue/teal Kickoff-Club art. Your own
+base doesn't look like your team. The brand lives in a doc, not on the screen.
+**Fix (code side now, art side with Antigravity later):** UI chrome adopts the
+black/orange identity (nav, HUD, buttons); building-accent recolor becomes the next art
+round (home buildings in team colors — same silhouettes).
+
+### D3. Fiction coherence — coach fantasy vs clash logic
+Why do my wide receivers demolish a weight room? De-weaponizing helped, but the core
+loop is still clash-logic wearing football clothes, and the copy flickers between
+fantasies (coach? owner? raider?). One deliberate fiction pass over ALL copy:
+raids = "away games", destruction = "outscoring/outplaying", loot = "gate revenue &
+poached fans". The DESIGN-BIBLE has the vocabulary; the game only half-uses it.
+
+### D4. Too many meters, no mental model
+Coins, Crowns, Energy, Fans, Trophies, XP, Readiness, Shards — 8 numbers before a new
+player understands one. XP/level is literally dead. Readiness is a hidden binary.
+**Fix within freeze:** kill or fold the dead meter (XP), make each remaining number
+teach itself (one-line tooltip everywhere a number appears), and audit the FTUE so
+meters are introduced one at a time.
+
+### D5. Accessibility floor is below floor
+Red-vs-green is the ONLY signal on the funnel lanes (classic colorblind fail) — needs a
+shape/pattern difference. 8–9px text is common. Zero keyboard support, zero
+reduced-motion respect, constant pulsing animations. Minimum pass: pattern-differentiate
+the lanes, raise micro-text to a floor, honor `prefers-reduced-motion`.
+
+### D6. Data safety — players can silently lose everything
+localStorage is the ONLY save, and the PvP identity lives there too. One cleared
+browser = whole club gone, unrecoverable. Before any real audience: an export/import
+save button (Settings), and surface it in the UI. (This is protection of an existing
+asset, not a feature.)
+
+### D7. No crash safety, no tests
+One render error = blank screen (it has happened — isSeasonOpen). No error boundary.
+Zero automated tests; every regression check is a hand-rolled browser script. Minimum:
+a React error boundary with a "reload, your save is safe" screen, and a small vitest
+suite locking the pure logic (planPath, homeDefenders, gacha odds, defense rating,
+wall/slot caps, footprint math) so refactors like 12×12 can't silently break math.
+
+### D8. Navigation & IA gaps
+No profile/settings surface: Reset sits naked next to Mute in the corner (dangerous
+placement), mute/rename/export have no home, and nowhere shows your club's own story
+(record, trophies over time, championship ring). Fold Reset/Mute/Export into a small
+Settings sheet; the profile view is PARKED (it's a feature) — but Reset placement is a
+today problem.
+
+### D9. Process — how we keep from rushing
+- Every loop ships with: behavior verified + docs updated + one line added to
+  QA-CHECKLIST.md (a living script replayed on-device before calling a phase done).
+- New ideas go to the PARKED list by default; only P0/P1 fixes jump the queue.
+- Rating rubric: we define what a "7/10" looks like in writing BEFORE Phase D ends,
+  so "is it right yet?" has an answer that isn't vibes.
 
 ---
 
@@ -76,20 +146,24 @@ dailies; gacha/star-up; economy sinks (parking/slots/upgrades/heroes).
 
 ---
 
-## The plan
+## The plan (v2 — slower, design-led)
 
-**Phase A — Truth pass (1 session, no user needed):**
-items 1, 2, 3, 4, 5, 9, 13 + quick wins 10/11. Every feature tells the truth about
-itself; docs match reality; revenge is real.
+**Phase A — Truth pass** (solo): the five lies (revenge/docs/README/results-score/dead
+XP meter) + replay POV + funnel memo + intro copy + error boundary + save export +
+Reset→Settings placement (D6, D7, D8 minimums).
 
-**Phase B — Device reality (needs Jumaane):**
-the phone session — two devices, raid each other, watch replays, use the Chalkboard
-with thumbs. Fix everything it surfaces before moving on. Item 7 (fresh FTUE run)
-happens here too, on the phone.
+**Phase B — Design system pass** (solo, THE new phase): D1 tokens (type scale, button
+anatomy, modal shell, semantic colors, spacing) swept through every screen; D2 UI
+chrome adopts black/orange identity; D4 meter cleanup + tooltips; D5 accessibility
+floor (lane patterns, text floor, reduced motion); D3 fiction/copy pass over all
+strings. Commission the home-building team-color recolor from Antigravity in parallel.
 
-**Phase C — 12×12 board (1 dedicated session):**
-the expansion above + balance sim re-run (item 8) + full playtest. This is the only
-"big" change, and it's a correction of an existing wrong, not a new feature.
+**Phase C — Device reality** (WITH Jumaane): the phone session — two devices raiding
+each other, thumbs on the Chalkboard, full fresh-save FTUE run. Everything it surfaces
+gets fixed before Phase D. QA-CHECKLIST.md born here.
 
-**Exit criteria:** every P0/P1 closed, phone-verified, sim re-run green → then we
-reassess the 1–10 rating and decide what earns its way off the parked list.
+**Phase D — 12×12 board** (solo, 1 session): the expansion + vitest suite FIRST (so the
+refactor is caught by tests), then balance sim re-run + full playtest.
+
+**Exit criteria:** all P0/P1 + D1–D8 minimums closed, phone-verified, sim green, rubric
+written → re-rate the game → only then does anything leave the PARKED list.
