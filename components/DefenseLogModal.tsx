@@ -1,6 +1,7 @@
 import React from 'react';
 import { DefenseLogEntry } from '../types';
-import { X, Shield, Swords, Coins, Star, ShieldCheck } from 'lucide-react';
+import { Shield, Swords, Coins, Star, ShieldCheck } from 'lucide-react';
+import { Sheet, Btn } from './ui';
 
 interface Props {
   log: DefenseLogEntry[];
@@ -27,18 +28,17 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
   const shieldLabel = shieldMs > 3600000 ? `${Math.ceil(shieldMs / 3600000)}h` : `${Math.ceil(shieldMs / 60000)}m`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="bg-slate-950 w-full max-w-lg max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden">
-        <div className="p-5 border-b border-slate-800 bg-slate-900 flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2">
-              <Shield className="text-blue-400" size={24} /> Defense Log
-            </h2>
-            <p className="text-slate-400 text-sm">Rival offenses that stormed your stadium while you were away.</p>
-          </div>
-          <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={20} /></button>
-        </div>
-
+    <Sheet
+      title="Defense Log"
+      icon={<Shield className="text-sky-400" size={22} />}
+      subtitle="Rival offenses that stormed your stadium while you were away."
+      onClose={onClose}
+      footer={
+        <Btn size="lg" variant="secondary" onClick={onWatchLive} title="Simulates a fresh raid on your current layout — a practice rep, not a replay">
+          <Shield size={17} /> Run a Defense Scrimmage
+        </Btn>
+      }
+    >
         {/* Summary */}
         <div className="px-5 py-3 bg-slate-900/60 border-b border-slate-800 flex items-center gap-4 text-sm">
           <span className="text-slate-300"><span className="font-bold text-green-400">{held}</span> held</span>
@@ -56,7 +56,7 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="p-4 space-y-2">
           {log.length === 0 ? (
             <div className="text-center text-slate-500 py-12">
               <Shield size={40} className="mx-auto mb-3 opacity-40" />
@@ -101,12 +101,6 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
           })}
         </div>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-900">
-          <button onClick={onWatchLive} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-2 transition-colors active:scale-95" title="Simulates a fresh raid on your current layout — a practice rep, not a replay">
-            <Shield size={18} /> Run a Defense Scrimmage
-          </button>
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

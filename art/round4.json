@@ -1,0 +1,186 @@
+[
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/stadium-5.png",
+    "ref": "public/assets/buildings/stadium-5.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/stadium-3.png",
+    "ref": "public/assets/buildings/stadium-3.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/stadium-1.png",
+    "ref": "public/assets/buildings/stadium-1.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/headquarters-5.png",
+    "ref": "public/assets/buildings/headquarters-5.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/headquarters-3.png",
+    "ref": "public/assets/buildings/headquarters-3.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/headquarters-1.png",
+    "ref": "public/assets/buildings/headquarters-1.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/practice-field-5.png",
+    "ref": "public/assets/buildings/practice-field-5.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/practice-field-3.png",
+    "ref": "public/assets/buildings/practice-field-3.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/practice-field-1.png",
+    "ref": "public/assets/buildings/practice-field-1.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/film-room-5.png",
+    "ref": "public/assets/buildings/film-room-5.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/film-room-3.png",
+    "ref": "public/assets/buildings/film-room-3.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/film-room-1.png",
+    "ref": "public/assets/buildings/film-room-1.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/weight-room-5.png",
+    "ref": "public/assets/buildings/weight-room-5.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/weight-room-3.png",
+    "ref": "public/assets/buildings/weight-room-3.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/weight-room-1.png",
+    "ref": "public/assets/buildings/weight-room-1.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/stadium-4.png",
+    "ref": "public/assets/buildings/stadium-4.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/stadium-2.png",
+    "ref": "public/assets/buildings/stadium-2.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/headquarters-4.png",
+    "ref": "public/assets/buildings/headquarters-4.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/headquarters-2.png",
+    "ref": "public/assets/buildings/headquarters-2.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/practice-field-4.png",
+    "ref": "public/assets/buildings/practice-field-4.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "The exact same building as the reference image \u2014 identical camera, silhouette, footprint, and cel-shaded style \u2014 repainted in the HOME club identity: black (#111827) and charcoal structure with ORANGE (#f97316) accents, trim, banners, roof details and lighting, white secondary trim, a small orange shield crest replacing any other marks. Keep glass and windows cool-neutral. Flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/buildings/practice-field-2.png",
+    "ref": "public/assets/buildings/practice-field-2.png",
+    "size": 1024,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "Small glossy cel-shaded royal crown game icon, purple-magenta gems and gold body, thick outline, reads clearly at 16px, same rendering style as the reference coin icon, flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/icons/crowns.png",
+    "ref": "public/assets/icons/coins.png",
+    "size": 512,
+    "knockout": true,
+    "tolerance": 1
+  },
+  {
+    "prompt": "Small cel-shaded game icon of a rose-red foam number-one fan hand, thick outline, reads clearly at 16px, same rendering style as the reference coin icon, flat solid chroma-green (#00d000) background, no text.",
+    "out": "public/assets/icons/fans.png",
+    "ref": "public/assets/icons/coins.png",
+    "size": 512,
+    "knockout": true,
+    "tolerance": 1
+  }
+]

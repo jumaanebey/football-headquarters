@@ -353,6 +353,26 @@ function App() {
     if (startRaid) openRaid();
   };
 
+  // ⌨️ Esc closes the topmost sheet (D5: minimum keyboard support).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (importPending) setImportPending(null);
+      else if (settingsOpen) setSettingsOpen(false);
+      else if (confirmingReset) setConfirmingReset(false);
+      else if (isDailyOpen) setIsDailyOpen(false);
+      else if (defenseLogOpen) setDefenseLogOpen(false);
+      else if (isHeroOpen) setIsHeroOpen(false);
+      else if (isStandingsOpen) setIsStandingsOpen(false);
+      else if (isScoutingOpen) setIsScoutingOpen(false);
+      else if (isSquadOpen) setIsSquadOpen(false);
+      else if (attackSelectOpen) setAttackSelectOpen(false);
+      else if (selectedBuilding) setSelectedBuilding(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, selectedBuilding]);
+
   const lastUpdateRef = useRef(Date.now());
 
   // Keep a live ref of state so the autosave interval always writes the latest.
@@ -1781,8 +1801,8 @@ function App() {
         </div>
       )}
 
-      {/* Bottom Nav */}
-      <div className="fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur border-t border-slate-700 pb-safe pt-2 px-4 z-40">
+      {/* Bottom Nav — club chrome: charcoal surface, orange = active (D2 identity) */}
+      <div className="fixed bottom-0 left-0 w-full bg-[#0b0f1a]/95 backdrop-blur border-t border-[#1f2937] pb-safe pt-2 px-4 z-40">
         <div className="flex justify-between items-center max-w-md mx-auto pb-4">
           <NavBtn icon={<Users />} label="Coach" active={isSquadOpen} onClick={() => setIsSquadOpen(true)} tourId="coach" />
 
@@ -1808,11 +1828,12 @@ function App() {
 }
 
 const NavBtn = ({ icon, label, active, onClick, tourId, badge }: any) => (
-  <button data-tour={tourId} onClick={onClick} className={`relative flex flex-col items-center gap-1 transition-all active:scale-90 ${active ? 'text-white' : 'text-slate-500 hover:text-slate-200'}`}>
+  <button data-tour={tourId} onClick={onClick} className={`relative flex flex-col items-center gap-1 transition-all active:scale-90 ${active ? 'text-orange-400' : 'text-slate-500 hover:text-slate-200'}`}>
     {icon}
-    <span className="text-[10px] uppercase font-bold">{label}</span>
+    <span className="text-[12px] uppercase font-bold leading-none">{label}</span>
+    {active && <span className="absolute -bottom-2 w-6 h-0.5 rounded-full bg-orange-500" />}
     {badge > 0 && (
-      <span className="absolute -top-1.5 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 border-2 border-slate-900 text-[9px] font-bold text-white flex items-center justify-center leading-none">{badge}</span>
+      <span className="absolute -top-1.5 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 border-2 border-slate-900 text-[10px] font-bold text-white flex items-center justify-center leading-none">{badge}</span>
     )}
   </button>
 );
