@@ -57,26 +57,72 @@ const useBoardScale = () => {
   return scale;
 };
 
-const GroundLayer: React.FC = () => {
+// The ground is a floating turf island (Clash-style): mowed-lawn bands instead of a
+// checkerboard, a thick soil skirt for depth, worn paths to the Stadium, and a soft
+// light pool at the center.
+const GroundLayer: React.FC<{ buildings: BuildingInstance[] }> = ({ buildings }) => {
+  const tilePts = (gx: number, gy: number, s = 1) => {
+    const c = tileToScreen(gx, gy);
+    return `${c.x},${c.y - (TILE_H / 2) * s} ${c.x + (TILE_W / 2) * s},${c.y} ${c.x},${c.y + (TILE_H / 2) * s} ${c.x - (TILE_W / 2) * s},${c.y}`;
+  };
+
+  // Mowed-lawn bands (2-row stripes, no grid strokes) with a soft edge tint.
   const diamonds = [];
   for (let gx = 0; gx < GRID; gx++) {
     for (let gy = 0; gy < GRID; gy++) {
-      const c = tileToScreen(gx, gy);
-      const even = (gx + gy) % 2 === 0;
+      const band = Math.floor((gx + gy) / 2) % 2 === 0;
+      const edge = gx === 0 || gy === 0 || gx === GRID - 1 || gy === GRID - 1;
       diamonds.push(
-        <polygon
-          key={`${gx}-${gy}`}
-          points={`${c.x},${c.y - TILE_H / 2} ${c.x + TILE_W / 2},${c.y} ${c.x},${c.y + TILE_H / 2} ${c.x - TILE_W / 2},${c.y}`}
-          fill={even ? '#2f9e44' : '#2b8a3e'}
-          stroke="rgba(0,0,0,0.12)"
-          strokeWidth={1}
-        />
+        <polygon key={`${gx}-${gy}`} points={tilePts(gx, gy)}
+          fill={band ? '#3aa353' : '#349a4c'} opacity={edge ? 0.94 : 1} />
       );
     }
   }
+
+  // Worn dirt paths: each building walks a manhattan route home to the Stadium.
+  const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
+  const paths: JSX.Element[] = [];
+  if (stadium) {
+    const seen = new Set<string>();
+    buildings.filter(b => b.id !== stadium.id).forEach(b => {
+      let x = b.gridX, y = b.gridY;
+      let guard = 0;
+      while ((x !== stadium.gridX || y !== stadium.gridY) && guard++ < 24) {
+        if (x !== stadium.gridX) x += x < stadium.gridX ? 1 : -1;
+        else y += y < stadium.gridY ? 1 : -1;
+        const k = `${x},${y}`;
+        if (seen.has(k) || (x === stadium.gridX && y === stadium.gridY)) continue;
+        seen.add(k);
+        paths.push(<polygon key={`p${k}`} points={tilePts(x, y, 0.55)} fill="#cdb47e" opacity={0.28} />);
+      }
+    });
+  }
+
+  // Island skirt: soil faces extruded below the diamond's two lower edges.
+  const D = 34;
+  const cT = tileToScreen(0, 0), cR = tileToScreen(GRID - 1, 0), cB = tileToScreen(GRID - 1, GRID - 1), cL = tileToScreen(0, GRID - 1);
+  const L = { x: cL.x - TILE_W / 2, y: cL.y }, B = { x: cB.x, y: cB.y + TILE_H / 2 }, R = { x: cR.x + TILE_W / 2, y: cR.y };
+  const glow = stadium ? tileToScreen(stadium.gridX, stadium.gridY) : tileToScreen(6, 6);
+
   return (
     <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ overflow: 'visible' }}>
+      <defs>
+        <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
+          <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {/* soil skirt (drawn first, sits under the turf) */}
+      <polygon points={`${L.x},${L.y} ${B.x},${B.y} ${B.x},${B.y + D} ${L.x},${L.y + D}`} fill="#4a3826" />
+      <polygon points={`${B.x},${B.y} ${R.x},${R.y} ${R.x},${R.y + D} ${B.x},${B.y + D}`} fill="#5c4630" />
+      <polygon points={`${L.x},${L.y + D} ${B.x},${B.y + D} ${R.x},${R.y + D} ${R.x},${R.y + D - 6} ${B.x},${B.y + D - 6} ${L.x},${L.y + D - 6}`} fill="rgba(0,0,0,0.28)" />
       {diamonds}
+      {paths}
+      {/* turf lip highlight along the lower edges */}
+      <polyline points={`${L.x},${L.y} ${B.x},${B.y} ${R.x},${R.y}`} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={2} />
+      {/* soft light pool centered on the Stadium */}
+      <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
     </svg>
   );
 };
@@ -88,13 +134,14 @@ const screenToTile = (bx: number, by: number) => {
   return { gx: Math.round((a + b) / 2), gy: Math.round((b - a) / 2) };
 };
 
-// Blocking Sled — a football-themed hazard-striped barrier.
+// Blocking Sled — real generated sprite (hazard-striped padded sled).
 const WallSprite: React.FC<{ gridX: number; gridY: number }> = ({ gridX, gridY }) => {
   const c = tileToScreen(gridX, gridY);
-  const w = TILE_W * 0.62;
+  const w = TILE_W * 0.82;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: gridX + gridY + 1 }}>
-      <div style={{ position: 'absolute', left: -w / 2, bottom: -TILE_H / 2 + 2, width: w, height: w * 0.55, borderRadius: 4, border: '1px solid rgba(0,0,0,0.5)', background: 'repeating-linear-gradient(45deg,#facc15 0 5px,#1f2937 5px 11px)', boxShadow: '0 3px 4px rgba(0,0,0,0.35)' }} />
+      <img src="/assets/battle/blocking-sled.png" alt="" draggable={false}
+        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2 - 2, filter: 'drop-shadow(0 4px 4px rgba(0,0,0,0.35))' }} />
     </div>
   );
 };
@@ -313,7 +360,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       {/* Board fills space between HUD (top) and nav (bottom), scaled to fit */}
       <div className="absolute left-0 right-0 flex items-center justify-center" style={{ top: 88, bottom: 88 }}>
         <div ref={boardRef} onClick={handleBoardClick} className={`relative ${editMode ? 'cursor-pointer' : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `scale(${scale})`, transformOrigin: 'center' }}>
-          <GroundLayer />
+          <GroundLayer buildings={buildings} />
           {DECOR.map((d) => (
             <DecorSprite key={d.slug} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}

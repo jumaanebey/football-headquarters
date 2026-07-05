@@ -430,7 +430,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const x = sh.sx + (sh.tx - sh.sx) * u;
             const y = sh.sy + (sh.ty - sh.sy) * u - Math.sin(Math.PI * u) * 9; // parabolic arc
             return (
-              <div key={i} className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, fontSize: '2.6vmin', lineHeight: 1, zIndex: 95, transform: `translate(-50%,-50%) rotate(${sh.rot + u * 540}deg)`, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>🏈</div>
+              <div key={i} className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '3vmin', height: '3vmin', zIndex: 95, transform: `translate(-50%,-50%) rotate(${sh.rot + u * 540}deg)`, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>
+                <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '2.4vmin', lineHeight: 1 }}>🏈</span>
+                <img src="/assets/battle/football-proj.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />
+              </div>
             );
           })}
 
