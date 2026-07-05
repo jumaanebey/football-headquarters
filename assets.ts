@@ -51,14 +51,19 @@ export const RESOURCE_ICON = {
 // raids read as away games; defending shows your own home art.
 const BATTLE_BUILDING_POOL = ['headquarters-1', 'film-room-1', 'weight-room-1', 'practice-field-1'];
 const RIVAL_POOL = ['rival-headquarters', 'rival-film-room', 'rival-weight-room', 'rival-practice-field'];
-export const battleBuildingSprite = (kind: string, id: string, rival = false): string => {
+const DEFENSE_FLAVOR_SPRITE: Record<string, string> = {
+  jugs: 'jugs-machine', sled: 'tackling-sled', ref: 'ref-tower', tshirt: 'tshirt-cannon',
+};
+export const battleBuildingSprite = (kind: string, id: string, rival = false, flavor?: string): string => {
   if (kind === 'hq') return rival ? '/assets/buildings/rival-stadium.png' : '/assets/buildings/stadium-3.png';
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   if (kind === 'defense') {
-    // De-weaponized non-weapon football defenses (all generated). Varied so bases feel distinct.
-    const defensePool = ['jugs-machine', 'tackling-sled', 'ref-tower', 'tshirt-cannon'];
-    return `/assets/battle/${defensePool[h % defensePool.length]}.png`;
+    // A flavored turret LOOKS like what it does (Ref Tower throws the flags you see);
+    // unflavored turrets stay hash-varied so bases feel distinct.
+    const slug = (flavor && DEFENSE_FLAVOR_SPRITE[flavor])
+      ?? ['jugs-machine', 'tackling-sled', 'ref-tower', 'tshirt-cannon'][h % 4];
+    return `/assets/battle/${slug}.png`;
   }
   const pool = rival ? RIVAL_POOL : BATTLE_BUILDING_POOL;
   return `/assets/buildings/${pool[h % pool.length]}.png`;

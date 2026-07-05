@@ -992,7 +992,10 @@ function App() {
                       className={`w-full flex items-center justify-between gap-2 p-3 rounded-xl border-2 text-left transition-all active:scale-[0.98]
                         ${locked ? 'border-slate-800 bg-slate-900/40 opacity-45 cursor-not-allowed' : isNext ? 'border-orange-500 bg-slate-800 hover:bg-slate-700/70' : 'border-slate-700 hover:border-orange-500 bg-slate-800 hover:bg-slate-700/70'}`}>
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ background: `radial-gradient(circle at 35% 30%, ${coach.color}bb, #0f172a 90%)`, border: `2px solid ${locked ? '#334155' : coach.color}`, filter: locked ? 'grayscale(1)' : undefined }}>{coach.emoji}</div>
+                        <div className="relative shrink-0 w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-xl" style={{ background: `radial-gradient(circle at 35% 30%, ${coach.color}bb, #0f172a 90%)`, border: `2px solid ${locked ? '#334155' : coach.color}`, filter: locked ? 'grayscale(1)' : undefined }}>
+                          <span className="absolute inset-0 flex items-center justify-center">{coach.emoji}</span>
+                          <img src={coach.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-cover" />
+                        </div>
                         <div className="min-w-0">
                           <div className="font-bold text-white truncate">{locked ? '🔒 ' : ''}{st.name}{isNext && <span className="ml-2 text-[9px] font-black uppercase bg-orange-500 text-white px-1.5 py-0.5 rounded align-middle">Next game</span>}</div>
                           <div className="text-xs text-slate-400 truncate">{st.opponent} · {coach.name}</div>

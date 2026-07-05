@@ -1,120 +1,104 @@
-# Missing Assets — Round 2 queue (nano_banana_pro)
+# Missing Assets — Round 3 queue (nano_banana_pro)
 
-**Round 1 status: ✅ 100% COMPLETE** (all tiers + trademark redo shipped and wired in-game —
-buildings, units, single-player battle sprites, all 9 heroes, mascot, fan mob, defenses,
-projectiles, blocking sled). This file is now the **Round 2** queue: environment, brand, and
-away-game identity.
+**Round 1: ✅ complete** (buildings, units, heroes, mascot, fan mob, defenses, projectiles).
+**Round 2: ✅ complete** (ground tileset, brand, rival skins). **Round 2b: ✅ complete**
+(fence-straight + fence-post — shipped and wired neighbor-aware).
 
-**Style law:** every prompt below MUST be composed with the locked templates in
-`ART-DIRECTION.md` (§4) and pass its §6 checklist. Home palette black `#111827` / orange
-`#f97316` / white; rival palette crimson `#b91c1c` / charcoal `#1f2937`; generic marks only.
-Knockout via `remove_background.py` **except where marked FULL-BLEED** (no chroma background
-on those).
+This file is now the **Round 3** queue: **rival coach portraits** (the season is a story with
+12 named coaches now — they talk trash pre-game and react post-game, currently emoji), the
+**4 single-player battle sprites** (players still render as jersey chips in battle), and two
+**conformance fixes**.
 
----
+**Style law:** every prompt MUST be composed with the locked templates in `ART-DIRECTION.md`
+(§4, CHARACTERS family for portraits) and pass its §6 checklist. Home palette black `#111827`
+/ orange `#f97316` / white; rival crimson `#b91c1c` / charcoal `#1f2937`; **generic marks
+only — no real-team logos**. Knockout via `remove_background.py` on everything below.
 
-## TIER 1 — Ground tileset (turns the CSS island into painted terrain)
-These are FLAT GROUND TILES, not objects — special rules: **exact isometric 2:1 diamond**
-(width = 2 × height), artwork must run precisely to the diamond edges so tiles butt
-seamlessly, NO outline stroke on the diamond border, no cast shadows.
-
-### 1. Turf tile → `public/assets/ground/turf-tile.png` (512×256 diamond on 512×512 canvas)
-> Isometric 2:1 diamond ground tile for a mobile base-builder, lush mowed stadium turf seen
-> from the standard isometric angle, subtle mower sheen and fine grass texture, saturated
-> healthy green (#3aa353 family), cel-shaded, **edges exactly on the diamond boundary, seamless
-> when tiled, no outline, no shadow**, flat solid chroma-green (#00d000) background outside
-> the diamond only.
-
-### 2. Turf tile B (dark band) → `public/assets/ground/turf-tile-dark.png` (512×512)
-> Same exact tile as the mowed stadium turf diamond but one shade deeper green (#349a4c
-> family) for alternating mowed-lawn bands — identical texture direction and edge treatment
-> so the two tiles interleave seamlessly.
-
-### 3. Dirt path tile → `public/assets/ground/dirt-path-tile.png` (512×512)
-> Isometric 2:1 diamond ground tile of worn tan dirt path with sparse grass creeping over
-> the edges, cleat prints pressed into the dirt, warm tan (#cdb47e family), cel-shaded,
-> edges exactly on the diamond boundary, seamless when tiled, no outline, no shadow.
-
-### 4. Island edge strip → `public/assets/ground/island-edge.png` (1024×512)
-> A horizontal soil cliff-edge strip for the underside of a floating turf island: rich dark
-> earth with embedded pebbles and dangling root wisps, grass lip overhanging the top edge,
-> reads left-to-right and tiles horizontally, cel-shaded with bold shading bands
-> (#5c4630 top to #4a3826 bottom), no outline on the tiling sides.
+**Code is already wired**: every slot below renders an emoji/chip fallback today and
+auto-swaps to the PNG the moment the file lands at the exact path. Drop PNGs only — do not
+edit code.
 
 ---
 
-## TIER 2 — Brand & identity
-### 5. Wordmark / logo → `public/assets/brand/logo.png` (1024×1024, knockout)
-> Bold two-line video-game logo reading "FOOTBALL" over "HEADQUARTERS", chunky varsity
-> block letters with beveled cel-shaded faces, black (#111827) letters with thick orange
-> (#f97316) outline and white inner trim, football-lace stitching detail across the
-> crossbar of the H, slight upward arc composition, energetic sports-game logo style,
-> centered, flat solid chroma-green (#00d000) background.
+## TIER 1 — Season rival coach portraits (12) → `public/assets/coaches/<slug>.png` (512², knockout)
 
-### 6. OG / share image → `public/assets/brand/og-image.png` (1600×900, **FULL-BLEED — no knockout**)
-> Wide hero banner for a football base-builder game: the same "FOOTBALL HEADQUARTERS"
-> varsity wordmark centered over a night-time stadium scene — floodlights sweeping from the
-> corners, packed crowd bokeh in black and orange, an isometric turf island with a glowing
-> stadium at center below the wordmark, cel-shaded mobile-game splash-art style, black/orange
-> /white palette, cinematic but clean, no other text.
+Bust portrait, eye-level 3/4 view, cel-shaded with thick outlines (same style family as the
+hero portraits — attach `public/assets/heroes/coach.png` as the style reference). Head +
+shoulders composed to read inside a CIRCLE crop (keep face centered, nothing important in
+corners). Each coach wears a polo/headset/jacket in THEIR accent color listed below (these
+are opposing teams — not the home black/orange). Expressive faces with personality; varied
+ages, builds, ethnicities; 4 of the 12 are women (Chalmers, Wilder, Voss + make Olsen a
+woman). No text, no logos beyond a plain shield crest.
 
-### 7. App icon → `public/assets/brand/app-icon.png` (1024×1024, **FULL-BLEED — no knockout**)
-> Mobile game app icon: a glossy cel-shaded American football angled upward wearing a tiny
-> gold championship crown, on a deep black-to-charcoal (#111827) radial background with an
-> orange (#f97316) rim-light ring, bold thick outlines, reads clearly at small sizes,
-> composition safely inside rounded-square margins, no text.
+| # | File | Coach | Accent | Personality direction |
+|---|------|-------|--------|----------------------|
+| 1 | `grimes.png` | "Salty" Pete Grimes | #ca8a04 | weathered old cowboy, straw hat, toothpick, warm scrappy grin |
+| 2 | `chalmers.png` | Deb Chalmers | #0ea5e9 | 50s professor, glasses on chain, red grading pen behind ear, unimpressed |
+| 3 | `marino.png` | Sal Marino | #0891b2 | burly dockworker energy, sea-captain beard, chewing gum, squint |
+| 4 | `nakamura.png` | "Binary" Bob Nakamura | #6366f1 | young analytics nerd, tablet clutched, taped glasses, smug |
+| 5 | `wilder.png` | June Wilder | #d97706 | athletic 30s woman, whistle, puma-print collar, predator smile |
+| 6 | `olsen.png` | "Icebox" Olsen | #38bdf8 | stoic Nordic woman in a huge parka, frost on eyebrows, dead stare |
+| 7 | `laroux.png` | Remy LaRoux | #16a34a | charming bayou schemer, gator-tooth necklace, sly grin, gold tooth |
+| 8 | `kowalski.png` | "Bricks" Kowalski | #78716c | massive square-jawed steelworker, flat-top, neck wider than head |
+| 9 | `deluxe.png` | Vince Deluxe | #a855f7 | slick showman, sunglasses at night, blinding smile, popped collar |
+| 10 | `cross.png` | Sterling Cross | #eab308 | silver-haired aristocrat, gold-trimmed blazer, chin high |
+| 11 | `voss.png` | Vera Voss | #b91c1c | severe empire-builder in crimson, sharp bob, ice-cold command |
+| 12 | `hale.png` | Marcus "The GOAT" Hale | #f97316 | legendary champion, ring-heavy fingers steepled, knowing smirk, 11 tiny championship pins on jacket |
+
+> (per-portrait prompt skeleton) Cel-shaded bust portrait of [personality direction], a rival
+> American-football head coach for a mobile base-builder game, eye-level 3/4 view, head and
+> shoulders centered for a circular avatar crop, coaching polo and headset in [accent color],
+> thick confident outlines, bold flat shading, expressive face, plain shield crest only,
+> flat solid chroma-green (#00d000) background, no text.
+
+## TIER 1b — Raid scrimmage coach portraits (6) → same spec, same folder
+
+| # | File | Coach | Accent | Personality direction |
+|---|------|-------|--------|----------------------|
+| 13 | `tanner.png` | Buck Tanner | #dc2626 | red-faced hothead mid-yell, vein popping, crushed clipboard |
+| 14 | `vega.png` | Rosa Vega | #db2777 | cool smirking tactician, arms crossed, one eyebrow up |
+| 15 | `holloway.png` | Duke Holloway | #7c3aed | tweedy over-thinker, monocle vibe, wall-of-string energy |
+| 16 | `frost.png` | Mabel Frost | #0284c7 | sweet-looking older woman with villain eyes, knitted team scarf |
+| 17 | `twotimes.png` | Tony Two-Times | #ea580c | fast-talking wise guy, two watches, pointing with both hands |
+| 18 | `hux.png` | Grandma Hux | #65a30d | tiny fierce grandma, whistle AND reading glasses, cookie in pocket |
 
 ---
 
-## TIER 3 — Away-game identity (rival stadium skins)
-Crimson-accented variants of the 5 battle-map buildings so raids FEEL like away games.
-Same silhouette/base-tile/camera as the originals (attach the original as the reference
-image!), but repaint accents/banners/roofs to **crimson #b91c1c + charcoal #1f2937**, and
-swap any home marks for a plain crimson shield crest.
+## TIER 2 — Single-player battle sprites (4) → `public/assets/units/<slug>-player.png` (512², knockout)
 
-### 8.  `public/assets/buildings/rival-stadium.png` (1024²) — ref: `stadium-3.png`
-### 9.  `public/assets/buildings/rival-headquarters.png` (1024²) — ref: `headquarters-1.png`
-### 10. `public/assets/buildings/rival-film-room.png` (1024²) — ref: `film-room-1.png`
-### 11. `public/assets/buildings/rival-weight-room.png` (1024²) — ref: `weight-room-1.png`
-### 12. `public/assets/buildings/rival-practice-field.png` (1024²) — ref: `practice-field-1.png`
-> (per-building prompt) The exact same building as the reference image — identical camera,
-> silhouette, footprint tile, and cel-shaded style — but repainted as the RIVAL team's
-> facility: crimson (#b91c1c) and charcoal (#1f2937) accents, crimson banners and roof trim,
-> a plain crimson shield crest replacing any home markings, slightly moodier lighting.
+ONE full-body football player each (NOT the trio compositions — battle deploys individuals
+now). Eye-level 3/4 action pose, cel-shaded, thick outlines, HOME identity: black `#111827`
+helmet with orange `#f97316` center stripe, jersey in the position color below, white
+pants. Blank jersey (numbers are composited in code — keep the chest clean). Same style
+family as the hero art.
+
+| # | File | Position group | Jersey color | Pose direction |
+|---|------|----------------|--------------|----------------|
+| 19 | `offensive-line-player.png` | Lineman | steel #475569 | huge blocker mid drive-block, low pad level |
+| 20 | `skill-positions-player.png` | Skill | orange #f97316 | lean receiver sprinting with the ball tucked |
+| 21 | `defensive-line-player.png` | Front 7 | charcoal #1f2937 | linebacker exploding forward into a tackle |
+| 22 | `secondary-player.png` | Secondary | gold #eab308 | DB backpedaling then breaking, fast and twitchy |
 
 ---
 
-## ROUND 2b — Connected fence set (replaces per-tile blocking sleds on the base map)
-Walls should read as ONE continuous barrier, Clash-style. The engine composes runs from just
-TWO sprites (straights get mirrored in code for the other axis — generate only these two,
-identical style/palette so they join seamlessly).
+## TIER 3 — Conformance fixes (regenerate, same paths)
 
-**Theme:** padded stadium sideline barricade — charcoal steel frame, one thick ORANGE
-(#f97316) padded top rail, black (#111827) panels with thin white trim, a small orange
-shield crest on the center panel. LOW profile: barrier height ≈ 30% of the tile width so
-buildings read over it. Both pieces sit on the standard isometric tile footprint.
+### 23. `public/assets/buildings/rival-stadium.png` — REDO (style drift)
+Current file reads 3D-rendered, off the cel-shaded house style. Regenerate with
+`stadium-3.png` attached as the reference: identical camera, silhouette and footprint,
+cel-shaded thick-outline style, repainted crimson `#b91c1c` / charcoal `#1f2937` accents,
+plain crimson shield crest, moodier lighting.
 
-### 13. Fence straight → `public/assets/ground/fence-straight.png` (512², knockout)
-> A LOW padded stadium barricade segment on an isometric 2:1 tile: the barrier runs in a
-> straight line diagonally from the tile's upper-left edge midpoint to its lower-right edge
-> midpoint (the standard isometric axis), spanning the full tile so identical tiles butt
-> end-to-end into one continuous fence. Charcoal steel posts, black panels with thin white
-> trim, one thick orange padded top rail, a small orange shield on the middle panel,
-> cel-shaded, thick outlines, low height (about 30% of tile width), flat solid chroma-green
-> (#00d000) background, no cast shadow.
+### 24. Green-fringe cleanup on rival skins
+`rival-headquarters.png`, `rival-film-room.png`, `rival-weight-room.png`,
+`rival-practice-field.png` have chroma-green halo pixels on some edges. Re-run the knockout
+with a wider tolerance (or regenerate) — no green fringe at 2× zoom.
 
-### 14. Fence post (end cap / isolated) → `public/assets/ground/fence-post.png` (512², knockout)
-> A single LOW padded stadium barricade post-and-pad block centered on an isometric 2:1
-> tile: a short charcoal steel corner post wrapped in an orange pad with a black base
-> panel, same materials and exact style as the straight barricade segment so it reads as
-> the junction/end piece of the same fence system, cel-shaded, thick outlines, low height,
-> flat solid chroma-green (#00d000) background, no cast shadow.
+---
 
-## Wiring notes (code side — do not edit code, just drop the PNGs)
-- Ground tiles + island edge: code will adopt them in `IsometricMap.GroundLayer` once present.
-- Fence set: `WallSprite` goes neighbor-aware — straight along the gx-axis, code-mirrored
-  (`scaleX(-1)`) for the gy-axis, post for isolated cells/junction hubs. Do NOT generate a
-  mirrored variant.
-- Logo: title screen/FTUE header + README. OG image: `index.html` meta og:image.
-- Rival skins: `battleBuildingSprite()` will switch to the `rival-*` pool for attack mode.
-- App icon: Capacitor/App-Store packaging later.
+## Wiring notes (code side — already done, just drop the PNGs)
+- Coach portraits: `RivalCoach.art` renders over the emoji in the pre-game presser bubble,
+  the post-game reaction, and the Season list the moment the file exists.
+- Player sprites: `unitPlayerSprite()` already points at `units/<slug>-player.png`; the
+  jersey-chip fallback hides itself when the image loads.
+- Rival stadium / fringe fixes: same filenames — overwrite in place.

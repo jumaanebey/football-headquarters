@@ -89,10 +89,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     return d?.damage ? Math.max(0.8, Math.min(3, d.damage / 16)) : 1;
   })();
 
+  // Turrets without an explicit flavor take one from the same id-hash that picks their
+  // sprite — so every turret BEHAVES like it LOOKS. h%4===0 stays generic (football lobs,
+  // 0.7s cadence — matches the jugs-machine art it renders).
+  const hashFlavor = (id: string): BattleBuildingDef['flavor'] => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
+  };
   const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     guards: [],
-    buildings: config.buildings.map(b => ({ ...b, maxHp: b.hp, dead: false, cooldown: 0 })),
+    buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [], pulses: [], fx: [], shakeT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
     momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false,
   });
@@ -573,7 +581,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           {!isDefense && phase === 'deploy' && config.rival && (
             <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: '6%', zIndex: 225, width: '86%', maxWidth: 380 }}>
               <div className="flex items-start gap-2.5">
-                <div className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-2xl shadow-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>{config.rival.emoji}</div>
+                <div className="relative shrink-0 w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-2xl shadow-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>
+                  <span className="absolute inset-0 flex items-center justify-center">{config.rival.emoji}</span>
+                  <img src={config.rival.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-cover" />
+                </div>
                 <div className="min-w-0">
                   <div className="text-[10px] font-black uppercase tracking-wide leading-none mb-1 drop-shadow" style={{ color: config.rival.color }}>{config.rival.name}</div>
                   <div className="relative bg-black/80 border border-white/15 rounded-xl rounded-tl-sm px-3 py-2 text-[11px] sm:text-xs text-slate-100 italic leading-snug shadow-xl">
@@ -671,7 +682,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             // Buildings: width is a % of the field, so `size` (world radius) maps straight
             // to on-screen footprint. HQ size 8 → 17.6% ; buildings size 5–6 → 11–13%.
             const wpct = b.size * 2.2;
-            const sprite = battleBuildingSprite(b.kind, b.id, !isDefense); // attacking = away game = rival skins
+            const sprite = battleBuildingSprite(b.kind, b.id, !isDefense, b.flavor); // attacking = away game = rival skins; turrets look like what they do
             return (
               <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${wpct}%`, zIndex: Math.round(b.y) }}>
                 {!b.dead && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
@@ -889,7 +900,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div className="text-[11px] uppercase tracking-widest text-white/60 font-bold mt-2">Game Balls</div>
               {!isDefense && config.rival && (
                 <div className="mx-6 mt-3 flex items-center justify-center gap-2 text-left">
-                  <span className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>{config.rival.emoji}</span>
+                  <span className="relative shrink-0 w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>
+                    <span className="absolute inset-0 flex items-center justify-center">{config.rival.emoji}</span>
+                    <img src={config.rival.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-cover" />
+                  </span>
                   <span className="text-[11px] italic text-white/85 leading-snug">“{result.won ? config.rival.win : config.rival.loss}”</span>
                 </div>
               )}
