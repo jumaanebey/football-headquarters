@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS } from './constants';
+import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap } from './components/IsometricMap';
@@ -62,7 +62,8 @@ const INITIAL_STATE: GameState = {
   trophies: 0,
   campaign: { unlocked: 1, stars: {}, claimed: [] },
   teamName: genTeamName(),
-  dailies: freshDailies()
+  dailies: freshDailies(),
+  defenses: [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }] // starter JUGS machine
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -118,6 +119,7 @@ const loadState = (): GameState => {
       // Daily quests reset when the calendar day changes; team name backfills once.
       const dailies = (saved.dailies && saved.dailies.date === todayKey()) ? saved.dailies : freshDailies();
       const teamName = saved.teamName || genTeamName();
+      const defenses = saved.defenses ?? [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }];
       // "While you were away" — resolve rival raids against your ACTUAL base for the
       // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
       let defenseLog = [...(saved.defenseLog || [])];
@@ -129,7 +131,7 @@ const loadState = (): GameState => {
       const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
       if (numAttacks > 0) {
         const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS, defenseTroopBoost(roster));
+        const layout = defenseLayoutFromBase(buildings, saved.walls || INITIAL_WALLS, defenseTroopBoost(roster), defenses);
         let worstPct = 0;
         for (let a = 0; a < numAttacks; a++) {
           const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
@@ -148,7 +150,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -176,6 +178,7 @@ function App() {
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
   const [isDailyOpen, setIsDailyOpen] = useState(false);
   const [liveTargets, setLiveTargets] = useState<LiveBase[]>([]);
+  const [placingDefense, setPlacingDefense] = useState<string | null>(null); // DEFENSE_TYPES kind being placed
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
@@ -184,7 +187,7 @@ function App() {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
-    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster))), 400);
+    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses)), 400);
     if (startRaid) openRaid();
   };
 
@@ -593,7 +596,7 @@ function App() {
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
-      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster)),
+      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
       loot: { coins: coinsAtRisk, fans: 0 },
@@ -746,7 +749,7 @@ function App() {
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
-    publishBase(gameState.teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster)));
+    publishBase(gameState.teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses));
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -817,12 +820,44 @@ function App() {
     spawnText(`${def.name} unlocked!`, window.innerWidth / 2, window.innerHeight / 2, '#a855f7');
   };
 
-  // --- BASE DESIGN (edit mode): place/remove walls, move buildings ---
+  // --- BASE DESIGN (edit mode): place/remove walls, buy+place defenses, move pieces ---
+  const tileFree = (gx: number, gy: number, ignoreId?: string) =>
+    gx >= 0 && gx < 10 && gy >= 0 && gy < 10
+    && !gameState.buildings.some(b => b.id !== ignoreId && b.gridX === gx && b.gridY === gy)
+    && !gameState.walls.some(w => w.gridX === gx && w.gridY === gy)
+    && !gameState.defenses.some(d => d.id !== ignoreId && d.gridX === gx && d.gridY === gy);
+
+  // Buy-and-place flow: pick a defense in the shop, tap a free tile to install it.
+  const handlePlaceDefense = (gx: number, gy: number) => {
+    const t = DEFENSE_TYPES.find(x => x.kind === placingDefense);
+    if (!t) return false;
+    if (!tileFree(gx, gy)) { sfx.error(); return true; }
+    if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); setPlacingDefense(null); return true; }
+    if (gameState.resources.COINS < t.cost) { sfx.error(); spawnText('Need coins', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return true; }
+    setGameState(prev => ({
+      ...prev,
+      resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - t.cost },
+      defenses: [...prev.defenses, { id: `def_${Date.now()}`, kind: t.kind, gridX: gx, gridY: gy }],
+    }));
+    setPlacingDefense(null);
+    sfx.upgrade();
+    spawnText(`${t.name} installed!`, window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
+    return true;
+  };
+
+  const handleMoveDefense = (id: string, gx: number, gy: number) => {
+    if (!tileFree(gx, gy, id)) { sfx.error(); return; }
+    setGameState(prev => ({ ...prev, defenses: prev.defenses.map(d => d.id === id ? { ...d, gridX: gx, gridY: gy } : d) }));
+    sfx.click();
+  };
+
   const handleTileEdit = (gx: number, gy: number) => {
+    if (placingDefense && handlePlaceDefense(gx, gy)) return;
     const bAt = gameState.buildings.find(b => b.gridX === gx && b.gridY === gy);
     const wIdx = gameState.walls.findIndex(w => w.gridX === gx && w.gridY === gy);
+    const dAt = gameState.defenses.find(d => d.gridX === gx && d.gridY === gy);
     if (moveSel) {
-      if (!bAt && wIdx < 0) {
+      if (!bAt && wIdx < 0 && !dAt) {
         setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === moveSel ? { ...b, gridX: gx, gridY: gy } : b) }));
         sfx.click();
       }
@@ -830,6 +865,7 @@ function App() {
       return;
     }
     if (bAt) { setMoveSel(bAt.id); sfx.click(); return; }
+    if (dAt) return; // defenses move by drag; taps on them are inert
     if (wIdx >= 0) { setGameState(prev => ({ ...prev, walls: prev.walls.filter((_, i) => i !== wIdx) })); return; }
     if (gameState.walls.length >= WALL_CAP) { spawnText('Wall limit reached', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
     setGameState(prev => ({ ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] }));
@@ -874,8 +910,10 @@ function App() {
         walls={gameState.walls}
         editMode={editMode}
         moveSel={moveSel}
+        defenses={gameState.defenses}
         onTileEdit={handleTileEdit}
         onMoveBuilding={handleMoveBuilding}
+        onMoveDefense={handleMoveDefense}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
           else setSelectedBuilding(b);
@@ -1072,7 +1110,8 @@ function App() {
 
       {/* Base design (edit) mode banner */}
       {editMode && (() => {
-        const dr = computeDefenseRating(gameState.buildings, gameState.walls, gameState.roster, gameState.resources.FANS);
+        const dr = computeDefenseRating(gameState.buildings, gameState.walls, gameState.roster, gameState.resources.FANS, gameState.defenses.length);
+        const defCap = maxDefenses(stadiumLevel);
         const gradeColor = dr.score >= 70 ? '#22c55e' : dr.score >= 40 ? '#eab308' : '#ef4444';
         const Bar = ({ label, v }: { label: string; v: number }) => (
           <div className="flex items-center gap-2">
@@ -1100,10 +1139,31 @@ function App() {
               <Shield size={12} className="text-blue-400 shrink-0" /> Weakest link: <span className="text-yellow-300 font-bold">{dr.weakness}</span>
               {dr.crowd > 0 && <span className="text-rose-300 font-bold ml-auto">🔊 +{dr.crowd} home crowd</span>}
             </div>
-            <div className="text-[10px] text-slate-500 mt-1">
-              <span className="text-yellow-300 font-bold">Drag buildings</span> to move them • Tap empty tiles to add/remove <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP})
+            {/* Defense shop — buy football equipment, then tap a tile to install it */}
+            <div className="mt-2 pt-2 border-t border-slate-800">
+              <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1.5">🛡 Defensive Equipment <span className="font-mono text-slate-500">({gameState.defenses.length}/{defCap})</span></div>
+              <div className="flex gap-1.5">
+                {DEFENSE_TYPES.map(t => {
+                  const affordable = gameState.resources.COINS >= t.cost;
+                  const capped = gameState.defenses.length >= defCap;
+                  const active = placingDefense === t.kind;
+                  return (
+                    <button key={t.kind} onClick={() => setPlacingDefense(active ? null : t.kind)} disabled={!affordable || capped} title={`${t.name} — ${t.desc} · DMG ${t.damage} · RNG ${t.range}`}
+                      className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-[9px] font-bold transition-all active:scale-95
+                        ${active ? 'border-green-400 bg-green-900/40 text-white' : (!affordable || capped) ? 'border-slate-800 text-slate-600 cursor-not-allowed opacity-50' : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-orange-400'}`}>
+                      <span className="text-base leading-none">{t.emoji}</span>
+                      <span className="leading-tight mt-0.5">{t.name.split(' ')[0]}</span>
+                      <span className="text-yellow-400 font-mono">{t.cost >= 1000 ? `${(t.cost / 1000).toFixed(1)}k` : t.cost}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {placingDefense && <div className="text-[10px] text-green-300 font-bold mt-1 animate-pulse">Tap a free tile to install the {DEFENSE_TYPES.find(t => t.kind === placingDefense)?.name}</div>}
             </div>
-            <button onClick={() => { setEditMode(false); setMoveSel(null); }} className="mt-2 w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Done</button>
+            <div className="text-[10px] text-slate-500 mt-1.5">
+              <span className="text-yellow-300 font-bold">Drag</span> buildings & equipment to move them • Tap empty tiles for <span className="text-yellow-300 font-bold">Blocking Sleds</span> ({gameState.walls.length}/{WALL_CAP})
+            </div>
+            <button onClick={() => { setEditMode(false); setMoveSel(null); setPlacingDefense(null); }} className="mt-2 w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Done</button>
           </div>
         );
       })()}

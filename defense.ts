@@ -36,6 +36,7 @@ export const computeDefenseRating = (
   walls: { gridX: number; gridY: number }[],
   roster: Player[],
   fans = 0,
+  defenseCount = 0,
 ): DefenseRating => {
   const wallScore = Math.min(1, walls.length / 12); // a solid ~12-sled ring = full marks
   const avgLvl = buildings.length ? buildings.reduce((s, b) => s + b.level, 0) / buildings.length : 1;
@@ -52,15 +53,18 @@ export const computeDefenseRating = (
 
   // Home-crowd advantage: a bigger fanbase makes your stadium louder & tougher (up to +12).
   const crowd = Math.min(12, Math.floor(fans / 500));
+  // Placed equipment (JUGS/sleds/towers) — up to +12 for a full arsenal.
+  const equipment = Math.min(12, defenseCount * 3);
 
   const base = Math.round((wallScore * 0.35 + structScore * 0.30 + defScore * 0.35) * 100);
-  const score = Math.min(100, base + crowd);
+  const score = Math.min(100, base + crowd + equipment);
   const grade = score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 55 ? 'B' : score >= 40 ? 'C' : score >= 25 ? 'D' : 'F';
 
   const factors: [string, number][] = [
     ['Add Blocking Sleds to your ring', wallScore],
     ['Upgrade your buildings', structScore],
     ['Recruit defenders (Anchor / Iron Wall)', defScore],
+    ['Place defensive equipment (Design → shop)', Math.min(1, defenseCount / 3)],
   ];
   factors.sort((a, b) => a[1] - b[1]);
   const weakness = factors[0][1] >= 0.85 ? 'Your stadium is a fortress! 🏰' : factors[0][0];

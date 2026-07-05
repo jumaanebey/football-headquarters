@@ -1,5 +1,5 @@
 import { UnitGroup, Player, BuildingInstance, BuildingType } from './types';
-import { WALL_HP, TENDENCIES, TendencyKey } from './constants';
+import { WALL_HP, TENDENCIES, TendencyKey, DEFENSE_TYPES } from './constants';
 
 // ---------------------------------------------------------------------------
 // Real-time attack model (Clash-of-Clans-style). World is a 100x100 square.
@@ -319,7 +319,9 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
 
 // `defBoost` (from your roster's defensive Tendencies — see defense.ts) toughens every
 // structure: an Anchor/Iron Wall-heavy roster literally makes your stadium harder to break.
-export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1): BattleBuildingDef[] => {
+// `defenses` = the player's PLACED equipment pieces (JUGS/sleds/towers) — real turrets at
+// exactly the tiles the player chose. Positioning them IS the defensive strategy.
+export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number }[] = []): BattleBuildingDef[] => {
   const bs: BattleBuildingDef[] = buildings.map(b => {
     const x = Math.min(86, Math.max(14, b.gridX * 10));
     const y = Math.min(86, Math.max(14, b.gridY * 10));
@@ -333,7 +335,15 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
   const ws: BattleBuildingDef[] = walls.map((w, i) => ({
     id: `wall-${i}`, kind: 'wall', x: Math.min(90, Math.max(10, w.gridX * 10)), y: Math.min(90, Math.max(10, w.gridY * 10)), hp: Math.round(WALL_HP * defBoost), size: 4,
   }));
-  return [...bs, ...ws];
+  const ds: BattleBuildingDef[] = defenses.map(d => {
+    const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
+    return {
+      id: d.id, kind: 'defense' as const,
+      x: Math.min(88, Math.max(12, d.gridX * 10)), y: Math.min(88, Math.max(12, d.gridY * 10)),
+      hp: Math.round(t.hp * defBoost), size: 5, damage: Math.round(t.damage * defBoost), range: t.range,
+    };
+  });
+  return [...bs, ...ws, ...ds];
 };
 
 // The AI raiding party, pre-placed around the perimeter of your base.

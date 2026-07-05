@@ -207,6 +207,21 @@ export const MAX_BUILDERS = 5;
 // you until it expires. Going on offense (raiding) drops the shield (Clash rule).
 export const SHIELD_HOURS = 4;
 
+// --- PLACEABLE DEFENSES: football equipment you buy and position yourself. ---
+// Each becomes a real turret in your battle layout — WHERE you put them is the strategy.
+export interface DefenseTypeDef {
+  kind: string; name: string; sprite: string; emoji: string; desc: string;
+  cost: number; hp: number; damage: number; range: number;
+}
+export const DEFENSE_TYPES: DefenseTypeDef[] = [
+  { kind: 'jugs',   name: 'JUGS Machine',   sprite: '/assets/battle/jugs-machine.png',   emoji: '🏈', desc: 'Balanced football launcher',      cost: 2500, hp: 260, damage: 16, range: 24 },
+  { kind: 'sled',   name: 'Tackling Sled',  sprite: '/assets/battle/tackling-sled.png',  emoji: '🛷', desc: 'Short range, hits like a truck',  cost: 1800, hp: 340, damage: 22, range: 14 },
+  { kind: 'ref',    name: 'Ref Tower',      sprite: '/assets/battle/ref-tower.png',      emoji: '🚩', desc: 'Longest range on the field',      cost: 3200, hp: 220, damage: 13, range: 30 },
+  { kind: 'tshirt', name: 'T-Shirt Cannon', sprite: '/assets/battle/tshirt-cannon.png',  emoji: '👕', desc: 'Crowd-pleaser, solid coverage',   cost: 2200, hp: 240, damage: 18, range: 20 },
+];
+/** How many defense pieces your Stadium level supports. */
+export const maxDefenses = (stadiumLevel: number) => Math.min(6, 2 + Math.floor(stadiumLevel / 3));
+
 export const VOXEL_CONFIG = {
   tileSize: 80,
   gridSize: 10,

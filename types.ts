@@ -182,6 +182,16 @@ export interface GameState {
   trophies: number;         // trophy-ladder standing (drives your Rank)
   teamName: string;         // your club's public name (shown to Live Rivals)
   dailies: import('./dailies').DailiesState; // today's Daily Practice quests
+  defenses: DefensePiece[]; // player-placed defensive equipment (JUGS, sleds, ref towers…)
+}
+
+// A placeable defense piece — bought and positioned by the player in Design mode;
+// becomes a real turret in the battle layout.
+export interface DefensePiece {
+  id: string;
+  kind: string; // key into DEFENSE_TYPES
+  gridX: number;
+  gridY: number;
 }
 
 // A hero's persistent progression: level (coins), stars (evolution via shards), shards (from

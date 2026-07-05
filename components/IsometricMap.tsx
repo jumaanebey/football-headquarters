@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
-import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR } from '../constants';
+import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob, DefensePiece } from '../types';
+import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, DEFENSE_TYPES } from '../constants';
 import { buildingSprite } from '../assets';
 import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
 
@@ -15,8 +15,10 @@ interface Props {
   walls?: { gridX: number; gridY: number }[];
   editMode?: boolean;
   moveSel?: string | null;
+  defenses?: DefensePiece[];
   onTileEdit?: (gridX: number, gridY: number) => void;
   onMoveBuilding?: (id: string, gridX: number, gridY: number) => void;
+  onMoveDefense?: (id: string, gridX: number, gridY: number) => void;
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollectResource?: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -199,10 +201,11 @@ const BuildingSprite: React.FC<{
   upgradeJob?: UpgradeJob;
   editMode?: boolean;
   moveSel?: string | null;
+  clickGuard?: React.MutableRefObject<boolean>;
   onBuildingClick: Props['onBuildingClick'];
   onCollect: Props['onCollect'];
   onCollectResource?: Props['onCollectResource'];
-}> = ({ building, recruitSlot, upgradeJob, editMode, moveSel, onBuildingClick, onCollect, onCollectResource }) => {
+}> = ({ building, recruitSlot, upgradeJob, editMode, moveSel, clickGuard, onBuildingClick, onCollect, onCollectResource }) => {
   const c = tileToScreen(building.gridX, building.gridY);
   const info = BUILDING_INFO[building.type];
   const src = buildingSprite(building.type, building.level);
@@ -229,6 +232,7 @@ const BuildingSprite: React.FC<{
   }
 
   const handleClick = (e: React.MouseEvent) => {
+    if (clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a drag
     const screenPos = { x: e.clientX, y: e.clientY };
     if (isCompleted) onCollect(building, screenPos);
     else onBuildingClick(building, screenPos);
@@ -360,12 +364,12 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], walls = [], editMode = false, moveSel, onTileEdit, onMoveBuilding, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], walls = [], defenses = [], editMode = false, moveSel, onTileEdit, onMoveBuilding, onMoveDefense, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
-  // --- Drag-and-drop building moves (Design mode) ---
-  const [drag, setDrag] = useState<{ id: string; gx: number; gy: number; startGx: number; startGy: number } | null>(null);
+  // --- Drag-and-drop for buildings AND defense pieces (works on the main board too) ---
+  const [drag, setDrag] = useState<{ id: string; piece: 'building' | 'defense'; gx: number; gy: number; startGx: number; startGy: number } | null>(null);
   const dragMovedRef = React.useRef(false);
 
   const eventToTile = (e: React.PointerEvent | React.MouseEvent) => {
@@ -376,13 +380,14 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (!editMode || !boardRef.current) return;
+    if (!boardRef.current) return; // drag works in BOTH view and Design mode
     const { gx, gy } = eventToTile(e);
-    const b = buildings.find(x => x.gridX === gx && x.gridY === gy);
-    if (!b) return; // empty tile: leave click flow (wall toggle) alone
+    const d = defenses.find(x => x.gridX === gx && x.gridY === gy);
+    const b = d ? null : buildings.find(x => x.gridX === gx && x.gridY === gy);
+    if (!d && !b) return; // empty tile: leave click flow (wall toggle) alone
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* synthetic/edge pointers */ }
     dragMovedRef.current = false;
-    setDrag({ id: b.id, gx, gy, startGx: gx, startGy: gy });
+    setDrag({ id: (d ?? b)!.id, piece: d ? 'defense' : 'building', gx, gy, startGx: gx, startGy: gy });
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -397,15 +402,18 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const handlePointerUp = () => {
     if (!drag) return;
     if (dragMovedRef.current && (drag.gx !== drag.startGx || drag.gy !== drag.startGy)) {
-      onMoveBuilding?.(drag.id, drag.gx, drag.gy);
+      if (drag.piece === 'defense') onMoveDefense?.(drag.id, drag.gx, drag.gy);
+      else onMoveBuilding?.(drag.id, drag.gx, drag.gy);
     }
     setDrag(null);
   };
 
+  const dragMoved = !!drag && (drag.gx !== drag.startGx || drag.gy !== drag.startGy);
   const dragTileFree = drag
     ? drag.gx >= 0 && drag.gx < GRID && drag.gy >= 0 && drag.gy < GRID
       && !buildings.some(b => b.id !== drag.id && b.gridX === drag.gx && b.gridY === drag.gy)
       && !walls.some(w => w.gridX === drag.gx && w.gridY === drag.gy)
+      && !defenses.some(x => x.id !== drag.id && x.gridX === drag.gx && x.gridY === drag.gy)
     : false;
 
   const night = timeOfDay < 6 || timeOfDay > 20;
@@ -438,10 +446,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       {/* Board fills space between HUD (top) and nav (bottom), scaled to fit */}
       <div className="absolute left-0 right-0 flex items-center justify-center" style={{ top: 88, bottom: 88 }}>
         <div ref={boardRef} onClick={handleBoardClick} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}
-          className={`relative ${editMode ? (drag ? 'cursor-grabbing' : 'cursor-pointer') : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `scale(${scale})`, transformOrigin: 'center', touchAction: editMode ? 'none' : undefined }}>
+          className={`relative ${drag ? 'cursor-grabbing' : editMode ? 'cursor-pointer' : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `scale(${scale})`, transformOrigin: 'center', touchAction: 'none' }}>
           <GroundLayer buildings={buildings} />
           {/* Drag ghost: green = drop OK, red = blocked */}
-          {editMode && drag && (() => {
+          {drag && (editMode || dragMoved) && (() => {
             const c = tileToScreen(drag.gx, drag.gy);
             const pts = `${c.x},${c.y - TILE_H / 2} ${c.x + TILE_W / 2},${c.y} ${c.x},${c.y + TILE_H / 2} ${c.x - TILE_W / 2},${c.y}`;
             return (
@@ -456,8 +464,24 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {walls.map((w, i) => (
             <WallSprite key={`w${i}-${w.gridX}-${w.gridY}`} gridX={w.gridX} gridY={w.gridY} />
           ))}
+          {/* Placed defensive equipment (draggable; range rings shown while designing) */}
+          {defenses.map(d => {
+            const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
+            const c = tileToScreen(d.gridX, d.gridY);
+            const w = TILE_W * 0.92;
+            const rx = (t.range / 10) * TILE_W * 0.55;
+            return (
+              <div key={d.id} className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: d.gridX + d.gridY + 4, opacity: drag?.id === d.id ? 0.45 : 1 }}>
+                {editMode && (
+                  <div className="absolute rounded-full border border-red-400/40 bg-red-500/10" style={{ left: -rx, top: -rx / 2, width: rx * 2, height: rx }} />
+                )}
+                <img src={t.sprite} alt={t.name} draggable={false}
+                  style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2 - 2, filter: 'drop-shadow(0 5px 5px rgba(0,0,0,0.35))' }} />
+              </div>
+            );
+          })}
           {sortedBuildings.map((b) => (
-            <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} editMode={editMode} moveSel={moveSel} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} />
+            <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} editMode={editMode} moveSel={moveSel} clickGuard={dragMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} />
           ))}
           {activePlayers.map((p) => (
             <PlayerMarker key={p.id} player={p} />

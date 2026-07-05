@@ -84,8 +84,37 @@ swap any home marks for a plain crimson shield crest.
 
 ---
 
+## ROUND 2b — Connected fence set (replaces per-tile blocking sleds on the base map)
+Walls should read as ONE continuous barrier, Clash-style. The engine composes runs from just
+TWO sprites (straights get mirrored in code for the other axis — generate only these two,
+identical style/palette so they join seamlessly).
+
+**Theme:** padded stadium sideline barricade — charcoal steel frame, one thick ORANGE
+(#f97316) padded top rail, black (#111827) panels with thin white trim, a small orange
+shield crest on the center panel. LOW profile: barrier height ≈ 30% of the tile width so
+buildings read over it. Both pieces sit on the standard isometric tile footprint.
+
+### 13. Fence straight → `public/assets/ground/fence-straight.png` (512², knockout)
+> A LOW padded stadium barricade segment on an isometric 2:1 tile: the barrier runs in a
+> straight line diagonally from the tile's upper-left edge midpoint to its lower-right edge
+> midpoint (the standard isometric axis), spanning the full tile so identical tiles butt
+> end-to-end into one continuous fence. Charcoal steel posts, black panels with thin white
+> trim, one thick orange padded top rail, a small orange shield on the middle panel,
+> cel-shaded, thick outlines, low height (about 30% of tile width), flat solid chroma-green
+> (#00d000) background, no cast shadow.
+
+### 14. Fence post (end cap / isolated) → `public/assets/ground/fence-post.png` (512², knockout)
+> A single LOW padded stadium barricade post-and-pad block centered on an isometric 2:1
+> tile: a short charcoal steel corner post wrapped in an orange pad with a black base
+> panel, same materials and exact style as the straight barricade segment so it reads as
+> the junction/end piece of the same fence system, cel-shaded, thick outlines, low height,
+> flat solid chroma-green (#00d000) background, no cast shadow.
+
 ## Wiring notes (code side — do not edit code, just drop the PNGs)
 - Ground tiles + island edge: code will adopt them in `IsometricMap.GroundLayer` once present.
+- Fence set: `WallSprite` goes neighbor-aware — straight along the gx-axis, code-mirrored
+  (`scaleX(-1)`) for the gy-axis, post for isolated cells/junction hubs. Do NOT generate a
+  mirrored variant.
 - Logo: title screen/FTUE header + README. OG image: `index.html` meta og:image.
 - Rival skins: `battleBuildingSprite()` will switch to the `rival-*` pool for attack mode.
 - App icon: Capacitor/App-Store packaging later.
