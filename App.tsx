@@ -19,7 +19,7 @@ import { tendencyFromId } from './constants';
 import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
-import { CAMPAIGN_STAGES, campaignBase } from './campaign';
+import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase } from './campaign';
 import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
@@ -584,6 +584,7 @@ function App() {
       heroes: heroesForBattle(gameState.heroes),
       specials: specialsForBattle(gameState.resources.FANS),
       loot: { coins: Math.round(entry.coinsLost * 1.5) + 200, fans: 25 }, // reclaim more than they took
+      rival: coachForBase(entry.attacker),
     });
     setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => e.id === entry.id ? { ...e, avenged: true } : e) }));
     setDefenseLogOpen(false);
@@ -797,6 +798,7 @@ function App() {
       specials: specialsForBattle(gameState.resources.FANS),
       loot: st.reward,
       campaignStage: stage,
+      rival: coachForStage(stage),
     });
     setAttackSelectOpen(false);
   };
@@ -1029,7 +1031,7 @@ function App() {
                 <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> not connected — raid real players by wiring Supabase (see <span className="font-mono">PVP-SETUP.md</span>).</div>
               )}
               {raidTargets.map(b => (
-                <button key={b.id} onClick={() => { setBattleConfig({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward }); setAttackSelectOpen(false); }}
+                <button key={b.id} onClick={() => { setBattleConfig({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) }); setAttackSelectOpen(false); }}
                   className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
                   <div>
                     <div className="font-bold text-white text-lg">{b.name}</div>

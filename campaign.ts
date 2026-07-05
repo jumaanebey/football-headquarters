@@ -15,6 +15,51 @@ export interface CampaignStage {
   firstClear: { gems: number; shardHero: string; shards: number }; // one-time bounty
 }
 
+// --- RIVAL COACHES: every opponent is a PERSON with a face and a mouth. They talk
+// trash before the game and react after it — the season is a story, not a list.
+export interface RivalCoach {
+  name: string;    // the coach across the field
+  emoji: string;   // face (placeholder until portrait art lands)
+  color: string;   // accent for their card/bubble
+  intro: string;   // pre-game trash talk (shown while you set your game plan)
+  win: string;     // what they say when YOU beat them
+  loss: string;    // their gloat when they stop you
+}
+
+const COACHES: RivalCoach[] = [
+  { name: 'Coach "Salty" Pete Grimes', emoji: '🤠', color: '#ca8a04', intro: "New coach, huh? We're the worst team in the league and I STILL like our chances.", win: 'Well… shoot. Kid can coach.', loss: "HA! Beat by the Dust Bowl! Tell everyone." },
+  { name: 'Coach Deb Chalmers', emoji: '👩‍🏫', color: '#0ea5e9', intro: "I've already graded your film. It's a D-minus.", win: 'Hmph. Extra credit earned. This time.', loss: 'As calculated. Study harder, dear.' },
+  { name: 'Coach Sal Marino', emoji: '⚓', color: '#0891b2', intro: "My Hawks eat rookies for breakfast. You're looking real bite-sized.", win: 'Rough seas… you sailed through us. Respect.', loss: 'Glub glub. Another one sinks in the Harbor!' },
+  { name: 'Coach "Binary" Bob Nakamura', emoji: '🤓', color: '#6366f1', intro: 'My model gives you a 12.7% chance. I rounded UP to be polite.', win: 'Recalibrating… you broke my model. Impressive.', loss: 'The math never lies. 87.3%, as predicted.' },
+  { name: 'Coach June Wilder', emoji: '🐆', color: '#d97706', intro: "Pumas hunt in the open field. Hope your slow boys can run.", win: "Fast AND tough. Fine — you've earned the plains.", loss: 'Told you. Never outrun a Puma.' },
+  { name: 'Coach "Icebox" Olsen', emoji: '🥶', color: '#38bdf8', intro: "Midseason's where pretenders freeze. Bundle up, kid.", win: 'You… thawed us out. Nobody does that.', loss: 'Frozen solid at midfield. Classic.' },
+  { name: 'Coach Remy LaRoux', emoji: '🐊', color: '#16a34a', intro: "Welcome to the Bayou, cher. Ain't nobody leaves with their lunch money.", win: "Sacre bleu… take the lunch money. You earned it.", loss: 'The swamp keeps what it catches, cher.' },
+  { name: 'Coach "Bricks" Kowalski', emoji: '🧱', color: '#78716c', intro: "Iron City don't do finesse. We're gonna lean on you 'til you quit.", win: 'You hit harder than my whole front line. Ouch.', loss: 'Another soft team bounces off the wall.' },
+  { name: 'Coach Vince Deluxe', emoji: '🕶️', color: '#a855f7', intro: 'Big lights, big stage. You sure you belong on Metro turf, kid?', win: "Bright lights suit you. Don't let it go to your head.", loss: 'Stick to the small towns, sweetheart.' },
+  { name: 'Coach Sterling Cross', emoji: '👑', color: '#eab308', intro: 'The Knights have never lost a Divisional at home. Tradition is armor.', win: 'The crown… slips. Wear it well, coach.', loss: 'Tradition holds. It always holds.' },
+  { name: 'Coach Vera Voss', emoji: '🩸', color: '#b91c1c', intro: "The Empire doesn't rebuild. It reloads. You're just the next target.", win: 'An Empire falls. Savor it — I would.', loss: 'The Empire feeds on hope like yours.' },
+  { name: 'Coach Marcus "The GOAT" Hale', emoji: '🐐', color: '#f97316', intro: "Eleven rings. Nobody remembers second place. You won't even be a footnote.", win: 'Twelve teams tried. One finished it. Take the ring — you ARE the story now.', loss: 'And THAT is why they call me the GOAT.' },
+];
+
+export const coachForStage = (stage: number): RivalCoach => COACHES[(stage - 1) % COACHES.length];
+
+// Generic scrimmage-coach pool for raid targets — deterministic by base name so the
+// same rival always talks the same trash.
+const RAID_COACHES: RivalCoach[] = [
+  { name: 'Coach Buck Tanner', emoji: '😤', color: '#dc2626', intro: "You picked the wrong stadium to raid, son.", win: 'Take the coins. I want a rematch.', loss: 'Not in MY house!' },
+  { name: 'Coach Rosa Vega', emoji: '😏', color: '#db2777', intro: "Cute little squad. Watch them get flattened.", win: "Okay, okay. The squad's not so little.", loss: 'Flattened. Like I said.' },
+  { name: 'Coach Duke Holloway', emoji: '🧐', color: '#7c3aed', intro: 'I schemed all week for exactly this.', win: 'Back to the drawing board…', loss: 'Schemed. Executed. Handled.' },
+  { name: 'Coach Mabel Frost', emoji: '😈', color: '#0284c7', intro: "My defense hasn't given up a TD in weeks.", win: 'The streak… THE STREAK!', loss: 'And the streak lives on.' },
+  { name: 'Coach Tony Two-Times', emoji: '🤨', color: '#ea580c', intro: "I'll say it twice: go home. GO HOME.", win: "I'll say it once: well played.", loss: 'Told ya twice. TOLD YA TWICE.' },
+  { name: 'Coach Grandma Hux', emoji: '👵', color: '#65a30d', intro: "Sweetie, I've been beating hotshots since before you were born.", win: "Fine, you get a cookie. ONE cookie.", loss: 'Respect your elders, dear.' },
+];
+
+export const coachForBase = (baseName: string): RivalCoach => {
+  let h = 0;
+  for (let i = 0; i < baseName.length; i++) h = (h * 31 + baseName.charCodeAt(i)) >>> 0;
+  return RAID_COACHES[h % RAID_COACHES.length];
+};
+
 const SCHEDULE: [string, string][] = [
   ['Preseason Opener', 'Dust Bowl Prospects'],
   ['Week 2', 'Valley State'],

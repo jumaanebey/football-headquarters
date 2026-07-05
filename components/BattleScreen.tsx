@@ -6,6 +6,7 @@ import {
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
   SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef,
 } from '../battle';
+import { RivalCoach } from '../campaign';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
 import { sfx } from '../sound';
 import { X, Clock, Flag, Shield } from 'lucide-react';
@@ -23,6 +24,7 @@ export interface BattleConfig {
   loot: { coins: number; fans: number };
   campaignStage?: number; // set when this attack is a Season campaign stage
   pvpTarget?: string;     // set when raiding a LIVE rival's published base (their pid)
+  rival?: RivalCoach;     // the coach across the field — trash talk pre-game, reaction post-game
 }
 
 export interface BattleResult {
@@ -524,6 +526,21 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <div className="absolute rounded-full border-2 border-white/20 border-dashed pointer-events-none" style={{ left: '14%', top: '14%', width: '72%', height: '72%' }} />
           )}
 
+          {/* 🎙️ Rival coach trash talk — the pre-game presser, gone at the snap */}
+          {!isDefense && phase === 'deploy' && config.rival && (
+            <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: '6%', zIndex: 225, width: '86%', maxWidth: 380 }}>
+              <div className="flex items-start gap-2.5">
+                <div className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-2xl shadow-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>{config.rival.emoji}</div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-wide leading-none mb-1 drop-shadow" style={{ color: config.rival.color }}>{config.rival.name}</div>
+                  <div className="relative bg-black/80 border border-white/15 rounded-xl rounded-tl-sm px-3 py-2 text-[11px] sm:text-xs text-slate-100 italic leading-snug shadow-xl">
+                    “{config.rival.intro}”
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 📣 Play-by-play announcer */}
           {s.commentary.text && phase === 'fighting' && (
             <div key={s.commentary.text + s.commentary.t} className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: 8, zIndex: 220, maxWidth: '92%' }}>
@@ -817,6 +834,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 {[0, 1, 2].map(i => <span key={i} className={i < result.stars ? 'animate-bounce-sm' : ''} style={{ opacity: i < result.stars ? 1 : 0.25, filter: i < result.stars ? 'none' : 'grayscale(1)', animationDelay: `${i * 120}ms` }}>🏈</span>)}
               </div>
               <div className="text-[11px] uppercase tracking-widest text-white/60 font-bold mt-2">Game Balls</div>
+              {!isDefense && config.rival && (
+                <div className="mx-6 mt-3 flex items-center justify-center gap-2 text-left">
+                  <span className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>{config.rival.emoji}</span>
+                  <span className="text-[11px] italic text-white/85 leading-snug">“{result.won ? config.rival.win : config.rival.loss}”</span>
+                </div>
+              )}
             </div>
             <div className="p-6 space-y-4">
               <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Ground given up' : 'Enemy destroyed'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
