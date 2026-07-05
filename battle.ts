@@ -56,6 +56,8 @@ export interface BTroop {
   attacking?: boolean; // true this tick if in range and hitting a target (drives lunge anim)
   special?: SpecialKind; // set for Mascot / Fan-Mob support units
   jersey?: number;     // individual jersey number (each deployed player is their own person)
+  dmg?: number;        // total damage dealt this battle (drives the MVP award)
+  kills?: number;      // defenders pancaked by this player
 }
 
 // Troop archetypes per position group.

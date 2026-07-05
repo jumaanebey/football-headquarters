@@ -86,12 +86,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     return d?.damage ? Math.max(0.8, Math.min(3, d.damage / 16)) : 1;
   })();
 
-  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number } }>({
+  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     guards: [],
     buildings: config.buildings.map(b => ({ ...b, maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [], pulses: [], fx: [], shakeT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
+    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false,
   });
+  const [driveStats, setDriveStats] = useState<{ mvp: string; mvpDmg: number; pancakes: number; lost: number; bonus: number } | null>(null);
 
   // Play-by-play announcer — every big moment gets a line.
   const say = (text: string) => { sim.current.commentary = { text, t: sim.current.time }; };
@@ -123,7 +125,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const hqDead = s.buildings.find(b => b.kind === 'hq')?.dead ?? false;
     const stars = (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0);
     const frac = destroyed / total;
-    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac), fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget });
+    // Drive summary: who was your MVP, what did the defense cost you, what did you take.
+    if (!isDefense) {
+      const best = [...s.troops].sort((a, b) => (b.dmg ?? 0) - (a.dmg ?? 0))[0];
+      const mvpName = !best ? '—'
+        : best.isHero ? (heroes.find(h => h.key === best.heroKey)?.name ?? 'Hero')
+        : best.special ? (best.special === 'mascot' ? 'The Mascot' : 'The Fan Mob')
+        : `#${best.jersey} ${TROOP_STATS[best.unit].label}`;
+      setDriveStats({ mvp: mvpName, mvpDmg: Math.round(best?.dmg ?? 0), pancakes: s.pancakes, lost: s.lost, bonus: s.bonus });
+    }
+    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac) + s.bonus, fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget });
     setPhase('result');
   };
 
@@ -132,6 +143,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const iv = setInterval(() => {
       const s = sim.current;
       if (s.ended) return;
+      // Freeze-frame on a touchdown — let the moment land.
+      if (s.freezeT > 0) { s.freezeT -= DT; forceTick(x => x + 1); return; }
 
       for (const t of s.troops) {
         if (t.dead) continue;
@@ -160,6 +173,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         } else {
           t.attacking = true;
           target.hp -= dps * DT;
+          t.dmg = (t.dmg ?? 0) + dps * DT;
+          // GOAL-LINE STAND: crack their stadium below half and the defense throws everything at you.
+          if (!s.goalLine && target.kind === 'hq' && target.hp < target.maxHp * 0.5) {
+            s.goalLine = true;
+            for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: target.x + (gi ? 3 : -3), y: target.y + 2, hp: Math.round(150 * guardMult), maxHp: Math.round(150 * guardMult), dps: 12 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(Math.random() * 49) });
+            say('🚨 GOAL-LINE STAND — they\'re throwing EVERYBODY at you!');
+            s.shakeT = 0.25;
+          }
           if (Math.random() < 0.12) s.fx.push({ type: 'impact', x: target.x, y: target.y - target.size * 0.3, life: 0.22, maxLife: 0.22 });
           if (target.hp <= 0) {
             target.hp = 0; target.dead = true; t.targetId = null;
@@ -167,7 +188,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               const scored = target.kind === 'hq'; // taking their stadium = the score
               s.fx.push({ type: 'yards', text: scored ? 'TOUCHDOWN!' : 'SACKED!', x: target.x, y: target.y, life: scored ? 1.5 : 1.0, maxLife: scored ? 1.5 : 1.0 });
               say(scored ? '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!' : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(Math.random() * 3)]);
-              if (scored) sfx.crowdRoar(); // the stadium erupts
+              s.momentum = Math.min(100, s.momentum + (scored ? 25 : 12));
+              if (scored) { s.freezeT = 0.45; sfx.crowdRoar(); } // freeze-frame + the stadium erupts
               // Loot burst — coins pop out of the wreckage
               for (let ci = 0; ci < (scored ? 7 : 4); ci++) {
                 const ca = Math.random() * Math.PI * 2;
@@ -184,7 +206,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       s.guardT += DT;
       const aliveDef = s.buildings.filter(b => b.kind === 'defense' && !b.dead);
       const aliveGuards = s.guards.filter(g => !g.dead);
-      if (s.guardT >= 8 && aliveDef.length > 0 && aliveGuards.length < 3 && s.troops.some(t => !t.dead)) {
+      // Waves escalate: the deeper into the drive, the faster the defense rotates fresh legs in.
+      const spawnEvery = Math.max(4.5, 8 - (BATTLE_SECONDS - s.time) / 15);
+      if (s.guardT >= spawnEvery && aliveDef.length > 0 && aliveGuards.length < 3 && s.troops.some(t => !t.dead)) {
         s.guardT = 0;
         const src = aliveDef[Math.floor(Math.random() * aliveDef.length)];
         s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: src.x, y: src.y, hp: Math.round(140 * guardMult), maxHp: Math.round(140 * guardMult), dps: 11 * guardMult, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 40 + Math.floor(Math.random() * 59) });
@@ -205,18 +229,37 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           // the tackle: mutual damage — your player fights through at reduced output
           g.attacking = true;
           const shieldFactor = (prey.shieldT && prey.shieldT > 0) ? 0.5 : 1;
+          const preyOut = prey.dps * (prey.rageT > 0 ? 2 : 1) * 0.55 * DT;
           prey.hp -= g.dps * shieldFactor * DT; prey.hitFlash = 0.12;
-          g.hp -= prey.dps * (prey.rageT > 0 ? 2 : 1) * 0.55 * DT; g.hitFlash = 0.12;
+          g.hp -= preyOut; g.hitFlash = 0.12;
+          prey.dmg = (prey.dmg ?? 0) + preyOut;
           if (prey.hp <= 0) {
             prey.hp = 0; prey.dead = true;
+            s.lost++; s.momentum = Math.max(0, s.momentum - 10);
             say(prey.isHero ? `${(heroes.find(h => h.key === prey.heroKey)?.name || 'Your hero').toUpperCase()} IS DOWN!` : `#${prey.jersey ?? '??'} gets STUFFED at the line!`);
             s.fx.push({ type: 'impact', x: prey.x, y: prey.y, life: 0.3, maxLife: 0.3 });
           }
           if (g.hp <= 0) {
             g.hp = 0; g.dead = true;
-            say('Their linebacker gets PANCAKED!');
+            prey.kills = (prey.kills ?? 0) + 1;
+            s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10);
+            say(`💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
+            for (let ci = 0; ci < 3; ci++) { const ca = Math.random() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
             s.fx.push({ type: 'impact', x: g.x, y: g.y, life: 0.3, maxLife: 0.3 });
           }
+        }
+      }
+
+      // MOMENTUM: builds on sacks/pancakes, drains on losses, decays over time.
+      // Fill the meter and the whole squad catches fire.
+      if (!isDefense) {
+        s.momentum = Math.max(0, s.momentum - 1.5 * DT);
+        if (s.momentum >= 100) {
+          s.momentum = 30;
+          s.troops.forEach(t => { if (!t.dead) t.rageT = Math.max(t.rageT, 4); });
+          say('🔥 MOMENTUM SHIFT — the whole squad is ROLLING!');
+          sfx.crowdRoar();
+          s.shakeT = 0.2;
         }
       }
 
@@ -243,7 +286,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           const prey = nearestTroop(b.x, b.y, s.troops, b.range);
           if (prey) {
             prey.hp -= b.damage * (prey.shieldT && prey.shieldT > 0 ? 0.5 : 1); prey.hitFlash = 0.15;
-            if (prey.hp <= 0) { prey.hp = 0; prey.dead = true; }
+            if (prey.hp <= 0) { prey.hp = 0; prey.dead = true; s.lost++; s.momentum = Math.max(0, s.momentum - 6); }
             s.shots.push({ sx: b.x, sy: b.y, tx: prey.x, ty: prey.y, t: 0, dur: 0.3, rot: Math.random() * 360 });
             b.cooldown = 0.7;
           } else b.cooldown = 0.1;
@@ -475,6 +518,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <div key={s.commentary.text + s.commentary.t} className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: 8, zIndex: 220, maxWidth: '92%' }}>
               <div className="bg-black/75 border border-white/10 rounded-full px-4 py-1.5 text-[11px] sm:text-xs font-bold italic text-amber-100 whitespace-nowrap overflow-hidden text-ellipsis shadow-lg">
                 📣 {s.commentary.text}
+              </div>
+            </div>
+          )}
+
+          {/* 🔥 Momentum meter — fill it and the squad catches fire */}
+          {!isDefense && phase === 'fighting' && (
+            <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ top: 42, zIndex: 218, width: '46%', maxWidth: 260 }}>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[9px] font-black tracking-widest ${s.momentum > 75 ? 'text-orange-300 animate-pulse' : 'text-white/40'}`}>🔥</span>
+                <div className="flex-1 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/10">
+                  <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.momentum}%`, background: s.momentum > 75 ? 'linear-gradient(90deg,#f97316,#fde047)' : '#f97316' }} />
+                </div>
               </div>
             </div>
           )}
@@ -735,6 +790,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
             <div className="p-6 space-y-4">
               <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Ground given up' : 'Enemy destroyed'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
+              {!isDefense && driveStats && (
+                <>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} dmg)</span></span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">💥 Takeaways</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Players stuffed</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
+                </>
+              )}
               <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Coins lost' : 'Coins looted'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
               {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">Fans gained</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
               <button onClick={() => onFinish(result)} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
