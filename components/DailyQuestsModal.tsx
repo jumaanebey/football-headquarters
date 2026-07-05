@@ -1,6 +1,7 @@
 import React from 'react';
 import { DailiesState, questsForDate, SWEEP_BONUS_GEMS } from '../dailies';
-import { X, Gift, Crown, Coins, Check } from 'lucide-react';
+import { Gift, Crown, Coins, Check } from 'lucide-react';
+import { Sheet } from './ui';
 
 interface Props {
   dailies: DailiesState;
@@ -13,18 +14,13 @@ export const DailyQuestsModal: React.FC<Props> = ({ dailies, onClaim, onClose })
   const allClaimed = quests.every(q => dailies.claimed.includes(q.id));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="bg-slate-950 w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
-        <div className="p-5 border-b border-slate-800 bg-slate-900 flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2">
-              <Gift className="text-rose-400" size={24} /> Daily Practice
-            </h2>
-            <p className="text-slate-400 text-sm">Three drills a day. Clear all three for the Daily Sweep bonus.</p>
-          </div>
-          <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={20} /></button>
-        </div>
-
+    <Sheet
+      title="Daily Practice"
+      icon={<Gift className="text-rose-400" size={22} />}
+      subtitle="Three drills a day. Clear all three for the Daily Sweep bonus."
+      onClose={onClose}
+      maxWidth="max-w-md"
+    >
         <div className="p-4 space-y-2.5">
           {quests.map(q => {
             const prog = Math.min(q.target, dailies.progress[q.id] || 0);
@@ -67,7 +63,6 @@ export const DailyQuestsModal: React.FC<Props> = ({ dailies, onClaim, onClose })
             </span>
           </div>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

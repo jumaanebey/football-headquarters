@@ -69,9 +69,10 @@ export const Sheet: React.FC<{
   subtitle?: React.ReactNode;
   onClose: () => void;
   footer?: React.ReactNode;
+  actions?: React.ReactNode; // header controls (e.g. Scout Search) — rendered beside close
   maxWidth?: string;
   children: React.ReactNode;
-}> = ({ title, icon, subtitle, onClose, footer, maxWidth = 'max-w-lg', children }) => (
+}> = ({ title, icon, subtitle, onClose, footer, actions, maxWidth = 'max-w-lg', children }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4" onClick={onClose}>
     <div
       className={`bg-[#0b0f1a] w-full ${maxWidth} max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden`}
@@ -84,7 +85,10 @@ export const Sheet: React.FC<{
           </h2>
           {subtitle && <p className="text-slate-400 text-[12px] mt-0.5">{subtitle}</p>}
         </div>
-        <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0 ml-3 transition-colors"><X size={18} /></button>
+        <div className="flex items-center gap-2 shrink-0 ml-3">
+          {actions}
+          <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"><X size={18} /></button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto min-h-0">{children}</div>
       {footer && <div className="p-4 border-t border-slate-800 bg-[#111827] shrink-0">{footer}</div>}

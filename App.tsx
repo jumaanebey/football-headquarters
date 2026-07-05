@@ -28,11 +28,12 @@ import { RECRUIT_LAST_NAMES } from './constants';
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
 import { BattleScreen, BattleResult, BattleConfig } from './components/BattleScreen';
+import { Sheet, Btn } from './components/ui';
 import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase, homeDefenders } from './battle';
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
-import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Star, ClipboardList, Settings as SettingsIcon } from 'lucide-react';
+import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Star, ClipboardList, Settings as SettingsIcon, Gift } from 'lucide-react';
 
 const INITIAL_STATE: GameState = {
   resources: {
@@ -1393,17 +1394,15 @@ function App() {
 
       {/* Attack: Season campaign ladder or a live Raid */}
       {attackSelectOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-          <div className="bg-slate-950 w-full max-w-md max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl p-6 flex flex-col">
-            <div className="flex justify-between items-center mb-1">
-              <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2">
-                <Swords className="text-red-500" size={26} /> Game Day
-                <span className="text-[10px] font-sans font-bold normal-case tracking-normal text-slate-400 bg-slate-800 border border-slate-700 rounded-full px-2 py-0.5" title="Suiting up costs Energy — regen at the Rehab Center">⚡{RAID_ENERGY} per game</span>
-              </h2>
-              <button onClick={() => setAttackSelectOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={18} /></button>
-            </div>
+        <Sheet
+          title={<>Game Day <span className="text-[12px] font-sans font-bold normal-case tracking-normal text-slate-400 bg-slate-800 border border-slate-700 rounded-full px-2 py-0.5" title="Suiting up costs Energy — regen at the Rehab Center">⚡{RAID_ENERGY} per game</span></>}
+          icon={<Swords className="text-red-500" size={22} />}
+          onClose={() => setAttackSelectOpen(false)}
+          maxWidth="max-w-md"
+        >
+          <div className="p-5 pt-3 flex flex-col max-h-full">
             {/* Mode tabs */}
-            <div className="flex gap-2 my-3">
+            <div className="flex gap-2 mb-3">
               <button onClick={() => setAttackTab('season')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'season' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                 🏆 Season {gameState.campaign.unlocked > CAMPAIGN_STAGES.length ? '✓' : `${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length}`}
               </button>
@@ -1491,7 +1490,7 @@ function App() {
             </div>
             )}
           </div>
-        </div>
+        </Sheet>
       )}
 
       {battleConfig && (
@@ -1712,13 +1711,13 @@ function App() {
       {/* Daily Practice (quests) */}
       <button
         onClick={() => setIsDailyOpen(true)}
-        className="fixed bottom-24 right-3 z-40 text-xl bg-slate-900/90 border border-slate-700 hover:border-rose-400 p-2.5 rounded-2xl shadow-xl transition-colors"
-        title="Daily Practice"
+        className="fixed bottom-24 right-3 z-40 bg-[#111827]/95 border border-slate-700 hover:border-rose-400 p-2.5 rounded-2xl shadow-xl transition-colors text-rose-300"
+        title="Daily Practice — today's quests"
       >
         <span className="relative flex items-center">
-          🎁
+          <Gift size={20} />
           {dailyClaimable > 0 && (
-            <span className="absolute -top-2 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 border border-slate-900 text-[9px] font-bold text-white flex items-center justify-center leading-none animate-pulse">{dailyClaimable}</span>
+            <span className="absolute -top-2 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 border border-slate-900 text-[10px] font-bold text-white flex items-center justify-center leading-none animate-pulse">{dailyClaimable}</span>
           )}
         </span>
       </button>

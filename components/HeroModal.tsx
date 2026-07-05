@@ -3,7 +3,8 @@ import React from 'react';
 import { ResourceType, HeroState } from '../types';
 import { HERO_DEFS, heroLevelMult, heroStarMult, heroUpgradeCost, heroMaxLevel } from '../battle';
 import { ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS, RollResult } from '../gacha';
-import { Star, X, ArrowUpCircle, Coins, Dumbbell, Swords, Lock, Crown, Sparkles } from 'lucide-react';
+import { Star, ArrowUpCircle, Coins, Dumbbell, Swords, Lock, Crown, Sparkles } from 'lucide-react';
+import { Sheet } from './ui';
 
 interface Props {
   heroes: HeroState[];
@@ -23,26 +24,21 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
   const canRoll = resources.GEMS >= ROLL_COST_GEMS;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="bg-slate-950 w-full max-w-3xl max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden">
-        <div className="p-5 border-b border-slate-800 bg-slate-900 flex justify-between items-center gap-3">
-          <div className="min-w-0">
-            <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2">
-              <Star className="text-yellow-400 fill-yellow-400" size={24} /> Hall of Heroes
-            </h2>
-            <p className="text-slate-400 text-sm">Level with Coins. Scout Searches find new heroes — duplicates become shards for ⭐ star-ups.</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button onClick={onRoll} disabled={!canRoll}
-              className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
-                ${canRoll ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-              <Sparkles size={16} /> Scout Search
-              <span className="flex items-center gap-1 text-xs bg-black/25 px-1.5 py-0.5 rounded"><Crown size={11} className="fill-current" /> {ROLL_COST_GEMS}</span>
-            </button>
-            <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={20} /></button>
-          </div>
-        </div>
-
+    <Sheet
+      title="Hall of Heroes"
+      icon={<Star className="text-yellow-400 fill-yellow-400" size={22} />}
+      subtitle="Level with Coins. Scout Searches find new heroes — duplicates become shards for ⭐ star-ups."
+      onClose={onClose}
+      maxWidth="max-w-3xl"
+      actions={
+        <button onClick={onRoll} disabled={!canRoll}
+          className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
+            ${canRoll ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+          <Sparkles size={16} /> Scout Search
+          <span className="flex items-center gap-1 text-[12px] bg-black/25 px-1.5 py-0.5 rounded"><Crown size={11} className="fill-current" /> {ROLL_COST_GEMS}</span>
+        </button>
+      }
+    >
         {/* Latest Scout Search result */}
         {lastRoll && (
           <div className={`px-5 py-2.5 border-b flex items-center gap-2 text-sm font-bold ${lastRoll.isNew ? 'bg-fuchsia-950/60 border-fuchsia-800 text-fuchsia-200' : 'bg-slate-900/80 border-slate-800 text-slate-200'}`}>
@@ -53,7 +49,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
           </div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-2 gap-4 content-start auto-rows-max">
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 content-start auto-rows-max">
           {HERO_DEFS.map(def => {
             const st = stateOf(def.key);
             const unlocked = st?.unlocked ?? !!def.starter;
@@ -176,7 +172,6 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
             );
           })}
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };

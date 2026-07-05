@@ -4,7 +4,8 @@ import { GameState } from '../types';
 import { computeStandings } from '../league';
 import { rankFor } from '../ranks';
 import { pvpEnabled, fetchLeaderboard, playerId, LeaderRow } from '../pvp';
-import { Trophy, X, TrendingUp, TrendingDown, Dumbbell, Zap } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Dumbbell, Zap } from 'lucide-react';
+import { Sheet, Btn } from './ui';
 
 interface Props {
   gameState: GameState;
@@ -38,27 +39,30 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
   const myLiveRank = board ? board.findIndex(r => r.pid === myPid) + 1 : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="bg-slate-950 w-full max-w-2xl max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden">
-
-        {/* Header */}
-        <div className="p-5 border-b border-slate-800 bg-slate-900 flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-3">
-              <Trophy className="text-yellow-500" size={26} /> Standings
-            </h2>
-            <p className="text-slate-400 text-sm">
-              {tab === 'live'
-                ? (myLiveRank > 0 ? <>You’re <span className="text-fuchsia-300 font-bold">#{myLiveRank}</span> of {board?.length ?? '…'} real coaches</> : 'Real coaches, ranked by trophies')
-                : <>Week {Math.min(gameState.currentMatch, SEASON_WEEKS)} of {SEASON_WEEKS}<span className="text-slate-600"> • </span>You’re <span className="text-yellow-400 font-bold">#{myRank}</span> of {rows.length}</>}
-            </p>
+    <Sheet
+      title="Standings"
+      icon={<Trophy className="text-yellow-500" size={22} />}
+      subtitle={tab === 'live'
+        ? (myLiveRank > 0 ? <>You’re <span className="text-fuchsia-300 font-bold">#{myLiveRank}</span> of {board?.length ?? '…'} real coaches</> : 'Real coaches, ranked by trophies')
+        : <>Week {Math.min(gameState.currentMatch, SEASON_WEEKS)} of {SEASON_WEEKS}<span className="text-slate-600"> • </span>You’re <span className="text-yellow-400 font-bold">#{myRank}</span> of {rows.length}</>}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      footer={
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[12px] text-slate-400 flex items-center gap-2 min-w-0">
+            {ready
+              ? <><span className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0"><Trophy size={13} className="text-white" /></span> Squad FIRED UP — your next raid hits <span className="text-green-400 font-bold">+15%</span> harder!</>
+              : <><Dumbbell size={14} className="text-sky-400 shrink-0" /> <span className="truncate">Readiness {gameState.teamReadiness}% — reach 100% for a +15% raid bonus</span></>}
           </div>
-          <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"><X size={20} /></button>
+          <Btn onClick={onPlay} variant="primary" className={ready ? 'ring-2 ring-green-400/50' : ''}>
+            <Zap size={16} /> Raid{ready ? ' (+15%)' : ''}
+          </Btn>
         </div>
-
+      }
+    >
         {/* Tabs — the LIVE board is the real competition; the league table is practice bots */}
         {live && (
-          <div className="flex gap-2 px-5 pt-3 pb-1 bg-slate-950">
+          <div className="flex gap-2 px-5 pt-3 pb-1">
             <button onClick={() => setTab('live')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'live' ? 'bg-fuchsia-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
               ⚡ Live Rankings
             </button>
@@ -68,7 +72,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div>
           {tab === 'live' ? (
             <div className="p-5 pt-3">
               {!board && <div className="text-center text-slate-500 italic py-10">Loading the ladder…</div>}
@@ -170,24 +174,6 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-400 flex items-center gap-2 min-w-0">
-            {ready
-              ? <><span className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0"><Trophy size={13} className="text-white" /></span> Squad FIRED UP — your next raid hits <span className="text-green-400 font-bold">+15%</span> harder!</>
-              : <><Dumbbell size={14} className="text-blue-400 shrink-0" /> <span className="truncate">Readiness {gameState.teamReadiness}% — reach 100% for a +15% raid bonus</span></>}
-          </div>
-          <button
-            onClick={onPlay}
-            className={`shrink-0 py-3 px-5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
-              ${ready
-                ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg ring-2 ring-green-400/50 animate-pulse'
-                : 'bg-red-600 hover:bg-red-500 text-white'}`}
-          >
-            <Zap size={16} /> Raid{ready ? ' (+15%)' : ''}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 };
