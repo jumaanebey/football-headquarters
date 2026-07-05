@@ -1,5 +1,6 @@
-import { Player, BuildingInstance } from './types';
+import { Player, BuildingInstance, BuildingType } from './types';
 import { TENDENCIES, TendencyKey } from './constants';
+import { planPath, BBuilding } from './battle';
 
 export interface DefenseRating {
   score: number;    // 0..100
@@ -31,6 +32,20 @@ export const defenseTroopBoost = (roster: Player[]): number => {
  *   • Structure  — building levels (upgrade)
  *   • Defenders  — roster players with defensive Tendencies (recruit/train + keep)
  */
+// Attackers PATHFIND now (battle.ts planPath), so wall value is PLACEMENT, not count:
+// probe 8 approach lanes with the same pathfinder the AI uses and score how many
+// actually force a smash. Scattered sleds ≈ 0; a sealed ring around the Stadium ≈ 1.
+const sealScore = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[]): number => {
+  const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
+  if (!stadium || !walls.length) return 0;
+  const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadium.gridX * 10, y: stadium.gridY * 10, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
+  const wallBs: BBuilding[] = walls.map((w, i) => ({ id: `w${i}`, kind: 'wall', x: w.gridX * 10, y: w.gridY * 10, hp: 1, maxHp: 1, size: 4, dead: false, cooldown: 0 }));
+  const lanes: [number, number][] = [[0, 0], [90, 0], [0, 90], [90, 90], [45, 0], [0, 45], [90, 45], [45, 90]];
+  let sealed = 0;
+  for (const [x, y] of lanes) if (planPath(x, y, hq, [hq, ...wallBs]).targetWallId) sealed++;
+  return sealed / lanes.length;
+};
+
 export const computeDefenseRating = (
   buildings: BuildingInstance[],
   walls: { gridX: number; gridY: number }[],
@@ -38,7 +53,8 @@ export const computeDefenseRating = (
   fans = 0,
   defenseCount = 0,
 ): DefenseRating => {
-  const wallScore = Math.min(1, walls.length / 12); // a solid ~12-sled ring = full marks
+  // Mostly seal quality (can attackers walk in for free?), a little mass (spare walls to rebuild depth).
+  const wallScore = sealScore(buildings, walls) * 0.7 + Math.min(1, walls.length / 12) * 0.3;
   const avgLvl = buildings.length ? buildings.reduce((s, b) => s + b.level, 0) / buildings.length : 1;
   const structScore = Math.min(1, avgLvl / 10);
 
@@ -61,7 +77,7 @@ export const computeDefenseRating = (
   const grade = score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 55 ? 'B' : score >= 40 ? 'C' : score >= 25 ? 'D' : 'F';
 
   const factors: [string, number][] = [
-    ['Add Blocking Sleds to your ring', wallScore],
+    ['Seal the wall ring — attackers walk through gaps', wallScore],
     ['Upgrade your buildings', structScore],
     ['Recruit defenders (Anchor / Iron Wall)', defScore],
     ['Place defensive equipment (Design → shop)', Math.min(1, defenseCount / 3)],

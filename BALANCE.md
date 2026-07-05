@@ -47,6 +47,10 @@ must *kill units*, not just soak longer.
 ## Known model limits (be honest when reading sim numbers)
 - The sim auto-deploys in a ring and never uses plays, mascot/fan-mob, or hero abilities →
   real players run **+25-40% above sim**. Targets are set assuming that headroom.
+- Live battles use WALL-AWARE PATHFINDING (battle.ts planPath — detour through gaps,
+  smash only when boxed in or the detour costs >6 cells); the headless sim still moves
+  straight-line + smash. Net: in live play, wall VALUE is placement-sensitive (sealed
+  rings and funnels matter, scattered walls do little) — the sim can't see that.
 - Live DEFENDERS (linebacker waves, goal-line stand — added post-sim) eat into that headroom:
   they kill attackers the sim never loses, roughly offsetting the human-skill bonus at
   equal tier. Game Plans + momentum/takeaway bonuses give some of it back to good players.

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { UnitGroup } from '../types';
 import {
   BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER, UNIT_PREF,
-  nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS,
+  nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS, planPath, losClear,
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
   SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef,
 } from '../battle';
@@ -209,15 +209,34 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
         const goal = nearestBuilding(t.x, t.y, s.buildings, t.special ? undefined : UNIT_PREF[t.unit]); // position-group targeting roles
         if (!goal) continue;
-        const wall = blockingWall(t.x, t.y, t.range, goal, s.buildings);
-        const target = wall || goal; // smash through blocking walls first
+        // Wall-aware routing: replan when the goal changes, the route's wall falls, or it goes stale.
+        if (!t.plan || t.plan.goalId !== goal.id || (t.plan.age += DT) > 1.1) t.plan = planPath(t.x, t.y, goal, s.buildings);
+        const plan = t.plan;
+        // Consume reached waypoints and cut any corner we can already see past.
+        while (plan.path.length && (dist(t.x, t.y, plan.path[0].x, plan.path[0].y) < 3
+          || (plan.path.length > 1 && losClear(t.x, t.y, plan.path[1].x, plan.path[1].y, plan.blocked)))) plan.path.shift();
+        let target: BBuilding = goal;
+        if (plan.targetWallId) {
+          const wb = s.buildings.find(b => b.id === plan.targetWallId);
+          if (!wb || wb.dead) { plan.targetWallId = null; plan.age = 99; } // breach opened — replan next tick
+          else if (dist(t.x, t.y, wb.x, wb.y) <= t.range + wb.size * 0.5 + 2.5) target = wb; // at the wall — smash it
+        }
+        // Never shoot THROUGH a wall at the goal from range.
+        if (target === goal) {
+          const between = blockingWall(t.x, t.y, t.range, goal, s.buildings);
+          if (between) target = between;
+        }
         const d = dist(t.x, t.y, target.x, target.y);
         const stopAt = t.range + target.size * 0.5;
         if (d > stopAt) {
           t.attacking = false;
-          const step = Math.min(speed * DT, d - stopAt);
-          t.x += ((target.x - t.x) / d) * step;
-          t.y += ((target.y - t.y) / d) * step;
+          // Head for the next waypoint (full speed) or straight at the target when the lane is open.
+          const wp = target !== goal ? { x: target.x, y: target.y } : (plan.path[0] ?? { x: goal.x, y: goal.y });
+          const direct = wp.x === target.x && wp.y === target.y;
+          const md = Math.max(0.001, dist(t.x, t.y, wp.x, wp.y));
+          const step = direct ? Math.min(speed * DT, d - stopAt) : speed * DT;
+          t.x += ((wp.x - t.x) / md) * step;
+          t.y += ((wp.y - t.y) / md) * step;
           if (Math.random() < 0.05) s.fx.push({ type: 'dust', x: t.x, y: t.y + 1.6, life: 0.4, maxLife: 0.4 });
         } else {
           t.attacking = true;

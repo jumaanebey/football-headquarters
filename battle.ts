@@ -62,6 +62,7 @@ export interface BTroop {
   kills?: number;      // defenders pancaked by this player
   dmgAcc?: number;     // damage accumulated since the last floating number popped
   dmgTimer?: number;   // seconds since the last floating number
+  plan?: PathPlan;     // current wall-aware route (sim-transient, never persisted)
 }
 
 // Troop archetypes per position group.
@@ -437,6 +438,76 @@ export const blockingWall = (tx: number, ty: number, range: number, goal: BBuild
     if (td < bd) { bd = td; best = b; }
   }
   return best;
+};
+
+// --- WALL-AWARE PATHFINDING -------------------------------------------------
+// Troops path AROUND walls when a gap exists and only smash through when boxed in
+// (wall cells are passable at high cost, the Clash rule). The grid is the SAME
+// 10×10 the Design editor uses — so the wall lines you place are exactly the
+// barriers the attacker's AI must answer. Walls become a puzzle, not a speed bump.
+export interface PathPlan {
+  path: { x: number; y: number }[]; // waypoint cell centers, start-exclusive
+  targetWallId: string | null;      // first wall on the chosen route (the one to smash)
+  goalId: string;
+  blocked: Set<string>;             // live-wall cells at plan time (for corner-cutting LOS)
+  age: number;
+}
+
+const cellOf = (v: number) => Math.max(0, Math.min(9, Math.round(v / 10)));
+const WALL_STEP_COST = 7; // a detour up to ~6 extra cells beats stopping to smash
+
+export const planPath = (fromX: number, fromY: number, goal: BBuilding, buildings: BBuilding[]): PathPlan => {
+  const wallAt: (BBuilding | null)[] = new Array(100).fill(null);
+  const blocked = new Set<string>();
+  for (const b of buildings) {
+    if (b.kind !== 'wall' || b.dead) continue;
+    const i = cellOf(b.x), j = cellOf(b.y);
+    wallAt[j * 10 + i] = b;
+    blocked.add(`${i},${j}`);
+  }
+  const start = cellOf(fromY) * 10 + cellOf(fromX);
+  const gx = cellOf(goal.x), gy = cellOf(goal.y);
+  const end = gy * 10 + gx;
+  // A* over 100 cells, 4-connected (no slipping diagonally between wall corners).
+  const g = new Array(100).fill(Infinity); g[start] = 0;
+  const prev = new Array(100).fill(-1);
+  const closed = new Array(100).fill(false);
+  const open: number[] = [start];
+  const h = (n: number) => Math.abs((n % 10) - gx) + Math.abs(((n / 10) | 0) - gy);
+  while (open.length) {
+    let bi = 0;
+    for (let k = 1; k < open.length; k++) if (g[open[k]] + h(open[k]) < g[open[bi]] + h(open[bi])) bi = k;
+    const cur = open.splice(bi, 1)[0];
+    if (cur === end) break;
+    if (closed[cur]) continue;
+    closed[cur] = true;
+    const ci = cur % 10, cj = (cur / 10) | 0;
+    for (const [ni, nj] of [[ci + 1, cj], [ci - 1, cj], [ci, cj + 1], [ci, cj - 1]]) {
+      if (ni < 0 || ni > 9 || nj < 0 || nj > 9) continue;
+      const n = nj * 10 + ni;
+      const step = wallAt[n] ? WALL_STEP_COST : 1;
+      if (g[cur] + step < g[n]) { g[n] = g[cur] + step; prev[n] = cur; if (!closed[n]) open.push(n); }
+    }
+  }
+  const cells: number[] = [];
+  for (let n = end; n !== -1 && n !== start; n = prev[n]) cells.unshift(n);
+  let targetWallId: string | null = null;
+  for (const n of cells) { if (wallAt[n]) { targetWallId = wallAt[n]!.id; break; } }
+  return { path: cells.map(n => ({ x: (n % 10) * 10, y: ((n / 10) | 0) * 10 })), targetWallId, goalId: goal.id, blocked, age: 0 };
+};
+
+// Dev-only test hook: lets browser-console tests drive the pathfinder directly.
+if (typeof window !== 'undefined' && (import.meta as any).env?.DEV) (window as any).__fhqPlanPath = planPath;
+
+/** True when the straight segment crosses no live-wall cell — lets runners cut corners naturally. */
+export const losClear = (x0: number, y0: number, x1: number, y1: number, blocked: Set<string>): boolean => {
+  const d = Math.hypot(x1 - x0, y1 - y0);
+  const steps = Math.max(1, Math.ceil(d / 3));
+  for (let k = 1; k <= steps; k++) {
+    const x = x0 + ((x1 - x0) * k) / steps, y = y0 + ((y1 - y0) * k) / steps;
+    if (blocked.has(`${cellOf(x)},${cellOf(y)}`)) return false;
+  }
+  return true;
 };
 
 export const nearestTroop = (x: number, y: number, troops: BTroop[], within: number): BTroop | null => {
