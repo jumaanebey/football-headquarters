@@ -146,6 +146,71 @@ dailies; gacha/star-up; economy sinks (parking/slots/upgrades/heroes).
 
 ---
 
+## v2.1 — THE SOLVES (decided, concrete)
+
+**D1 → a tokens file + two shared components, then a sweep.**
+`components/ui.tsx`: `<Btn variant="primary|secondary|ghost|danger" size="sm|md">` (ONE
+button anatomy) and `<Sheet title icon onClose footer>` (ONE modal shell). `tokens.ts`:
+type scale of four (12 caption / 14 body / 18 title / 28 display — nothing below 12px),
+semantic color map (orange=action/brand, gold=coins, purple=crowns, rose=fans,
+sky=defense/shield, red=danger/rival, green=success/sealed, fuchsia=live-PvP), 4-pt
+spacing on the shells. Icon law: lucide for UI verbs, PNG art for currencies, emoji ONLY
+inside game-flavor copy (announcer, coach speech) — never as buttons. Then sweep all 7
+modals + HUD + nav through the shells.
+
+**D2 → chrome recolor now, buildings next art round.**
+UI surfaces move to the charcoal family (#0b0f1a/#111827) with orange-500 as the only
+primary action color; active nav = orange. Board buildings: Antigravity Round 4 =
+same silhouettes repainted with black/orange trim + club shield (commission written
+when Round 3 finishes). Interim: test a subtle orange rim-light on home sprites via
+CSS; keep only if it looks intentional.
+
+**D3 → a copy law, then a strings sweep.**
+DESIGN-BIBLE gets a banned→replacement table (destroy→shut down / enemy→rival /
+loot→gate haul / raid→away game where it reads naturally). Sweep every user-facing
+string once. Fiction rule: buildings are "shut down", never rubble; fans are "poached";
+coins are "gate revenue". Announcer keeps its drama — it's the broadcast voice.
+
+**D4 → kill the dead meter by replacing it with identity.**
+The HUD level-circle + XP bar go away; that slot becomes the CLUB — crest + team name
+(currently shown nowhere after FTUE!). Two problems, one slot. XP fields stay in the
+save (harmless); drills already pay coins. Complete the tooltip set: every number on
+screen (fans, energy, readiness, trophies, shards) explains itself on hover/press.
+
+**D5 → redundancy, floors, and a media query.**
+Funnel lanes: OPEN = dashed + arrowhead, SEALED = solid + lock glyph at the entry dot —
+pattern carries the meaning, color becomes decoration. Text floor: nothing below 12px
+(done inside the D1 sweep). `prefers-reduced-motion: reduce` CSS block kills all fhq-*
+keyframes + pulse/bounce. Esc closes any open modal (one keydown handler in App).
+
+**D6 → Export/Import in Settings.**
+Export = download JSON bundle {save, fhq_pid, session, tutorial flags} + copy-to-
+clipboard variant. Import = file picker → shape-validate → explicit overwrite confirm →
+write + reload. Red dot on the Settings gear until the first export ever happens.
+
+**D7 → boundary first, then a lock on the math.**
+`ErrorBoundary` around the app: "Timeout on the field — reload. Your save is safe." +
+reload button. vitest (dev-only) with ~15 tests over the PURE logic: planPath's three
+cases, losClear, homeDefenders, sealScore/defense rating, gacha odds (seeded), wallCap/
+maxDefenses/footprint helpers, mulberry32 determinism, defenseLayoutFromBase mapping
+(footprint centers + parking compression). These run BEFORE the 12×12 refactor so the
+refactor can't silently break battle math.
+
+**D8 → one Settings sheet.**
+Gear icon replaces the naked Reset+Mute corner. Inside: Mute, Export/Import, club name
+(display only — rename stays PARKED), Reset moved behind the sheet with its existing
+double-confirm, version line. Reset is no longer one mis-tap from Mute.
+
+**D9 → three artifacts.**
+`QA-CHECKLIST.md`: a scripted ~10-min pass (fresh FTUE → train → bot raid → live raid →
+defense sim → every Chalkboard interaction → replay → leaderboard → export/import),
+replayed at each phase end, on-phone from Phase C. A written **7/10 rubric** in this
+file before re-rating: first 5 minutes teaches itself; every screen on the same tokens;
+no copy that lies; phone plays clean end-to-end; zero open P0/P1. And the standing
+rule: new ideas land in PARKED unless they fix a P0/P1.
+
+---
+
 ## The plan (v2 — slower, design-led)
 
 **Phase A — Truth pass** (solo): the five lies (revenge/docs/README/results-score/dead
