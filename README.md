@@ -1,4 +1,4 @@
-# 🏈 Football Headquarters
+<p align="center"><img src="public/assets/brand/logo.png" alt="Football Headquarters" width="420"></p>
 
 **▶️ Play it live: [football-headquarters.vercel.app](https://football-headquarters.vercel.app)** — every visitor becomes a Live Rival.
 

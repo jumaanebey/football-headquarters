@@ -471,7 +471,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             // Buildings: width is a % of the field, so `size` (world radius) maps straight
             // to on-screen footprint. HQ size 8 → 17.6% ; buildings size 5–6 → 11–13%.
             const wpct = b.size * 2.2;
-            const sprite = battleBuildingSprite(b.kind, b.id);
+            const sprite = battleBuildingSprite(b.kind, b.id, !isDefense); // attacking = away game = rival skins
             return (
               <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${wpct}%`, zIndex: Math.round(b.y) }}>
                 {!b.dead && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}

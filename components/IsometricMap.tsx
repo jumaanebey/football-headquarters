@@ -60,22 +60,21 @@ const useBoardScale = () => {
 // The ground is a floating turf island (Clash-style): mowed-lawn bands instead of a
 // checkerboard, a thick soil skirt for depth, worn paths to the Stadium, and a soft
 // light pool at the center.
-const GroundLayer: React.FC<{ buildings: BuildingInstance[] }> = ({ buildings }) => {
+const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildings }) => {
   const tilePts = (gx: number, gy: number, s = 1) => {
     const c = tileToScreen(gx, gy);
     return `${c.x},${c.y - (TILE_H / 2) * s} ${c.x + (TILE_W / 2) * s},${c.y} ${c.x},${c.y + (TILE_H / 2) * s} ${c.x - (TILE_W / 2) * s},${c.y}`;
   };
 
-  // Mowed-lawn bands (2-row stripes, no grid strokes) with a soft edge tint.
-  const diamonds = [];
+  // Painted turf via ONE SVG <pattern> (5 image refs total, engine-tiled) — per-tile
+  // <image> elements rasterize per frame and dropped the page to 2fps. Bands are cheap
+  // flat overlays. (The light turf variant came back speckle-damaged; unused.)
+  const bandShades = [];
   for (let gx = 0; gx < GRID; gx++) {
     for (let gy = 0; gy < GRID; gy++) {
-      const band = Math.floor((gx + gy) / 2) % 2 === 0;
-      const edge = gx === 0 || gy === 0 || gx === GRID - 1 || gy === GRID - 1;
-      diamonds.push(
-        <polygon key={`${gx}-${gy}`} points={tilePts(gx, gy)}
-          fill={band ? '#3aa353' : '#349a4c'} opacity={edge ? 0.94 : 1} />
-      );
+      if (Math.floor((gx + gy) / 2) % 2 === 0) {
+        bandShades.push(<polygon key={`b${gx}-${gy}`} points={tilePts(gx, gy)} fill="rgba(255,255,255,0.06)" />);
+      }
     }
   }
 
@@ -93,7 +92,12 @@ const GroundLayer: React.FC<{ buildings: BuildingInstance[] }> = ({ buildings })
         const k = `${x},${y}`;
         if (seen.has(k) || (x === stadium.gridX && y === stadium.gridY)) continue;
         seen.add(k);
-        paths.push(<polygon key={`p${k}`} points={tilePts(x, y, 0.55)} fill="#cdb47e" opacity={0.28} />);
+        const pc = tileToScreen(x, y);
+        // HTML <img> (GPU-composited) — NOT an SVG <image>; those rasterize per frame.
+        paths.push(
+          <img key={`p${k}`} src="/assets/ground/dirt-path-tile.png" alt="" draggable={false}
+            style={{ position: 'absolute', left: pc.x - (TILE_W / 2) * 0.8, top: pc.y - (TILE_H / 2) * 0.8, width: TILE_W * 0.8, height: TILE_H * 0.8, maxWidth: 'none', opacity: 0.85, pointerEvents: 'none' }} />
+        );
       }
     });
   }
@@ -101,31 +105,60 @@ const GroundLayer: React.FC<{ buildings: BuildingInstance[] }> = ({ buildings })
   // Island skirt: soil faces extruded below the diamond's two lower edges.
   const D = 34;
   const cT = tileToScreen(0, 0), cR = tileToScreen(GRID - 1, 0), cB = tileToScreen(GRID - 1, GRID - 1), cL = tileToScreen(0, GRID - 1);
+  const T = { x: cT.x, y: cT.y - TILE_H / 2 };
   const L = { x: cL.x - TILE_W / 2, y: cL.y }, B = { x: cB.x, y: cB.y + TILE_H / 2 }, R = { x: cR.x + TILE_W / 2, y: cR.y };
   const glow = stadium ? tileToScreen(stadium.gridX, stadium.gridY) : tileToScreen(6, 6);
+  const eh = D + 22;
+  const len = Math.hypot(B.x - L.x, B.y - L.y);
+  const angL = Math.atan2(B.y - L.y, B.x - L.x) * 180 / Math.PI;
+  const angR = Math.atan2(R.y - B.y, R.x - B.x) * 180 / Math.PI;
 
   return (
-    <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ overflow: 'visible' }}>
-      <defs>
-        <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
-          <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      {/* soil skirt (drawn first, sits under the turf) */}
-      <polygon points={`${L.x},${L.y} ${B.x},${B.y} ${B.x},${B.y + D} ${L.x},${L.y + D}`} fill="#4a3826" />
-      <polygon points={`${B.x},${B.y} ${R.x},${R.y} ${R.x},${R.y + D} ${B.x},${B.y + D}`} fill="#5c4630" />
-      <polygon points={`${L.x},${L.y + D} ${B.x},${B.y + D} ${R.x},${R.y + D} ${R.x},${R.y + D - 6} ${B.x},${B.y + D - 6} ${L.x},${L.y + D - 6}`} fill="rgba(0,0,0,0.28)" />
-      {diamonds}
+    <>
+      <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ overflow: 'visible' }}>
+        <defs>
+          {/* Iso turf tiling as ONE pattern (center + 4 half-offset corner copies). */}
+          <pattern id="turfPat" width={TILE_W} height={TILE_H} patternUnits="userSpaceOnUse"
+            x={ORIGIN_X - TILE_W / 2} y={ORIGIN_Y - TILE_H / 2}>
+            <image href="/assets/ground/turf-tile-dark.png" x={0} y={0} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.png" x={-TILE_W / 2} y={-TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.png" x={TILE_W / 2} y={-TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.png" x={-TILE_W / 2} y={TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.png" x={TILE_W / 2} y={TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+          </pattern>
+          <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
+            <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        {/* soil skirt base (under the painted edge strips) */}
+        <polygon points={`${L.x},${L.y} ${B.x},${B.y} ${B.x},${B.y + D} ${L.x},${L.y + D}`} fill="#4a3826" />
+        <polygon points={`${B.x},${B.y} ${R.x},${R.y} ${R.x},${R.y + D} ${B.x},${B.y + D}`} fill="#5c4630" />
+        {/* the whole turf island as ONE pattern-filled polygon */}
+        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#turfPat)" />
+        {bandShades}
+        {/* turf lip highlight along the lower edges */}
+        <polyline points={`${L.x},${L.y} ${B.x},${B.y} ${R.x},${R.y}`} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth={2} />
+        {/* soft light pool centered on the Stadium */}
+        <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
+      </svg>
+      {/* Painted cliff edges + dirt paths as GPU-composited HTML imgs (never SVG <image>) */}
+      <img src="/assets/ground/island-edge.png" alt="" draggable={false}
+        style={{ position: 'absolute', left: L.x, top: L.y - 10, width: len, height: eh, maxWidth: 'none', transformOrigin: '0 0', transform: `rotate(${angL}deg)`, opacity: 0.95, pointerEvents: 'none' }} />
+      <img src="/assets/ground/island-edge.png" alt="" draggable={false}
+        style={{ position: 'absolute', left: B.x, top: B.y - 10, width: len, height: eh, maxWidth: 'none', transformOrigin: '0 0', transform: `rotate(${angR}deg)`, opacity: 0.95, pointerEvents: 'none' }} />
       {paths}
-      {/* turf lip highlight along the lower edges */}
-      <polyline points={`${L.x},${L.y} ${B.x},${B.y} ${R.x},${R.y}`} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={2} />
-      {/* soft light pool centered on the Stadium */}
-      <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
-    </svg>
+    </>
   );
 };
+
+// The terrain only changes when a building MOVES — memoize hard so the game loop's
+// constant state ticks don't re-rasterize 100 SVG tile images every frame.
+const GroundLayer = React.memo(GroundLayerInner, (prev, next) =>
+  prev.buildings.length === next.buildings.length &&
+  prev.buildings.every((b, i) => b.id === next.buildings[i].id && b.gridX === next.buildings[i].gridX && b.gridY === next.buildings[i].gridY)
+);
 
 /** Board-space (unscaled) point -> nearest grid cell, inverting the iso projection. */
 const screenToTile = (bx: number, by: number) => {

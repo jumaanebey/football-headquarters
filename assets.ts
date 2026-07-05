@@ -47,10 +47,12 @@ export const RESOURCE_ICON = {
   xp: '/assets/icons/xp.png',
 };
 
-// Battle-screen building art: reuses the football building sprites + the generated turret.
+// Battle-screen building art. When ATTACKING, buildings wear the crimson RIVAL skins so
+// raids read as away games; defending shows your own home art.
 const BATTLE_BUILDING_POOL = ['headquarters-1', 'film-room-1', 'weight-room-1', 'practice-field-1'];
-export const battleBuildingSprite = (kind: string, id: string): string => {
-  if (kind === 'hq') return '/assets/buildings/stadium-3.png';
+const RIVAL_POOL = ['rival-headquarters', 'rival-film-room', 'rival-weight-room', 'rival-practice-field'];
+export const battleBuildingSprite = (kind: string, id: string, rival = false): string => {
+  if (kind === 'hq') return rival ? '/assets/buildings/rival-stadium.png' : '/assets/buildings/stadium-3.png';
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   if (kind === 'defense') {
@@ -58,5 +60,6 @@ export const battleBuildingSprite = (kind: string, id: string): string => {
     const defensePool = ['jugs-machine', 'tackling-sled', 'ref-tower', 'tshirt-cannon'];
     return `/assets/battle/${defensePool[h % defensePool.length]}.png`;
   }
-  return `/assets/buildings/${BATTLE_BUILDING_POOL[h % BATTLE_BUILDING_POOL.length]}.png`;
+  const pool = rival ? RIVAL_POOL : BATTLE_BUILDING_POOL;
+  return `/assets/buildings/${pool[h % pool.length]}.png`;
 };

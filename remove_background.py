@@ -2,17 +2,18 @@ import sys
 from PIL import Image
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python3 remove_background.py <path> <canvasSize>")
+    if len(sys.argv) < 3 or len(sys.argv) > 4:
+        print("Usage: python3 remove_background.py <path> <width> [height]")
         sys.exit(1)
         
     path = sys.argv[1]
-    canvas_size = int(sys.argv[2])
+    width = int(sys.argv[2])
+    height = int(sys.argv[3]) if len(sys.argv) == 4 else width
     
     img = Image.open(path).convert("RGBA")
     
     # Resize
-    img = img.resize((canvas_size, canvas_size), Image.Resampling.LANCZOS)
+    img = img.resize((width, height), Image.Resampling.LANCZOS)
     
     pixels = img.load()
     width, height = img.size

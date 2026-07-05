@@ -18,10 +18,9 @@ export const TutorialOverlay: React.FC<Props> = ({ initialName, onRerollName, on
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
       <div className="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl overflow-hidden">
-        <div className="h-24 bg-gradient-to-br from-orange-600 to-red-700 flex items-center justify-center">
-          <div className="w-16 h-16 rounded-full bg-slate-900/40 border-2 border-white/30 flex items-center justify-center text-3xl">
-            {step === 0 ? '🏈' : <Sparkles size={34} className="text-white" />}
-          </div>
+        <div className="h-28 bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 flex items-center justify-center px-6">
+          <img src="/assets/brand/logo.png" alt="Football Headquarters" className="max-h-24 w-auto drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+            onError={e => { (e.currentTarget as HTMLImageElement).outerHTML = '<span class="text-4xl">🏈</span>'; }} />
         </div>
 
         {step === 0 ? (
