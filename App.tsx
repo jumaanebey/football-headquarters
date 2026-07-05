@@ -875,9 +875,53 @@ function App() {
     && !gameState.defenses.some(d => d.id !== ignoreId && d.gridX === gx && d.gridY === gy)
     && !(gameState.bus && ignoreId !== 'team-bus' && gameState.bus.gridX === gx && gameState.bus.gridY === gy);
 
+  // ↩️ UNDO (Chalkboard): snapshot every board-mutating action. Coins/parking are included
+  // so undoing a purchase refunds it — the snapshot is always internally consistent.
+  const undoStack = useRef<Array<{ walls: GameState['walls']; defenses: GameState['defenses']; bus: GameState['bus']; inventory: GameState['inventory']; parkingLot: number; coins: number; buildingPos: { id: string; gridX: number; gridY: number }[] }>>([]);
+  const pushUndo = () => {
+    const g = stateRef.current;
+    undoStack.current.push({
+      walls: g.walls, defenses: g.defenses, bus: g.bus, inventory: g.inventory, parkingLot: g.parkingLot, coins: g.resources.COINS,
+      buildingPos: g.buildings.map(b => ({ id: b.id, gridX: b.gridX, gridY: b.gridY })), // positions only — never revert a level-up
+    });
+    if (undoStack.current.length > 30) undoStack.current.shift();
+    setUndoCount(undoStack.current.length);
+  };
+  const [undoCount, setUndoCount] = useState(0);
+  const handleUndo = () => {
+    const snap = undoStack.current.pop();
+    setUndoCount(undoStack.current.length);
+    if (!snap) return;
+    setGameState(prev => ({
+      ...prev,
+      walls: snap.walls, defenses: snap.defenses, bus: snap.bus, inventory: snap.inventory, parkingLot: snap.parkingLot,
+      resources: { ...prev.resources, [ResourceType.COINS]: snap.coins },
+      buildings: prev.buildings.map(b => { const p = snap.buildingPos.find(x => x.id === b.id); return p ? { ...b, gridX: p.gridX, gridY: p.gridY } : b; }),
+    }));
+    sfx.click();
+  };
+  const clearUndo = () => { undoStack.current = []; setUndoCount(0); };
+
+  // 🖌 PAINT SLEDS: drag across empty grass to lay a wall line in one stroke.
+  const handlePaintWall = (gx: number, gy: number) => {
+    if (!tileFree(gx, gy)) return;
+    setGameState(prev => {
+      if (prev.walls.length >= WALL_CAP) return prev;
+      if (prev.walls.some(w => w.gridX === gx && w.gridY === gy)) return prev;
+      return { ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] };
+    });
+  };
+
+  // 🧪 TEST DEFENSE: run a scrimmage against the layout you're literally looking at.
+  const handleTestDefense = () => {
+    setEditMode(false); setMoveSel(null); setPlacingDefense(null); setPlacingInv(null); setDesignExpanded(false);
+    startDefense();
+  };
+
   // 📦 STORE ALL: sweep every movable piece (sleds, equipment, the bus) into inventory
   // so you can redesign from a clean board and place them back one by one.
   const handleStoreAll = () => {
+    pushUndo();
     setGameState(prev => ({
       ...prev,
       walls: [],
@@ -901,6 +945,7 @@ function App() {
     if (!tileFree(gx, gy)) { sfx.error(); return true; }
     if (placingInv.type === 'sled') {
       if (gameState.inventory.sleds <= 0) { setPlacingInv(null); return true; }
+      pushUndo();
       setGameState(prev => ({
         ...prev,
         walls: [...prev.walls, { gridX: gx, gridY: gy }],
@@ -908,11 +953,13 @@ function App() {
       }));
       if (gameState.inventory.sleds <= 1) setPlacingInv(null); // that was the last one
     } else if (placingInv.type === 'bus') {
+      pushUndo();
       setGameState(prev => ({ ...prev, bus: { gridX: gx, gridY: gy }, inventory: { ...prev.inventory, bus: false } }));
       setPlacingInv(null);
     } else {
       const kind = placingInv.kind!;
       if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); setPlacingInv(null); return true; }
+      pushUndo();
       setGameState(prev => {
         const idx = prev.inventory.defenses.findIndex(d => d.kind === kind);
         if (idx < 0) return prev;
@@ -928,13 +975,18 @@ function App() {
     return true;
   };
 
-  // Tap a piece in Design mode → rotate it (mirror flip). Buildings select-to-move instead.
-  const handleFlipDefense = (id: string) =>
+  // Tap a piece in Chalkboard mode → rotate it (mirror flip). Buildings select-to-move instead.
+  const handleFlipDefense = (id: string) => {
+    pushUndo();
     setGameState(prev => ({ ...prev, defenses: prev.defenses.map(d => d.id === id ? { ...d, flip: !d.flip } : d) }));
-  const handleFlipBus = () =>
+  };
+  const handleFlipBus = () => {
+    pushUndo();
     setGameState(prev => prev.bus ? { ...prev, bus: { ...prev.bus, flip: !prev.bus.flip } } : prev);
+  };
   // 🅿️ Pave the next Parking Lot level — territory that stretches the raiders' approach.
   const handlePaveParkingLot = () => {
+    pushUndo();
     setGameState(prev => {
       if (prev.parkingLot >= PARKING_LOT.maxLevel) return prev;
       const cost = PARKING_LOT.costs[prev.parkingLot];
@@ -947,6 +999,7 @@ function App() {
 
   const handleMoveBus = (gx: number, gy: number) => {
     if (!tileFree(gx, gy, 'team-bus')) { sfx.error(); return; }
+    pushUndo();
     setGameState(prev => prev.bus ? { ...prev, bus: { ...prev.bus, gridX: gx, gridY: gy } } : prev);
     sfx.click();
   };
@@ -958,6 +1011,7 @@ function App() {
     if (!tileFree(gx, gy)) { sfx.error(); return true; }
     if (gameState.defenses.length >= maxDefenses(stadiumLevel)) { spawnText('Defense limit reached — upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); setPlacingDefense(null); return true; }
     if (gameState.resources.COINS < t.cost) { sfx.error(); spawnText('Need coins', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return true; }
+    pushUndo();
     setGameState(prev => ({
       ...prev,
       resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - t.cost },
@@ -971,6 +1025,7 @@ function App() {
 
   const handleMoveDefense = (id: string, gx: number, gy: number) => {
     if (!tileFree(gx, gy, id)) { sfx.error(); return; }
+    pushUndo();
     setGameState(prev => ({ ...prev, defenses: prev.defenses.map(d => d.id === id ? { ...d, gridX: gx, gridY: gy } : d) }));
     sfx.click();
   };
@@ -984,6 +1039,7 @@ function App() {
     const busAt = gameState.bus && gameState.bus.gridX === gx && gameState.bus.gridY === gy;
     if (moveSel) {
       if (!bAt && wIdx < 0 && !dAt && !busAt) {
+        pushUndo();
         setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === moveSel ? { ...b, gridX: gx, gridY: gy } : b) }));
         sfx.click();
       }
@@ -993,8 +1049,9 @@ function App() {
     if (bAt) { setMoveSel(bAt.id); sfx.click(); return; }
     if (dAt) { handleFlipDefense(dAt.id); sfx.click(); return; } // tap equipment = rotate (mirror)
     if (busAt) { handleFlipBus(); sfx.click(); return; }
-    if (wIdx >= 0) { setGameState(prev => ({ ...prev, walls: prev.walls.filter((_, i) => i !== wIdx) })); return; }
+    if (wIdx >= 0) { pushUndo(); setGameState(prev => ({ ...prev, walls: prev.walls.filter((_, i) => i !== wIdx) })); return; }
     if (gameState.walls.length >= WALL_CAP) { spawnText('Wall limit reached', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
+    pushUndo();
     setGameState(prev => ({ ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] }));
     sfx.click();
   };
@@ -1002,6 +1059,7 @@ function App() {
   // Drag-and-drop building move (Design mode) — validated: in-bounds, not onto a building/wall.
   const handleMoveBuilding = (id: string, gx: number, gy: number) => {
     if (!tileFree(gx, gy, id)) { sfx.error(); return; }
+    pushUndo();
     setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === id ? { ...b, gridX: gx, gridY: gy } : b) }));
     sfx.click();
   };
@@ -1038,6 +1096,8 @@ function App() {
         bus={gameState.bus}
         placing={!!(placingDefense || placingInv)}
         onTileEdit={handleTileEdit}
+        onPaintWall={handlePaintWall}
+        onPaintStart={pushUndo}
         onMoveBuilding={handleMoveBuilding}
         onMoveDefense={handleMoveDefense}
         onMoveBus={handleMoveBus}
@@ -1286,10 +1346,18 @@ function App() {
                 <span className="text-yellow-300 font-bold">{dr.weakness}</span>
                 <div className="text-[10px] text-slate-500"><span className="text-red-300">red lanes</span> = raiders walk in free · <span className="text-green-300">green</span> = sealed</div>
               </div>
-              <button onClick={() => setDesignExpanded(x => !x)} className="shrink-0 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800/70 text-slate-200 text-[11px] font-bold transition-colors hover:border-orange-400">
-                {designExpanded ? '▴ Less' : '▾ Shop & More'}
+              <button onClick={handleUndo} disabled={undoCount === 0} title="Undo the last change"
+                className={`shrink-0 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${undoCount === 0 ? 'border-slate-800 text-slate-600 cursor-not-allowed opacity-50' : 'border-slate-700 bg-slate-800/70 text-slate-200 hover:border-yellow-400'}`}>
+                ↩︎{undoCount > 0 && <span className="text-[9px] text-slate-400 ml-0.5">{undoCount}</span>}
               </button>
-              <button onClick={() => { setEditMode(false); setMoveSel(null); setPlacingDefense(null); setPlacingInv(null); setDesignExpanded(false); }} className="shrink-0 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold transition-colors active:scale-95">Done</button>
+              <button onClick={handleTestDefense} title="Run a scrimmage against this exact layout"
+                className="shrink-0 px-2.5 py-1.5 rounded-lg border border-green-700 bg-green-900/30 hover:bg-green-900/60 text-green-200 text-[11px] font-bold transition-colors active:scale-95">
+                🧪 Test
+              </button>
+              <button onClick={() => setDesignExpanded(x => !x)} className="shrink-0 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800/70 text-slate-200 text-[11px] font-bold transition-colors hover:border-orange-400">
+                {designExpanded ? '▴ Less' : '▾ More'}
+              </button>
+              <button onClick={() => { setEditMode(false); setMoveSel(null); setPlacingDefense(null); setPlacingInv(null); setDesignExpanded(false); clearUndo(); }} className="shrink-0 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold transition-colors active:scale-95">Done</button>
             </div>
             {placingDefense && !designExpanded && <div className="text-[10px] text-green-300 font-bold mt-1.5 animate-pulse">Tap a free tile to install the {DEFENSE_TYPES.find(t => t.kind === placingDefense)?.name}</div>}
             {placingInv && !designExpanded && <div className="text-[10px] text-green-300 font-bold mt-1.5 animate-pulse">Tap a free tile to place it</div>}

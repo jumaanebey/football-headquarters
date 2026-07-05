@@ -20,6 +20,8 @@ interface Props {
   bus?: { gridX: number; gridY: number; flip?: boolean } | null;
   placing?: boolean; // a placement mode is armed — ground taps win over piece hit-boxes
   onTileEdit?: (gridX: number, gridY: number) => void;
+  onPaintWall?: (gridX: number, gridY: number) => void; // drag across grass = lay a sled line
+  onPaintStart?: () => void;                            // one undo entry per paint stroke
   onMoveBuilding?: (id: string, gridX: number, gridY: number) => void;
   onMoveDefense?: (id: string, gridX: number, gridY: number) => void;
   onMoveBus?: (gridX: number, gridY: number) => void;
@@ -166,6 +168,9 @@ const GroundLayer = React.memo(GroundLayerInner, (prev, next) =>
   prev.buildings.length === next.buildings.length &&
   prev.buildings.every((b, i) => b.id === next.buildings[i].id && b.gridX === next.buildings[i].gridX && b.gridY === next.buildings[i].gridY)
 );
+
+// Range-ring accents per equipment kind — matches each turret's battle personality.
+const RING_COLOR: Record<string, string> = { jugs: '#fb923c', sled: '#f87171', ref: '#facc15', tshirt: '#f472b6' };
 
 /** Board-space (unscaled) point -> nearest grid cell, inverting the iso projection. */
 const screenToTile = (bx: number, by: number) => {
@@ -376,7 +381,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], walls = [], defenses = [], bus = null, placing = false, editMode = false, moveSel, onTileEdit, onMoveBuilding, onMoveDefense, onMoveBus, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], walls = [], defenses = [], bus = null, placing = false, editMode = false, moveSel, onTileEdit, onPaintWall, onPaintStart, onMoveBuilding, onMoveDefense, onMoveBus, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -414,18 +419,50 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     return null;
   };
 
+  // 🖌 Sled painting: pointerdown on empty grass in edit mode starts a stroke; every new
+  // tile crossed lays a sled. A plain tap (no movement) still falls through to click-toggle.
+  const paintRef = React.useRef<{ last: string; startGx: number; startGy: number; started: boolean } | null>(null);
+
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!boardRef.current) return; // drag works in BOTH view and Design mode
     const { bx, by } = eventToBoard(e);
-    const hit = pieceAtPoint(bx, by);
-    if (!hit) return; // empty ground: leave click flow (wall toggle) alone
+    const hit = placing ? null : pieceAtPoint(bx, by);
+    if (!hit) {
+      // Empty ground: in edit mode (and not placing) this may become a paint stroke.
+      if (editMode && !placing && onPaintWall) {
+        const { gx, gy } = eventToTile(e);
+        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
+          try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* synthetic pointers */ }
+          dragMovedRef.current = false;
+          paintRef.current = { last: `${gx},${gy}`, startGx: gx, startGy: gy, started: false };
+        }
+      }
+      return; // single taps keep the click flow (wall toggle / placement)
+    }
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* synthetic/edge pointers */ }
     dragMovedRef.current = false;
     setDrag({ id: hit.id, piece: hit.piece, gx: hit.gx, gy: hit.gy, startGx: hit.gx, startGy: hit.gy });
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!drag || !boardRef.current) return;
+    if (!boardRef.current) return;
+    if (paintRef.current && onPaintWall) {
+      const { gx, gy } = eventToTile(e);
+      if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID) return;
+      const key = `${gx},${gy}`;
+      if (key !== paintRef.current.last) {
+        if (!paintRef.current.started) {
+          paintRef.current.started = true;
+          onPaintStart?.();                                            // one undo entry per stroke
+          onPaintWall(paintRef.current.startGx, paintRef.current.startGy); // don't skip the tile the stroke began on
+        }
+        dragMovedRef.current = true; // the pointer-up click is a stroke tail, not a tap
+        onPaintWall(gx, gy);
+        paintRef.current.last = key;
+      }
+      return;
+    }
+    if (!drag) return;
     const { gx, gy } = eventToTile(e);
     if (gx !== drag.gx || gy !== drag.gy) {
       dragMovedRef.current = true;
@@ -434,6 +471,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   };
 
   const handlePointerUp = () => {
+    paintRef.current = null;
     if (!drag) return;
     if (dragMovedRef.current && (drag.gx !== drag.startGx || drag.gy !== drag.startGy)) {
       if (drag.piece === 'defense') onMoveDefense?.(drag.id, drag.gx, drag.gy);
@@ -525,8 +563,13 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {drag && (editMode || dragMoved) && (() => {
             const c = tileToScreen(drag.gx, drag.gy);
             const pts = `${c.x},${c.y - TILE_H / 2} ${c.x + TILE_W / 2},${c.y} ${c.x},${c.y + TILE_H / 2} ${c.x - TILE_W / 2},${c.y}`;
+            // Dragging equipment? Show its coverage at the drop spot — position by RANGE, not vibes.
+            const dKind = drag.piece === 'defense' ? defenses.find(x => x.id === drag.id)?.kind : null;
+            const dType = dKind ? DEFENSE_TYPES.find(x => x.kind === dKind) : null;
+            const rr = dType ? (dType.range / 10) * TILE_W * 0.55 : 0;
             return (
               <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ zIndex: 60, overflow: 'visible' }}>
+                {dType && <ellipse cx={c.x} cy={c.y} rx={rr} ry={rr / 2} fill={`${RING_COLOR[dKind!] ?? '#f87171'}26`} stroke={RING_COLOR[dKind!] ?? '#f87171'} strokeWidth={2} strokeDasharray="6 5" />}
                 <polygon points={pts} fill={dragTileFree ? 'rgba(74,222,128,0.35)' : 'rgba(248,113,113,0.4)'} stroke={dragTileFree ? '#4ade80' : '#f87171'} strokeWidth={3} strokeDasharray="8 5" />
               </svg>
             );
@@ -540,16 +583,17 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               <WallSprite key={`w${i}-${w.gridX}-${w.gridY}`} gridX={w.gridX} gridY={w.gridY} wallKeys={wallKeys} />
             ));
           })()}
-          {/* Placed defensive equipment (draggable; range rings shown while designing) */}
+          {/* Placed defensive equipment (draggable; kind-colored range rings while designing) */}
           {defenses.map(d => {
             const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
             const c = tileToScreen(d.gridX, d.gridY);
             const w = TILE_W * 0.92;
             const rx = (t.range / 10) * TILE_W * 0.55;
+            const ring = RING_COLOR[d.kind] ?? '#f87171';
             return (
               <div key={d.id} className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: d.gridX + d.gridY + 4, opacity: drag?.id === d.id ? 0.45 : 1 }}>
                 {editMode && (
-                  <div className="absolute rounded-full border border-red-400/40 bg-red-500/10" style={{ left: -rx, top: -rx / 2, width: rx * 2, height: rx }} />
+                  <div className="absolute rounded-full" style={{ left: -rx, top: -rx / 2, width: rx * 2, height: rx, border: `2px dashed ${ring}99`, background: `${ring}1a`, boxShadow: `inset 0 0 12px ${ring}22` }} />
                 )}
                 <img src={t.sprite} alt={t.name} draggable={false}
                   style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2 - 2, transform: d.flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 5px 5px rgba(0,0,0,0.35))' }} />
