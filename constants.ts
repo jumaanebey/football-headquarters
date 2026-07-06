@@ -184,7 +184,7 @@ export const DECOR: { slug: string; gridX: number; gridY: number; scale: number 
   { slug: 'statue-legends', gridX: 4, gridY: 0, scale: 0.75 },
   { slug: 'merch-stand',    gridX: 9, gridY: 4, scale: 0.7 },
   { slug: 'club-fountain',  gridX: 1, gridY: 4, scale: 0.6 }, // fully ON the grass — (0,4) hung off the island edge
-  { slug: 'tailgate-tent',  gridX: 8, gridY: 9, scale: 0.75 },
+  { slug: 'tailgate-tent',  gridX: 6, gridY: 9, scale: 0.75 }, // left of the practice field (which owns the SE corner)
   // parking-lot decor retired — the Parking Lot is a Front Office upgrade whose
   // apron shows in the DEFENSE view only (FIXED-BASE-PLAN.md).
 ];

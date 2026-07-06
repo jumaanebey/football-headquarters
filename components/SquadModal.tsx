@@ -5,7 +5,7 @@ import { DRILLS, TENDENCIES, TendencyKey } from '../constants';
 import { unitSprite, unitPlayerSprite } from '../assets';
 import { HERO_DEFS, heroUpgradeCost, heroMaxLevel } from '../battle';
 import { Shield, Target, Users, Zap, Dumbbell, Play, Star, ChevronRight } from 'lucide-react';
-import { Sheet } from './ui';
+import { Sheet, HowTo } from './ui';
 
 interface Props {
   roster: Player[];
@@ -61,6 +61,11 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], up
       maxWidth="max-w-lg"
     >
       <div className="p-4 sm:p-5 space-y-4">
+        <HowTo id="coach" lines={[
+          'Run drills to build READINESS — at 100% your squad is FIRED UP and the next raid hits +15% harder.',
+          'Drills cost ⚡ Energy and pay Coins. Each position group trains on its own.',
+          'Heroes train below — longer sessions, real power. Recruit new players at the Scouting Dept on the board.',
+        ]} />
 
         {/* All four groups, always visible — compact 2×2 grid, thumb-sized targets */}
         <div className="grid grid-cols-2 gap-2.5">

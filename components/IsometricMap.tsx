@@ -356,7 +356,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   // transform — so zooming never breaks taps.
   // Phones open ZOOMED IN (a base you can read, pan to explore) — desktop fits the island.
   const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.8 : 1;
-  const [cam, setCam] = useState({ z: homeZ, x: 0, y: 0 });
+  // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
+  // not the board's geometric middle — so the base reads centered, especially zoomed in.
+  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ);
+  const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
     const z = Math.min(3, Math.max(0.55, c.z));
     const lim = 650 * z;
@@ -368,7 +371,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   // True once a pan actually moved — the click that fires on pointer-up is a pan tail,
   // not a tap, and BuildingSprite's clickGuard swallows it.
   const panMovedRef = React.useRef(false);
-  const resetCam = () => setCam({ z: homeZ, x: 0, y: 0 });
+  const resetCam = () => setCam({ z: homeZ, x: 0, y: homeY });
   // Desktop: wheel zooms (native non-passive listener so preventDefault works).
   useEffect(() => {
     const el = boardRef.current;
@@ -484,7 +487,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       </div>
 
       {/* Camera wandered? One tap home. (Double-tap the board does the same.) */}
-      {(cam.z !== homeZ || cam.x !== 0 || cam.y !== 0) && (
+      {(cam.z !== homeZ || cam.x !== 0 || cam.y !== homeY) && (
         <button onClick={resetCam} title="Recenter the board"
           className="absolute bottom-24 left-3 z-40 bg-[#111827]/95 border border-slate-700 hover:border-orange-400 text-slate-200 p-2.5 rounded-2xl shadow-xl transition-colors">
           <span className="block text-[12px] font-bold leading-none">⌖</span>

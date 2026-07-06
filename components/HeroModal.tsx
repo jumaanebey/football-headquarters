@@ -4,7 +4,7 @@ import { ResourceType, HeroState } from '../types';
 import { HERO_DEFS, heroLevelMult, heroStarMult, heroUpgradeCost, heroMaxLevel } from '../battle';
 import { ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS, RollResult } from '../gacha';
 import { Star, ArrowUpCircle, Coins, Dumbbell, Swords, Lock, Crown, Sparkles } from 'lucide-react';
-import { Sheet } from './ui';
+import { Sheet, HowTo } from './ui';
 
 interface Props {
   heroes: HeroState[];
@@ -49,6 +49,14 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
           </div>
         )}
 
+        <div className="px-5 pt-4">
+          <HowTo id="heroes" lines={[
+            'Heroes are your stars — deploy them in raids and fire their signature abilities mid-drive.',
+            'Unlock new heroes with Coins/Crowns or find them in Scout Searches — duplicates become 🧩 shards.',
+            'Shards buy ⭐ star-ups (big power spikes). Level training happens in the COACH tab and takes time.',
+            'Your two strongest heroes also guard the stadium when you get raided.',
+          ]} />
+        </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 content-start auto-rows-max">
           {HERO_DEFS.map(def => {
             const st = stateOf(def.key);

@@ -1,5 +1,5 @@
-import React from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Info, ChevronRight } from 'lucide-react';
 
 // ─── THE DESIGN SYSTEM (POLISH-PLAN D1) ──────────────────────────────────────
 // One button anatomy. One modal shell. One semantic color map. Nothing below 12px.
@@ -60,6 +60,29 @@ export const Btn: React.FC<{
     {children}
   </button>
 );
+
+/** HOW-TO: every section explains itself. Opens automatically the first time a player
+ *  sees that section, then remembers it was read and collapses to a one-line chip.
+ *  `id` keys the seen-flag in localStorage; `lines` are short, plain-football bullets. */
+export const HowTo: React.FC<{ id: string; lines: string[] }> = ({ id, lines }) => {
+  const KEY = `fhq_howto_${id}`;
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(KEY) !== '1'; } catch { return true; } });
+  const toggle = () => setOpen(o => { try { localStorage.setItem(KEY, '1'); } catch { /* ignore */ } return !o; });
+  return (
+    <div className="rounded-xl border border-sky-900/60 bg-sky-950/20 overflow-hidden">
+      <button onClick={toggle} className="w-full flex items-center gap-2 px-3 py-2 text-left">
+        <Info size={13} className="text-sky-400 shrink-0" />
+        <span className="text-[12px] font-bold text-sky-200">How this works</span>
+        <ChevronRight size={13} className={`ml-auto text-sky-600 transition-transform ${open ? 'rotate-90' : ''}`} />
+      </button>
+      {open && (
+        <ul className="px-3 pb-2.5 space-y-1">
+          {lines.map((l, i) => <li key={i} className="text-[12px] text-slate-300 leading-snug flex gap-1.5"><span className="text-sky-500 shrink-0">•</span><span>{l}</span></li>)}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 /** The ONE modal shell: identical header anatomy, close button, scroll body, optional footer.
  *  Every sheet in the game goes through here so nothing is "slightly different" again. */

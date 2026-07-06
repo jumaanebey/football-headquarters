@@ -5,7 +5,7 @@ import { RARITY_CONFIG, UPGRADE_CONFIG, RECRUIT_CONFIG } from '../constants';
 import { rosterCap, rollBoard, candidateOvr, recruitCost, recruitSeconds } from '../recruiting';
 import { unitSprite } from '../assets';
 import { Search, Coins, Crown, Zap, ArrowUpCircle, Users, Clock, CheckCircle2, RefreshCw, Dumbbell, Brain, Lock } from 'lucide-react';
-import { Sheet } from './ui';
+import { Sheet, HowTo } from './ui';
 
 interface Props {
   resources: Record<ResourceType, number>;
@@ -186,6 +186,13 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
       }
     >
         <div className="p-5">
+          <div className="mb-4">
+            <HowTo id="scouting" lines={[
+              'Scout new players with Coins — rarer prospects cost more and take longer to sign.',
+              'One scouting job at a time; Rush it with Crowns if you can’t wait.',
+              'Roster cap grows with this facility’s level. Bigger roster = stronger raids AND defense.',
+            ]} />
+          </div>
           {recruitSlot ? (
             renderInProgress()
           ) : rosterFull ? (

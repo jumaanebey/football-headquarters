@@ -20,7 +20,7 @@ export const FIXED_ANCHORS: Record<BuildingType, { gridX: number; gridY: number 
   [BuildingType.TACTICS_ROOM]:   { gridX: 1, gridY: 1 }, // NW — War Room up top, out of the way
   [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 1 }, // NE — Scouting Dept by the road in
   [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 7 }, // SW — Rehab next to the practice side
-  [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // SE bottom corner — the practice field
+  [BuildingType.TRAINING_PITCH]: { gridX: 8, gridY: 8 }, // hard SE corner — the practice field
 };
 
 // ── The Team Bus: permanent blocker at the south gate (defense view only) ──────

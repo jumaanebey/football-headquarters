@@ -5,7 +5,7 @@ import { computeStandings } from '../league';
 import { rankFor, RANKS, clubPower, clubPowerBreakdown } from '../ranks';
 import { pvpEnabled, fetchLeaderboard, playerId, LeaderRow } from '../pvp';
 import { Trophy, TrendingUp, TrendingDown, Dumbbell, Zap } from 'lucide-react';
-import { Sheet, Btn } from './ui';
+import { Sheet, Btn, HowTo } from './ui';
 
 interface Props {
   gameState: GameState;
@@ -78,6 +78,11 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
         <div>
           {tab === 'ladder' ? (
             <div className="p-5 pt-3 space-y-4">
+              <HowTo id="ranks" lines={[
+                'TROPHIES come from winning raids — and getting stormed at home costs you some.',
+                'Your RANK tier is pure trophies. The bar shows exactly how far to the next tier.',
+                'CLUB POWER grows with every upgrade you make anywhere — facilities, defenses, heroes, training, grounds.',
+              ]} />
               {/* Club Power — the number EVERY upgrade moves */}
               {(() => {
                 const power = clubPower(gameState);

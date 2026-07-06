@@ -29,7 +29,7 @@ import { FIXED_ANCHORS, DEFENSE_SLOTS, slotUnlocked, slotById, slotUpgradeCost, 
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
 import { BattleScreen, BattleResult, BattleConfig } from './components/BattleScreen';
-import { Sheet, Btn } from './components/ui';
+import { Sheet, Btn, HowTo } from './components/ui';
 import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase, homeDefenders } from './battle';
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
@@ -1192,6 +1192,14 @@ function App() {
                 🧪 Test Defense
               </button>
             </div>
+            <div className="mb-3">
+              <HowTo id="gameday" lines={[
+                'SEASON: beat 12 rival coaches for the ring — earn up to 3 game balls per matchup.',
+                'RAID: hit rival bases for Coins and Fans. ⚡ Live Rivals are real coaches — beating them takes trophies.',
+                'Every game costs ⚡12 Energy. In battle: drop players near a lane, then direct the drive with plays and hero abilities.',
+                'DEFENSE LOG shows who raided you while you were away — watch the film and take revenge.',
+              ]} />
+            </div>
 
             {attackTab === 'season' ? (
               <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
@@ -1361,6 +1369,12 @@ function App() {
             }
           >
             <div className="p-4 sm:p-5 space-y-4">
+              <HowTo id="frontoffice" lines={[
+                'Your defenses sit at FIXED spots — every club defends the same field. Your edge is upgrade levels.',
+                'Install and level emplacements with Coins. Higher Stadium levels unlock more slots.',
+                'Walls and the Team Bus are automatic — they grow with your Stadium. No placing anything.',
+                'Tap 🧪 Test Defense to watch your setup fight off a raid.',
+              ]} />
               {/* Emplacements */}
               <div>
                 <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">🛡 Defense Emplacements</div>
@@ -1535,7 +1549,7 @@ function App() {
 
           <NavBtn icon={<Calendar />} label="Ranks" onClick={() => setIsStandingsOpen(true)} />
 
-          <NavBtn icon={<ClipboardList />} label="Chalk" active={frontOfficeOpen} tourId="design" onClick={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }} />
+          <NavBtn icon={<Shield />} label="Defense" active={frontOfficeOpen} tourId="design" onClick={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }} />
         </div>
       </div>
     </div>

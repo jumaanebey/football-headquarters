@@ -1,7 +1,7 @@
 import React from 'react';
 import { DefenseLogEntry } from '../types';
 import { Shield, Swords, Coins, Star, ShieldCheck } from 'lucide-react';
-import { Sheet, Btn } from './ui';
+import { Sheet, Btn, HowTo } from './ui';
 
 interface Props {
   log: DefenseLogEntry[];
@@ -57,6 +57,11 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
         )}
 
         <div className="p-4 space-y-2">
+          <HowTo id="defenselog" lines={[
+            'Rivals can raid your stadium while you’re away — every hit lands here.',
+            '▶ Watch replays of live-rival attacks (their exact moves), then AVENGE to hit their real base back.',
+            'Get beaten badly and you earn a shield: no raids until it expires (or until you raid someone).',
+          ]} />
           {log.length === 0 ? (
             <div className="text-center text-slate-500 py-12">
               <Shield size={40} className="mx-auto mb-3 opacity-40" />
