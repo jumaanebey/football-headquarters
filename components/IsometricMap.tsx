@@ -392,16 +392,18 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   // 📷 CAMERA: pinch to zoom, two-finger (or empty-grass) drag to pan, double-tap to
   // recenter. Interaction math reads getBoundingClientRect, which already reflects the
   // transform — so zooming never breaks taps, drags, or painting.
-  const [cam, setCam] = useState({ z: 1, x: 0, y: 0 });
+  // Phones open ZOOMED IN (a base you can read, pan to explore) — desktop fits the island.
+  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.8 : 1;
+  const [cam, setCam] = useState({ z: homeZ, x: 0, y: 0 });
   const camClamp = (c: { z: number; x: number; y: number }) => {
-    const z = Math.min(2.5, Math.max(0.55, c.z));
+    const z = Math.min(3, Math.max(0.55, c.z));
     const lim = 650 * z;
     return { z, x: Math.min(lim, Math.max(-lim, c.x)), y: Math.min(lim, Math.max(-lim, c.y)) };
   };
   const pointersRef = React.useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = React.useRef<{ d: number; z: number; cx: number; cy: number; camX: number; camY: number } | null>(null);
   const panRef2 = React.useRef<{ sx: number; sy: number; camX: number; camY: number } | null>(null);
-  const resetCam = () => setCam({ z: 1, x: 0, y: 0 });
+  const resetCam = () => setCam({ z: homeZ, x: 0, y: 0 });
   // Desktop: wheel zooms (native non-passive listener so preventDefault works).
   useEffect(() => {
     const el = boardRef.current;
@@ -749,7 +751,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       <div className="absolute inset-0 pointer-events-none transition-colors duration-1000" style={{ backgroundColor: ambient }} />
 
       {/* Camera wandered? One tap home. (Double-tap the board does the same.) */}
-      {(cam.z !== 1 || cam.x !== 0 || cam.y !== 0) && (
+      {(cam.z !== homeZ || cam.x !== 0 || cam.y !== 0) && (
         <button onClick={resetCam} title="Recenter the board"
           className="absolute bottom-24 left-3 z-40 bg-[#111827]/95 border border-slate-700 hover:border-orange-400 text-slate-200 p-2.5 rounded-2xl shadow-xl transition-colors">
           <span className="block text-[12px] font-bold leading-none">⌖</span>
