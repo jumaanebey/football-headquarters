@@ -69,13 +69,15 @@ export const DRILLS: Record<string, Drill> = {
   }
 };
 
+// NOTE: anchors here MUST match fixedBase.ts FIXED_ANCHORS — this array seeds brand-new
+// players, who don't go through loadState's snap-to-anchors migration.
 export const INITIAL_BUILDINGS: BuildingInstance[] = [
   {
     id: 'pitch-1',
     type: BuildingType.TRAINING_PITCH,
     level: 1,
-    gridX: 2,
-    gridY: 2,
+    gridX: 8,
+    gridY: 8,
     activeDrillId: null,
     targetUnit: null,
     startTime: null,
@@ -86,8 +88,8 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
     id: 'academy-1',
     type: BuildingType.YOUTH_ACADEMY,
     level: 1,
-    gridX: 6,
-    gridY: 2,
+    gridX: 7,
+    gridY: 1,
     activeDrillId: null,
     targetUnit: null,
     startTime: null,
@@ -98,8 +100,8 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
     id: 'med-1',
     type: BuildingType.MEDICAL_CENTER,
     level: 1,
-    gridX: 3,
-    gridY: 5,
+    gridX: 1,
+    gridY: 7,
     activeDrillId: null,
     targetUnit: null,
     startTime: null,
@@ -110,8 +112,8 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
     id: 'stadium-1',
     type: BuildingType.STADIUM,
     level: 1,
-    gridX: 6,
-    gridY: 6,
+    gridX: 5,
+    gridY: 5,
     activeDrillId: null,
     targetUnit: null,
     startTime: null,
@@ -123,8 +125,8 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
     id: 'tactics-1',
     type: BuildingType.TACTICS_ROOM,
     level: 1,
-    gridX: 3,
-    gridY: 8,
+    gridX: 1,
+    gridY: 1,
     activeDrillId: null,
     targetUnit: null,
     startTime: null,

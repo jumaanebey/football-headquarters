@@ -50,7 +50,9 @@ const INITIAL_STATE: GameState = {
   level: 1,
   xp: 0,
   xpToNextLevel: 100,
-  buildings: INITIAL_BUILDINGS,
+  // Snap to the one true map even for brand-new saves — fresh players never pass
+  // through loadState's migration, so anchor drift here would ship a scrambled base.
+  buildings: INITIAL_BUILDINGS.map(b => ({ ...b, gridX: FIXED_ANCHORS[b.type].gridX, gridY: FIXED_ANCHORS[b.type].gridY })),
   roster: INITIAL_ROSTER,
   bonusOrbs: [],
   lastTick: Date.now(),
