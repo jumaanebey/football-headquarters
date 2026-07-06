@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Player, UnitGroup, ResourceType, Drill, PlayerRole } from '../types';
 import { DRILLS, RARITY_CONFIG, TENDENCIES, TendencyKey } from '../constants';
-import { unitSprite } from '../assets';
+import { unitSprite, unitPlayerSprite } from '../assets';
 import { Shield, Target, Users, Zap, Dumbbell, Brain, ChevronRight, ChevronLeft, Play, Check, Star } from 'lucide-react';
 import { Sheet } from './ui';
 
@@ -49,13 +49,15 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, onClose, onTrai
         )}
 
         <div className="p-6 pb-4 flex flex-col items-center text-center gap-2">
-           {/* Real unit sprite (player trio) framed on a subtle field disc */}
+           {/* Current single-player battle sprite — each group gets its OWN face (the old
+               trio art had groups sharing near-identical portraits) */}
            <div className={`relative w-28 h-28 rounded-full bg-gradient-to-b from-emerald-700/40 to-slate-900 border border-slate-700 shadow-xl overflow-hidden flex items-end justify-center ${isSelected ? 'scale-105' : ''} transition-transform`}>
              <img
-               src={unitSprite(unit, isSelected ? 'ready' : 'idle')}
+               src={unitPlayerSprite(unit)}
                alt={title}
                draggable={false}
-               className="w-[118%] max-w-none h-auto object-contain -mb-1 drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] select-none"
+               onError={e => { (e.currentTarget as HTMLImageElement).src = unitSprite(unit, 'idle'); }}
+               className="w-[95%] max-w-none h-auto object-contain -mb-1 drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] select-none"
              />
              <div className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/80 border border-slate-700">
                {React.cloneElement(icon as React.ReactElement<any>, { size: 14, className: isSelected ? 'text-white' : 'text-slate-400' })}

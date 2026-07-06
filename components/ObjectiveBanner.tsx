@@ -24,7 +24,12 @@ const ICONS: Record<IconKey, React.ReactNode> = {
 export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal }) => {
   const goals = getObjectives(gameState);
   // Docked top-left (off the board) and collapsible; the tuck preference persists.
-  const [collapsed, setCollapsed] = React.useState(() => localStorage.getItem('fhq_goals_collapsed') === '1');
+  // PHONES default COLLAPSED — the panel was eating a third of the screen (Phase C).
+  const [collapsed, setCollapsed] = React.useState(() => {
+    const stored = localStorage.getItem('fhq_goals_collapsed');
+    if (stored !== null) return stored === '1';
+    return typeof window !== 'undefined' && window.innerWidth < 640;
+  });
   const toggle = () => setCollapsed(c => { localStorage.setItem('fhq_goals_collapsed', c ? '0' : '1'); return !c; });
 
   return (

@@ -13,8 +13,6 @@ interface Props {
   onPlay: () => void;
 }
 
-const SEASON_WEEKS = 17;
-
 export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) => {
   const rows = computeStandings(gameState);
   const played = gameState.matchHistory.length;
@@ -26,6 +24,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
   const live = pvpEnabled();
   const [tab, setTab] = useState<'live' | 'league'>(live ? 'live' : 'league');
   const [board, setBoard] = useState<LeaderRow[] | null>(null);
+  const [copied, setCopied] = useState(false);
   const myPid = playerId();
   useEffect(() => {
     if (!live) return;
@@ -44,7 +43,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
       icon={<Trophy className="text-yellow-500" size={22} />}
       subtitle={tab === 'live'
         ? (myLiveRank > 0 ? <>You’re <span className="text-fuchsia-300 font-bold">#{myLiveRank}</span> of {board?.length ?? '…'} real coaches</> : 'Real coaches, ranked by trophies')
-        : <>Week {Math.min(gameState.currentMatch, SEASON_WEEKS)} of {SEASON_WEEKS}<span className="text-slate-600"> • </span>You’re <span className="text-yellow-400 font-bold">#{myRank}</span> of {rows.length}</>}
+        : <>Practice circuit vs bot squads<span className="text-slate-600"> • </span>{played} games played<span className="text-slate-600"> • </span>You’re <span className="text-yellow-400 font-bold">#{myRank}</span> of {rows.length}</>}
       onClose={onClose}
       maxWidth="max-w-2xl"
       footer={
@@ -98,7 +97,17 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
                   })}
                 </div>
               )}
-              <div className="text-[10px] text-slate-600 mt-3 text-center">Every coach on this board is a real player. Win raids to climb.</div>
+              <div className="text-[12px] text-slate-500 mt-3 text-center">Every coach on this board is a real player. Win raids to climb.</div>
+              {board && board.length > 0 && board.length < 8 && (
+                <div className="mt-3 rounded-xl border border-fuchsia-900/60 bg-fuchsia-950/20 p-3 text-center">
+                  <div className="text-[12px] text-fuchsia-200 font-bold mb-2">Only {board.length} coach{board.length === 1 ? '' : 'es'} in the league so far — every visitor becomes one.</div>
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText('https://football-headquarters.vercel.app').then(() => setCopied(true)); }}
+                    className="px-4 py-2 rounded-xl bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-sm font-bold transition-colors active:scale-95">
+                    {copied ? '✓ Link copied — send it to a rival' : '📋 Copy the game link'}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -158,7 +167,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center ${m.won ? 'bg-green-600' : 'bg-red-600'}`}>
                             {m.won ? <TrendingUp size={13} className="text-white" /> : <TrendingDown size={13} className="text-white" />}
                           </span>
-                          <span className="text-slate-300 text-sm">Wk {m.week} vs <span className="font-bold">{m.opponent}</span></span>
+                          <span className="text-slate-300 text-sm">Game {m.week} vs <span className="font-bold">{m.opponent}</span></span>
                         </div>
                         {/* ourScore holds Game Balls (0-3) — show them AS game balls, never as a fake football score */}
                         <span className="flex items-center gap-1">
