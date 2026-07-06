@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { GameState } from '../types';
 import { computeStandings } from '../league';
-import { rankFor } from '../ranks';
+import { rankFor, RANKS, clubPower, clubPowerBreakdown } from '../ranks';
 import { pvpEnabled, fetchLeaderboard, playerId, LeaderRow } from '../pvp';
 import { Trophy, TrendingUp, TrendingDown, Dumbbell, Zap } from 'lucide-react';
 import { Sheet, Btn } from './ui';
@@ -11,9 +11,10 @@ interface Props {
   gameState: GameState;
   onClose: () => void;
   onPlay: () => void;
+  initialTab?: 'live' | 'league' | 'ladder';
 }
 
-export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) => {
+export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, initialTab }) => {
   const rows = computeStandings(gameState);
   const played = gameState.matchHistory.length;
   const myRank = rows.findIndex(r => r.isPlayer) + 1;
@@ -22,7 +23,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
 
   // LIVE leaderboard — real coaches only, ranked by trophies. The competitive spine.
   const live = pvpEnabled();
-  const [tab, setTab] = useState<'live' | 'league'>(live ? 'live' : 'league');
+  const [tab, setTab] = useState<'live' | 'league' | 'ladder'>(initialTab ?? (live ? 'live' : 'ladder'));
   const [board, setBoard] = useState<LeaderRow[] | null>(null);
   const [copied, setCopied] = useState(false);
   const myPid = playerId();
@@ -59,20 +60,84 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay }) 
         </div>
       }
     >
-        {/* Tabs — the LIVE board is the real competition; the league table is practice bots */}
-        {live && (
-          <div className="flex gap-2 px-5 pt-3 pb-1">
+        {/* Tabs — LIVE board = real competition; Ladder = your climb; league = practice bots */}
+        <div className="flex gap-2 px-5 pt-3 pb-1">
+          {live && (
             <button onClick={() => setTab('live')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'live' ? 'bg-fuchsia-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-              ⚡ Live Rankings
+              ⚡ Live
             </button>
-            <button onClick={() => setTab('league')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'league' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-              🤖 Scrimmage League
-            </button>
-          </div>
-        )}
+          )}
+          <button onClick={() => setTab('ladder')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'ladder' ? 'bg-yellow-500 text-black' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+            🎖 Ranks
+          </button>
+          <button onClick={() => setTab('league')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'league' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+            🤖 Scrimmage
+          </button>
+        </div>
 
         <div>
-          {tab === 'live' ? (
+          {tab === 'ladder' ? (
+            <div className="p-5 pt-3 space-y-4">
+              {/* Club Power — the number EVERY upgrade moves */}
+              {(() => {
+                const power = clubPower(gameState);
+                const parts = clubPowerBreakdown(gameState);
+                return (
+                  <div className="rounded-2xl border border-orange-800/60 bg-orange-950/20 p-4">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-[12px] uppercase tracking-widest font-bold text-orange-300">Club Power</span>
+                      <span className="font-display font-black text-3xl text-orange-300">{power.toLocaleString()}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                      {parts.map(p => (
+                        <span key={p.label} className="text-[11px] text-slate-400">{p.emoji} {p.label} <b className="text-slate-200 font-mono">{p.pts.toLocaleString()}</b></span>
+                      ))}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-2">Every upgrade adds power — facilities, defenses, heroes, training, grounds.</div>
+                  </div>
+                );
+              })()}
+
+              {/* The trophy-rank ladder: where you stand and exactly how far to the next tier */}
+              {(() => {
+                const { rank, next, index } = rankFor(gameState.trophies);
+                return (
+                  <div className="space-y-1.5">
+                    {RANKS.map((r, i) => {
+                      const here = i === index;
+                      const reached = gameState.trophies >= r.min;
+                      const toGo = r.min - gameState.trophies;
+                      const nextMin = RANKS[i + 1]?.min ?? null;
+                      return (
+                        <div key={r.name} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${here ? 'border-yellow-500 bg-yellow-950/30' : reached ? 'border-slate-700 bg-slate-800/40' : 'border-slate-800 bg-slate-900/40'}`}>
+                          <span className="text-xl w-7 text-center" style={{ filter: reached ? 'none' : 'grayscale(1) opacity(0.6)' }}>{r.emoji}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold" style={{ color: reached ? r.color : '#64748b' }}>{r.name}</span>
+                              {here && <span className="text-[9px] font-bold uppercase bg-yellow-500 text-black px-1.5 rounded">You</span>}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {r.min.toLocaleString()}🏆{nextMin ? ` – ${(nextMin - 1).toLocaleString()}🏆` : '+'}
+                              {here && next && <span className="text-yellow-300 font-bold"> · {(next.min - gameState.trophies).toLocaleString()} more to {next.name}</span>}
+                              {here && !next && <span className="text-yellow-300 font-bold"> · top of the mountain</span>}
+                              {!reached && !here && <span> · {toGo.toLocaleString()} away</span>}
+                            </div>
+                            {here && next && (
+                              <div className="mt-1.5 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700/60">
+                                <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((gameState.trophies - rank.min) / (next.min - rank.min)) * 100)}%`, background: r.color }} />
+                              </div>
+                            )}
+                          </div>
+                          {reached && !here && <span className="text-green-500 text-sm font-bold shrink-0">✓</span>}
+                        </div>
+                      );
+                    })}
+                    <div className="text-[11px] text-slate-500 text-center pt-1">Win raids to earn trophies · getting stormed at home costs them</div>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : tab === 'live' ? (
             <div className="p-5 pt-3">
               {!board && <div className="text-center text-slate-500 italic py-10">Loading the ladder…</div>}
               {board && board.length === 0 && <div className="text-center text-slate-500 italic py-10">No published rivals yet — raid to plant your flag.</div>}

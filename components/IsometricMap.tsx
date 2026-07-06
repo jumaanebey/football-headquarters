@@ -427,10 +427,8 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     panRef.current = null;
   };
 
-  const night = timeOfDay < 6 || timeOfDay > 20;
-  const dusk = (timeOfDay >= 6 && timeOfDay < 8) || (timeOfDay > 18 && timeOfDay <= 20);
-  const ambient = night ? 'rgba(15,23,42,0.5)' : dusk ? 'rgba(251,146,60,0.16)' : 'rgba(0,0,0,0)';
-
+  // (Day/night ambient tint removed — the board "dimming itself" read as a bug,
+  // not atmosphere. The backdrop is permanently stadium-night with floodlights.)
   const sortedBuildings = [...buildings].sort((a, b) => (a.gridX + a.gridY) - (b.gridX + b.gridY));
   // Only render players who are heading to / at a drill.
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
@@ -470,8 +468,6 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           ))}
         </div>
       </div>
-
-      <div className="absolute inset-0 pointer-events-none transition-colors duration-1000" style={{ backgroundColor: ambient }} />
 
       {/* Camera wandered? One tap home. (Double-tap the board does the same.) */}
       {(cam.z !== homeZ || cam.x !== 0 || cam.y !== 0) && (

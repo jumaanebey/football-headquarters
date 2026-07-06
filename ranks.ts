@@ -27,3 +27,28 @@ export const trophiesForRaid = (won: boolean, stars: number): number =>
 
 // Trophies lost when an offline raid breaks your stadium (scaled by how badly).
 export const trophiesLostOnDefense = (pct: number): number => (pct >= 50 ? -Math.round(4 + pct / 8) : 0);
+
+// ─── CLUB POWER ────────────────────────────────────────────────────────────────
+// One number that EVERY upgrade moves: facilities, defense emplacements, heroes,
+// roster training, parking, crown slots. Trophies measure how you're competing;
+// Club Power measures what you've built. Shown in the HUD + the Ranks ladder.
+import type { GameState } from './types';
+
+export interface PowerBreakdown { label: string; emoji: string; pts: number; }
+export const clubPowerBreakdown = (gs: GameState): PowerBreakdown[] => [
+  { label: 'Facilities', emoji: '🏟', pts: gs.buildings.reduce((s, b) => s + b.level, 0) * 12 },
+  { label: 'Defenses', emoji: '🛡', pts: Object.values(gs.defenseSlots ?? {}).reduce((s, l) => s + l, 0) * 10 },
+  {
+    label: 'Heroes', emoji: '⭐',
+    pts: gs.heroes.filter(h => h.unlocked !== false).reduce((s, h) => s + h.level * 4 + (h.stars - 1) * 15, 0),
+  },
+  {
+    label: 'Roster', emoji: '👥',
+    // Scaled so a deep trained roster ROUGHLY matches a leveled base — no single
+    // category should drown the others (a maxed player ≈ 13 pts, a facility level = 12).
+    pts: Math.round(gs.roster.reduce((s, p) => s + p.level + (p.stats.strength + p.stats.speed + p.stats.iq) / 25, 0)),
+  },
+  { label: 'Grounds', emoji: '🅿️', pts: gs.parkingLot * 25 + gs.bonusDefSlots * 20 },
+];
+export const clubPower = (gs: GameState): number =>
+  clubPowerBreakdown(gs).reduce((s, x) => s + x.pts, 0);

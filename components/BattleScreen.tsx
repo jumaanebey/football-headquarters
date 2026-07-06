@@ -123,7 +123,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       const hq = config.buildings.find(b => b.kind === 'hq') ?? config.buildings[0];
       return gs.map((g, i) => {
         const a = (i / gs.length) * Math.PI * 2 + 0.6;
-        return { id: `hg${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: hq.x + Math.cos(a) * 10, y: hq.y + Math.sin(a) * 10, hp: g.hp, maxHp: g.hp, dps: g.dps, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: g.jersey } as BTroop;
+        return { id: `hg${++troopUid}`, unit: g.unit ?? UnitGroup.DEFENSE_LINE, x: hq.x + Math.cos(a) * 10, y: hq.y + Math.sin(a) * 10, hp: g.hp, maxHp: g.hp, dps: g.dps, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: g.jersey, guardArt: g.art } as BTroop & { guardArt?: string };
       });
     })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
@@ -874,7 +874,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             // Buildings: width is a % of the field, so `size` (world radius) maps straight
             // to on-screen footprint. HQ size 8 → 17.6% ; buildings size 5–6 → 11–13%.
             const wpct = b.size * 2.2;
-            const sprite = battleBuildingSprite(b.kind, b.id, !isDefense && !isReplay, b.flavor); // attacking = away game = rival skins; replays show YOUR home base
+            // Fixed base: layouts carry the REAL building art (type + level) so the field
+            // is the same base you built. Old published bases / bot bases lack it → pool art.
+            const sprite = b.art ?? battleBuildingSprite(b.kind, b.id, !isDefense && !isReplay, b.flavor);
             return (
               <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${wpct}%`, zIndex: Math.round(b.y) }}>
                 {!b.dead && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
@@ -896,17 +898,26 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const helm = isDefense ? '#111827' : '#1f2937';
             const stripe = isDefense ? '#f97316' : '#b91c1c';
             const jersey = isDefense ? '#1f2937' : '#b91c1c';
+            const art = (g as BTroop & { guardArt?: string }).guardArt; // hero defenders carry their portrait
+            const isHeroGuard = !!art;
             return (
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${g.x}%`, top: `${g.y}%`, width: '4.4%', minWidth: 24, maxWidth: 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                style={{ left: `${g.x}%`, top: `${g.y}%`, width: isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isHeroGuard ? 48 : 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>
                 <div className="relative w-full" style={{ aspectRatio: '1', opacity: g.hitFlash > 0 ? 0.5 : 1, animation: g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite' }}>
+                  {/* Chip fallback renders beneath; the real player/hero sprite lays over it
+                      (hides itself on load error) — same auto-upgrade pattern as attackers. */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <div className="relative" style={{ width: '46%', height: '40%', borderRadius: '50% 50% 42% 42%', background: helm, border: '1px solid rgba(255,255,255,0.3)', marginBottom: '-9%', zIndex: 2 }}>
                       <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '18%', width: '70%', height: '14%', background: stripe, borderRadius: 2 }} />
                     </div>
                     <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: jersey, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{g.jersey}</div>
                   </div>
+                  <img src={art ?? unitPlayerSprite(g.unit)} alt="" draggable={false}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    className="absolute inset-0 w-full h-full object-contain"
+                    style={{ filter: isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)' }} />
+                  {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
                 </div>
               </div>
             );

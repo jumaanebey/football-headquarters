@@ -11,16 +11,20 @@ import { BuildingType } from './types';
 import { DEFENSE_TYPES, buildingTiles, wallCap } from './constants';
 
 // ── Facilities: canonical 2×2 anchors ──────────────────────────────────────────
+// The campus reads like a real club: the STADIUM is the centerpiece, dead center,
+// walled in. The four departments hold the four corners — Training NW, Scouting NE,
+// Rehab SW, War Room SE — so the dirt paths radiate out symmetrically and the build
+// view and defense view read as the SAME place at a glance.
 export const FIXED_ANCHORS: Record<BuildingType, { gridX: number; gridY: number }> = {
-  [BuildingType.TRAINING_PITCH]: { gridX: 2, gridY: 2 },
-  [BuildingType.YOUTH_ACADEMY]:  { gridX: 6, gridY: 2 },
-  [BuildingType.MEDICAL_CENTER]: { gridX: 3, gridY: 5 },
-  [BuildingType.STADIUM]:        { gridX: 6, gridY: 6 },
-  [BuildingType.TACTICS_ROOM]:   { gridX: 3, gridY: 8 },
+  [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 }, // centerpiece (tiles 4-5 × 4-5)
+  [BuildingType.TRAINING_PITCH]: { gridX: 1, gridY: 1 }, // NW — where the team practices
+  [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 1 }, // NE — Scouting Dept by the road in
+  [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 7 }, // SW — Rehab next to the practice side
+  [BuildingType.TACTICS_ROOM]:   { gridX: 7, gridY: 7 }, // SE — War Room overlooking the gates
 };
 
 // ── The Team Bus: permanent blocker at the south gate (defense view only) ──────
-export const BUS_TILE = { gridX: 5, gridY: 9 };
+export const BUS_TILE = { gridX: 4, gridY: 7 };
 
 // ── Defense emplacements: fixed spot, fixed kind, upgradable level ─────────────
 // Turret ranges are short (1.4–3 tiles in world units), so every slot hugs the
@@ -38,15 +42,15 @@ export interface DefenseSlotDef {
 }
 
 export const DEFENSE_SLOTS: DefenseSlotDef[] = [
-  { id: 'D1', kind: 'jugs',   gridX: 6, gridY: 4, stadiumReq: 1,  covers: 'North gate' },
-  { id: 'D2', kind: 'sled',   gridX: 8, gridY: 6, stadiumReq: 1,  covers: 'East gate (point-blank)' },
-  { id: 'D3', kind: 'ref',    gridX: 4, gridY: 4, stadiumReq: 3,  covers: 'Northwest long lane' },
-  { id: 'D4', kind: 'tshirt', gridX: 7, gridY: 9, stadiumReq: 6,  covers: 'South gate splash' },
-  { id: 'D5', kind: 'jugs',   gridX: 4, gridY: 7, stadiumReq: 9,  covers: 'West lane' },
-  { id: 'D6', kind: 'sled',   gridX: 6, gridY: 5, stadiumReq: 12, covers: 'North wall (point-blank)' },
-  { id: 'C1', kind: 'ref',    gridX: 9, gridY: 4, crownIndex: 0,  covers: 'East overwatch' },
-  { id: 'C2', kind: 'tshirt', gridX: 4, gridY: 3, crownIndex: 1,  covers: 'Northwest splash' },
-  { id: 'C3', kind: 'jugs',   gridX: 9, gridY: 8, crownIndex: 2,  covers: 'Southeast corner' },
+  { id: 'D1', kind: 'jugs',   gridX: 4, gridY: 2, stadiumReq: 1,  covers: 'North gate' },
+  { id: 'D2', kind: 'sled',   gridX: 6, gridY: 4, stadiumReq: 1,  covers: 'East wall (point-blank)' },
+  { id: 'D3', kind: 'ref',    gridX: 2, gridY: 5, stadiumReq: 3,  covers: 'West lane (long range)' },
+  { id: 'D4', kind: 'tshirt', gridX: 5, gridY: 7, stadiumReq: 6,  covers: 'South gate splash' },
+  { id: 'D5', kind: 'jugs',   gridX: 7, gridY: 5, stadiumReq: 9,  covers: 'East approach' },
+  { id: 'D6', kind: 'sled',   gridX: 4, gridY: 3, stadiumReq: 12, covers: 'North wall (point-blank)' },
+  { id: 'C1', kind: 'ref',    gridX: 5, gridY: 2, crownIndex: 0,  covers: 'North overwatch' },
+  { id: 'C2', kind: 'tshirt', gridX: 2, gridY: 4, crownIndex: 1,  covers: 'West splash' },
+  { id: 'C3', kind: 'jugs',   gridX: 7, gridY: 4, crownIndex: 2,  covers: 'East gate' },
 ];
 
 export const slotById = (id: string) => DEFENSE_SLOTS.find(s => s.id === id);
@@ -73,25 +77,23 @@ export const slotDmgMult = (level: number) => 1 + 0.10 * Math.max(0, level - 1);
 // Candidate order = inner ring hugging the Stadium, then the outer line (N row,
 // E col, S row, W col), then reinforcement arcs. Tiles occupied by facilities,
 // emplacements, or the bus are skipped automatically.
-const WALL_CANDIDATES: { gridX: number; gridY: number }[] = [
-  // inner ring around the 2×2 Stadium (6,6)
-  { gridX: 5, gridY: 5 }, { gridX: 6, gridY: 5 }, { gridX: 7, gridY: 5 }, { gridX: 8, gridY: 5 },
-  { gridX: 5, gridY: 6 }, { gridX: 8, gridY: 6 },
-  { gridX: 5, gridY: 7 }, { gridX: 8, gridY: 7 },
-  { gridX: 5, gridY: 8 }, { gridX: 6, gridY: 8 }, { gridX: 7, gridY: 8 }, { gridX: 8, gridY: 8 },
-  // outer line — north row
-  { gridX: 4, gridY: 4 }, { gridX: 5, gridY: 4 }, { gridX: 6, gridY: 4 }, { gridX: 7, gridY: 4 }, { gridX: 8, gridY: 4 }, { gridX: 9, gridY: 4 },
-  // east col
-  { gridX: 9, gridY: 5 }, { gridX: 9, gridY: 6 }, { gridX: 9, gridY: 7 }, { gridX: 9, gridY: 8 },
-  // south row
-  { gridX: 5, gridY: 9 }, { gridX: 6, gridY: 9 }, { gridX: 7, gridY: 9 }, { gridX: 8, gridY: 9 }, { gridX: 9, gridY: 9 },
-  // west col
-  { gridX: 4, gridY: 5 }, { gridX: 4, gridY: 6 }, { gridX: 4, gridY: 7 }, { gridX: 4, gridY: 8 },
-  // reinforcements (high Stadium levels)
-  { gridX: 5, gridY: 3 }, { gridX: 6, gridY: 3 }, { gridX: 7, gridY: 3 }, { gridX: 8, gridY: 3 },
-  { gridX: 2, gridY: 4 }, { gridX: 2, gridY: 5 }, { gridX: 2, gridY: 6 }, { gridX: 2, gridY: 7 },
-  { gridX: 3, gridY: 4 }, { gridX: 9, gridY: 3 }, { gridX: 1, gridY: 4 }, { gridX: 1, gridY: 5 },
-];
+const WALL_CANDIDATES: { gridX: number; gridY: number }[] = (() => {
+  const out: { gridX: number; gridY: number }[] = [];
+  const ringAround = (lo: number, hi: number) => {
+    for (let x = lo; x <= hi; x++) out.push({ gridX: x, gridY: lo });           // top
+    for (let y = lo + 1; y <= hi; y++) out.push({ gridX: hi, gridY: y });       // right
+    for (let x = hi - 1; x >= lo; x--) out.push({ gridX: x, gridY: hi });       // bottom
+    for (let y = hi - 1; y >= lo + 1; y--) out.push({ gridX: lo, gridY: y });   // left
+  };
+  ringAround(3, 6); // inner ring hugging the centered Stadium (12 tiles)
+  ringAround(2, 7); // outer ring (20 tiles, minus corner/facility collisions)
+  // reinforcement arcs (high Stadium levels): mid-edge segments of ring 1..8
+  for (let x = 3; x <= 6; x++) out.push({ gridX: x, gridY: 1 });
+  for (let x = 3; x <= 6; x++) out.push({ gridX: x, gridY: 8 });
+  for (let y = 3; y <= 6; y++) out.push({ gridX: 1, gridY: y });
+  for (let y = 3; y <= 6; y++) out.push({ gridX: 8, gridY: y });
+  return out;
+})();
 
 const occupied = new Set<string>();
 for (const type of Object.keys(FIXED_ANCHORS) as BuildingType[]) {

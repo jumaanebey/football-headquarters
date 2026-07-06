@@ -219,6 +219,7 @@ function App() {
   const [isSquadOpen, setIsSquadOpen] = useState(false);
   const [isScoutingOpen, setIsScoutingOpen] = useState(false);
   const [isStandingsOpen, setIsStandingsOpen] = useState(false);
+  const [standingsTab, setStandingsTab] = useState<'live' | 'league' | 'ladder' | undefined>(undefined);
   const [attackSelectOpen, setAttackSelectOpen] = useState(false);
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
@@ -765,13 +766,18 @@ function App() {
   const startDefense = () => {
     const coinsAtRisk = Math.min(gameState.resources.COINS, Math.round(gameState.resources.COINS * 0.15) + 120);
     const stadiumLvl = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+    // Your two strongest heroes patrol the stadium alongside the roster defenders —
+    // "heroes defending it" is literal. (75% strength: they're surprised, not suited up.)
+    const heroGuards = heroesForBattle(gameState.heroes)
+      .sort((a, b) => b.hp * b.dps - a.hp * a.dps).slice(0, 2)
+      .map(h => ({ jersey: 0, hp: Math.round(h.hp * 0.75), dps: Math.round(h.dps * 0.75 * 10) / 10, name: h.name, art: h.art, unit: h.unit }));
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
       buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
-      homeGuards: homeDefenders(gameState.roster), // your recruited defenders, on the field
+      homeGuards: [...homeDefenders(gameState.roster), ...heroGuards], // defenders + heroes, on the field
       fans: gameState.resources.FANS,              // the crowd stalls enemy drives
       parkingLot: gameState.parkingLot,            // visible apron (layout pre-compressed)
       loot: { coins: coinsAtRisk, fans: 0 },
@@ -1086,7 +1092,7 @@ function App() {
     <div className="relative w-full h-screen bg-slate-900 overflow-hidden font-sans select-none">
       {showTutorial && <TutorialOverlay initialName={gameState.teamName} onRerollName={genTeamName} onDone={finishTutorial} />}
 
-      <TopHUD gameState={gameState} onRally={handleRally} />
+      <TopHUD gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
       <IsometricMap
         buildings={gameState.buildings}
@@ -1133,8 +1139,9 @@ function App() {
       {isStandingsOpen && (
         <StandingsModal
           gameState={gameState}
-          onClose={() => setIsStandingsOpen(false)}
-          onPlay={() => { setIsStandingsOpen(false); openRaid(); }}
+          initialTab={standingsTab}
+          onClose={() => { setIsStandingsOpen(false); setStandingsTab(undefined); }}
+          onPlay={() => { setIsStandingsOpen(false); setStandingsTab(undefined); openRaid(); }}
         />
       )}
 
@@ -1148,12 +1155,24 @@ function App() {
         >
           <div className="p-5 pt-3 flex flex-col max-h-full">
             {/* Mode tabs */}
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-2">
               <button onClick={() => setAttackTab('season')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'season' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                 🏆 Season {gameState.campaign.unlocked > CAMPAIGN_STAGES.length ? '✓' : `${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length}`}
               </button>
               <button onClick={() => setAttackTab('raid')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'raid' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                 ⚔️ Raid
+              </button>
+            </div>
+            {/* 🛡 Defend — your side of game day, right where the action lives */}
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => { setAttackSelectOpen(false); openDefenseLog(); }}
+                className="flex-1 py-2 rounded-xl font-bold text-sm transition-colors bg-slate-800 text-sky-300 hover:bg-slate-700 border border-sky-900/60 relative">
+                🛡 Defense Log
+                {unseenDefenses > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-sky-500 border-2 border-slate-900 text-[11px] font-bold text-white inline-flex items-center justify-center leading-none">{unseenDefenses}</span>}
+              </button>
+              <button onClick={() => { setAttackSelectOpen(false); handleTestDefense(); }}
+                className="flex-1 py-2 rounded-xl font-bold text-sm transition-colors bg-slate-800 text-green-300 hover:bg-slate-700 border border-green-900/60">
+                🧪 Test Defense
               </button>
             </div>
 
@@ -1499,14 +1518,15 @@ function App() {
 
           <NavBtn icon={<Star />} label="Heroes" active={isHeroOpen} onClick={() => setIsHeroOpen(true)} />
 
-          <NavBtn icon={<Shield />} label="Defend" onClick={openDefenseLog} badge={unseenDefenses} />
-
           <div
              data-tour="trophy"
              onClick={openRaid}
-             className="-mt-10 p-4 sm:p-5 rounded-full border-4 shadow-2xl cursor-pointer hover:scale-105 transition-transform bg-red-600 border-red-400 hover:bg-red-500 shrink-0"
+             className="relative -mt-10 p-4 sm:p-5 rounded-full border-4 shadow-2xl cursor-pointer hover:scale-105 transition-transform bg-red-600 border-red-400 hover:bg-red-500 shrink-0"
           >
              <Swords size={30} className="text-white" />
+             {unseenDefenses > 0 && (
+               <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-sky-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center leading-none animate-pulse">{unseenDefenses}</span>
+             )}
           </div>
 
           <NavBtn icon={<Calendar />} label="Ranks" onClick={() => setIsStandingsOpen(true)} />

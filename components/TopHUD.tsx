@@ -2,20 +2,22 @@ import React from 'react';
 import { GameState } from '../types';
 import { RALLY_CONFIG } from '../constants';
 import { RESOURCE_ICON } from '../assets';
-import { rankFor } from '../ranks';
+import { rankFor, clubPower } from '../ranks';
 import { Crown, Users, Megaphone } from 'lucide-react';
 
 interface Props {
   gameState: GameState;
   onRally?: () => void;
+  onOpenRanks?: () => void; // tap the club identity → the Ranks ladder
 }
 
 // Big numbers stay scannable: 98,785 → 98.8k
 const fmtNum = (n: number) => n >= 100000 ? `${Math.round(n / 1000)}k` : n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString();
 
-export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
+export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => {
   const { resources } = gameState;
   const { rank } = rankFor(gameState.trophies ?? 0);
+  const power = clubPower(gameState);
 
   const canRally = resources.ENERGY < 100 && resources.FANS >= RALLY_CONFIG.fanCost;
 
@@ -25,24 +27,26 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
       {/* Top Row: Club identity & Currency */}
       <div className="flex justify-between items-start w-full max-w-4xl mx-auto">
 
-        {/* YOUR CLUB — crest, name, rank, trophies. (The old XP meter did nothing; this slot
-            now shows the identity that used to vanish after the tutorial.) */}
-        <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur border border-slate-700 rounded-full p-1 pr-4 pointer-events-auto shadow-lg">
-          <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border-2 border-orange-500 bg-[#111827] relative" title={`${gameState.teamName} — your club`}>
+        {/* YOUR CLUB — crest, name, rank, trophies, Club Power. Tap it → the Ranks ladder
+            (where you are, what's next, and how far). */}
+        <button onClick={onOpenRanks} className="flex items-center gap-2 bg-slate-900/90 backdrop-blur border border-slate-700 hover:border-orange-400 rounded-full p-1 pr-4 pointer-events-auto shadow-lg text-left transition-colors active:scale-95"
+          title="Your club — tap to see the rank ladder and Club Power">
+          <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border-2 border-orange-500 bg-[#111827] relative shrink-0">
             <span className="text-lg">🏈</span>
             <img src="/assets/brand/app-icon.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
           </div>
-          <div className="flex flex-col max-w-[130px]">
-            <span className="text-xs font-bold text-white leading-tight truncate" title={gameState.teamName}>
+          <div className="flex flex-col max-w-[150px]">
+            <span className="text-xs font-bold text-white leading-tight truncate">
               {gameState.teamName}
               {gameState.campaign?.claimed?.includes(12) && <span title="League Champion — conquered the full Season"> 💍</span>}
             </span>
-            <span className="text-[11px] font-bold flex items-center gap-1.5 leading-tight" style={{ color: rank.color }} title={`${rank.name} tier — win raids to climb the trophy ladder`}>
+            <span className="text-[11px] font-bold flex items-center gap-1.5 leading-tight" style={{ color: rank.color }}>
               {rank.emoji} {rank.name}
               <span className="font-mono text-amber-300">🏆 {gameState.trophies}</span>
+              <span className="font-mono text-orange-300" title="Club Power — every upgrade adds to it">⚡{power >= 1000 ? `${(power / 1000).toFixed(1)}k` : power}</span>
             </span>
           </div>
-        </div>
+        </button>
 
         {/* Resources — compress + wrap on phones, leave room for the settings gear */}
         <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap justify-end mr-8 sm:mr-0 max-w-[60vw] sm:max-w-none">

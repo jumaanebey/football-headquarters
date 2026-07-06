@@ -1,5 +1,6 @@
 import { UnitGroup, Player, BuildingInstance, BuildingType } from './types';
 import { WALL_HP, TENDENCIES, TendencyKey, DEFENSE_TYPES, PARKING_LOT } from './constants';
+import { buildingSprite } from './assets';
 
 // ---------------------------------------------------------------------------
 // Real-time attack model (Clash-of-Clans-style). World is a 100x100 square.
@@ -17,6 +18,10 @@ export interface BattleBuildingDef {
   damage?: number;   // dps (defense only)
   range?: number;    // world units (defense only)
   flavor?: 'jugs' | 'sled' | 'ref' | 'tshirt'; // HOW this turret fights (defaults to jugs behavior)
+  /** Sprite path of the REAL building (type + level art) so the defense view shows
+   *  the same base you built — not a hash-picked stand-in. Absent on old published
+   *  bases and bot bases → renderer falls back to the pool art. */
+  art?: string;
 }
 
 export interface EnemyBase {
@@ -365,11 +370,12 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
     const x = cx(Math.min(86, Math.max(14, b.gridX * 10 + 5)));
     const y = cx(Math.min(86, Math.max(14, b.gridY * 10 + 5)));
     const lvl = b.level;
+    const art = buildingSprite(b.type, lvl); // defense view shows YOUR actual building art
     if (b.type === BuildingType.STADIUM)
-      return { id: b.id, kind: 'hq', x, y, hp: Math.round(500 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 8 };
+      return { id: b.id, kind: 'hq', x, y, hp: Math.round(500 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 8, art };
     if (b.type === BuildingType.MEDICAL_CENTER || b.type === BuildingType.YOUTH_ACADEMY)
-      return { id: b.id, kind: 'defense', x, y, hp: Math.round(210 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 6, damage: Math.round((12 + lvl * 3) * defBoost), range: 24 };
-    return { id: b.id, kind: 'building', x, y, hp: Math.round(150 * (1 + 0.3 * (lvl - 1)) * defBoost), size: 6 };
+      return { id: b.id, kind: 'defense', x, y, hp: Math.round(210 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 6, damage: Math.round((12 + lvl * 3) * defBoost), range: 24, art };
+    return { id: b.id, kind: 'building', x, y, hp: Math.round(150 * (1 + 0.3 * (lvl - 1)) * defBoost), size: 6, art };
   });
   const ws: BattleBuildingDef[] = walls.map((w, i) => ({
     id: `wall-${i}`, kind: 'wall', x: cx(Math.min(90, Math.max(10, w.gridX * 10))), y: cx(Math.min(90, Math.max(10, w.gridY * 10))), hp: Math.round(wallHp * defBoost), size: 4,
@@ -397,7 +403,7 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
 // and trained start the defense battle guarding the stadium (balanced tendencies suit up
 // too when there aren't enough true defenders). Stats scale with each player's OVR —
 // recruiting and training your defense is now something you can WATCH work.
-export interface HomeGuardDef { jersey: number; hp: number; dps: number; name: string; }
+export interface HomeGuardDef { jersey: number; hp: number; dps: number; name: string; art?: string; unit?: UnitGroup; }
 export const homeDefenders = (roster: Player[]): HomeGuardDef[] => {
   const side = (p: Player) => {
     const t = TENDENCIES[p.tendency as TendencyKey];
@@ -416,6 +422,7 @@ export const homeDefenders = (roster: Player[]): HomeGuardDef[] => {
         hp: Math.round((110 + ovr * 5.5) * (balanced ? 0.8 : 1)),
         dps: Math.round((7 + ovr * 0.55) * (balanced ? 0.8 : 1) * 10) / 10,
         name: p.name,
+        unit: p.unit, // real position group → the guard wears the right sprite
       };
     });
 };
