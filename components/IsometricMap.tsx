@@ -389,6 +389,32 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
+  // 📷 CAMERA: pinch to zoom, two-finger (or empty-grass) drag to pan, double-tap to
+  // recenter. Interaction math reads getBoundingClientRect, which already reflects the
+  // transform — so zooming never breaks taps, drags, or painting.
+  const [cam, setCam] = useState({ z: 1, x: 0, y: 0 });
+  const camClamp = (c: { z: number; x: number; y: number }) => {
+    const z = Math.min(2.5, Math.max(0.55, c.z));
+    const lim = 650 * z;
+    return { z, x: Math.min(lim, Math.max(-lim, c.x)), y: Math.min(lim, Math.max(-lim, c.y)) };
+  };
+  const pointersRef = React.useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = React.useRef<{ d: number; z: number; cx: number; cy: number; camX: number; camY: number } | null>(null);
+  const panRef2 = React.useRef<{ sx: number; sy: number; camX: number; camY: number } | null>(null);
+  const resetCam = () => setCam({ z: 1, x: 0, y: 0 });
+  // Desktop: wheel zooms (native non-passive listener so preventDefault works).
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setCam(c => camClamp({ ...c, z: c.z * (1 - e.deltaY * 0.0012) }));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // --- Drag-and-drop for buildings, defense pieces, and the Team Bus ---
   // bx/by track the raw pointer in board space so the grabbed sprite RIDES the cursor.
   const [drag, setDrag] = useState<{ id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number; startGx: number; startGy: number; bx: number; by: number } | null>(null);
@@ -435,10 +461,24 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!boardRef.current) return; // drag works in BOTH view and Design mode
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Second finger down → PINCH takes over everything (cancel grabs/paint/pan).
+    if (pointersRef.current.size === 2) {
+      const pts = [...pointersRef.current.values()];
+      pinchRef.current = {
+        d: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+        z: cam.z,
+        cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2,
+        camX: cam.x, camY: cam.y,
+      };
+      pendingRef.current = null; paintRef.current = null; panRef2.current = null;
+      setDrag(null);
+      return;
+    }
     const { bx, by } = eventToBoard(e);
     const hit = placing ? null : pieceAtPoint(bx, by);
     if (!hit) {
-      // Empty ground: in edit mode (and not placing) this may become a paint stroke.
+      // Empty ground: edit mode paints; view mode PANS the camera.
       if (editMode && !placing && onPaintWall) {
         const { gx, gy } = eventToTile(e);
         if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
@@ -446,6 +486,8 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           dragMovedRef.current = false;
           paintRef.current = { last: `${gx},${gy}`, startGx: gx, startGy: gy, started: false };
         }
+      } else if (!editMode) {
+        panRef2.current = { sx: e.clientX, sy: e.clientY, camX: cam.x, camY: cam.y };
       }
       return; // single taps keep the click flow (wall toggle / placement)
     }
@@ -455,6 +497,22 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!boardRef.current) return;
+    if (pointersRef.current.has(e.pointerId)) pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // PINCH: zoom around the gesture + follow the midpoint.
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const pts = [...pointersRef.current.values()];
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const mx = (pts[0].x + pts[1].x) / 2, my = (pts[0].y + pts[1].y) / 2;
+      const p = pinchRef.current;
+      setCam(camClamp({ z: p.z * (d / Math.max(1, p.d)), x: p.camX + (mx - p.cx), y: p.camY + (my - p.cy) }));
+      return;
+    }
+    // PAN (view-mode drag on empty grass).
+    if (panRef2.current) {
+      const p = panRef2.current;
+      setCam(c => camClamp({ z: c.z, x: p.camX + (e.clientX - p.sx), y: p.camY + (e.clientY - p.sy) }));
+      return;
+    }
     // Pending grab crosses into another tile → NOW it's a drag (capture + ghost).
     if (pendingRef.current && !drag) {
       const { gx, gy } = eventToTile(e);
@@ -491,7 +549,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     setDrag(d => d ? { ...d, gx, gy, bx, by } : d); // sprite rides the cursor every move
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e?: React.PointerEvent) => {
+    if (e) pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    panRef2.current = null;
     paintRef.current = null;
     pendingRef.current = null;
     if (!drag) return;
@@ -574,8 +635,8 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ bottom: '4%', width: '135%', height: '46%', background: 'radial-gradient(ellipse at center, rgba(45,158,68,0.30) 0%, rgba(22,90,52,0.12) 52%, transparent 72%)', filter: 'blur(10px)' }} />
       {/* Board fills space between HUD (top) and nav (bottom), scaled to fit */}
       <div className="absolute left-0 right-0 flex items-center justify-center" style={{ top: 88, bottom: 88 }}>
-        <div ref={boardRef} data-fhq-board onClick={handleBoardClick} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}
-          className={`relative ${drag ? 'cursor-grabbing' : editMode ? 'cursor-pointer' : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `scale(${scale})`, transformOrigin: 'center', touchAction: 'none' }}>
+        <div ref={boardRef} data-fhq-board onClick={handleBoardClick} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onDoubleClick={resetCam}
+          className={`relative ${drag ? 'cursor-grabbing' : editMode ? 'cursor-pointer' : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `translate(${cam.x}px, ${cam.y}px) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
           <GroundLayer buildings={buildings} />
           {/* 🛣 FUNNEL OVERLAY (Design mode): the 8 attacker approach lanes, computed with
               the SAME pathfinder raiders use. RED = they walk in free (gap!), GREEN = your
@@ -686,6 +747,14 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       </div>
 
       <div className="absolute inset-0 pointer-events-none transition-colors duration-1000" style={{ backgroundColor: ambient }} />
+
+      {/* Camera wandered? One tap home. (Double-tap the board does the same.) */}
+      {(cam.z !== 1 || cam.x !== 0 || cam.y !== 0) && (
+        <button onClick={resetCam} title="Recenter the board"
+          className="absolute bottom-24 left-3 z-40 bg-[#111827]/95 border border-slate-700 hover:border-orange-400 text-slate-200 p-2.5 rounded-2xl shadow-xl transition-colors">
+          <span className="block text-[12px] font-bold leading-none">⌖</span>
+        </button>
+      )}
     </div>
   );
 };
