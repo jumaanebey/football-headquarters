@@ -1194,7 +1194,7 @@ function App() {
                           <img src={coach.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-cover" />
                         </div>
                         <div className="min-w-0">
-                          <div className="font-bold text-white truncate">{locked ? '🔒 ' : ''}{st.name}{isNext && <span className="ml-2 text-[9px] font-black uppercase bg-orange-500 text-white px-1.5 py-0.5 rounded align-middle">Next game</span>}</div>
+                          <div className="font-bold text-white truncate">{locked ? '🔒 ' : ''}{st.name}{isNext && <span className="ml-2 text-[9px] font-black uppercase bg-orange-500 text-white px-1.5 py-0.5 rounded align-middle">Next</span>}</div>
                           <div className="text-xs text-slate-400 truncate">{st.opponent} · {coach.name}</div>
                           <div className="text-sm leading-none mt-1">
                             {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < earned ? 1 : 0.22, filter: i < earned ? 'none' : 'grayscale(1)' }}>🏈</span>)}
@@ -1311,7 +1311,7 @@ function App() {
       })()}
 
       {/* Live objective + readiness banner + arrow pointing at the next thing to tap */}
-      {!frontOfficeOpen && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} />}
+      {!frontOfficeOpen && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} dailyClaimable={dailyClaimable} onOpenDailies={() => setIsDailyOpen(true)} />}
       <TourPointer
         gameState={gameState}
         active={!frontOfficeOpen && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
@@ -1419,20 +1419,7 @@ function App() {
         );
       })()}
 
-      {/* Daily Practice (quests) */}
-      <button
-        onClick={() => setIsDailyOpen(true)}
-        className="fixed bottom-24 right-3 z-40 bg-[#111827]/95 border border-slate-700 hover:border-rose-400 p-2.5 rounded-2xl shadow-xl transition-colors text-rose-300"
-        title="Daily Practice — today's quests"
-      >
-        <span className="relative flex items-center">
-          <Gift size={20} />
-          {dailyClaimable > 0 && (
-            <span className="absolute -top-2 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 border border-slate-900 text-[10px] font-bold text-white flex items-center justify-center leading-none animate-pulse">{dailyClaimable}</span>
-          )}
-        </span>
-      </button>
-
+      {/* Daily Practice opens from the Goals panel — one "what do I do now" surface. */}
       {isDailyOpen && (
         <DailyQuestsModal dailies={gameState.dailies} onClaim={handleClaimDaily} onClose={() => setIsDailyOpen(false)} />
       )}

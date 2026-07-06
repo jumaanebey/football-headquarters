@@ -866,7 +866,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               // tracks its world footprint at any viewport size.
               return (
                 <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.size * 1.4}%`, zIndex: Math.round(b.y) }}>
-                  {!b.dead && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%', minWidth: 18 }}><div className="h-full bg-lime-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
+                  {/* HP bar only once it's TAKEN damage — 30 full green bars was pure noise */}
+                  {!b.dead && b.hp < b.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%', minWidth: 18 }}><div className="h-full bg-lime-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
                   <img src="/assets/battle/blocking-sled.png" alt="" draggable={false} className="w-full" style={{ height: 'auto', aspectRatio: '1', objectFit: 'contain', opacity: b.dead ? 0.25 : 1, filter: b.dead ? 'grayscale(1) brightness(0.55)' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }} />
                 </div>
               );
@@ -879,7 +880,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const sprite = b.art ?? battleBuildingSprite(b.kind, b.id, !isDefense && !isReplay, b.flavor);
             return (
               <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${wpct}%`, zIndex: Math.round(b.y) }}>
-                {!b.dead && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
+                {!b.dead && b.hp < b.maxHp && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
                 {b.dead ? (
                   <div className="relative w-full" style={{ aspectRatio: '1' }}>
                     <img src={sprite} alt="" draggable={false} className="w-full h-full object-contain" style={{ filter: 'grayscale(1) brightness(0.55)', opacity: 0.5 }} />
@@ -903,7 +904,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             return (
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${g.x}%`, top: `${g.y}%`, width: isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isHeroGuard ? 48 : 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
-                <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>
+                {g.hp < g.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
                 <div className="relative w-full" style={{ aspectRatio: '1', opacity: g.hitFlash > 0 ? 0.5 : 1, animation: g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite' }}>
                   {/* Chip fallback renders beneath; the real player/hero sprite lays over it
                       (hides itself on load error) — same auto-upgrade pattern as attackers. */}

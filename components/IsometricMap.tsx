@@ -236,8 +236,9 @@ const BuildingSprite: React.FC<{
         className="select-none transition-transform group-hover:-translate-y-1 group-active:scale-95"
         style={{ position: 'absolute', width: SPRITE_W, maxWidth: 'none', height: 'auto', left: -SPRITE_W / 2, bottom: -TILE_H / 2, filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} />
 
-      {/* Name + level tag */}
-      <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: 0, top: 8 }}>
+      {/* Name + level tag — always readable: rides ABOVE every sprite (fixed zIndex),
+          so a taller neighbor can never sit on top of it. */}
+      <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: 0, top: 8, zIndex: 46 }}>
         <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/55 px-2 py-0.5 rounded-full whitespace-nowrap">
           {info.name} <span className="text-yellow-300">L{building.level}</span>
         </span>
@@ -293,13 +294,14 @@ const BuildingSprite: React.FC<{
         </div>
       )}
 
-      {/* Passive collector bubble — big, obvious tap target */}
+      {/* Passive collector bubble — big tap target that hugs the building's roofline
+          (floating it higher used to cover the next building's name tag). */}
       {showBubble && (
         <button
           data-tour="collect"
           className={`absolute -translate-x-1/2 flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl
             ${bubbleReady ? 'bg-amber-400 animate-bounce-sm' : 'bg-yellow-500 animate-float'}`}
-          style={{ left: 0, top: -62, zIndex: 70 }}
+          style={{ left: 30, top: -30, zIndex: 44 }}
           onClick={(e) => { e.stopPropagation(); onCollectResource?.(building, { x: e.clientX, y: e.clientY }); }}
           title={bubbleReady ? 'Storage filling — collect!' : 'Collect ticket revenue'}
         >

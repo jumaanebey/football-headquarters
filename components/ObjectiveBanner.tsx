@@ -6,6 +6,10 @@ import { Coins, CheckCircle2, Trophy, Clock, Zap, Dumbbell, Shield, ArrowUpCircl
 interface Props {
   gameState: GameState;
   onGoal: (id: GoalId) => void;
+  /** Daily Practice lives INSIDE the Goals panel — one "what do I do now" surface
+   *  (the floating gift button doubled this panel and explained nothing). */
+  dailyClaimable?: number;
+  onOpenDailies?: () => void;
 }
 
 const ICONS: Record<IconKey, React.ReactNode> = {
@@ -21,7 +25,7 @@ const ICONS: Record<IconKey, React.ReactNode> = {
   users: <Users size={16} />,
 };
 
-export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal }) => {
+export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal, dailyClaimable = 0, onOpenDailies }) => {
   const goals = getObjectives(gameState);
   // Docked top-left (off the board) and collapsible; the tuck preference persists.
   // PHONES default COLLAPSED — the panel was eating a third of the screen (Phase C).
@@ -38,8 +42,22 @@ export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal }) => {
         <button onClick={toggle} className="w-full flex items-center gap-1.5 px-3 pt-2 pb-1.5 text-left">
           <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Goals</span>
           <span className="text-[9px] font-mono text-slate-500">({goals.length})</span>
+          {collapsed && dailyClaimable > 0 && (
+            <span className="ml-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-[10px] font-bold text-white inline-flex items-center justify-center leading-none">🎁{dailyClaimable}</span>
+          )}
           <ChevronRight size={13} className={`ml-auto text-slate-500 transition-transform ${collapsed ? '' : 'rotate-90'}`} />
         </button>
+        {!collapsed && onOpenDailies && (
+          <button onClick={onOpenDailies}
+            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left transition-colors hover:bg-slate-800/50 border-b border-slate-800/60">
+            <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${dailyClaimable > 0 ? 'bg-rose-600 animate-pulse' : 'bg-slate-700'}`}>🎁</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-bold leading-tight text-slate-200">Daily Practice</div>
+              <div className="text-[10px] text-slate-500">{dailyClaimable > 0 ? <span className="text-rose-300 font-bold">{dailyClaimable} reward{dailyClaimable > 1 ? 's' : ''} ready to claim</span> : "today's three drills for Crowns"}</div>
+            </div>
+            <ChevronRight size={15} className="text-slate-600 shrink-0" />
+          </button>
+        )}
         {!collapsed && (
         <div className="pb-1.5">
           {goals.map((g, i) => (

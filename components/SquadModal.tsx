@@ -50,11 +50,6 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, onClose, onTrai
       subtitle={selectedUnit ? 'Pick a drill — training builds Readiness for game day.' : 'Tap a position group to run a drill.'}
       onClose={onClose}
       maxWidth="max-w-lg"
-      actions={
-        <button onClick={onOpenHeroes} className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 rounded-full text-black font-bold flex items-center gap-1.5 transition-colors text-sm">
-          <Star size={15} className="fill-current" /> Heroes
-        </button>
-      }
     >
       <div className="p-4 sm:p-5 space-y-4">
 
