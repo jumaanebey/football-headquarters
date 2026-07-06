@@ -88,8 +88,30 @@ knockout, overwrite in place; skip-on-drift rule applies.
 
 (`team-bus.png` is already on-identity — do not touch.)
 
-**After 4b the art pipeline is CLOSED** until the on-device playtest (Phase C) surfaces
-something specific. No speculative art.
+## TIER 4 — Round 4c: off-identity HERO redos (2 files — Phase C playtest finding)
+
+On-device review caught two heroes from the very first art session that predate the
+style law: **The Franchise (`heroes/qb.png`) is GREEN & GOLD — Packers colors, both
+off-identity and trademark-adjacent** — and The Enforcer (`heroes/enforcer.png`) is navy.
+Regenerate both in HOME identity. 512², knockout, overwrite in place.
+
+### 29. `public/assets/heroes/qb.png` — The Franchise
+> Cel-shaded heroic star QUARTERBACK for a mobile base-builder, full body, eye-level 3/4
+> view, clutching a glowing golden football, confident superstar energy, HOME identity:
+> black (#111827) helmet with orange (#f97316) center stripe, orange jersey with white
+> trim (BLANK chest), white pants, golden aura flames, thick confident outlines, bold
+> flat shading, plain shield crest only, flat solid chroma-green (#00d000) background,
+> no text, no real-team marks.
+
+### 30. `public/assets/heroes/enforcer.png` — The Enforcer
+> Cel-shaded hulking BRUISER lineman hero, full body, eye-level 3/4 view, cracking his
+> knuckles, intimidating wall-of-muscle energy, HOME identity: black (#111827) helmet
+> with orange (#f97316) center stripe, charcoal (#1f2937) jersey with orange trim (BLANK
+> chest), white pants, thick confident outlines, bold flat shading, plain shield crest
+> only, flat solid chroma-green (#00d000) background, no text, no real-team marks.
+
+**After 4c the art pipeline is CLOSED** until the on-device playtest (Phase C) surfaces
+something else specific. No speculative art.
 
 ## Wiring notes (code side — do not edit code)
 - Building recolors overwrite existing paths → they appear on every board instantly.

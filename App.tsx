@@ -1549,7 +1549,8 @@ function App() {
       {!editMode && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} />}
       <TourPointer
         gameState={gameState}
-        active={!editMode && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial)}
+        active={!editMode && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
+          || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || !!battleConfig)}
       />
 
       {/* 🏈 First visit to the Chalkboard — one card, four moves, then out of the way */}
@@ -1802,7 +1803,7 @@ function App() {
 
       {/* Bottom Nav — club chrome: charcoal surface, orange = active (D2 identity) */}
       <div className="fixed bottom-0 left-0 w-full bg-[#0b0f1a]/95 backdrop-blur border-t border-[#1f2937] pb-safe pt-2 px-4 z-40">
-        <div className="flex justify-between items-center max-w-md mx-auto pb-4">
+        <div className="flex justify-between items-center gap-1 max-w-md mx-auto px-1 pb-4">
           <NavBtn icon={<Users />} label="Coach" active={isSquadOpen} onClick={() => setIsSquadOpen(true)} tourId="coach" />
 
           <NavBtn icon={<Star />} label="Heroes" active={isHeroOpen} onClick={() => setIsHeroOpen(true)} />
@@ -1812,14 +1813,14 @@ function App() {
           <div
              data-tour="trophy"
              onClick={openRaid}
-             className="-mt-10 p-5 rounded-full border-4 shadow-2xl cursor-pointer hover:scale-105 transition-transform bg-red-600 border-red-400 hover:bg-red-500"
+             className="-mt-10 p-4 sm:p-5 rounded-full border-4 shadow-2xl cursor-pointer hover:scale-105 transition-transform bg-red-600 border-red-400 hover:bg-red-500 shrink-0"
           >
-             <Swords size={32} className="text-white" />
+             <Swords size={30} className="text-white" />
           </div>
 
-          <NavBtn icon={<Calendar />} label="Standings" onClick={() => setIsStandingsOpen(true)} />
+          <NavBtn icon={<Calendar />} label="Ranks" onClick={() => setIsStandingsOpen(true)} />
 
-          <NavBtn icon={<ClipboardList />} label="Chalkboard" active={editMode} tourId="design" onClick={() => { setEditMode(true); setMoveSel(null); setSelectedBuilding(null); }} />
+          <NavBtn icon={<ClipboardList />} label="Chalk" active={editMode} tourId="design" onClick={() => { setEditMode(true); setMoveSel(null); setSelectedBuilding(null); }} />
         </div>
       </div>
     </div>

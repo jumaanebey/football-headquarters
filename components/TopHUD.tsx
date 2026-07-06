@@ -44,12 +44,12 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
           </div>
         </div>
 
-        {/* Resources */}
-        <div className="flex gap-2 items-center">
+        {/* Resources — compress + wrap on phones, leave room for the settings gear */}
+        <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap justify-end mr-8 sm:mr-0 max-w-[60vw] sm:max-w-none">
           {/* Energy (+ Rally button when affordable) */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-blue-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Energy — powers training drills and away games (⚡12 per game). Regens over time; the Rehab Center speeds it up.">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-blue-500 px-2 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Energy — powers training drills and away games (⚡12 per game). Regens over time; the Rehab Center speeds it up.">
             <img src={RESOURCE_ICON.energy} alt="Energy" className="w-4 h-4 object-contain" draggable={false} />
-            <span className="font-display font-bold text-lg">{resources.ENERGY}</span>
+            <span className="font-display font-bold text-base sm:text-lg">{resources.ENERGY}</span>
             <span className="text-[10px] text-slate-400 ml-1">/ 100</span>
             {canRally && (
               <button
@@ -64,21 +64,21 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally }) => {
           </div>
 
           {/* Coins */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Coins — gate revenue. Spend on upgrades, equipment, heroes, and the Parking Lot.">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-2 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Coins — gate revenue. Spend on upgrades, equipment, heroes, and the Parking Lot.">
             <img src={RESOURCE_ICON.coins} alt="Coins" className="w-4 h-4 object-contain" draggable={false} />
-            <span className="font-display font-bold text-lg" title={resources.COINS.toLocaleString()}>{fmtNum(resources.COINS)}</span>
+            <span className="font-display font-bold text-base sm:text-lg" title={resources.COINS.toLocaleString()}>{fmtNum(resources.COINS)}</span>
           </div>
 
           {/* Fans */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-rose-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Fans — your crowd. They rally your Energy, fill the Fan Mob, boost home-crowd defense, and ERUPT to stall enemy drives.">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-rose-500 px-2 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Fans — your crowd. They rally your Energy, fill the Fan Mob, boost home-crowd defense, and ERUPT to stall enemy drives.">
             <Users size={16} className="text-rose-400 fill-rose-400" />
-            <span className="font-display font-bold text-lg" title={resources.FANS.toLocaleString()}>{fmtNum(resources.FANS)}</span>
+            <span className="font-display font-bold text-base sm:text-lg" title={resources.FANS.toLocaleString()}>{fmtNum(resources.FANS)}</span>
           </div>
 
           {/* Gems */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-purple-500 px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Crowns — earned from raids & dailies; spent on Scout Searches, finishing timers, and builders">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-purple-500 px-2 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Crowns — earned from raids & dailies; spent on Scout Searches, finishing timers, and builders">
             <Crown size={16} className="text-purple-400 fill-purple-400" />
-            <span className="font-display font-bold text-lg">{resources.GEMS}</span>
+            <span className="font-display font-bold text-base sm:text-lg">{resources.GEMS}</span>
           </div>
         </div>
       </div>

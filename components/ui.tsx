@@ -79,17 +79,17 @@ export const Sheet: React.FC<{
       className={`bg-[#0b0f1a] w-full ${maxWidth} max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden`}
       onClick={e => e.stopPropagation()}
     >
-      <div className="p-5 border-b border-slate-800 bg-[#111827] flex justify-between items-center shrink-0">
-        <div className="min-w-0">
-          <h2 className="text-xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2.5 truncate">
+      {/* Header stacks: title row → full-width subtitle → actions row. Never squeezes
+          the subtitle into a one-word column or truncates the title on phones. */}
+      <div className="p-4 sm:p-5 border-b border-slate-800 bg-[#111827] shrink-0">
+        <div className="flex justify-between items-center gap-3">
+          <h2 className="text-lg sm:text-xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2.5 min-w-0 flex-wrap">
             {icon}{title}
           </h2>
-          {subtitle && <p className="text-slate-400 text-[12px] mt-0.5">{subtitle}</p>}
+          <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shrink-0"><X size={18} /></button>
         </div>
-        <div className="flex items-center gap-2 shrink-0 ml-3">
-          {actions}
-          <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"><X size={18} /></button>
-        </div>
+        {subtitle && <p className="text-slate-400 text-[12px] mt-1">{subtitle}</p>}
+        {actions && <div className="mt-2.5 flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
       <div className={scroll ? 'flex-1 overflow-y-auto min-h-0' : 'flex-1 min-h-0 overflow-hidden flex flex-col'}>{children}</div>
       {footer && <div className="p-4 border-t border-slate-800 bg-[#111827] shrink-0">{footer}</div>}
