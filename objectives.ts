@@ -21,8 +21,9 @@ export interface ObjectiveItem {
   progress?: { cur: number; max: number };
 }
 
-// A base is "fortified" once it has at least this many Blocking Sleds (walls).
-export const FORTIFY_MIN_WALLS = 8;
+// FIXED BASE: walls are automatic now. "Fortify" = install/upgrade defense
+// emplacements in the Front Office instead of placing sleds.
+export const FORTIFY_MIN_SLOTS = 2;
 
 /**
  * Up to 3 concurrent goals, prioritized — so the player always has a few things to
@@ -49,7 +50,10 @@ export const getObjectives = (gs: GameState): ObjectiveItem[] => {
   if (completedDrill) pool.push({ prio: 1, id: 'collect-drill', text: 'Collect your finished drill (green ✓)', iconKey: 'check', target: 'drill-done' });
   if (gs.teamReadiness >= 100) pool.push({ prio: 2, id: 'play', text: 'Squad FIRED UP (+15% raid power) — raid now!', iconKey: 'trophy', target: 'trophy' });
   if (banked >= Math.max(30, cap * 0.25)) pool.push({ prio: 3, id: 'collect-coins', text: 'Bank your Stadium revenue', iconKey: 'coins', target: 'collect' });
-  if (gs.walls.length < FORTIFY_MIN_WALLS) pool.push({ prio: 4, id: 'fortify', text: 'Fortify your base — add Blocking Sleds', iconKey: 'shield', target: 'design', progress: { cur: gs.walls.length, max: FORTIFY_MIN_WALLS } });
+  {
+    const activeSlots = Object.values(gs.defenseSlots ?? {}).filter(l => l > 0).length;
+    if (activeSlots < FORTIFY_MIN_SLOTS) pool.push({ prio: 4, id: 'fortify', text: 'Fortify your base — install defenses (Front Office)', iconKey: 'shield', target: 'design', progress: { cur: activeSlots, max: FORTIFY_MIN_SLOTS } });
+  }
   if (gs.teamReadiness < 100) pool.push({ prio: 5, id: 'train', text: 'Train up to match-ready', iconKey: 'dumbbell', target: 'coach', progress: { cur: Math.round(gs.teamReadiness), max: 100 } });
   if (canUpgrade) pool.push({ prio: 6, id: 'upgrade', text: 'Upgrade a building', iconKey: 'arrowUp', target: null });
   if (gs.roster.length < rosterCap && !gs.recruitSlot) pool.push({ prio: 7, id: 'recruit', text: 'Scout a new player', iconKey: 'users', target: null, progress: { cur: gs.roster.length, max: rosterCap } });

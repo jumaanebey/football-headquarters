@@ -686,7 +686,7 @@ function App() {
       case 'collect-drill': { const d = gameState.buildings.find(b => b.state === DrillState.COMPLETED); if (d) handleCollect(d, center); break; }
       case 'collect-coins': { const st = find(BuildingType.STADIUM); if (st) handleCollectResource(st, center); break; }
       case 'play': openRaid(); break;
-      case 'fortify': setEditMode(true); setMoveSel(null); setSelectedBuilding(null); break;
+      case 'fortify': setFrontOfficeOpen(true); setSelectedBuilding(null); break;
       case 'train': setIsSquadOpen(true); break;
       case 'upgrade': { const st = find(BuildingType.STADIUM); if (st) setSelectedBuilding(st); break; }
       case 'recruit': setIsScoutingOpen(true); break;
@@ -1015,21 +1015,7 @@ function App() {
     spawnText(`${def.name} unlocked!`, window.innerWidth / 2, window.innerHeight / 2, '#a855f7');
   };
 
-  // --- BASE DESIGN (edit mode): place/remove walls, buy+place defenses, move pieces ---
-  const tileFree = (gx: number, gy: number, ignoreId?: string) =>
-    gx >= 0 && gx < 10 && gy >= 0 && gy < 10
-    && !gameState.buildings.some(b => b.id !== ignoreId && inFootprint(gx, gy, b.gridX, b.gridY))
-    && !gameState.walls.some(w => w.gridX === gx && w.gridY === gy)
-    && !gameState.defenses.some(d => d.id !== ignoreId && d.gridX === gx && d.gridY === gy)
-    && !(gameState.bus && ignoreId !== 'team-bus' && gameState.bus.gridX === gx && gameState.bus.gridY === gy);
-
-  // A 2×2 building can sit at (gx,gy) when all four tiles are clear of everything else.
-  const canPlaceBuilding = (id: string, gx: number, gy: number) =>
-    gx >= 0 && gx <= 8 && gy >= 0 && gy <= 8
-    && buildingTiles(gx, gy).every(([x, y]) => tileFree(x, y, id));
-
-  // Equipment capacity = Stadium-granted slots + purchased bonus slots.
-  const defenseCap = () => maxDefenses(stadiumLevel) + gameState.bonusDefSlots;
+  // Crown emplacements (C1-C3) unlock in order via bonusDefSlots — a real gem sink.
   const handleBuySlot = () => {
     setGameState(prev => {
       if (prev.bonusDefSlots >= EXTRA_SLOT_COSTS.length) return prev;
