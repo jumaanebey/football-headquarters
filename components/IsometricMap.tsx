@@ -635,10 +635,14 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       <div className="absolute pointer-events-none" style={{ top: '-12%', right: '-4%', width: '52%', height: '95%', background: 'linear-gradient(200deg, rgba(255,244,210,0.11), rgba(255,244,210,0.03) 45%, transparent 65%)', transform: 'rotate(-6deg)', filter: 'blur(4px)' }} />
       {/* Warm halo grounding the field */}
       <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ bottom: '4%', width: '135%', height: '46%', background: 'radial-gradient(ellipse at center, rgba(45,158,68,0.30) 0%, rgba(22,90,52,0.12) 52%, transparent 72%)', filter: 'blur(10px)' }} />
-      {/* Board fills space between HUD (top) and nav (bottom), scaled to fit */}
-      <div className="absolute left-0 right-0 flex items-center justify-center" style={{ top: 88, bottom: 88 }}>
+      {/* Board fills space between HUD (top) and nav (bottom). ABSOLUTE centering, not
+          flex: Safari START-aligns oversized flex children (Chrome centers them), which
+          shoved the whole island off-screen on iPhones. translate(-50%,-50%) is identical
+          in every browser. */}
+      <div className="absolute left-0 right-0 overflow-visible" style={{ top: 88, bottom: 88 }}>
         <div ref={boardRef} data-fhq-board onClick={handleBoardClick} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onDoubleClick={resetCam}
-          className={`relative ${drag ? 'cursor-grabbing' : editMode ? 'cursor-pointer' : ''}`} style={{ width: BOARD_W, height: BOARD_H, transform: `translate(${cam.x}px, ${cam.y}px) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
+          className={`absolute ${drag ? 'cursor-grabbing' : editMode ? 'cursor-pointer' : ''}`}
+          style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x}px), calc(-50% + ${cam.y}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
           <GroundLayer buildings={buildings} />
           {/* 🛣 FUNNEL OVERLAY (Design mode): the 8 attacker approach lanes, computed with
               the SAME pathfinder raiders use. RED = they walk in free (gap!), GREEN = your
