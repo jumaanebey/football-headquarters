@@ -2,6 +2,7 @@
 import React from 'react';
 import { BuildingInstance, BuildingType, ResourceType, UpgradeJob } from '../types';
 import { BUILDING_INFO, UPGRADE_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, buildingEffect } from '../constants';
+import { buildingSprite } from '../assets';
 import { X, ArrowUpCircle, Coins, Hammer, Lock, Clock, Crown, Zap } from 'lucide-react';
 
 interface Props {
@@ -114,8 +115,29 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
             </>
           )}
 
+          {/* THE ROAD AHEAD — what this facility BECOMES (Phase C finding: "show the
+              building progression so people know what they're building") */}
+          <div className="mt-5 pt-4 border-t border-slate-800">
+            <div className="text-[12px] uppercase tracking-wide text-slate-500 font-bold mb-2">The road to Level 5</div>
+            <div className="flex items-end justify-between gap-1.5">
+              {[1, 2, 3, 4, 5].map(lvl => {
+                const reached = building.level >= lvl;
+                const current = Math.min(building.level, 5) === lvl;
+                return (
+                  <div key={lvl} className={`flex-1 flex flex-col items-center gap-0.5 min-w-0 ${reached ? '' : 'opacity-45'}`}>
+                    <img src={buildingSprite(building.type, lvl)} alt={`Level ${lvl}`} draggable={false}
+                      className={`w-full h-auto rounded-lg ${current ? 'ring-2 ring-orange-500 bg-orange-500/10' : ''} ${reached ? '' : 'grayscale'}`} />
+                    <span className={`text-[12px] font-bold leading-none ${current ? 'text-orange-400' : reached ? 'text-slate-300' : 'text-slate-600'}`}>L{lvl}</span>
+                    <span className={`text-[11px] font-mono leading-none ${current ? 'text-white' : 'text-slate-500'}`}>{buildingEffect(building.type, lvl).value}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {building.level > 5 && <div className="text-[11px] text-slate-500 mt-1.5 text-center">Facility art maxed — levels keep boosting {buildingEffect(building.type, building.level).label.toLowerCase()}</div>}
+          </div>
+
           {/* Builders status */}
-          <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
+          <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-sm text-slate-300">
               <Hammer size={15} className="text-amber-400" /> Builders <span className="font-mono font-bold">{buildersFree}/{builders}</span> free
             </div>
