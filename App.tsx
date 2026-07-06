@@ -24,7 +24,7 @@ import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } f
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
-import { FIXED_ANCHORS, DEFENSE_SLOTS, slotUnlocked } from './fixedBase';
+import { FIXED_ANCHORS, DEFENSE_SLOTS, slotUnlocked, slotById, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, BUS_TILE } from './fixedBase';
 
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
@@ -75,6 +75,23 @@ const INITIAL_STATE: GameState = {
 
 const SAVE_KEY = 'fhq_save_v1';
 const TUTORIAL_KEY = 'fhq_tutorial_done_v1';
+
+// FIXED BASE → battle layout: geometry comes from fixedBase.ts, strength from the
+// save's LEVELS (facilities, emplacements, parking, fans-adjacent roster boost).
+// This is the ONLY path that builds a defense layout — home sim, publish, and test
+// all agree by construction.
+const layoutFromFixedBase = (
+  buildings: BuildingInstance[],
+  roster: Player[],
+  defenseSlots: Record<string, number>,
+  parkingLot: number,
+): ReturnType<typeof defenseLayoutFromBase> => {
+  const sl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+  const emplacements = DEFENSE_SLOTS
+    .filter(s => (defenseSlots[s.id] ?? 0) > 0)
+    .map(s => ({ id: s.id, kind: s.kind, gridX: s.gridX, gridY: s.gridY, level: defenseSlots[s.id] }));
+  return defenseLayoutFromBase(buildings, wallsFor(sl), defenseTroopBoost(roster), emplacements, BUS_TILE, parkingLot, wallHpFor(sl));
+};
 
 // Load a persisted game, merging over defaults so new fields never come back undefined.
 // Absolute drill finishTimes survive reloads as-is; we only reset the loop's tick clock.
@@ -170,7 +187,7 @@ const loadState = (): GameState => {
       const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
       if (numAttacks > 0) {
         const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = defenseLayoutFromBase(buildings, migratedWalls, defenseTroopBoost(roster), defenses, bus, parkingLot);
+        const layout = layoutFromFixedBase(buildings, roster, defenseSlots, parkingLot);
         let worstPct = 0;
         for (let a = 0; a < numAttacks; a++) {
           const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
@@ -208,8 +225,9 @@ function App() {
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [muted, setMuted] = useState(isMuted());
   const [confirmingReset, setConfirmingReset] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [moveSel, setMoveSel] = useState<string | null>(null);
+  // 🏛 FRONT OFFICE: the one panel that manages the whole defensive layer (fixed base —
+  // no placement anywhere; you upgrade slots, the geometry is shared by every club).
+  const [frontOfficeOpen, setFrontOfficeOpen] = useState(false);
   const [isHeroOpen, setIsHeroOpen] = useState(false);
   const [defenseLogOpen, setDefenseLogOpen] = useState(false);
   const [raidTargets, setRaidTargets] = useState<EnemyBase[]>([]);
@@ -217,77 +235,6 @@ function App() {
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
   const [isDailyOpen, setIsDailyOpen] = useState(false);
   const [liveTargets, setLiveTargets] = useState<LiveBase[]>([]);
-  const [placingDefense, setPlacingDefense] = useState<string | null>(null); // DEFENSE_TYPES kind being placed (shop buy)
-  const [placingInv, setPlacingInv] = useState<{ type: 'sled' | 'bus' | 'defense'; kind?: string } | null>(null); // inventory piece being placed back
-  const [designExpanded, setDesignExpanded] = useState(false); // Chalkboard HUD starts slim so the board (and funnel lanes) stay visible
-  const [chalkIntro, setChalkIntro] = useState(() => { try { return localStorage.getItem('fhq_chalk_intro_v1') !== '1'; } catch { return true; } });
-  const dismissChalkIntro = () => { setChalkIntro(false); try { localStorage.setItem('fhq_chalk_intro_v1', '1'); } catch { /* ignore */ } };
-
-  // 🫳 CARRY: real drag-and-drop from the HUD (inventory chips + shop) onto the board.
-  // Pointer down on a chip picks the piece up; it rides the cursor; release on a green
-  // tile places it. A plain tap (no movement) still arms the tap-to-place flow.
-  const [carry, setCarry] = useState<{ source: 'sled' | 'bus' | 'defense' | 'shop'; kind?: string; sprite: string } | null>(null);
-  const [carryPos, setCarryPos] = useState({ x: 0, y: 0 });
-  const [carryGhost, setCarryGhost] = useState<{ gx: number; gy: number; ok: boolean } | null>(null);
-  const carryGhostRef = useRef<{ gx: number; gy: number; ok: boolean } | null>(null);
-  const carryMovedRef = useRef(false);
-  const carryStartRef = useRef({ x: 0, y: 0 });
-  const startCarry = (e: React.PointerEvent, source: 'sled' | 'bus' | 'defense' | 'shop', kind: string | undefined, sprite: string) => {
-    e.preventDefault();
-    carryStartRef.current = { x: e.clientX, y: e.clientY };
-    carryMovedRef.current = false;
-    carryGhostRef.current = null;
-    setCarryPos({ x: e.clientX, y: e.clientY });
-    setCarry({ source, kind, sprite });
-  };
-  useEffect(() => {
-    if (!carry) return;
-    const move = (e: PointerEvent) => {
-      setCarryPos({ x: e.clientX, y: e.clientY });
-      if (Math.hypot(e.clientX - carryStartRef.current.x, e.clientY - carryStartRef.current.y) > 7) carryMovedRef.current = true;
-      const el = document.querySelector('[data-fhq-board]') as HTMLElement | null;
-      if (!el) { carryGhostRef.current = null; setCarryGhost(null); return; }
-      const r = el.getBoundingClientRect();
-      const bx = (e.clientX - r.left) * BOARD_DIMS.w / r.width;
-      const by = (e.clientY - r.top) * BOARD_DIMS.h / r.height;
-      const { gx, gy } = screenToTile(bx, by);
-      if (gx < 0 || gx > 9 || gy < 0 || gy > 9) { carryGhostRef.current = null; setCarryGhost(null); return; }
-      const g = stateRef.current;
-      const free = !g.buildings.some(b => inFootprint(gx, gy, b.gridX, b.gridY))
-        && !g.walls.some(w => w.gridX === gx && w.gridY === gy)
-        && !g.defenses.some(d => d.gridX === gx && d.gridY === gy)
-        && !(g.bus && g.bus.gridX === gx && g.bus.gridY === gy);
-      const lvl = g.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-      const cap = maxDefenses(lvl) + g.bonusDefSlots;
-      const ok = free && (
-        carry.source === 'sled' ? (g.inventory.sleds > 0 && g.walls.length < wallCap(lvl))
-        : carry.source === 'bus' ? g.inventory.bus
-        : carry.source === 'defense' ? (g.inventory.defenses.some(d => d.kind === carry.kind) && g.defenses.length < cap)
-        : (g.resources.COINS >= (DEFENSE_TYPES.find(t => t.kind === carry.kind)?.cost ?? Infinity) && g.defenses.length < cap)
-      );
-      carryGhostRef.current = { gx, gy, ok };
-      setCarryGhost(carryGhostRef.current);
-    };
-    const up = () => {
-      const ghost = carryGhostRef.current;
-      const moved = carryMovedRef.current;
-      const c = carry;
-      setCarry(null); setCarryGhost(null); carryGhostRef.current = null;
-      if (!moved) {
-        // tap → arm/toggle the classic tap-to-place flow
-        if (c.source === 'shop') { setPlacingDefense(p => p === c.kind ? null : c.kind!); setPlacingInv(null); }
-        else { setPlacingInv(p => (p && p.type === c.source && p.kind === c.kind) ? null : { type: c.source, kind: c.kind }); setPlacingDefense(null); }
-        return;
-      }
-      if (ghost?.ok) {
-        if (c.source === 'shop') buyAndPlaceDefense(c.kind!, ghost.gx, ghost.gy);
-        else placeInvPiece(c.source, c.kind, ghost.gx, ghost.gy);
-      }
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-  }, [carry]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showTutorial, setShowTutorial] = useState(() => {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
@@ -342,7 +289,7 @@ function App() {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
-    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus, gameState.parkingLot)), 400);
+    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot)), 400);
     if (startRaid) openRaid();
   };
 
@@ -360,11 +307,12 @@ function App() {
       else if (isScoutingOpen) setIsScoutingOpen(false);
       else if (isSquadOpen) setIsSquadOpen(false);
       else if (attackSelectOpen) setAttackSelectOpen(false);
+      else if (frontOfficeOpen) setFrontOfficeOpen(false);
       else if (selectedBuilding) setSelectedBuilding(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, selectedBuilding]);
+  }, [importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
 
   const lastUpdateRef = useRef(Date.now());
 
@@ -820,7 +768,7 @@ function App() {
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
-      buildings: defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus, gameState.parkingLot),
+      buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
       homeGuards: homeDefenders(gameState.roster), // your recruited defenders, on the field
@@ -995,7 +943,7 @@ function App() {
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
-    publishBase(gameState.teamName, gameState.trophies, defenseLayoutFromBase(gameState.buildings, gameState.walls, defenseTroopBoost(gameState.roster), gameState.defenses, gameState.bus, gameState.parkingLot));
+    publishBase(gameState.teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot));
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1093,128 +1041,39 @@ function App() {
     if (ok) { sfx.upgrade(); spawnText('+1 equipment slot!', window.innerWidth / 2, window.innerHeight / 2, '#a855f7'); }
   };
 
-  // ↩️ UNDO (Chalkboard): snapshot every board-mutating action. Coins/parking are included
-  // so undoing a purchase refunds it — the snapshot is always internally consistent.
-  const undoStack = useRef<Array<{ walls: GameState['walls']; defenses: GameState['defenses']; bus: GameState['bus']; inventory: GameState['inventory']; parkingLot: number; coins: number; buildingPos: { id: string; gridX: number; gridY: number }[] }>>([]);
-  const pushUndo = () => {
-    const g = stateRef.current;
-    undoStack.current.push({
-      walls: g.walls, defenses: g.defenses, bus: g.bus, inventory: g.inventory, parkingLot: g.parkingLot, coins: g.resources.COINS,
-      buildingPos: g.buildings.map(b => ({ id: b.id, gridX: b.gridX, gridY: b.gridY })), // positions only — never revert a level-up
-    });
-    if (undoStack.current.length > 30) undoStack.current.shift();
-    setUndoCount(undoStack.current.length);
-  };
-  const [undoCount, setUndoCount] = useState(0);
-  const handleUndo = () => {
-    const snap = undoStack.current.pop();
-    setUndoCount(undoStack.current.length);
-    if (!snap) return;
-    setGameState(prev => ({
-      ...prev,
-      walls: snap.walls, defenses: snap.defenses, bus: snap.bus, inventory: snap.inventory, parkingLot: snap.parkingLot,
-      resources: { ...prev.resources, [ResourceType.COINS]: snap.coins },
-      buildings: prev.buildings.map(b => { const p = snap.buildingPos.find(x => x.id === b.id); return p ? { ...b, gridX: p.gridX, gridY: p.gridY } : b; }),
-    }));
-    sfx.click();
-  };
-  const clearUndo = () => { undoStack.current = []; setUndoCount(0); };
-
-  // 🖌 PAINT SLEDS: drag across empty grass to lay a wall line in one stroke.
-  const handlePaintWall = (gx: number, gy: number) => {
-    if (!tileFree(gx, gy)) return;
-    setGameState(prev => {
-      const cap = wallCap(prev.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1);
-      if (prev.walls.length >= cap) return prev;
-      if (prev.walls.some(w => w.gridX === gx && w.gridY === gy)) return prev;
-      return { ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] };
-    });
-  };
-
-  // 🧪 TEST DEFENSE: run a scrimmage against the layout you're literally looking at.
+  // 🧪 TEST DEFENSE: run a scrimmage against your own base — see the Front Office
+  // upgrades actually fight.
   const handleTestDefense = () => {
-    setEditMode(false); setMoveSel(null); setPlacingDefense(null); setPlacingInv(null); setDesignExpanded(false);
+    setFrontOfficeOpen(false);
     startDefense();
   };
 
-  // 📦 STORE ALL: sweep every movable piece (sleds, equipment, the bus) into inventory
-  // so you can redesign from a clean board and place them back one by one.
-  const handleStoreAll = () => {
-    pushUndo();
+  // 🏛 FRONT OFFICE — activate or upgrade a fixed defense emplacement.
+  // Level 0→1 costs the kind's shop price; higher levels follow the slot ladder.
+  // Emplacement level can never exceed your Stadium level (same gate as facilities).
+  const handleUpgradeSlot = (slotId: string) => {
+    const slot = slotById(slotId);
+    if (!slot) return;
+    const cur = gameState.defenseSlots[slotId] ?? 0;
+    const toLevel = cur + 1;
+    const t = DEFENSE_TYPES.find(x => x.kind === slot.kind)!;
+    if (!slotUnlocked(slot, stadiumLevel, gameState.bonusDefSlots)) { sfx.error(); return; }
+    if (toLevel > MAX_SLOT_LEVEL) return;
+    if (toLevel > stadiumLevel) { sfx.error(); spawnText(`Upgrade your Stadium to L${toLevel} first`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
+    const cost = slotUpgradeCost(slot.kind, toLevel);
+    if (gameState.resources.COINS < cost) { sfx.error(); spawnText('Need coins', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
     setGameState(prev => ({
       ...prev,
-      walls: [],
-      defenses: [],
-      bus: null,
-      inventory: {
-        sleds: prev.inventory.sleds + prev.walls.length,
-        defenses: [...prev.inventory.defenses, ...prev.defenses.map(d => ({ kind: d.kind }))],
-        bus: prev.inventory.bus || !!prev.bus,
-      },
+      resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost },
+      defenseSlots: { ...prev.defenseSlots, [slotId]: toLevel },
     }));
-    setPlacingDefense(null);
-    setPlacingInv(null);
-    sfx.click();
-    spawnText('Board cleared — pieces stored 📦', window.innerWidth / 2, window.innerHeight / 2, '#60a5fa');
-  };
-
-  // CORE inventory placement — used by tap-to-place AND chip→board drag-drop.
-  const placeInvPiece = (type: 'sled' | 'bus' | 'defense', kind: string | undefined, gx: number, gy: number): boolean => {
-    if (!tileFree(gx, gy)) { sfx.error(); return false; }
-    if (type === 'sled') {
-      if (gameState.inventory.sleds <= 0) return false;
-      if (gameState.walls.length >= wallCap(stadiumLevel)) { spawnText('Wall limit reached — upgrade your Stadium for more', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
-      pushUndo();
-      setGameState(prev => ({
-        ...prev,
-        walls: [...prev.walls, { gridX: gx, gridY: gy }],
-        inventory: { ...prev.inventory, sleds: prev.inventory.sleds - 1 },
-      }));
-    } else if (type === 'bus') {
-      if (!gameState.inventory.bus) return false;
-      pushUndo();
-      setGameState(prev => ({ ...prev, bus: { gridX: gx, gridY: gy }, inventory: { ...prev.inventory, bus: false } }));
-    } else {
-      if (!kind || !gameState.inventory.defenses.some(d => d.kind === kind)) return false;
-      if (gameState.defenses.length >= defenseCap()) { spawnText('Slot limit — buy a slot or upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
-      pushUndo();
-      setGameState(prev => {
-        const idx = prev.inventory.defenses.findIndex(d => d.kind === kind);
-        if (idx < 0) return prev;
-        return {
-          ...prev,
-          defenses: [...prev.defenses, { id: `def_${Date.now()}`, kind, gridX: gx, gridY: gy }],
-          inventory: { ...prev.inventory, defenses: prev.inventory.defenses.filter((_, i) => i !== idx) },
-        };
-      });
-    }
     sfx.upgrade();
-    return true;
+    spawnText(cur === 0 ? `${t.name} installed!` : `${t.name} → L${toLevel}!`, window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
+    setTimeout(publishMyBase, 500);
   };
 
-  // Tap-armed flow (chip tapped, then a tile tapped) — wraps the core + manages arming.
-  const handlePlaceFromInventory = (gx: number, gy: number): boolean => {
-    if (!placingInv) return false;
-    const placed = placeInvPiece(placingInv.type, placingInv.kind, gx, gy);
-    if (!placed) return true; // consumed the tap; feedback already shown
-    if (placingInv.type === 'sled') { if (gameState.inventory.sleds <= 1) setPlacingInv(null); }
-    else if (placingInv.type === 'bus') setPlacingInv(null);
-    else if (gameState.inventory.defenses.filter(d => d.kind === placingInv.kind).length <= 1) setPlacingInv(null);
-    return true;
-  };
-
-  // Tap a piece in Chalkboard mode → rotate it (mirror flip). Buildings select-to-move instead.
-  const handleFlipDefense = (id: string) => {
-    pushUndo();
-    setGameState(prev => ({ ...prev, defenses: prev.defenses.map(d => d.id === id ? { ...d, flip: !d.flip } : d) }));
-  };
-  const handleFlipBus = () => {
-    pushUndo();
-    setGameState(prev => prev.bus ? { ...prev, bus: { ...prev.bus, flip: !prev.bus.flip } } : prev);
-  };
   // 🅿️ Pave the next Parking Lot level — territory that stretches the raiders' approach.
   const handlePaveParkingLot = () => {
-    pushUndo();
     setGameState(prev => {
       if (prev.parkingLot >= PARKING_LOT.maxLevel) return prev;
       const cost = PARKING_LOT.costs[prev.parkingLot];
@@ -1223,78 +1082,6 @@ function App() {
     });
     const affordable = gameState.parkingLot < PARKING_LOT.maxLevel && gameState.resources.COINS >= PARKING_LOT.costs[gameState.parkingLot];
     if (affordable) { sfx.upgrade(); spawnText('🅿️ Parking Lot paved — longer approach for raiders!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80'); setTimeout(publishMyBase, 500); }
-  };
-
-  const handleMoveBus = (gx: number, gy: number) => {
-    if (!tileFree(gx, gy, 'team-bus')) { sfx.error(); return; }
-    pushUndo();
-    setGameState(prev => prev.bus ? { ...prev, bus: { ...prev.bus, gridX: gx, gridY: gy } } : prev);
-    sfx.click();
-  };
-
-  // CORE shop buy+place — used by tap-to-place AND shop→board drag-drop.
-  const buyAndPlaceDefense = (kind: string, gx: number, gy: number): boolean => {
-    const t = DEFENSE_TYPES.find(x => x.kind === kind);
-    if (!t) return false;
-    if (!tileFree(gx, gy)) { sfx.error(); return false; }
-    if (gameState.defenses.length >= defenseCap()) { spawnText('Slot limit — buy a slot or upgrade your Stadium', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
-    if (gameState.resources.COINS < t.cost) { sfx.error(); spawnText('Need coins', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return false; }
-    pushUndo();
-    setGameState(prev => ({
-      ...prev,
-      resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - t.cost },
-      defenses: [...prev.defenses, { id: `def_${Date.now()}`, kind: t.kind, gridX: gx, gridY: gy }],
-    }));
-    sfx.upgrade();
-    spawnText(`${t.name} installed!`, window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
-    return true;
-  };
-
-  const handlePlaceDefense = (gx: number, gy: number) => {
-    if (!placingDefense) return false;
-    if (buyAndPlaceDefense(placingDefense, gx, gy)) setPlacingDefense(null);
-    return true;
-  };
-
-  const handleMoveDefense = (id: string, gx: number, gy: number) => {
-    if (!tileFree(gx, gy, id)) { sfx.error(); return; }
-    pushUndo();
-    setGameState(prev => ({ ...prev, defenses: prev.defenses.map(d => d.id === id ? { ...d, gridX: gx, gridY: gy } : d) }));
-    sfx.click();
-  };
-
-  const handleTileEdit = (gx: number, gy: number) => {
-    if (placingInv && handlePlaceFromInventory(gx, gy)) return;
-    if (placingDefense && handlePlaceDefense(gx, gy)) return;
-    const bAt = gameState.buildings.find(b => inFootprint(gx, gy, b.gridX, b.gridY));
-    const wIdx = gameState.walls.findIndex(w => w.gridX === gx && w.gridY === gy);
-    const dAt = gameState.defenses.find(d => d.gridX === gx && d.gridY === gy);
-    const busAt = gameState.bus && gameState.bus.gridX === gx && gameState.bus.gridY === gy;
-    if (moveSel) {
-      if (!bAt && wIdx < 0 && !dAt && !busAt && canPlaceBuilding(moveSel, gx, gy)) {
-        pushUndo();
-        setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === moveSel ? { ...b, gridX: gx, gridY: gy } : b) }));
-        sfx.click();
-      }
-      setMoveSel(null);
-      return;
-    }
-    if (bAt) { setMoveSel(bAt.id); sfx.click(); return; }
-    if (dAt) { handleFlipDefense(dAt.id); sfx.click(); return; } // tap equipment = rotate (mirror)
-    if (busAt) { handleFlipBus(); sfx.click(); return; }
-    if (wIdx >= 0) { pushUndo(); setGameState(prev => ({ ...prev, walls: prev.walls.filter((_, i) => i !== wIdx) })); return; }
-    if (gameState.walls.length >= wallCap(stadiumLevel)) { spawnText('Wall limit reached — upgrade your Stadium for more', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
-    pushUndo();
-    setGameState(prev => ({ ...prev, walls: [...prev.walls, { gridX: gx, gridY: gy }] }));
-    sfx.click();
-  };
-
-  // Drag-and-drop building move (Design mode) — validated: in-bounds, not onto a building/wall.
-  const handleMoveBuilding = (id: string, gx: number, gy: number) => {
-    if (!canPlaceBuilding(id, gx, gy)) { sfx.error(); return; }
-    pushUndo();
-    setGameState(prev => ({ ...prev, buildings: prev.buildings.map(b => b.id === id ? { ...b, gridX: gx, gridY: gy } : b) }));
-    sfx.click();
   };
 
   const handleResetGame = () => {
@@ -1322,19 +1109,6 @@ function App() {
         timeOfDay={gameState.timeOfDay}
         recruitSlot={gameState.recruitSlot}
         upgrades={gameState.upgrades}
-        walls={gameState.walls}
-        editMode={editMode}
-        moveSel={moveSel}
-        defenses={gameState.defenses}
-        bus={gameState.bus}
-        placing={!!(placingDefense || placingInv)}
-        externalGhost={carryGhost}
-        onTileEdit={handleTileEdit}
-        onPaintWall={handlePaintWall}
-        onPaintStart={pushUndo}
-        onMoveBuilding={handleMoveBuilding}
-        onMoveDefense={handleMoveDefense}
-        onMoveBus={handleMoveBus}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
           else setSelectedBuilding(b);
@@ -1345,12 +1119,6 @@ function App() {
       />
 
       <FloatingTextLayer items={floatingTexts} />
-
-      {/* The carried piece rides the cursor from HUD chip → board */}
-      {carry && (
-        <img src={carry.sprite} alt="" draggable={false} className="fixed pointer-events-none z-[80]"
-          style={{ left: carryPos.x - 38, top: carryPos.y - 52, width: 76, filter: 'drop-shadow(0 12px 10px rgba(0,0,0,0.55))' }} />
-      )}
 
       {isSquadOpen && (
         <SquadModal
@@ -1538,166 +1306,111 @@ function App() {
       })()}
 
       {/* Live objective + readiness banner + arrow pointing at the next thing to tap */}
-      {!editMode && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} />}
+      {!frontOfficeOpen && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} />}
       <TourPointer
         gameState={gameState}
-        active={!editMode && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
+        active={!frontOfficeOpen && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
           || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || !!battleConfig)}
       />
 
-      {/* 🏈 First visit to the Chalkboard — one card, four moves, then out of the way */}
-      {editMode && chalkIntro && (
-        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={dismissChalkIntro}>
-          <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-blue-600 shadow-2xl p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-display font-black text-white uppercase mb-1">📋 The Chalkboard</h3>
-            <p className="text-slate-400 text-xs mb-4">Where you scheme your stadium's defense. Five moves:</p>
-            <div className="space-y-2.5 text-sm text-slate-200">
-              <div className="flex gap-2.5"><span className="shrink-0">✋</span><span><b className="text-white">Drag</b> any building, equipment, or the bus — it rides your finger</span></div>
-              <div className="flex gap-2.5"><span className="shrink-0">🫳</span><span><b className="text-white">Drag a chip</b> from the shop or inventory straight onto the board</span></div>
-              <div className="flex gap-2.5"><span className="shrink-0">🔄</span><span><b className="text-white">Tap</b> equipment or the bus to rotate it</span></div>
-              <div className="flex gap-2.5"><span className="shrink-0">🛑</span><span><b className="text-white">Drag across grass</b> to paint a Blocking Sled line (tap a sled to remove)</span></div>
-              <div className="flex gap-2.5"><span className="shrink-0">🛣</span><span>The lines are raider routes: <b className="text-red-300">dashed ➜ = they walk in free</b>, <b className="text-green-300">solid 🔒 = your walls stop them</b>. Seal the dashed ones.</span></div>
-            </div>
-            <button onClick={dismissChalkIntro} className="mt-5 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors active:scale-95">Chalk it up 🏈</button>
-          </div>
-        </div>
-      )}
-
-      {/* Base design (edit) mode banner */}
-      {editMode && (() => {
-        const dr = computeDefenseRating(gameState.buildings, gameState.walls, gameState.roster, gameState.resources.FANS, gameState.defenses.length, gameState.parkingLot);
-        const defCap = defenseCap();
+      {/* 🏛 FRONT OFFICE — the whole defensive layer, managed from one list. Fixed
+          formation (same field for every club); your edge is LEVELS, not layout. */}
+      {frontOfficeOpen && (() => {
+        const activeSlots = DEFENSE_SLOTS.filter(s => (gameState.defenseSlots[s.id] ?? 0) > 0).length;
+        const walls = wallsFor(stadiumLevel);
+        const dr = computeDefenseRating(gameState.buildings, walls, gameState.roster, gameState.resources.FANS, activeSlots, gameState.parkingLot);
         const gradeColor = dr.score >= 70 ? '#22c55e' : dr.score >= 40 ? '#eab308' : '#ef4444';
-        const Bar = ({ label, v }: { label: string; v: number }) => (
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase text-slate-400 font-bold w-16 text-right">{label}</span>
-            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700"><div className="h-full rounded-full" style={{ width: `${v}%`, background: v >= 70 ? '#22c55e' : v >= 40 ? '#eab308' : '#ef4444' }} /></div>
-            <span className="text-[10px] font-mono text-slate-300 w-7">{v}</span>
-          </div>
-        );
         return (
-          <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40 w-[min(92vw,540px)] bg-slate-900/95 backdrop-blur border border-blue-700 rounded-2xl shadow-xl p-3">
-            {/* Slim header — always visible; the board (and the red/green attacker lanes) stay in view */}
-            <div className="flex items-center gap-2.5">
-              <div className="shrink-0 flex items-baseline gap-1 px-2 py-1 rounded-lg border-2" style={{ borderColor: gradeColor }}>
-                <span className="font-display font-black text-xl leading-none" style={{ color: gradeColor }}>{dr.grade}</span>
-                <span className="text-[10px] font-mono text-slate-300">{dr.score}</span>
-              </div>
-              <div className="min-w-0 flex-1 text-[11px] text-slate-400 leading-tight">
-                <span className="text-yellow-300 font-bold">{dr.weakness}</span>
-                <div className="text-[10px] text-slate-500"><span className="text-red-300">red lanes</span> = raiders walk in free · <span className="text-green-300">green</span> = sealed</div>
-              </div>
-              <button onClick={handleUndo} disabled={undoCount === 0} title="Undo the last change"
-                className={`shrink-0 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${undoCount === 0 ? 'border-slate-800 text-slate-600 cursor-not-allowed opacity-50' : 'border-slate-700 bg-slate-800/70 text-slate-200 hover:border-yellow-400'}`}>
-                ↩︎{undoCount > 0 && <span className="text-[9px] text-slate-400 ml-0.5">{undoCount}</span>}
-              </button>
-              <button onClick={handleTestDefense} title="Run a scrimmage against this exact layout"
-                className="shrink-0 px-2.5 py-1.5 rounded-lg border border-green-700 bg-green-900/30 hover:bg-green-900/60 text-green-200 text-[11px] font-bold transition-colors active:scale-95">
-                🧪 Test
-              </button>
-              <button onClick={() => setDesignExpanded(x => !x)} className="shrink-0 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800/70 text-slate-200 text-[11px] font-bold transition-colors hover:border-orange-400">
-                {designExpanded ? '▴ Less' : '▾ More'}
-              </button>
-              <button onClick={() => { setEditMode(false); setMoveSel(null); setPlacingDefense(null); setPlacingInv(null); setDesignExpanded(false); clearUndo(); }} className="shrink-0 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold transition-colors active:scale-95">Done</button>
-            </div>
-            {placingDefense && !designExpanded && <div className="text-[10px] text-green-300 font-bold mt-1.5 animate-pulse">Tap a free tile to install the {DEFENSE_TYPES.find(t => t.kind === placingDefense)?.name}</div>}
-            {placingInv && !designExpanded && <div className="text-[10px] text-green-300 font-bold mt-1.5 animate-pulse">Tap a free tile to place it</div>}
-            {designExpanded && <>
-            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-800">
-              <div className="flex-1 space-y-1">
-                <Bar label="Walls" v={dr.walls} />
-                <Bar label="Structure" v={dr.structure} />
-                <Bar label="Defenders" v={dr.defenders} />
-              </div>
-              {dr.crowd > 0 && <span className="text-rose-300 font-bold text-[10px] shrink-0">🔊 +{dr.crowd} crowd</span>}
-            </div>
-            {/* Defense shop — buy football equipment, then tap a tile to install it */}
-            <div className="mt-2 pt-2 border-t border-slate-800">
-              <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1.5 flex items-center gap-2">
-                🛡 Defensive Equipment <span className="font-mono text-slate-500">({gameState.defenses.length}/{defCap})</span>
-                {gameState.bonusDefSlots < EXTRA_SLOT_COSTS.length && (
-                  <button onClick={handleBuySlot} disabled={gameState.resources.GEMS < EXTRA_SLOT_COSTS[gameState.bonusDefSlots]}
-                    title="Buy a permanent extra equipment slot"
-                    className={`ml-auto normal-case tracking-normal px-2 py-0.5 rounded-lg border text-[10px] font-bold transition-all active:scale-95 ${gameState.resources.GEMS >= EXTRA_SLOT_COSTS[gameState.bonusDefSlots] ? 'border-purple-500 bg-purple-900/30 hover:bg-purple-900/60 text-purple-200' : 'border-slate-800 text-slate-600 cursor-not-allowed opacity-60'}`}>
-                    +1 Slot · {EXTRA_SLOT_COSTS[gameState.bonusDefSlots]}👑
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-1.5">
-                {DEFENSE_TYPES.map(t => {
-                  const affordable = gameState.resources.COINS >= t.cost;
-                  const capped = gameState.defenses.length >= defCap;
-                  const active = placingDefense === t.kind;
-                  return (
-                    <button key={t.kind} onPointerDown={e => { if (affordable && !capped) startCarry(e, 'shop', t.kind, t.sprite); }} disabled={!affordable || capped} title={`${t.name} — ${t.desc} · DMG ${t.damage} · RNG ${t.range} · drag onto the board to buy & place`}
-                      style={{ touchAction: 'none' }}
-                      className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-[9px] font-bold transition-all active:scale-95 cursor-grab
-                        ${active ? 'border-green-400 bg-green-900/40 text-white' : (!affordable || capped) ? 'border-slate-800 text-slate-600 cursor-not-allowed opacity-50' : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-orange-400'}`}>
-                      <span className="text-base leading-none">{t.emoji}</span>
-                      <span className="leading-tight mt-0.5">{t.name.split(' ')[0]}</span>
-                      <span className="text-yellow-400 font-mono">{t.cost >= 1000 ? `${(t.cost / 1000).toFixed(1)}k` : t.cost}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {placingDefense && <div className="text-[10px] text-green-300 font-bold mt-1 animate-pulse">Tap a free tile to install the {DEFENSE_TYPES.find(t => t.kind === placingDefense)?.name}</div>}
-              {/* 🅿️ Parking Lot + 🔊 Crowd — the outer layers of the defense-in-depth flow */}
-              <div className="flex items-center gap-2 mt-2">
-                <div className="flex-1 flex items-center gap-1.5 text-[10px] text-slate-300">
-                  <span className="font-bold">🅿️ Parking Lot</span>
-                  {[1, 2, 3].map(l => <span key={l} className={`w-2 h-2 rounded-sm ${l <= gameState.parkingLot ? 'bg-orange-400' : 'bg-slate-700'}`} />)}
-                  <span className="text-slate-500">{gameState.parkingLot > 0 ? `+${Math.round(gameState.parkingLot * 5.5)}% longer approach` : 'raiders reach you fast'}</span>
+          <Sheet
+            title="Front Office"
+            icon={<Shield className="text-sky-400" size={22} />}
+            subtitle={<>Every club defends the same field — your edge is <b className="text-sky-300">upgrades</b>. See it fight with 🧪 Test.</>}
+            onClose={() => setFrontOfficeOpen(false)}
+            maxWidth="max-w-xl"
+            footer={
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-baseline gap-1.5 px-2.5 py-1 rounded-lg border-2 shrink-0" style={{ borderColor: gradeColor }} title={dr.weakness}>
+                  <span className="font-display font-black text-xl leading-none" style={{ color: gradeColor }}>{dr.grade}</span>
+                  <span className="text-[11px] font-mono text-slate-300">{dr.score}</span>
                 </div>
-                {gameState.parkingLot < PARKING_LOT.maxLevel && (
-                  <button onClick={handlePaveParkingLot} disabled={gameState.resources.COINS < PARKING_LOT.costs[gameState.parkingLot]}
-                    className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all active:scale-95 ${gameState.resources.COINS >= PARKING_LOT.costs[gameState.parkingLot] ? 'border-orange-500 bg-orange-900/30 hover:bg-orange-900/60 text-orange-200' : 'border-slate-800 text-slate-600 cursor-not-allowed opacity-60'}`}>
-                    Pave L{gameState.parkingLot + 1} · {(PARKING_LOT.costs[gameState.parkingLot] / 1000).toFixed(0)}k 🪙
-                  </button>
-                )}
+                <div className="text-[11px] text-slate-400 min-w-0 flex-1 truncate">{dr.weakness}</div>
+                <Btn onClick={handleTestDefense} variant="secondary"><span>🧪</span> Test Defense</Btn>
               </div>
-              <div className="text-[10px] text-slate-400 mt-1">
-                🔊 Home crowd: {gameState.resources.FANS >= 300
-                  ? <span className="text-rose-300 font-bold">{gameState.resources.FANS.toLocaleString()} fans stall enemy drives ~{(0.8 + Math.min(1.7, gameState.resources.FANS / 1500)).toFixed(1)}s every 10s</span>
-                  : <span className="text-slate-500">under 300 fans — too quiet to rattle raiders yet</span>}
-              </div>
-            </div>
-            {/* 📦 Inventory — stored pieces waiting to go back on the board */}
-            {(() => {
-              const inv = gameState.inventory;
-              const defCounts: Record<string, number> = {};
-              inv.defenses.forEach(d => { defCounts[d.kind] = (defCounts[d.kind] || 0) + 1; });
-              const hasStored = inv.sleds > 0 || inv.bus || inv.defenses.length > 0;
-              const hasOnBoard = gameState.walls.length > 0 || gameState.defenses.length > 0 || !!gameState.bus;
-              const Chip = ({ label, emoji, count, active, onPick }: any) => (
-                <button onPointerDown={onPick} style={{ touchAction: 'none' }}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-all active:scale-95 cursor-grab ${active ? 'border-green-400 bg-green-900/40 text-white animate-pulse' : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-orange-400'}`}>
-                  <span>{emoji}</span>{label}{count > 1 && <span className="text-orange-300">×{count}</span>}
-                </button>
-              );
-              return (
-                <div className="mt-2 pt-2 border-t border-slate-800 flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">📦 Inventory</span>
-                  {inv.sleds > 0 && <Chip label="Sled" emoji="🛑" count={inv.sleds} active={placingInv?.type === 'sled'} onPick={(e: React.PointerEvent) => startCarry(e, 'sled', undefined, '/assets/battle/blocking-sled.png')} />}
-                  {Object.entries(defCounts).map(([kind, n]) => {
-                    const t = DEFENSE_TYPES.find(x => x.kind === kind);
-                    return <Chip key={kind} label={t?.name.split(' ')[0] ?? kind} emoji={t?.emoji ?? '🛡'} count={n} active={placingInv?.type === 'defense' && placingInv.kind === kind} onPick={(e: React.PointerEvent) => startCarry(e, 'defense', kind, t?.sprite ?? '')} />;
+            }
+          >
+            <div className="p-4 sm:p-5 space-y-4">
+              {/* Emplacements */}
+              <div>
+                <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">🛡 Defense Emplacements</div>
+                <div className="space-y-1.5">
+                  {DEFENSE_SLOTS.map(slot => {
+                    const t = DEFENSE_TYPES.find(x => x.kind === slot.kind)!;
+                    const lvl = gameState.defenseSlots[slot.id] ?? 0;
+                    const unlocked = slotUnlocked(slot, stadiumLevel, gameState.bonusDefSlots);
+                    const isCrown = slot.crownIndex !== undefined;
+                    const maxed = lvl >= MAX_SLOT_LEVEL;
+                    const gatedByStadium = !maxed && lvl + 1 > stadiumLevel;
+                    const cost = slotUpgradeCost(slot.kind, lvl + 1);
+                    const crownCost = isCrown ? EXTRA_SLOT_COSTS[slot.crownIndex!] : 0;
+                    return (
+                      <div key={slot.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${unlocked ? 'border-slate-700 bg-slate-800/50' : 'border-slate-800 bg-slate-900/40 opacity-60'}`}>
+                        <span className="text-xl w-7 text-center shrink-0">{t.emoji}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold text-white truncate">
+                            {t.name} {lvl > 0 && <span className="text-yellow-300">L{lvl}</span>}
+                            {lvl > 1 && <span className="text-[10px] text-green-400 font-mono ml-1.5">+{Math.round((slotHpMult(lvl) - 1) * 100)}% HP · +{Math.round((slotDmgMult(lvl) - 1) * 100)}% DMG</span>}
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate">{slot.covers} · {t.desc}</div>
+                        </div>
+                        {!unlocked ? (
+                          isCrown ? (
+                            <Btn size="sm" variant="secondary" disabled={gameState.resources.GEMS < crownCost} onClick={handleBuySlot}
+                              title="Crown slots unlock in order">🔓 {crownCost}👑</Btn>
+                          ) : (
+                            <span className="text-[11px] text-slate-500 font-bold shrink-0">🔒 Stadium L{slot.stadiumReq}</span>
+                          )
+                        ) : maxed ? (
+                          <span className="text-[11px] text-green-400 font-bold shrink-0">MAX</span>
+                        ) : gatedByStadium ? (
+                          <span className="text-[11px] text-slate-500 font-bold shrink-0" title="Emplacement level can't pass your Stadium level">🔒 Stadium L{lvl + 1}</span>
+                        ) : (
+                          <Btn size="sm" onClick={() => handleUpgradeSlot(slot.id)} disabled={gameState.resources.COINS < cost}>
+                            {lvl === 0 ? 'Install' : `L${lvl + 1}`} · {cost >= 1000 ? `${(cost / 1000).toFixed(1)}k` : cost}🪙
+                          </Btn>
+                        )}
+                      </div>
+                    );
                   })}
-                  {inv.bus && <Chip label="Team Bus" emoji="🚌" count={1} active={placingInv?.type === 'bus'} onPick={(e: React.PointerEvent) => startCarry(e, 'bus', undefined, '/assets/decor/team-bus.png')} />}
-                  {!hasStored && <span className="text-[10px] text-slate-600 italic">empty — Store All sweeps the board in here</span>}
-                  {(placingInv || hasStored) && <span className="text-[10px] text-green-300 font-bold w-full">{placingInv ? 'Tap a free tile to place it — or just drag a chip onto the board' : 'Drag a chip straight onto the board, or tap it then tap tiles'}</span>}
-                  {hasOnBoard && (
-                    <button onClick={handleStoreAll} className="ml-auto px-2.5 py-1 rounded-lg border border-blue-600 bg-blue-900/30 hover:bg-blue-900/60 text-blue-200 text-[10px] font-bold transition-all active:scale-95">
-                      📦 Store All
-                    </button>
-                  )}
                 </div>
-              );
-            })()}
-            <div className="text-[10px] text-slate-500 mt-1.5">
-              <span className="text-yellow-300 font-bold">Drag</span> pieces to move • <span className="text-yellow-300 font-bold">Tap</span> equipment/bus to rotate • <span className="text-yellow-300 font-bold">Drag on grass</span> to paint Blocking Sleds ({gameState.walls.length}/{wallCap(stadiumLevel)} — grows with Stadium)
+              </div>
+
+              {/* Parking Lot */}
+              <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2.5">
+                <span className="text-xl w-7 text-center shrink-0">🅿️</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-white flex items-center gap-1.5">Parking Lot {[1, 2, 3].map(l => <span key={l} className={`w-2 h-2 rounded-sm ${l <= gameState.parkingLot ? 'bg-orange-400' : 'bg-slate-700'}`} />)}</div>
+                  <div className="text-[11px] text-slate-400">{gameState.parkingLot > 0 ? `+${Math.round(gameState.parkingLot * 5.5)}% longer approach under fire` : 'Raiders reach your buildings fast'}</div>
+                </div>
+                {gameState.parkingLot < PARKING_LOT.maxLevel ? (
+                  <Btn size="sm" onClick={handlePaveParkingLot} disabled={gameState.resources.COINS < PARKING_LOT.costs[gameState.parkingLot]}>
+                    Pave L{gameState.parkingLot + 1} · {(PARKING_LOT.costs[gameState.parkingLot] / 1000).toFixed(0)}k🪙
+                  </Btn>
+                ) : <span className="text-[11px] text-green-400 font-bold shrink-0">MAX</span>}
+              </div>
+
+              {/* Perimeter + crowd — automatic layers, shown so the player knows they exist */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2.5 space-y-1">
+                <div className="text-[12px] text-slate-300"><b>🛑 Perimeter:</b> {walls.length} Blocking Sleds at {wallHpFor(stadiumLevel)} HP — grows automatically with your Stadium (L{stadiumLevel}).</div>
+                <div className="text-[12px] text-slate-300">
+                  <b>🔊 Home crowd:</b> {gameState.resources.FANS >= 300
+                    ? <span className="text-rose-300">{gameState.resources.FANS.toLocaleString()} fans stall enemy drives ~{(0.8 + Math.min(1.7, gameState.resources.FANS / 1500)).toFixed(1)}s every 10s</span>
+                    : <span className="text-slate-500">under 300 fans — too quiet to rattle raiders yet</span>}
+                </div>
+                <div className="text-[12px] text-slate-300"><b>🚌 Team Bus:</b> parked across the south gate — raiders go through it or around it.</div>
+                <div className="text-[12px] text-slate-500">Your heroes and defensive-minded players guard the field when you're attacked — see them in ▶ replays and 🧪 Test.</div>
+              </div>
             </div>
-            </>}
-          </div>
+          </Sheet>
         );
       })()}
 
@@ -1812,7 +1525,7 @@ function App() {
 
           <NavBtn icon={<Calendar />} label="Ranks" onClick={() => setIsStandingsOpen(true)} />
 
-          <NavBtn icon={<ClipboardList />} label="Chalk" active={editMode} tourId="design" onClick={() => { setEditMode(true); setMoveSel(null); setSelectedBuilding(null); }} />
+          <NavBtn icon={<ClipboardList />} label="Chalk" active={frontOfficeOpen} tourId="design" onClick={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }} />
         </div>
       </div>
     </div>

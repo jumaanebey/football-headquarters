@@ -351,9 +351,10 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
 
 // `defBoost` (from your roster's defensive Tendencies — see defense.ts) toughens every
 // structure: an Anchor/Iron Wall-heavy roster literally makes your stadium harder to break.
-// `defenses` = the player's PLACED equipment pieces (JUGS/sleds/towers) — real turrets at
-// exactly the tiles the player chose. Positioning them IS the defensive strategy.
-export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number }[] = [], bus: { gridX: number; gridY: number } | null = null, parkingLot = 0): BattleBuildingDef[] => {
+// FIXED BASE: `defenses` come from the fixed emplacements (fixedBase.ts) with a LEVEL —
+// upgrading a slot is the strategy now; `level` scales its HP (+12%/lvl) and damage
+// (+10%/lvl). `wallHp` scales with the Stadium (wallHpFor) — walls have no UI at all.
+export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number; level?: number }[] = [], bus: { gridX: number; gridY: number } | null = null, parkingLot = 0, wallHp = WALL_HP): BattleBuildingDef[] => {
   // 🅿️ Parking Lot: compress the whole base toward center — attackers deploy at the
   // same perimeter but everything they want is farther away, so your turrets, crowd,
   // and defenders get more time on them. (Positions squeeze ~5.5%/level toward 50,50.)
@@ -371,22 +372,23 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
     return { id: b.id, kind: 'building', x, y, hp: Math.round(150 * (1 + 0.3 * (lvl - 1)) * defBoost), size: 6 };
   });
   const ws: BattleBuildingDef[] = walls.map((w, i) => ({
-    id: `wall-${i}`, kind: 'wall', x: cx(Math.min(90, Math.max(10, w.gridX * 10))), y: cx(Math.min(90, Math.max(10, w.gridY * 10))), hp: Math.round(WALL_HP * defBoost), size: 4,
+    id: `wall-${i}`, kind: 'wall', x: cx(Math.min(90, Math.max(10, w.gridX * 10))), y: cx(Math.min(90, Math.max(10, w.gridY * 10))), hp: Math.round(wallHp * defBoost), size: 4,
   }));
   const ds: BattleBuildingDef[] = defenses.map(d => {
     const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
+    const lvl = Math.max(1, d.level ?? 1);
     return {
       id: d.id, kind: 'defense' as const, flavor: t.kind as BattleBuildingDef['flavor'],
       x: cx(Math.min(88, Math.max(12, d.gridX * 10))), y: cx(Math.min(88, Math.max(12, d.gridY * 10))),
-      hp: Math.round(t.hp * defBoost), size: 5, damage: Math.round(t.damage * defBoost), range: t.range,
+      hp: Math.round(t.hp * defBoost * (1 + 0.12 * (lvl - 1))), size: 5, damage: Math.round(t.damage * defBoost * (1 + 0.10 * (lvl - 1))), range: t.range,
     };
   });
-  // The Team Bus: one BIG wall-tier blocker — parks a whole lane shut (pathfinding
+  // The Team Bus: one BIG wall-tier blocker — parks the south gate shut (pathfinding
   // treats its cell like any wall, but it takes far more smashing).
   const busB: BattleBuildingDef[] = bus ? [{
     id: 'team-bus', kind: 'wall',
     x: cx(Math.min(90, Math.max(10, bus.gridX * 10))), y: cx(Math.min(90, Math.max(10, bus.gridY * 10))),
-    hp: Math.round(WALL_HP * 2.2 * defBoost), size: 6,
+    hp: Math.round(wallHp * 2.2 * defBoost), size: 6,
   }] : [];
   return [...bs, ...ws, ...ds, ...busB];
 };

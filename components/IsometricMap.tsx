@@ -1,10 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob, DefensePiece } from '../types';
-import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, DEFENSE_TYPES } from '../constants';
-import { planPath, BBuilding } from '../battle';
+import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
+import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR } from '../constants';
 import { buildingSprite } from '../assets';
 import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
+
+// ─── BUILD VIEW ────────────────────────────────────────────────────────────────
+// The home board is pure management: facilities, decor, and your players. The
+// defensive layer (walls, emplacements, bus, parking apron) renders ONLY in the
+// defense view (BattleScreen) — see FIXED-BASE-PLAN.md. Positions are fixed
+// geometry (fixedBase.ts): there is no placement, painting, or dragging here.
 
 interface Props {
   buildings: BuildingInstance[];
@@ -13,19 +18,6 @@ interface Props {
   timeOfDay: number; // 0-24
   recruitSlot?: RecruitSlot | null;
   upgrades?: UpgradeJob[];
-  walls?: { gridX: number; gridY: number }[];
-  editMode?: boolean;
-  moveSel?: string | null;
-  defenses?: DefensePiece[];
-  bus?: { gridX: number; gridY: number; flip?: boolean } | null;
-  placing?: boolean; // a placement mode is armed — ground taps win over piece hit-boxes
-  onTileEdit?: (gridX: number, gridY: number) => void;
-  onPaintWall?: (gridX: number, gridY: number) => void; // drag across grass = lay a sled line
-  onPaintStart?: () => void;                            // one undo entry per paint stroke
-  externalGhost?: { gx: number; gy: number; ok: boolean } | null; // chip→board carry drop preview
-  onMoveBuilding?: (id: string, gridX: number, gridY: number) => void;
-  onMoveDefense?: (id: string, gridX: number, gridY: number) => void;
-  onMoveBus?: (gridX: number, gridY: number) => void;
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollectResource?: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -170,37 +162,13 @@ const GroundLayer = React.memo(GroundLayerInner, (prev, next) =>
   prev.buildings.every((b, i) => b.id === next.buildings[i].id && b.gridX === next.buildings[i].gridX && b.gridY === next.buildings[i].gridY)
 );
 
-// Range-ring accents per equipment kind — matches each turret's battle personality.
-const RING_COLOR: Record<string, string> = { jugs: '#fb923c', sled: '#f87171', ref: '#facc15', tshirt: '#f472b6' };
-
-/** Board-space (unscaled) point -> nearest grid cell, inverting the iso projection.
- *  Exported so the App-level HUD can convert cursor positions for chip→board drags. */
+/** Board-space (unscaled) point -> nearest grid cell, inverting the iso projection. */
 export const screenToTile = (bx: number, by: number) => {
   const a = (bx - ORIGIN_X) / (TILE_W / 2); // gx - gy
   const b = (by - ORIGIN_Y) / (TILE_H / 2); // gx + gy
   return { gx: Math.round((a + b) / 2), gy: Math.round((b - a) / 2) };
 };
 export const BOARD_DIMS = { w: BOARD_W, h: BOARD_H };
-
-// Team-colored fence — each segment orients to its neighbors so a ring reads as ONE
-// connected barrier, not a repeat of a single sprite. The straight art's rail runs
-// NE on screen (a gy-axis run); gx-axis runs get the same art mirrored. Isolated
-// cells, corners, and junctions get the padded corner post.
-const WallSprite: React.FC<{ gridX: number; gridY: number; wallKeys: Set<string> }> = ({ gridX, gridY, wallKeys }) => {
-  const c = tileToScreen(gridX, gridY);
-  const has = (dx: number, dy: number) => wallKeys.has(`${gridX + dx},${gridY + dy}`);
-  const alongGx = has(1, 0) || has(-1, 0); // screen SE–NW run
-  const alongGy = has(0, 1) || has(0, -1); // screen SW–NE run
-  const isPost = alongGx === alongGy;      // isolated OR corner/junction
-  const w = TILE_W * (isPost ? 0.5 : 1.0);
-  return (
-    <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: gridX + gridY + 1 }}>
-      <img src={isPost ? '/assets/ground/fence-post.png' : '/assets/ground/fence-straight.png'} alt="" draggable={false}
-        onError={e => { (e.currentTarget as HTMLImageElement).src = '/assets/battle/blocking-sled.png'; }}
-        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: isPost ? -TILE_H / 2 : -TILE_H, transform: alongGx && !isPost ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))', opacity: 0.97 }} />
-    </div>
-  );
-};
 
 const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale: number }> = ({ slug, gridX, gridY, scale }) => {
   const c = tileToScreen(gridX, gridY);
@@ -217,14 +185,11 @@ const BuildingSprite: React.FC<{
   building: BuildingInstance;
   recruitSlot?: RecruitSlot | null;
   upgradeJob?: UpgradeJob;
-  editMode?: boolean;
-  moveSel?: string | null;
-  dimmed?: boolean; // being dragged — the floating copy rides the cursor instead
   clickGuard?: React.MutableRefObject<boolean>;
   onBuildingClick: Props['onBuildingClick'];
   onCollect: Props['onCollect'];
   onCollectResource?: Props['onCollectResource'];
-}> = ({ building, recruitSlot, upgradeJob, editMode, moveSel, dimmed, clickGuard, onBuildingClick, onCollect, onCollectResource }) => {
+}> = ({ building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource }) => {
   const c = tileToScreen(building.gridX + 0.5, building.gridY + 0.5); // 2×2 footprint center
   const info = BUILDING_INFO[building.type];
   const src = buildingSprite(building.type, building.level);
@@ -251,20 +216,16 @@ const BuildingSprite: React.FC<{
   }
 
   const handleClick = (e: React.MouseEvent) => {
-    if (clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a drag
+    if (clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
     const screenPos = { x: e.clientX, y: e.clientY };
     if (isCompleted) onCollect(building, screenPos);
     else onBuildingClick(building, screenPos);
   };
 
-  const SPRITE_W = TILE_W * 1.9; // fills the 2×2 footprint — buildings finally OWN their 4 tiles
+  const SPRITE_W = TILE_W * 1.9; // fills the 2×2 footprint — buildings OWN their 4 tiles
 
   return (
-    <div className={`absolute group ${editMode ? '' : 'cursor-pointer'}`} style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6, pointerEvents: editMode ? 'none' : 'auto', opacity: dimmed ? 0.35 : 1 }} onClick={editMode ? undefined : handleClick}>
-      {/* Move-selection highlight (edit mode) */}
-      {moveSel === building.id && (
-        <div className="absolute -translate-x-1/2 rounded-full bg-blue-400/50 blur-sm animate-pulse pointer-events-none" style={{ left: 0, bottom: -TILE_H / 2 - 6, width: SPRITE_W * 0.9, height: TILE_H * 1.5 }} />
-      )}
+    <div className="absolute group cursor-pointer" style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6 }} onClick={handleClick}>
       {/* Glow ring under actionable buildings */}
       {actionable && (
         <div className="absolute -translate-x-1/2 rounded-[50%] bg-yellow-300/25 blur-md animate-pulse pointer-events-none"
@@ -385,13 +346,13 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], walls = [], defenses = [], bus = null, placing = false, editMode = false, moveSel, onTileEdit, onPaintWall, onPaintStart, onMoveBuilding, onMoveDefense, onMoveBus, onBuildingClick, onCollect, onCollectResource, onOrbClick, externalGhost = null }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
-  // 📷 CAMERA: pinch to zoom, two-finger (or empty-grass) drag to pan, double-tap to
-  // recenter. Interaction math reads getBoundingClientRect, which already reflects the
-  // transform — so zooming never breaks taps, drags, or painting.
+  // 📷 CAMERA: pinch to zoom, one-finger drag to pan, double-tap to recenter.
+  // Interaction math reads getBoundingClientRect, which already reflects the
+  // transform — so zooming never breaks taps.
   // Phones open ZOOMED IN (a base you can read, pan to explore) — desktop fits the island.
   const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.8 : 1;
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: 0 });
@@ -402,7 +363,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   };
   const pointersRef = React.useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = React.useRef<{ d: number; z: number; cx: number; cy: number; camX: number; camY: number } | null>(null);
-  const panRef2 = React.useRef<{ sx: number; sy: number; camX: number; camY: number } | null>(null);
+  const panRef = React.useRef<{ sx: number; sy: number; camX: number; camY: number } | null>(null);
+  // True once a pan actually moved — the click that fires on pointer-up is a pan tail,
+  // not a tap, and BuildingSprite's clickGuard swallows it.
+  const panMovedRef = React.useRef(false);
   const resetCam = () => setCam({ z: homeZ, x: 0, y: 0 });
   // Desktop: wheel zooms (native non-passive listener so preventDefault works).
   useEffect(() => {
@@ -417,54 +381,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- Drag-and-drop for buildings, defense pieces, and the Team Bus ---
-  // bx/by track the raw pointer in board space so the grabbed sprite RIDES the cursor.
-  const [drag, setDrag] = useState<{ id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number; startGx: number; startGy: number; bx: number; by: number } | null>(null);
-  const dragMovedRef = React.useRef(false);
-
-  const eventToBoard = (e: React.PointerEvent | React.MouseEvent) => {
-    const rect = boardRef.current!.getBoundingClientRect();
-    return {
-      bx: (e.clientX - rect.left) * BOARD_W / rect.width,
-      by: (e.clientY - rect.top) * BOARD_H / rect.height,
-    };
-  };
-  const eventToTile = (e: React.PointerEvent | React.MouseEvent) => {
-    const { bx, by } = eventToBoard(e);
-    return screenToTile(bx, by);
-  };
-
-  // VISUAL hit-testing: sprites are TALL, so mapping the pointer to a ground tile grabs
-  // the tile BEHIND the art you clicked. Instead, test the pointer against each piece's
-  // on-screen bounding box, front-most (highest gx+gy) first — what you see is what you grab.
-  const pieceAtPoint = (bx: number, by: number): { id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number } | null => {
-    type Hit = { id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number; w: number; h: number; cx: number; cy: number };
-    const hits: Hit[] = [
-      ...defenses.map(d => { const c = tileToScreen(d.gridX, d.gridY); return { id: d.id, piece: 'defense' as const, gx: d.gridX, gy: d.gridY, w: TILE_W * 0.92, h: TILE_W * 0.92, cx: c.x, cy: c.y + TILE_H / 2 }; }),
-      ...(bus ? [(() => { const c = tileToScreen(bus.gridX, bus.gridY); return { id: 'team-bus', piece: 'bus' as const, gx: bus.gridX, gy: bus.gridY, w: TILE_W * 1.5, h: TILE_W * 1.1, cx: c.x, cy: c.y + TILE_H / 2 }; })()] : []),
-      // Buildings hit-test over their FULL 2×2 art (center anchor, bottom = footprint's low vertex).
-      ...buildings.map(b => { const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5); return { id: b.id, piece: 'building' as const, gx: b.gridX, gy: b.gridY, w: TILE_W * 1.9, h: TILE_W * 1.9, cx: c.x, cy: c.y + TILE_H }; }),
-    ].sort((a, b) => (b.gx + b.gy) - (a.gx + a.gy)); // front-most first
-    for (const p of hits) {
-      if (bx >= p.cx - p.w / 2 && bx <= p.cx + p.w / 2 && by >= p.cy - p.h && by <= p.cy) return p;
-    }
-    return null;
-  };
-
-  // 🖌 Sled painting: pointerdown on empty grass in edit mode starts a stroke; every new
-  // tile crossed lays a sled. A plain tap (no movement) still falls through to click-toggle.
-  const paintRef = React.useRef<{ last: string; startGx: number; startGy: number; started: boolean } | null>(null);
-
-  // DEFERRED GRAB: pressing a piece must NOT capture the pointer immediately — capture
-  // retargets the eventual click to the board, silently eating taps on collect bubbles,
-  // buildings, everything ("I can't click on anything"). The drag only becomes real (and
-  // only then captures) once the pointer crosses into another tile.
-  const pendingRef = React.useRef<{ id: string; piece: 'building' | 'defense' | 'bus'; gx: number; gy: number } | null>(null);
-
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (!boardRef.current) return; // drag works in BOTH view and Design mode
+    if (!boardRef.current) return;
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    // Second finger down → PINCH takes over everything (cancel grabs/paint/pan).
+    // Second finger down → PINCH takes over (cancel any pan).
     if (pointersRef.current.size === 2) {
       const pts = [...pointersRef.current.values()];
       pinchRef.current = {
@@ -473,28 +393,13 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
         cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2,
         camX: cam.x, camY: cam.y,
       };
-      pendingRef.current = null; paintRef.current = null; panRef2.current = null;
-      setDrag(null);
+      panRef.current = null;
       return;
     }
-    const { bx, by } = eventToBoard(e);
-    const hit = placing ? null : pieceAtPoint(bx, by);
-    if (!hit) {
-      // Empty ground: edit mode paints; view mode PANS the camera.
-      if (editMode && !placing && onPaintWall) {
-        const { gx, gy } = eventToTile(e);
-        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) {
-          try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* synthetic pointers */ }
-          dragMovedRef.current = false;
-          paintRef.current = { last: `${gx},${gy}`, startGx: gx, startGy: gy, started: false };
-        }
-      } else if (!editMode) {
-        panRef2.current = { sx: e.clientX, sy: e.clientY, camX: cam.x, camY: cam.y };
-      }
-      return; // single taps keep the click flow (wall toggle / placement)
-    }
-    dragMovedRef.current = false;
-    pendingRef.current = hit; // arm — becomes a drag only if the pointer moves a tile
+    // One finger/mouse anywhere: arm a pan. Taps stay taps — clicks on buildings
+    // and bubbles fire normally on pointer-up unless the pan actually moved.
+    panMovedRef.current = false;
+    panRef.current = { sx: e.clientX, sy: e.clientY, camX: cam.x, camY: cam.y };
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -509,97 +414,18 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       setCam(camClamp({ z: p.z * (d / Math.max(1, p.d)), x: p.camX + (mx - p.cx), y: p.camY + (my - p.cy) }));
       return;
     }
-    // PAN (view-mode drag on empty grass).
-    if (panRef2.current) {
-      const p = panRef2.current;
-      setCam(c => camClamp({ z: c.z, x: p.camX + (e.clientX - p.sx), y: p.camY + (e.clientY - p.sy) }));
-      return;
+    if (panRef.current) {
+      const p = panRef.current;
+      if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 6) panMovedRef.current = true;
+      if (panMovedRef.current) setCam(c => camClamp({ z: c.z, x: p.camX + (e.clientX - p.sx), y: p.camY + (e.clientY - p.sy) }));
     }
-    // Pending grab crosses into another tile → NOW it's a drag (capture + ghost).
-    if (pendingRef.current && !drag) {
-      const { gx, gy } = eventToTile(e);
-      const p = pendingRef.current;
-      if (gx !== p.gx || gy !== p.gy) {
-        try { boardRef.current.setPointerCapture(e.pointerId); } catch { /* synthetic pointers */ }
-        const { bx, by } = eventToBoard(e);
-        dragMovedRef.current = true;
-        setDrag({ id: p.id, piece: p.piece, gx, gy, startGx: p.gx, startGy: p.gy, bx, by });
-        pendingRef.current = null;
-        return;
-      }
-    }
-    if (paintRef.current && onPaintWall) {
-      const { gx, gy } = eventToTile(e);
-      if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID) return;
-      const key = `${gx},${gy}`;
-      if (key !== paintRef.current.last) {
-        if (!paintRef.current.started) {
-          paintRef.current.started = true;
-          onPaintStart?.();                                            // one undo entry per stroke
-          onPaintWall(paintRef.current.startGx, paintRef.current.startGy); // don't skip the tile the stroke began on
-        }
-        dragMovedRef.current = true; // the pointer-up click is a stroke tail, not a tap
-        onPaintWall(gx, gy);
-        paintRef.current.last = key;
-      }
-      return;
-    }
-    if (!drag) return;
-    const { bx, by } = eventToBoard(e);
-    const { gx, gy } = eventToTile(e);
-    if (gx !== drag.gx || gy !== drag.gy) dragMovedRef.current = true;
-    setDrag(d => d ? { ...d, gx, gy, bx, by } : d); // sprite rides the cursor every move
   };
 
   const handlePointerUp = (e?: React.PointerEvent) => {
     if (e) pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
-    panRef2.current = null;
-    paintRef.current = null;
-    pendingRef.current = null;
-    if (!drag) return;
-    if (dragMovedRef.current && (drag.gx !== drag.startGx || drag.gy !== drag.startGy)) {
-      if (drag.piece === 'defense') onMoveDefense?.(drag.id, drag.gx, drag.gy);
-      else if (drag.piece === 'bus') onMoveBus?.(drag.gx, drag.gy);
-      else onMoveBuilding?.(drag.id, drag.gx, drag.gy);
-    }
-    setDrag(null);
+    panRef.current = null;
   };
-
-  const dragMoved = !!drag && (drag.gx !== drag.startGx || drag.gy !== drag.startGy);
-  const cellBlocked = (gx: number, gy: number, ignoreId: string) =>
-    buildings.some(b => b.id !== ignoreId && gx >= b.gridX && gx <= b.gridX + 1 && gy >= b.gridY && gy <= b.gridY + 1)
-    || walls.some(w => w.gridX === gx && w.gridY === gy)
-    || defenses.some(x => x.id !== ignoreId && x.gridX === gx && x.gridY === gy)
-    || !!(bus && ignoreId !== 'team-bus' && bus.gridX === gx && bus.gridY === gy);
-  const dragTileFree = drag
-    ? (drag.piece === 'building'
-      ? drag.gx >= 0 && drag.gx <= GRID - 2 && drag.gy >= 0 && drag.gy <= GRID - 2
-        && ![[0, 0], [1, 0], [0, 1], [1, 1]].some(([dx, dy]) => cellBlocked(drag.gx + dx, drag.gy + dy, drag.id))
-      : drag.gx >= 0 && drag.gx < GRID && drag.gy >= 0 && drag.gy < GRID && !cellBlocked(drag.gx, drag.gy, drag.id))
-    : false;
-
-  // 🛣 Funnel lanes — memoized: patrolling players tick the game state ~10×/s, but the
-  // lanes only change when walls, the bus, or the stadium move. 8 A* runs per EDIT, not per tick.
-  const stadiumForLanes = buildings.find(b => b.type === BuildingType.STADIUM);
-  const funnelLanes = React.useMemo(() => {
-    if (!editMode || !stadiumForLanes) return null;
-    const hq: BBuilding = { id: 'hq', kind: 'hq', x: stadiumForLanes.gridX * 10 + 5, y: stadiumForLanes.gridY * 10 + 5, hp: 1, maxHp: 1, size: 8, dead: false, cooldown: 0 };
-    const obstacles: BBuilding[] = [
-      ...walls.map((w, i) => ({ id: `w${i}`, kind: 'wall' as const, x: w.gridX * 10, y: w.gridY * 10, hp: 1, maxHp: 1, size: 4, dead: false, cooldown: 0 })),
-      ...(bus ? [{ id: 'bus', kind: 'wall' as const, x: bus.gridX * 10, y: bus.gridY * 10, hp: 1, maxHp: 1, size: 6, dead: false, cooldown: 0 }] : []),
-    ];
-    const lanes: [number, number][] = [[0, 0], [90, 0], [0, 90], [90, 90], [45, 0], [0, 45], [90, 45], [45, 90]];
-    return lanes.map(([sx, sy]) => {
-      const plan = planPath(sx, sy, hq, [hq, ...obstacles]);
-      const sealed = !!plan.targetWallId;
-      const pts = [{ x: sx, y: sy }, ...plan.path]
-        .map(p => { const c = worldToScreen(p.x, p.y); return `${c.x},${c.y}`; }).join(' ');
-      const start = worldToScreen(sx, sy);
-      return { pts, sealed, start };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editMode, walls, bus?.gridX, bus?.gridY, bus == null, stadiumForLanes?.gridX, stadiumForLanes?.gridY]);
 
   const night = timeOfDay < 6 || timeOfDay > 20;
   const dusk = (timeOfDay >= 6 && timeOfDay < 8) || (timeOfDay > 18 && timeOfDay <= 20);
@@ -608,20 +434,6 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const sortedBuildings = [...buildings].sort((a, b) => (a.gridX + a.gridY) - (b.gridX + b.gridY));
   // Only render players who are heading to / at a drill.
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
-
-  const handleBoardClick = (e: React.MouseEvent) => {
-    if (!editMode || !onTileEdit || !boardRef.current) return;
-    if (dragMovedRef.current) { dragMovedRef.current = false; return; } // a drag just ended — not a tap
-    // Taps on a piece's ART route to that piece's tile (visual hit-test); bare ground uses
-    // the pointer tile. While PLACING, ground always wins (you're aiming at tiles, not pieces).
-    if (!placing) {
-      const { bx, by } = eventToBoard(e);
-      const hit = pieceAtPoint(bx, by);
-      if (hit) { onTileEdit(hit.gx, hit.gy); return; }
-    }
-    const { gx, gy } = eventToTile(e);
-    if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID) onTileEdit(gx, gy);
-  };
 
   return (
     <div className="absolute inset-0 overflow-hidden" style={{ background: 'linear-gradient(180deg, #05070f 0%, #0a1024 30%, #10203a 55%, #0d2b23 80%, #081d17 100%)' }}>
@@ -640,108 +452,15 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           shoved the whole island off-screen on iPhones. translate(-50%,-50%) is identical
           in every browser. */}
       <div className="absolute left-0 right-0 overflow-visible" style={{ top: 88, bottom: 88 }}>
-        <div ref={boardRef} data-fhq-board onClick={handleBoardClick} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onDoubleClick={resetCam}
-          className={`absolute ${drag ? 'cursor-grabbing' : editMode ? 'cursor-pointer' : ''}`}
+        <div ref={boardRef} data-fhq-board onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onDoubleClick={resetCam}
+          className="absolute"
           style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x}px), calc(-50% + ${cam.y}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
           <GroundLayer buildings={buildings} />
-          {/* 🛣 FUNNEL OVERLAY (Design mode): the 8 attacker approach lanes, computed with
-              the SAME pathfinder raiders use. RED = they walk in free (gap!), GREEN = your
-              walls force a smash. Move a sled and watch the lanes react. */}
-          {funnelLanes && (
-            <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ zIndex: 55, overflow: 'visible' }}>
-              {funnelLanes.map((l, li) => (
-                <g key={li} opacity={l.sealed ? 0.4 : 0.75}>
-                  {/* Accessibility: PATTERN carries the meaning (open = dashed, sealed = solid + lock) — color is reinforcement */}
-                  <polyline points={l.pts} fill="none" stroke={l.sealed ? '#4ade80' : '#f87171'} strokeWidth={3.5} strokeDasharray={l.sealed ? undefined : '7 6'} strokeLinejoin="round" />
-                  <circle cx={l.start.x} cy={l.start.y} r={9} fill={l.sealed ? '#4ade80' : '#f87171'} opacity={0.9} />
-                  <text x={l.start.x} y={l.start.y + 4.5} textAnchor="middle" fontSize={12} fill="#0f172a" fontWeight={900}>{l.sealed ? '🔒' : '➜'}</text>
-                </g>
-              ))}
-            </svg>
-          )}
-          {/* Drag ghost: green = drop OK, red = blocked */}
-          {drag && (editMode || dragMoved) && (() => {
-            const big = drag.piece === 'building'; // 2×2 footprint ghost
-            const c = big ? tileToScreen(drag.gx + 0.5, drag.gy + 0.5) : tileToScreen(drag.gx, drag.gy);
-            const hw = big ? TILE_W : TILE_W / 2, hh = big ? TILE_H : TILE_H / 2;
-            const pts = `${c.x},${c.y - hh} ${c.x + hw},${c.y} ${c.x},${c.y + hh} ${c.x - hw},${c.y}`;
-            // Dragging equipment? Show its coverage at the drop spot — position by RANGE, not vibes.
-            const dKind = drag.piece === 'defense' ? defenses.find(x => x.id === drag.id)?.kind : null;
-            const dType = dKind ? DEFENSE_TYPES.find(x => x.kind === dKind) : null;
-            const rr = dType ? (dType.range / 10) * TILE_W * 0.55 : 0;
-            return (
-              <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ zIndex: 60, overflow: 'visible' }}>
-                {dType && <ellipse cx={c.x} cy={c.y} rx={rr} ry={rr / 2} fill={`${RING_COLOR[dKind!] ?? '#f87171'}26`} stroke={RING_COLOR[dKind!] ?? '#f87171'} strokeWidth={2} strokeDasharray="6 5" />}
-                <polygon points={pts} fill={dragTileFree ? 'rgba(74,222,128,0.35)' : 'rgba(248,113,113,0.4)'} stroke={dragTileFree ? '#4ade80' : '#f87171'} strokeWidth={3} strokeDasharray="8 5" />
-              </svg>
-            );
-          })()}
-          {/* Drop preview for a chip/shop piece being carried in from the HUD */}
-          {externalGhost && (() => {
-            const c = tileToScreen(externalGhost.gx, externalGhost.gy);
-            const pts = `${c.x},${c.y - TILE_H / 2} ${c.x + TILE_W / 2},${c.y} ${c.x},${c.y + TILE_H / 2} ${c.x - TILE_W / 2},${c.y}`;
-            return (
-              <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ zIndex: 60, overflow: 'visible' }}>
-                <polygon points={pts} fill={externalGhost.ok ? 'rgba(74,222,128,0.35)' : 'rgba(248,113,113,0.4)'} stroke={externalGhost.ok ? '#4ade80' : '#f87171'} strokeWidth={3} strokeDasharray="8 5" />
-              </svg>
-            );
-          })()}
-          {/* The grabbed piece RIDES the cursor — drag feels like holding the thing */}
-          {drag && (editMode || dragMoved) && (() => {
-            let src = ''; let w = TILE_W;
-            if (drag.piece === 'building') {
-              const b = buildings.find(x => x.id === drag.id);
-              if (b) { src = buildingSprite(b.type, b.level); w = TILE_W * 1.7; }
-            } else if (drag.piece === 'defense') {
-              const d = defenses.find(x => x.id === drag.id);
-              const t = d && DEFENSE_TYPES.find(x => x.kind === d.kind);
-              if (t) { src = t.sprite; w = TILE_W * 0.85; }
-            } else { src = '/assets/decor/team-bus.png'; w = TILE_W * 1.35; }
-            if (!src) return null;
-            return (
-              <img src={src} alt="" draggable={false} className="absolute pointer-events-none"
-                style={{ left: drag.bx - w / 2, top: drag.by - w * 0.75, width: w, maxWidth: 'none', height: 'auto', zIndex: 200, opacity: 0.9, filter: 'drop-shadow(0 12px 10px rgba(0,0,0,0.5))', transform: 'scale(1.05)' }} />
-            );
-          })()}
           {DECOR.map((d) => (
             <DecorSprite key={d.slug} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
-          {(() => {
-            const wallKeys = new Set(walls.map(w => `${w.gridX},${w.gridY}`));
-            return walls.map((w, i) => (
-              <WallSprite key={`w${i}-${w.gridX}-${w.gridY}`} gridX={w.gridX} gridY={w.gridY} wallKeys={wallKeys} />
-            ));
-          })()}
-          {/* Placed defensive equipment (draggable; kind-colored range rings while designing) */}
-          {defenses.map(d => {
-            const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
-            const c = tileToScreen(d.gridX, d.gridY);
-            const w = TILE_W * 0.92;
-            const rx = (t.range / 10) * TILE_W * 0.55;
-            const ring = RING_COLOR[d.kind] ?? '#f87171';
-            return (
-              <div key={d.id} className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: d.gridX + d.gridY + 4, opacity: drag?.id === d.id ? 0.45 : 1 }}>
-                {editMode && (
-                  <div className="absolute rounded-full" style={{ left: -rx, top: -rx / 2, width: rx * 2, height: rx, border: `2px dashed ${ring}99`, background: `${ring}1a`, boxShadow: `inset 0 0 12px ${ring}22` }} />
-                )}
-                <img src={t.sprite} alt={t.name} draggable={false}
-                  style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2 - 2, transform: d.flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 5px 5px rgba(0,0,0,0.35))' }} />
-              </div>
-            );
-          })}
-          {/* The Team Bus — a movable BIG blocker (drag to park a lane shut; tap to rotate) */}
-          {bus && (() => {
-            const c = tileToScreen(bus.gridX, bus.gridY);
-            const w = TILE_W * 1.5;
-            return (
-              <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: bus.gridX + bus.gridY + 4, opacity: drag?.id === 'team-bus' ? 0.45 : 1 }}>
-                <img src="/assets/decor/team-bus.png" alt="Team Bus" draggable={false}
-                  style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: bus.flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 6px 6px rgba(0,0,0,0.35))' }} />
-              </div>
-            );
-          })()}
           {sortedBuildings.map((b) => (
-            <BuildingSprite key={b.id} building={b} dimmed={drag?.piece === 'building' && drag.id === b.id} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} editMode={editMode} moveSel={moveSel} clickGuard={dragMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} />
+            <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} />
           ))}
           {activePlayers.map((p) => (
             <PlayerMarker key={p.id} player={p} />

@@ -183,7 +183,8 @@ export const DECOR: { slug: string; gridX: number; gridY: number; scale: number 
   { slug: 'merch-stand',    gridX: 9, gridY: 4, scale: 0.7 },
   { slug: 'club-fountain',  gridX: 1, gridY: 7, scale: 0.6 },
   { slug: 'tailgate-tent',  gridX: 9, gridY: 7, scale: 0.75 },
-  { slug: 'parking-lot',    gridX: 1, gridY: 3, scale: 0.7 },
+  // parking-lot decor retired — the Parking Lot is a Front Office upgrade whose
+  // apron shows in the DEFENSE view only (FIXED-BASE-PLAN.md).
 ];
 
 // Steeper curve so upgrades are a real coin sink: you can't afford every building's

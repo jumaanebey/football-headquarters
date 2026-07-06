@@ -7,3 +7,6 @@ dist-ssr
 .DS_Store
 supabase/.temp
 .vercel
+build.log
+shot.log
+*.log
