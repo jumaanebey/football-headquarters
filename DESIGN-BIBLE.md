@@ -212,3 +212,36 @@ Never "stars," never "victory/defeat" in war terms. Framing is always *road win 
 ---
 
 *Football Headquarters — build the hype, not the war.*
+
+---
+
+## 12) Validated Pillars & Parked Backlog (from the 5-game study, 2026-07)
+
+Research across Clash of Clans, Castle Clash, Boom Beach, and Top Eleven confirmed the
+game's four pillars are the right ones. What each study validated, and what it added:
+
+**Already shipped and validated — do not rebuild, only polish:**
+- Base layer (Stadium + facilities, revenue/performance payoffs) — Top Eleven's most-loved loop.
+- Combat layer — we already run the Boom Beach shape: squad auto-attacks by targeting role;
+  the player's skill is deployment choice + Game Plans + hero specials + defense plays
+  (our "gunboat energy"). Scout → raid → replay → adjust is live.
+- Two currencies + Fans, rival-coach seasons, Live Rivals async PvP + leaderboard.
+- Tutorial that teaches the core loop up front (the sin every studied game committed).
+
+**PARKED — good ideas, feature-frozen. Revisit only after Phase D ships:**
+1. **All-or-nothing Stadium win condition** (Boom Beach HQ model). Cleaner to read, but
+   punishing for new players — Boom Beach's own early-game frustration is the counter-
+   evidence. Decide deliberately vs. current loot-per-building + Game Balls. NOT a
+   mid-polish swap.
+2. **Live/async player auctions** (Top Eleven's signature spend mechanic). Maps onto the
+   Supabase PvP backend. Biggest new-feature candidate for the roster layer.
+3. **Youth Academy prospect growth** — grow a rookie into a star; extends Scouting Dept.
+   The years-long-attachment engine; fixes collection bloat before it exists.
+4. **Time-boxed season resets (~28 days) with real rewards per rank** — every league level
+   must give something (Top Eleven's hollow-progression sin); never reward tanking.
+
+**Standing lessons absorbed as rules:**
+- Keep systems FEW (Castle Clash died of system bloat).
+- Social/guild layer is the long-term moat (Boom Beach faded without one) — architect for
+  it (Live Rivals already is), build it later.
+- Never bury the core mechanic; the tutorial teaches direction-of-squad immediately.
