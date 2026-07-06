@@ -204,8 +204,10 @@ const BuildingSprite: React.FC<{
   const collectorCfg = COLLECTOR_CONFIG[building.type];
   const banked = Math.floor(building.accrued || 0);
   const cap = collectorCfg ? collectorCap(building.type, building.level) : 0;
-  const showBubble = !!collectorCfg && banked >= 1;
+  // The bubble is an INDICATOR, not a separate button — it only appears once the haul
+  // is worth taking, and tapping the building itself is what collects it.
   const bubbleReady = !!collectorCfg && banked >= Math.max(30, cap * 0.25);
+  const showBubble = bubbleReady;
 
   // A building is "actionable" (glowing) when there's something to tap.
   const actionable = isCompleted || recruitReady || bubbleReady;
@@ -215,10 +217,13 @@ const BuildingSprite: React.FC<{
     progress = Math.max(0, Math.min(1, (Date.now() - building.startTime) / (building.finishTime - building.startTime)));
   }
 
+  // ONE tap, one behavior: collect whatever's ready (drill or coins), otherwise open
+  // the building. No separate hit-targets fighting each other on the same sprite.
   const handleClick = (e: React.MouseEvent) => {
     if (clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
     const screenPos = { x: e.clientX, y: e.clientY };
     if (isCompleted) onCollect(building, screenPos);
+    else if (bubbleReady) onCollectResource?.(building, screenPos);
     else onBuildingClick(building, screenPos);
   };
 
@@ -239,9 +244,10 @@ const BuildingSprite: React.FC<{
         className="select-none transition-transform group-hover:-translate-y-1 group-active:scale-95"
         style={{ position: 'absolute', width: SPRITE_W, maxWidth: 'none', height: 'auto', left: -SPRITE_W / 2, bottom: -TILE_H / 2, filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} />
 
-      {/* Tap hitbox — the building's BODY, not the art's transparent bounding box */}
+      {/* Tap hitbox — the building's BODY, aligned to the art's true base (the sprite
+          bottoms out at the footprint's low vertex, a full tile below center). */}
       <div className="absolute cursor-pointer" onClick={handleClick}
-        style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H / 2, width: SPRITE_W * 0.62, height: TILE_H * 2.3, pointerEvents: 'auto' }} />
+        style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H, width: SPRITE_W * 0.62, height: TILE_H * 2.3, pointerEvents: 'auto' }} />
 
       {/* Drill status badge */}
       {(isActive || isCompleted) && (
@@ -293,20 +299,17 @@ const BuildingSprite: React.FC<{
         </div>
       )}
 
-      {/* Passive collector bubble — big tap target that hugs the building's roofline
-          (floating it higher used to cover the next building's name tag). */}
+      {/* Coin indicator — shows the haul is ready; TAPPING THE BUILDING collects it
+          (one tap target per building, no separate button to fight the sprite). */}
       {showBubble && (
-        <button
+        <div
           data-tour="collect"
-          className={`absolute -translate-x-1/2 flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl
-            ${bubbleReady ? 'bg-amber-400 animate-bounce-sm' : 'bg-yellow-500 animate-float'}`}
-          style={{ left: 30, top: -30, zIndex: 44, pointerEvents: 'auto' }}
-          onClick={(e) => { e.stopPropagation(); onCollectResource?.(building, { x: e.clientX, y: e.clientY }); }}
-          title={bubbleReady ? 'Storage filling — collect!' : 'Collect ticket revenue'}
+          className="absolute -translate-x-1/2 flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl bg-amber-400 animate-bounce-sm pointer-events-none"
+          style={{ left: 30, top: -30, zIndex: 44 }}
         >
           <Coins size={18} className="text-yellow-900 fill-yellow-800" />
           <span className="text-sm font-display font-bold text-yellow-950">{banked}</span>
-        </button>
+        </div>
       )}
     </div>
   );
@@ -358,7 +361,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.8 : 1;
   // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
   // not the board's geometric middle — so the base reads centered, especially zoomed in.
-  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ);
+  const homeY = Math.round((BOARD_H / 2 - tileToScreen(6, 6).y) * scale * homeZ);
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
     const z = Math.min(3, Math.max(0.55, c.z));
@@ -464,13 +467,13 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {sortedBuildings.map((b) => (
             <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} />
           ))}
-          {/* Name tags live in their OWN layer above every sprite — nested z-index gets
-              trapped in the building's stacking context, so a taller neighbor used to
-              cover its label. Out here, nothing can. */}
+          {/* Name tags live in their OWN layer above every sprite (nested z-index gets
+              trapped in a building's stacking context) and sit UNDER each building at
+              its base — on the grass, never across the art. */}
           {sortedBuildings.map((b) => {
             const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
             return (
-              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y + 8, zIndex: 46 }}>
+              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y + TILE_H + 8, zIndex: 46 }}>
                 <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/55 px-2 py-0.5 rounded-full whitespace-nowrap">
                   {BUILDING_INFO[b.type].name} <span className="text-yellow-300">L{b.level}</span>
                 </span>

@@ -16,7 +16,7 @@ import { DEFENSE_TYPES, buildingTiles, wallCap } from './constants';
 // Rehab SW, War Room SE — so the dirt paths radiate out symmetrically and the build
 // view and defense view read as the SAME place at a glance.
 export const FIXED_ANCHORS: Record<BuildingType, { gridX: number; gridY: number }> = {
-  [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 }, // centerpiece (tiles 4-5 × 4-5)
+  [BuildingType.STADIUM]:        { gridX: 5, gridY: 5 }, // centerpiece (tiles 5-6 × 5-6)
   [BuildingType.TACTICS_ROOM]:   { gridX: 1, gridY: 1 }, // NW — War Room up top, out of the way
   [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 1 }, // NE — Scouting Dept by the road in
   [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 7 }, // SW — Rehab next to the practice side
@@ -24,7 +24,7 @@ export const FIXED_ANCHORS: Record<BuildingType, { gridX: number; gridY: number 
 };
 
 // ── The Team Bus: permanent blocker at the south gate (defense view only) ──────
-export const BUS_TILE = { gridX: 4, gridY: 7 };
+export const BUS_TILE = { gridX: 5, gridY: 8 };
 
 // ── Defense emplacements: fixed spot, fixed kind, upgradable level ─────────────
 // Turret ranges are short (1.4–3 tiles in world units), so every slot hugs the
@@ -42,15 +42,15 @@ export interface DefenseSlotDef {
 }
 
 export const DEFENSE_SLOTS: DefenseSlotDef[] = [
-  { id: 'D1', kind: 'jugs',   gridX: 4, gridY: 2, stadiumReq: 1,  covers: 'North gate' },
-  { id: 'D2', kind: 'sled',   gridX: 6, gridY: 4, stadiumReq: 1,  covers: 'East wall (point-blank)' },
-  { id: 'D3', kind: 'ref',    gridX: 2, gridY: 5, stadiumReq: 3,  covers: 'West lane (long range)' },
-  { id: 'D4', kind: 'tshirt', gridX: 5, gridY: 7, stadiumReq: 6,  covers: 'South gate splash' },
-  { id: 'D5', kind: 'jugs',   gridX: 7, gridY: 5, stadiumReq: 9,  covers: 'East approach' },
-  { id: 'D6', kind: 'sled',   gridX: 4, gridY: 3, stadiumReq: 12, covers: 'North wall (point-blank)' },
-  { id: 'C1', kind: 'ref',    gridX: 5, gridY: 2, crownIndex: 0,  covers: 'North overwatch' },
-  { id: 'C2', kind: 'tshirt', gridX: 2, gridY: 4, crownIndex: 1,  covers: 'West splash' },
-  { id: 'C3', kind: 'jugs',   gridX: 7, gridY: 4, crownIndex: 2,  covers: 'East gate' },
+  { id: 'D1', kind: 'jugs',   gridX: 5, gridY: 3, stadiumReq: 1,  covers: 'North gate' },
+  { id: 'D2', kind: 'sled',   gridX: 7, gridY: 5, stadiumReq: 1,  covers: 'East wall (point-blank)' },
+  { id: 'D3', kind: 'ref',    gridX: 3, gridY: 6, stadiumReq: 3,  covers: 'West lane (long range)' },
+  { id: 'D4', kind: 'tshirt', gridX: 6, gridY: 8, stadiumReq: 6,  covers: 'South gate splash' },
+  { id: 'D5', kind: 'jugs',   gridX: 8, gridY: 6, stadiumReq: 9,  covers: 'East approach' },
+  { id: 'D6', kind: 'sled',   gridX: 5, gridY: 4, stadiumReq: 12, covers: 'North wall (point-blank)' },
+  { id: 'C1', kind: 'ref',    gridX: 6, gridY: 3, crownIndex: 0,  covers: 'North overwatch' },
+  { id: 'C2', kind: 'tshirt', gridX: 3, gridY: 5, crownIndex: 1,  covers: 'West splash' },
+  { id: 'C3', kind: 'jugs',   gridX: 8, gridY: 5, crownIndex: 2,  covers: 'East gate' },
 ];
 
 export const slotById = (id: string) => DEFENSE_SLOTS.find(s => s.id === id);
@@ -85,13 +85,13 @@ const WALL_CANDIDATES: { gridX: number; gridY: number }[] = (() => {
     for (let x = hi - 1; x >= lo; x--) out.push({ gridX: x, gridY: hi });       // bottom
     for (let y = hi - 1; y >= lo + 1; y--) out.push({ gridX: lo, gridY: y });   // left
   };
-  ringAround(3, 6); // inner ring hugging the centered Stadium (12 tiles)
-  ringAround(2, 7); // outer ring (20 tiles, minus corner/facility collisions)
-  // reinforcement arcs (high Stadium levels): mid-edge segments of ring 1..8
-  for (let x = 3; x <= 6; x++) out.push({ gridX: x, gridY: 1 });
-  for (let x = 3; x <= 6; x++) out.push({ gridX: x, gridY: 8 });
-  for (let y = 3; y <= 6; y++) out.push({ gridX: 1, gridY: y });
-  for (let y = 3; y <= 6; y++) out.push({ gridX: 8, gridY: y });
+  ringAround(4, 7); // inner ring hugging the Stadium at 5-6 × 5-6 (12 tiles)
+  ringAround(3, 8); // outer ring (20 tiles, minus corner/facility collisions)
+  // reinforcement arcs (high Stadium levels): mid-edge segments one ring further out
+  for (let x = 4; x <= 7; x++) out.push({ gridX: x, gridY: 2 });
+  for (let x = 3; x <= 6; x++) out.push({ gridX: x, gridY: 9 });
+  for (let y = 4; y <= 7; y++) out.push({ gridX: 2, gridY: y });
+  for (let y = 3; y <= 6; y++) out.push({ gridX: 9, gridY: y });
   return out;
 })();
 
