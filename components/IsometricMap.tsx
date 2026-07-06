@@ -224,8 +224,11 @@ const BuildingSprite: React.FC<{
 
   const SPRITE_W = TILE_W * 1.9; // fills the 2×2 footprint — buildings OWN their 4 tiles
 
+  // ROOT IS NOT CLICKABLE: the sprite img is a big square with transparent corners,
+  // and those invisible corners were stealing taps from neighbors' labels/bubbles.
+  // Only the explicit hitbox (building body) and the badge buttons take pointers.
   return (
-    <div className="absolute group cursor-pointer" style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6 }} onClick={handleClick}>
+    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6 }}>
       {/* Glow ring under actionable buildings */}
       {actionable && (
         <div className="absolute -translate-x-1/2 rounded-[50%] bg-yellow-300/25 blur-md animate-pulse pointer-events-none"
@@ -236,17 +239,13 @@ const BuildingSprite: React.FC<{
         className="select-none transition-transform group-hover:-translate-y-1 group-active:scale-95"
         style={{ position: 'absolute', width: SPRITE_W, maxWidth: 'none', height: 'auto', left: -SPRITE_W / 2, bottom: -TILE_H / 2, filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} />
 
-      {/* Name + level tag — always readable: rides ABOVE every sprite (fixed zIndex),
-          so a taller neighbor can never sit on top of it. */}
-      <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: 0, top: 8, zIndex: 46 }}>
-        <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/55 px-2 py-0.5 rounded-full whitespace-nowrap">
-          {info.name} <span className="text-yellow-300">L{building.level}</span>
-        </span>
-      </div>
+      {/* Tap hitbox — the building's BODY, not the art's transparent bounding box */}
+      <div className="absolute cursor-pointer" onClick={handleClick}
+        style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H / 2, width: SPRITE_W * 0.62, height: TILE_H * 2.3, pointerEvents: 'auto' }} />
 
       {/* Drill status badge */}
       {(isActive || isCompleted) && (
-        <div className="absolute -translate-x-1/2" style={{ left: 0, top: -58, zIndex: 60 }}>
+        <div className="absolute -translate-x-1/2 cursor-pointer" onClick={handleClick} style={{ left: 0, top: -58, zIndex: 60, pointerEvents: 'auto' }}>
           {isCompleted ? (
             <div data-tour="drill-done" className="flex flex-col items-center gap-0.5">
               <div className="w-11 h-11 rounded-full bg-green-500 border-[3px] border-white flex items-center justify-center shadow-xl animate-bounce-sm">
@@ -268,7 +267,7 @@ const BuildingSprite: React.FC<{
 
       {/* Recruit status badge */}
       {(recruitBusy || recruitReady) && (
-        <div className="absolute -translate-x-1/2" style={{ left: 0, top: -58, zIndex: 60 }}>
+        <div className="absolute -translate-x-1/2 cursor-pointer" onClick={handleClick} style={{ left: 0, top: -58, zIndex: 60, pointerEvents: 'auto' }}>
           {recruitReady ? (
             <div className="flex flex-col items-center gap-0.5">
               <div className="w-11 h-11 rounded-full bg-green-500 border-[3px] border-white flex items-center justify-center shadow-xl animate-bounce-sm">
@@ -301,7 +300,7 @@ const BuildingSprite: React.FC<{
           data-tour="collect"
           className={`absolute -translate-x-1/2 flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl
             ${bubbleReady ? 'bg-amber-400 animate-bounce-sm' : 'bg-yellow-500 animate-float'}`}
-          style={{ left: 30, top: -30, zIndex: 44 }}
+          style={{ left: 30, top: -30, zIndex: 44, pointerEvents: 'auto' }}
           onClick={(e) => { e.stopPropagation(); onCollectResource?.(building, { x: e.clientX, y: e.clientY }); }}
           title={bubbleReady ? 'Storage filling — collect!' : 'Collect ticket revenue'}
         >
@@ -462,6 +461,19 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {sortedBuildings.map((b) => (
             <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} />
           ))}
+          {/* Name tags live in their OWN layer above every sprite — nested z-index gets
+              trapped in the building's stacking context, so a taller neighbor used to
+              cover its label. Out here, nothing can. */}
+          {sortedBuildings.map((b) => {
+            const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
+            return (
+              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y + 8, zIndex: 46 }}>
+                <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/55 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  {BUILDING_INFO[b.type].name} <span className="text-yellow-300">L{b.level}</span>
+                </span>
+              </div>
+            );
+          })}
           {activePlayers.map((p) => (
             <PlayerMarker key={p.id} player={p} />
           ))}

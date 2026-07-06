@@ -1,18 +1,25 @@
 
 import React, { useState } from 'react';
-import { Player, UnitGroup, ResourceType } from '../types';
+import { Player, UnitGroup, ResourceType, HeroState, UpgradeJob } from '../types';
 import { DRILLS, TENDENCIES, TendencyKey } from '../constants';
 import { unitSprite, unitPlayerSprite } from '../assets';
+import { HERO_DEFS, heroUpgradeCost, heroMaxLevel } from '../battle';
 import { Shield, Target, Users, Zap, Dumbbell, Play, Star, ChevronRight } from 'lucide-react';
 import { Sheet } from './ui';
 
 interface Props {
   roster: Player[];
   resources: Record<ResourceType, number>;
+  heroes?: HeroState[];
+  upgrades?: UpgradeJob[];
+  stadiumLevel?: number;
   onClose: () => void;
   onTrainGroup: (unit: UnitGroup, drillId: string) => void;
+  onTrainHero?: (key: string, cost: number) => void;
   onOpenHeroes?: () => void;
 }
+
+const fmtDur = (s: number) => s < 60 ? `${Math.ceil(s)}s` : `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 
 // ─── COACH — mobile-first ──────────────────────────────────────────────────────
 // One column, one flow: all four position groups in a compact grid, and the drill
@@ -26,9 +33,11 @@ const GROUPS: { unit: UnitGroup; title: string; subtitle: string; icon: React.Re
   { unit: UnitGroup.DEFENSE_SECONDARY, title: 'No Fly Zone',     subtitle: 'CB·S',      icon: <Target size={13} />, ring: '#6366f1' },
 ];
 
-export const SquadModal: React.FC<Props> = ({ roster, resources, onClose, onTrainGroup, onOpenHeroes }) => {
+export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], upgrades = [], stadiumLevel = 1, onClose, onTrainGroup, onTrainHero, onOpenHeroes }) => {
   const [selectedUnit, setSelectedUnit] = useState<UnitGroup | null>(null);
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [selectedHero, setSelectedHero] = useState<string | null>(null);
+  const unlockedHeroes = heroes.filter(h => h.unlocked !== false);
 
   const groupStats = (unit: UnitGroup) => {
     const players = roster.filter(p => p.unit === unit);
@@ -151,6 +160,64 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, onClose, onTrai
         {!selectedUnit && (
           <div className="text-center text-[12px] text-slate-500 py-2">Readiness fires up your next raid (+15% at 100%) — drills build it.</div>
         )}
+
+        {/* ⭐ HEROES train here too — longer sessions (a player getting better is a grind,
+            not a construction job). Row shows hero + role + level; tap to open training. */}
+        <div>
+          <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">⭐ Hero Training</div>
+          {unlockedHeroes.length === 0 ? (
+            <button onClick={onOpenHeroes} className="w-full flex items-center justify-between px-3 py-3 rounded-xl border border-yellow-800/60 bg-yellow-950/20 text-left">
+              <span className="text-sm text-yellow-200 font-bold">No heroes on the squad yet</span>
+              <span className="text-[11px] text-yellow-400 font-bold flex items-center gap-1">Visit Heroes <ChevronRight size={13} /></span>
+            </button>
+          ) : (
+            <div className="space-y-1.5">
+              {unlockedHeroes.map(h => {
+                const def = HERO_DEFS.find(d => d.key === h.key);
+                if (!def) return null;
+                const open = selectedHero === h.key;
+                const job = upgrades.find(u => u.kind === 'hero' && u.key === h.key);
+                const maxed = h.level >= heroMaxLevel(stadiumLevel);
+                const cost = heroUpgradeCost(h.level);
+                const remaining = job ? Math.max(0, (job.finishTime - Date.now()) / 1000) : 0;
+                return (
+                  <div key={h.key} className={`rounded-xl border transition-colors ${open ? 'border-yellow-600/70 bg-slate-800/70' : 'border-slate-700 bg-slate-800/40'}`}>
+                    <button onClick={() => setSelectedHero(open ? null : h.key)} className="w-full flex items-center gap-3 px-3 py-2 text-left">
+                      <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 relative flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 35%, ${def.color}cc, #0f172a 90%)`, border: '2px solid #fde047' }}>
+                        <span className="absolute text-base">{def.emoji}</span>
+                        <img src={def.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-white text-sm truncate">{def.name} {job && <span className="text-[10px] text-amber-300 font-bold">🏋️ training…</span>}</div>
+                        <div className="text-[11px] text-slate-400">{def.role} · <span className="text-yellow-300 font-bold">Lv{h.level}</span> · {'★'.repeat(h.stars)}</div>
+                      </div>
+                      <ChevronRight size={15} className={`text-slate-600 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+                    </button>
+                    {open && (
+                      <div className="px-3 pb-3 pt-1 border-t border-slate-800/70 flex items-center justify-between gap-2">
+                        <div className="text-[11px] text-slate-400 min-w-0">
+                          <div className="text-slate-300 font-bold">{def.abilityName} — {def.abilityDesc}</div>
+                          {job ? <div className="text-amber-300 font-bold mt-0.5">Session ends in {fmtDur(remaining)}</div>
+                            : maxed ? <div className="text-slate-500 mt-0.5">At the cap — upgrade your Stadium to train further</div>
+                            : <div className="mt-0.5">Next: <b className="text-white">Lv{h.level + 1}</b> · takes a long session (heroes grind)</div>}
+                        </div>
+                        {job ? <span className="shrink-0 text-[11px] font-bold text-amber-300">🏋️</span>
+                          : maxed ? <span className="shrink-0 text-[11px] font-bold text-green-400">MAX</span>
+                          : (
+                          <button onClick={() => onTrainHero?.(h.key, cost)} disabled={resources.COINS < cost}
+                            className={`shrink-0 px-3.5 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${resources.COINS >= cost ? 'bg-yellow-500 text-black hover:bg-yellow-400' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+                            Train · {cost >= 1000 ? `${(cost / 1000).toFixed(1)}k` : cost}🪙
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <div className="text-[11px] text-slate-500 text-center pt-0.5">Unlocks, star-ups, and Scout Searches live in the <button onClick={onOpenHeroes} className="text-yellow-400 font-bold underline">Heroes</button> tab</div>
+            </div>
+          )}
+        </div>
       </div>
     </Sheet>
   );

@@ -318,6 +318,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           const direct = wp.x === target.x && wp.y === target.y;
           const md = Math.max(0.001, dist(t.x, t.y, wp.x, wp.y));
           const step = direct ? Math.min(speed * DT, d - stopAt) : speed * DT;
+          if (Math.abs(wp.x - t.x) > 0.3) (t as BTroop & { face?: number }).face = wp.x > t.x ? 1 : -1; // sprites face where they run
           t.x += ((wp.x - t.x) / md) * step;
           t.y += ((wp.y - t.y) / md) * step;
           if (rand() < 0.05) s.fx.push({ type: 'dust', x: t.x, y: t.y + 1.6, life: 0.4, maxLife: 0.4 });
@@ -380,6 +381,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         for (const t of s.troops) { if (t.dead) continue; const dd = dist(g.x, g.y, t.x, t.y); if (dd < pd) { pd = dd; prey = t; } }
         if (!prey) continue;
         if (pd > 3.2) {
+          if (Math.abs(prey.x - g.x) > 0.3) (g as BTroop & { face?: number }).face = prey.x > g.x ? 1 : -1;
           g.x += ((prey.x - g.x) / pd) * g.speed * DT;
           g.y += ((prey.y - g.y) / pd) * g.speed * DT;
           g.attacking = false;
@@ -906,8 +908,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 style={{ left: `${g.x}%`, top: `${g.y}%`, width: isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isHeroGuard ? 48 : 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {g.hp < g.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
                 <div className="relative w-full" style={{ aspectRatio: '1', opacity: g.hitFlash > 0 ? 0.5 : 1, animation: g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite' }}>
-                  {/* Chip fallback renders beneath; the real player/hero sprite lays over it
-                      (hides itself on load error) — same auto-upgrade pattern as attackers. */}
+                  <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
+                  {/* Chip fallback hides the moment the sprite loads — no floating bubble. */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <div className="relative" style={{ width: '46%', height: '40%', borderRadius: '50% 50% 42% 42%', background: helm, border: '1px solid rgba(255,255,255,0.3)', marginBottom: '-9%', zIndex: 2 }}>
                       <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '18%', width: '70%', height: '14%', background: stripe, borderRadius: 2 }} />
@@ -916,8 +918,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   </div>
                   <img src={art ?? unitPlayerSprite(g.unit)} alt="" draggable={false}
                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    onLoad={e => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; }}
                     className="absolute inset-0 w-full h-full object-contain"
-                    style={{ filter: isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)' }} />
+                    style={{ transform: `translateZ(0)${((g as BTroop & { face?: number }).face ?? 1) < 0 ? ' scaleX(-1)' : ''}`, filter: isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)' }} />
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
                 </div>
               </div>
@@ -935,32 +938,42 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             // Alive = animate: lunge when hitting a target, otherwise a jog bob.
             const anim = t.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite';
             // Individual players are a touch bigger + clearer than the old clumpy trios.
-            const w = heroDef ? '6%' : specialDef ? (isMascot ? '5.5%' : '3.4%') : '4.6%';
-            const wmin = heroDef ? 32 : specialDef ? (isMascot ? 30 : 16) : 26;
-            const wmax = heroDef ? 52 : specialDef ? (isMascot ? 48 : 26) : 42;
+            const w = heroDef ? '7%' : specialDef ? (isMascot ? '5.5%' : '3.4%') : '4.6%';
+            const wmin = heroDef ? 36 : specialDef ? (isMascot ? 30 : 16) : 26;
+            const wmax = heroDef ? 58 : specialDef ? (isMascot ? 48 : 26) : 42;
             const pGlow = shielded ? 'drop-shadow(0 0 6px #0ea5e9)' : raging ? 'drop-shadow(0 0 6px #ef4444)' : healing ? 'drop-shadow(0 0 6px #22c55e)' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))';
+            const face = (t as BTroop & { face?: number }).face ?? 1;
+            const flip = face < 0 ? ' scaleX(-1)' : '';
+            // Fallback chip hides the moment the real sprite loads — units stand on the
+            // turf with a shadow, not on a floating bubble.
+            const hidePrev = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; };
+            const shadow = <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />;
             return (
               <div key={t.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${t.x}%`, top: `${t.y}%`, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round(t.y) + 100, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
-                <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>
+                {t.hp < t.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
                 {specialDef ? (
-                  // Emoji placeholder shows until the real sprite loads; the <img> covers it when present.
+                  // Emoji placeholder shows until the real sprite loads, then hides.
                   <div className="relative w-full" style={{ aspectRatio: '1' }}>
+                    {shadow}
                     <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: isMascot ? '3.2vmin' : '2.1vmin', filter: spGlow, animation: anim }}>{specialDef.emoji}</span>
-                    <img src={specialDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" style={{ filter: spGlow, opacity: t.hitFlash > 0 ? 0.5 : 1, animation: anim }} />
+                    <img src={specialDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="absolute inset-0 w-full h-full object-contain" style={{ filter: spGlow, opacity: t.hitFlash > 0 ? 0.5 : 1, animation: anim, transform: `translateZ(0)${flip}` }} />
                   </div>
                 ) : heroDef ? (
                   <div className="relative w-full" style={{ aspectRatio: '1' }}>
-                    {/* fallback: a glowing gold-rimmed badge in the hero's color (matches the deploy tray) */}
+                    {shadow}
+                    {/* fallback badge hides once the portrait loads */}
                     <div className="absolute inset-0 rounded-full flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 38%, ${heroDef.color}e0, #0f172a 88%)`, border: '2px solid #fde047', filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim }}>
                       <span style={{ fontSize: '2.3vmin', lineHeight: 1 }}>{heroDef.emoji}</span>
                     </div>
-                    <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim }} />
+                    <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim, transform: `translateZ(0)${flip}` }} />
+                    <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: '-16%', fontSize: '1.1vmin', background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(253,224,71,0.4)' }}>{heroDef.name}</span>
                   </div>
                 ) : (
-                  // ONE individual player — a mini helmet + numbered jersey now, auto-upgrades to a single-player sprite when the art lands.
+                  // ONE individual player — chip fallback until the sprite loads, then pure sprite.
                   <div className="relative w-full" style={{ aspectRatio: '1', filter: pGlow, opacity: t.hitFlash > 0 ? 0.5 : 1, animation: anim }}>
+                    {shadow}
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       {/* helmet (team black w/ orange stripe) */}
                       <div className="relative" style={{ width: '46%', height: '40%', borderRadius: '50% 50% 42% 42%', background: '#111827', border: '1px solid rgba(255,255,255,0.3)', marginBottom: '-9%', zIndex: 2, boxShadow: shielded ? '0 0 0 2px #0ea5e9' : 'none' }}>
@@ -969,7 +982,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       {/* numbered jersey (position color) */}
                       <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: st.color, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{t.jersey}</div>
                     </div>
-                    <img src={unitPlayerSprite(t.unit)} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />
+                    <img src={unitPlayerSprite(t.unit)} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="absolute inset-0 w-full h-full object-contain" style={{ transform: `translateZ(0)${flip}` }} />
                     {/* jersey number rides the real sprite — the announcer talks about #23, so show #23 */}
                     <span className="absolute flex items-center justify-center font-black text-white" style={{ right: '-4%', bottom: '-2%', minWidth: '38%', height: '32%', borderRadius: 4, background: st.color, border: '1px solid rgba(0,0,0,0.55)', fontSize: '1.15vmin', boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t.jersey}</span>
                   </div>

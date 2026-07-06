@@ -17,10 +17,10 @@ import { DEFENSE_TYPES, buildingTiles, wallCap } from './constants';
 // view and defense view read as the SAME place at a glance.
 export const FIXED_ANCHORS: Record<BuildingType, { gridX: number; gridY: number }> = {
   [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 }, // centerpiece (tiles 4-5 × 4-5)
-  [BuildingType.TRAINING_PITCH]: { gridX: 1, gridY: 1 }, // NW — where the team practices
+  [BuildingType.TACTICS_ROOM]:   { gridX: 1, gridY: 1 }, // NW — War Room up top, out of the way
   [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 1 }, // NE — Scouting Dept by the road in
   [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 7 }, // SW — Rehab next to the practice side
-  [BuildingType.TACTICS_ROOM]:   { gridX: 7, gridY: 7 }, // SE — War Room overlooking the gates
+  [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // SE bottom corner — the practice field
 };
 
 // ── The Team Bus: permanent blocker at the south gate (defense view only) ──────

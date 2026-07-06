@@ -866,23 +866,36 @@ function App() {
     setBattleConfig(null);
   };
 
-  // Heroes level INSTANTLY on coins (their own track — not gated by builders/timers),
-  // so the game stays hero-focused and leveling feels rewarding.
+  // Heroes TRAIN on a timer — much longer than facility builds (3×), because a player
+  // getting better is a grind, not a construction job. Doesn't occupy a builder; one
+  // training session per hero at a time. (The job loop + gem-rush already understood
+  // kind:'hero' jobs — this finally creates them.)
+  const heroTrainSecs = (toLevel: number) => Math.round(upgradeDurationSecs(toLevel) * 3);
   const handleUpgradeHero = (key: string, cost: number) => {
+    const h0 = gameState.heroes.find(h => h.key === key);
+    const stadLvl0 = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+    const busy = gameState.upgrades.some(u => u.kind === 'hero' && u.key === key);
+    const ok = !!h0?.unlocked && !busy && h0.level < heroMaxLevel(stadLvl0) && gameState.resources.COINS >= cost;
     setGameState(prev => {
       const hero = prev.heroes.find(h => h.key === key);
       if (!hero || !hero.unlocked) return prev;
+      if (prev.upgrades.some(u => u.kind === 'hero' && u.key === key)) { sfx.error(); return prev; }
       const stadiumLvl = prev.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
       if (hero.level >= heroMaxLevel(stadiumLvl)) { sfx.error(); return prev; }
       if (prev.resources.COINS < cost) { sfx.error(); return prev; }
-      return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, heroes: prev.heroes.map(h => h.key === key ? { ...h, level: h.level + 1 } : h) };
+      const now = Date.now();
+      const toLevel = hero.level + 1;
+      return {
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost },
+        upgrades: [...prev.upgrades, { id: `hj_${now}_${key}`, kind: 'hero' as const, key, toLevel, startTime: now, finishTime: now + heroTrainSecs(toLevel) * 1000 }],
+      };
     });
-    // Mirror the success guards for the daily-quest bump (state update above is functional).
-    const h0 = gameState.heroes.find(h => h.key === key);
-    const stadLvl0 = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-    if (h0?.unlocked && h0.level < heroMaxLevel(stadLvl0) && gameState.resources.COINS >= cost) bumpDaily('train_hero');
-    sfx.upgrade();
-    spawnText('Hero leveled up!', window.innerWidth / 2, window.innerHeight / 2, '#facc15');
+    if (ok) {
+      bumpDaily('train_hero');
+      sfx.upgrade();
+      spawnText('Training session started 🏋️', window.innerWidth / 2, window.innerHeight / 2, '#facc15');
+    }
   };
 
   // --- DAILY PRACTICE (quests) ---
@@ -1116,8 +1129,12 @@ function App() {
         <SquadModal
           roster={gameState.roster}
           resources={gameState.resources}
+          heroes={gameState.heroes}
+          upgrades={gameState.upgrades}
+          stadiumLevel={stadiumLevel}
           onClose={() => setIsSquadOpen(false)}
           onTrainGroup={handleTrainGroup}
+          onTrainHero={handleUpgradeHero}
           onOpenHeroes={() => { setIsSquadOpen(false); setIsHeroOpen(true); }}
         />
       )}
