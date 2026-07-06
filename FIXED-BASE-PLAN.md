@@ -7,6 +7,29 @@ game's most-loved loop). This deletes the entire class of mobile placement bugs.
 
 ---
 
+## 0) TWO VIEWS, one base (the core of the design)
+
+The same base data renders two different ways:
+
+**🏗 BUILD VIEW (the home board)** — what you see day-to-day. ONLY:
+- The 5 facilities at their fixed anchors + collect bubbles + upgrade timers
+- Cosmetic decor (statue, fountain, merch, tailgate)
+- Your roster players idling/walking around (charm layer)
+- NO walls, NO defenses, NO bus, NO parking apron. Clean, readable, zero clutter —
+  this is a football campus, not a fortress.
+
+**🛡 DEFENSE VIEW (the extended base)** — rendered ONLY when the base is being defended:
+when someone attacks you, in ▶ replays, in 🧪 Test Defense, and when an attacker scouts
+you before raiding. This is the battle map, and it shows everything:
+- The same facilities, PLUS the wall ring, all unlocked defense emplacements
+  (same fixed locations for every player), the team bus blocker, the parking-lot
+  apron (compression), and the crowd/fans meter driving crowd pulses
+- **Your heroes and home-guard players visibly defending** (patrol + engage)
+
+Nothing about the battle sim changes — `defenseLayoutFromBase` already derives the
+battle world from base data. The change is that the HOME board stops rendering any
+of the defensive layer, which deletes most of its complexity.
+
 ## 1) The fixed map (10×10, all anchors permanent)
 
 All facilities are 2×2 (anchor = top cell). These are the canonical homes:
@@ -18,8 +41,11 @@ All facilities are 2×2 (anchor = top cell). These are the canonical homes:
 | Scouting Dept | (6,2) | NE quadrant |
 | Rehab Center | (3,5) | W center |
 | War Room | (3,8) | SW corner |
-| Team Bus | (5,9) | Parked at the south gate — fixed blocker (HP = wall × 2.2) |
-| Decor | statue (5,3) · merch (9,4) · fountain (1,7) · tailgate (9,7) · lot (1,3) | unchanged |
+| Team Bus | (5,9) | Defense view only — fixed blocker at the south gate (HP = wall × 2.2) |
+| Decor | statue (5,3) · merch (9,4) · fountain (1,7) · tailgate (9,7) | build view (cosmetic) |
+
+The parking-lot decor tile is retired from the build view — the Parking Lot lives in the
+Front Office as an upgrade and shows in the defense view as the apron it creates.
 
 Walls: **automatic ring** — count comes from the existing `wallCap(stadiumLevel)`
 (16 + 2×SL, max 40). SL1 starts with the 12-segment inner ring at 5–8 × 5–8; higher
@@ -84,6 +110,9 @@ shield, and unlock gates. Parking Lot stays exactly as-is (fixed upgrade, 3 leve
 - `StoredPieces` inventory, `DefensePiece.flip`, free placement of bus.
 - All placement hit-testing/ghost/pending-grab complexity in IsometricMap edit mode
   (view-mode camera, zoom, pan, tap-to-open all stay).
+- **Home-board rendering of the entire defensive layer** — WallSprite, defense
+  pieces, bus, parking decor all leave IsometricMap. They render only in the
+  defense view (BattleScreen), which already draws all of them.
 
 **Chalkboard becomes the FRONT OFFICE:** one clean panel listing every slot —
 5 facilities, 9 defense emplacements, parking, perimeter (read-only), bus — each with
