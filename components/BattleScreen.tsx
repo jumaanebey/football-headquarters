@@ -58,7 +58,7 @@ interface Shot { sx: number; sy: number; tx: number; ty: number; t: number; dur:
 interface Pulse { x: number; y: number; r: number; life: number; maxLife: number; color: string; }
 // Ephemeral battle FX: dust puffs under runners, impact pops on contact, floating "SACKED!" text,
 // Castle-Clash-style floating damage numbers ('dmg') and knocked-down player chips ('down').
-interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
+interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'debris' | 'confetti' | 'smoke'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
 
 const TICK_MS = 50;
 const DT = TICK_MS / 1000;
@@ -326,6 +326,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           t.attacking = true;
           target.hp -= dps * DT;
           t.dmg = (t.dmg ?? 0) + dps * DT;
+          // Contact sparkle — the block/tackle work on the building is VISIBLE
+          if (rand() < 0.06) s.fx.push({ type: 'impact', x: (t.x + target.x) / 2, y: (t.y + target.y) / 2 - 1, life: 0.3, maxLife: 0.3 });
           // Floating damage numbers — throttled per player so hits read without spamming.
           t.dmgAcc = (t.dmgAcc ?? 0) + dps * DT;
           t.dmgTimer = (t.dmgTimer ?? 0) + DT;
@@ -349,12 +351,24 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               say(scored ? '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!' : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(rand() * 3)]);
               s.momentum = Math.min(100, s.momentum + (scored ? 25 : 12) * planRef.current.momentum);
               if (scored) { s.freezeT = 0.45; sfx.crowdRoar(); } // freeze-frame + the stadium erupts
+              // 💥 The teardown MOMENT: shockwave ring + tumbling debris + smoke + loot.
+              s.pulses.push({ x: target.x, y: target.y, r: scored ? 15 : 10, life: 0.45, maxLife: 0.45, color: scored ? '#fde047' : '#f8fafc' });
+              for (let di = 0; di < (scored ? 8 : 6); di++) {
+                const da = rand() * Math.PI * 2;
+                s.fx.push({ type: 'debris', x: target.x, y: target.y - 1, vx: Math.cos(da) * (8 + rand() * 8), vy: -6 - rand() * 10, life: 0.8, maxLife: 0.8, color: ['#64748b', '#94a3b8', '#f97316'][di % 3] });
+              }
+              for (let si = 0; si < 3; si++) s.fx.push({ type: 'smoke', x: target.x + (rand() * 6 - 3), y: target.y - 1, vx: rand() * 2 - 1, life: 1.3, maxLife: 1.3 });
+              // TOUCHDOWN = the stands EXPLODE in team-color confetti
+              if (scored) for (let ci2 = 0; ci2 < 18; ci2++) {
+                const ca2 = rand() * Math.PI * 2;
+                s.fx.push({ type: 'confetti', x: target.x, y: target.y - 3, vx: Math.cos(ca2) * (6 + rand() * 14), vy: -10 - rand() * 16, life: 1.4, maxLife: 1.4, color: ['#f97316', '#fde047', '#f8fafc', '#38bdf8'][ci2 % 4] });
+              }
               // Loot burst — coins pop out of the wreckage
               for (let ci = 0; ci < (scored ? 7 : 4); ci++) {
                 const ca = rand() * Math.PI * 2;
                 s.fx.push({ type: 'coin', x: target.x, y: target.y, vx: Math.cos(ca) * 9, vy: Math.sin(ca) * 5 - 9, life: 0.7, maxLife: 0.7 });
               }
-              s.shakeT = scored ? 0.4 : 0.25;
+              s.shakeT = scored ? 0.55 : 0.35;
             }
           }
         }
@@ -475,6 +489,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         const hit = Math.round(raw * ((t.shieldT && t.shieldT > 0) ? 0.5 : 1));
         t.hp -= hit; t.hitFlash = 0.15;
         s.fx.push({ type: 'dmg', text: `${hit}`, color: '#f87171', x: t.x + (rand() * 3 - 1.5), y: t.y - 2.5, life: 0.7, maxLife: 0.7 });
+        if (rand() < 0.3) s.fx.push({ type: 'impact', x: t.x, y: t.y - 0.5, life: 0.28, maxLife: 0.28 });
         if (t.hp <= 0) {
           t.hp = 0; t.dead = true; s.lost++; s.momentum = Math.max(0, s.momentum - 6);
           s.fx.push({ type: 'down', text: `${t.jersey ?? ''}`, color: isDefense ? '#b91c1c' : '#111827', x: t.x, y: t.y, life: 1.1, maxLife: 1.1 });
@@ -513,11 +528,19 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       if (s.pulses.length) s.pulses = s.pulses.filter(p => (p.life -= DT) > 0);
       if (s.fx.length) {
         for (const f of s.fx) {
-          if (f.type === 'coin') { // little lofted arcs with gravity
+          if (f.type === 'coin' || f.type === 'debris' || f.type === 'confetti') { // lofted arcs with gravity
             f.x += (f.vx ?? 0) * DT; f.y += (f.vy ?? 0) * DT; f.vy = (f.vy ?? 0) + 42 * DT;
+          } else if (f.type === 'smoke') { // smoke drifts up and away
+            f.y -= 5 * DT; f.x += (f.vx ?? 0) * DT;
           }
         }
         s.fx = s.fx.filter(f => (f.life -= DT) > 0);
+      }
+      // Damaged facilities SMOLDER — the field tells the story at a glance.
+      for (const b of s.buildings) {
+        if (!b.dead && b.kind !== 'wall' && b.hp < b.maxHp * 0.45 && rand() < 0.035) {
+          s.fx.push({ type: 'smoke', x: b.x + (rand() * 4 - 2), y: b.y - 2, vx: rand() * 2 - 1, life: 1.1, maxLife: 1.1 });
+        }
       }
       if (s.shakeT > 0) s.shakeT = Math.max(0, s.shakeT - DT);
 
@@ -730,7 +753,30 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           onPointerUp={() => { pourRef.current.down = false; }}
           onPointerLeave={() => { pourRef.current.down = false; }}
           className={`relative rounded-2xl overflow-hidden shadow-2xl ${isDefense ? '' : castMode ? 'cursor-pointer ring-4 ring-offset-0' : 'cursor-crosshair'}`}
-          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-conic-gradient(#2f9e44 0% 25%, #2b8a3e 0% 50%) 50% / 14% 14%', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
+          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-linear-gradient(180deg, #2f9e44 0% 10%, #2b8a3e 10% 20%)', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
+
+          {/* 🏟 FIELD PAINT — yard lines, hash marks, end zones, midfield mark. The fight
+              happens ON A FOOTBALL FIELD, not a green checkerboard. */}
+          <div className="absolute inset-0 pointer-events-none z-0">
+            {/* end zones */}
+            <div className="absolute left-0 right-0" style={{ top: 0, height: '9%', background: 'repeating-linear-gradient(45deg, rgba(249,115,22,0.24) 0 10px, rgba(249,115,22,0.10) 10px 20px)', borderBottom: '2px solid rgba(255,255,255,0.65)' }} />
+            <div className="absolute left-0 right-0" style={{ bottom: 0, height: '9%', background: 'repeating-linear-gradient(45deg, rgba(30,41,59,0.35) 0 10px, rgba(30,41,59,0.18) 10px 20px)', borderTop: '2px solid rgba(255,255,255,0.65)' }} />
+            {/* yard lines + numbers */}
+            {[19, 29, 39, 49.25, 59, 69, 79].map((p, i) => (
+              <div key={p} className="absolute left-0 right-0" style={{ top: `${p}%` }}>
+                <div style={{ height: i === 3 ? 2.5 : 1.5, background: `rgba(255,255,255,${i === 3 ? 0.7 : 0.42})` }} />
+                <span className="absolute font-black text-white/35" style={{ left: '2.5%', top: -14, fontSize: '2vmin' }}>{[10, 20, 30, 50, 30, 20, 10][i]}</span>
+              </div>
+            ))}
+            {/* hash marks */}
+            {(['31%', '67%'] as const).map(x => (
+              <div key={x} className="absolute top-[10%] bottom-[10%]" style={{ left: x, width: 4, backgroundImage: 'repeating-linear-gradient(180deg, rgba(255,255,255,0.35) 0 4px, transparent 4px 22px)' }} />
+            ))}
+            {/* midfield mark */}
+            <div className="absolute rounded-full border-2 border-white/30 flex items-center justify-center" style={{ left: '50%', top: '49.25%', width: '13%', height: '13%', transform: 'translate(-50%,-50%)' }}>
+              <span style={{ fontSize: '3.4vmin', opacity: 0.5 }}>🏈</span>
+            </div>
+          </div>
 
           {/* Stadium surround — a dark stands ring + crowd doing the wave on all four sides,
               with tailgaters in the corners. Makes every battle read as being INSIDE a stadium. */}
@@ -826,11 +872,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const x = sh.sx + (sh.tx - sh.sx) * u;
             const y = sh.sy + (sh.ty - sh.sy) * u - Math.sin(Math.PI * u) * 9; // parabolic arc
             const proj = sh.flavor === 'ref' ? '🚩' : sh.flavor === 'tshirt' ? '👕' : '🏈';
+            const ang = Math.atan2(sh.ty - sh.sy, sh.tx - sh.sx) * 180 / Math.PI;
             return (
-              <div key={i} className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '3vmin', height: '3vmin', zIndex: 95, transform: `translate(-50%,-50%) rotate(${sh.rot + u * 540}deg)`, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>
-                <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '2.4vmin', lineHeight: 1 }}>{proj}</span>
-                {proj === '🏈' && <img src="/assets/battle/football-proj.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />}
-              </div>
+              <React.Fragment key={i}>
+                {/* motion streak behind the ball — reads as SPEED */}
+                <div className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '5vmin', height: 2, zIndex: 94, transformOrigin: '100% 50%', transform: `translate(-100%,-50%) rotate(${ang}deg)`, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.55))', opacity: 0.5 + u * 0.3 }} />
+                <div className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '3vmin', height: '3vmin', zIndex: 95, transform: `translate(-50%,-50%) rotate(${sh.rot + u * 540}deg)`, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>
+                  <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '2.4vmin', lineHeight: 1 }}>{proj}</span>
+                  {proj === '🏈' && <img src="/assets/battle/football-proj.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />}
+                </div>
+              </React.Fragment>
             );
           })}
 
@@ -856,6 +907,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             );
             if (f.type === 'impact') return (
               <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3.6vmin', height: '3.6vmin', background: 'radial-gradient(circle, #fff 0%, #fde047 45%, transparent 72%)', zIndex: 150, transform: `translate(-50%,-50%) scale(${0.6 + (1 - k) * 1.1})`, opacity: k }} />
+            );
+            if (f.type === 'debris') return (
+              // Chunks of the sacked facility tumbling out of the wreck
+              <div key={i} className="absolute pointer-events-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '1.3vmin', height: '1.3vmin', background: f.color, border: '1px solid rgba(0,0,0,0.4)', borderRadius: 2, zIndex: 160, transform: `translate(-50%,-50%) rotate(${(1 - k) * 560}deg)`, opacity: Math.min(1, k * 1.6) }} />
+            );
+            if (f.type === 'confetti') return (
+              <div key={i} className="absolute pointer-events-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '1vmin', height: '1.6vmin', background: f.color, zIndex: 215, transform: `translate(-50%,-50%) rotate(${(1 - k) * 720}deg) scaleY(${0.4 + Math.abs(Math.sin((1 - k) * 9))})`, opacity: Math.min(1, k * 1.8) }} />
+            );
+            if (f.type === 'smoke') return (
+              <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${2 + (1 - k) * 3.4}vmin`, height: `${2 + (1 - k) * 3.4}vmin`, background: 'radial-gradient(circle, rgba(148,163,184,0.5) 0%, rgba(100,116,139,0.25) 55%, transparent 75%)', zIndex: 155, transform: 'translate(-50%,-50%)', opacity: k * 0.8 }} />
             );
             return (
               <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '2.4vmin', height: '2.4vmin', background: 'rgba(212,190,150,0.55)', zIndex: 80, transform: `translate(-50%,-50%) scale(${0.4 + (1 - k)})`, opacity: k * 0.55 }} />
