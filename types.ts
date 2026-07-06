@@ -183,11 +183,14 @@ export interface GameState {
   trophies: number;         // trophy-ladder standing (drives your Rank)
   teamName: string;         // your club's public name (shown to Live Rivals)
   dailies: import('./dailies').DailiesState; // today's Daily Practice quests
-  defenses: DefensePiece[]; // player-placed defensive equipment (JUGS, sleds, ref towers…)
-  inventory: StoredPieces;  // pieces stored off the board (Design "Store All" → drag back)
-  bus: { gridX: number; gridY: number; flip?: boolean } | null; // the Team Bus — a movable BIG blocker (walls-tier obstacle)
+  defenses: DefensePiece[]; // LEGACY (pre-fixed-base) — kept for save migration only
+  inventory: StoredPieces;  // LEGACY (pre-fixed-base) — kept for save migration only
+  bus: { gridX: number; gridY: number; flip?: boolean } | null; // LEGACY — bus is a fixed fixture now
   parkingLot: number;       // 0-3 — each level widens the apron attackers must cross (longer under fire)
   bonusDefSlots: number;    // 0-3 — extra equipment slots purchased with Crowns
+  /** FIXED BASE: emplacement levels by slot id (D1-D6, C1-C3). Absent/0 = not activated.
+   *  Geometry lives in fixedBase.ts — the save stores ONLY levels. */
+  defenseSlots: Record<string, number>;
 }
 
 // Pieces you own but currently have OFF the board (Design-mode inventory).

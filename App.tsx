@@ -24,6 +24,7 @@ import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } f
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
+import { FIXED_ANCHORS, DEFENSE_SLOTS, slotUnlocked } from './fixedBase';
 
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
@@ -66,9 +67,10 @@ const INITIAL_STATE: GameState = {
   dailies: freshDailies(),
   defenses: [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }], // starter JUGS machine
   inventory: { sleds: 0, defenses: [], bus: false },
-  bus: { gridX: 6, gridY: 9 }, // the Team Bus — a movable big blocker (was static decor)
+  bus: { gridX: 6, gridY: 9 }, // LEGACY — bus is a fixed fixture at BUS_TILE now
   parkingLot: 0,
-  bonusDefSlots: 0
+  bonusDefSlots: 0,
+  defenseSlots: { D1: 1 } // starter JUGS machine lives in its fixed north-gate slot
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -132,45 +134,35 @@ const loadState = (): GameState => {
       const parkingLot = saved.parkingLot ?? 0;
       const bonusDefSlots = saved.bonusDefSlots ?? 0;
 
-      // --- 2×2 FOOTPRINT MIGRATION (idempotent) ---
-      // Facilities occupy 4 tiles now. De-overlap buildings (Stadium keeps its spot first),
-      // then free any walls/equipment/bus trapped inside a footprint into the inventory.
-      {
-        const occ = new Set<string>();
-        const fits = (gx: number, gy: number) =>
-          gx >= 0 && gx <= 8 && gy >= 0 && gy <= 8 && !buildingTiles(gx, gy).some(([x, y]) => occ.has(`${x},${y}`));
-        const order = [...buildings].sort((a, b) => (a.type === BuildingType.STADIUM ? -1 : b.type === BuildingType.STADIUM ? 1 : 0));
-        for (const b of order) {
-          let gx = Math.min(8, Math.max(0, b.gridX));
-          let gy = Math.min(8, Math.max(0, b.gridY));
-          if (!fits(gx, gy)) {
-            // spiral out to the nearest anchor that fits
-            outer: for (let rad = 1; rad <= 9; rad++) {
-              for (let dx = -rad; dx <= rad; dx++) for (let dy = -rad; dy <= rad; dy++) {
-                if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
-                if (fits(gx + dx, gy + dy)) { gx += dx; gy += dy; break outer; }
-              }
-            }
-          }
-          b.gridX = gx; b.gridY = gy;
-          buildingTiles(gx, gy).forEach(([x, y]) => occ.add(`${x},${y}`));
+      // --- FIXED BASE: facilities live at canonical anchors. Positions are geometry,
+      //     not player data — every save snaps to the one true map (FIXED-BASE-PLAN.md).
+      for (const b of buildings) {
+        const a = FIXED_ANCHORS[b.type];
+        if (a) { b.gridX = a.gridX; b.gridY = a.gridY; }
+      }
+      var migratedWalls = saved.walls || INITIAL_WALLS; // legacy field (battle still reads it until Stage 4)
+
+      // --- FIXED BASE MIGRATION (one-time): owned defense pieces fill their matching
+      //     fixed emplacements; anything with no free unlocked slot refunds at FULL
+      //     shop price (walls/bus were always free — nothing to refund there).
+      let slotRefund = 0;
+      let defenseSlots: Record<string, number>;
+      if (saved.defenseSlots) {
+        defenseSlots = { ...saved.defenseSlots };
+      } else {
+        defenseSlots = {};
+        const stadiumLvlNow = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+        const ownedKinds = [...defenses.map(d => d.kind), ...inventory.defenses.map(d => d.kind)];
+        for (const kind of ownedKinds) {
+          const slot = DEFENSE_SLOTS.find(s => s.kind === kind && !defenseSlots[s.id] && slotUnlocked(s, stadiumLvlNow, bonusDefSlots));
+          if (slot) defenseSlots[slot.id] = 1;
+          else slotRefund += DEFENSE_TYPES.find(t => t.kind === kind)?.cost ?? 0;
         }
-        // Free trapped pieces → inventory (never delete what the player owns).
-        const trappedWalls = (saved.walls || INITIAL_WALLS).filter((w: { gridX: number; gridY: number }) => occ.has(`${w.gridX},${w.gridY}`)).length;
-        if (trappedWalls > 0) inventory.sleds += trappedWalls;
-        var migratedWalls = (saved.walls || INITIAL_WALLS).filter((w: { gridX: number; gridY: number }) => !occ.has(`${w.gridX},${w.gridY}`));
-        for (const d of [...defenses]) {
-          if (occ.has(`${d.gridX},${d.gridY}`)) {
-            inventory.defenses.push({ kind: d.kind });
-            defenses.splice(defenses.indexOf(d), 1);
-          }
-        }
-        if (bus && occ.has(`${bus.gridX},${bus.gridY}`)) { inventory.bus = true; bus = null; }
       }
       // "While you were away" — resolve rival raids against your ACTUAL base for the
       // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
       let defenseLog = [...(saved.defenseLog || [])];
-      let coins = saved.resources?.[ResourceType.COINS] ?? INITIAL_STATE.resources[ResourceType.COINS];
+      let coins = (saved.resources?.[ResourceType.COINS] ?? INITIAL_STATE.resources[ResourceType.COINS]) + slotRefund;
       let shieldUntil = saved.shieldUntil || 0;
       let trophies = saved.trophies || 0;
       // A protective shield (earned after a beating) blocks all offline raids until it expires.
@@ -197,7 +189,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
