@@ -74,9 +74,10 @@ export const Sheet: React.FC<{
   scroll?: boolean; // false = workspace mode: children manage their own panes (two-pane layouts)
   children: React.ReactNode;
 }> = ({ title, icon, subtitle, onClose, footer, actions, maxWidth = 'max-w-lg', scroll = true, children }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4" onClick={onClose}>
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 sm:p-4" onClick={onClose}>
+    {/* Phones get FULL-SCREEN sheets (every pixel counts); desktop keeps the floating card. */}
     <div
-      className={`bg-[#0b0f1a] w-full ${maxWidth} max-h-[88vh] rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden`}
+      className={`bg-[#0b0f1a] w-full ${maxWidth} h-full sm:h-auto max-h-full sm:max-h-[88vh] rounded-none sm:rounded-2xl border-0 sm:border border-slate-800 shadow-2xl flex flex-col overflow-hidden`}
       onClick={e => e.stopPropagation()}
     >
       {/* Header stacks: title row → full-width subtitle → actions row. Never squeezes
