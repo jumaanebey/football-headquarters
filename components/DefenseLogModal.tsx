@@ -21,6 +21,8 @@ const ago = (ts: number) => {
 };
 
 export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, onWatchLive, onRevenge, onWatchReplay }) => {
+  // 🔥 FEUD: same rival hitting you 2+ times = a running score to settle (revenge pays 1.5×).
+  const hitCount = (e: DefenseLogEntry) => log.filter(x => (e.attackerPid ? x.attackerPid === e.attackerPid : x.attacker === e.attacker)).length;
   const held = log.filter(e => e.stars === 0).length;
   const totalLost = log.reduce((s, e) => s + e.coinsLost, 0);
   const shieldMs = (shieldUntil || 0) - Date.now();
@@ -75,8 +77,11 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
                   <Swords size={16} className={held ? 'text-green-300' : 'text-red-300'} />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-bold text-white truncate">{e.attacker}</div>
-                  <div className="text-[11px] text-slate-400">{ago(e.at)} · {e.pct}% of base</div>
+                  <div className="font-bold text-white truncate">
+                    {e.attacker}
+                    {hitCount(e) >= 2 && <span className="ml-1.5 text-[9px] font-black uppercase bg-red-600 text-white px-1.5 py-0.5 rounded align-middle animate-pulse">🔥 FEUD ·{hitCount(e)}</span>}
+                  </div>
+                  <div className="text-[11px] text-slate-400">{ago(e.at)} · {e.pct}% of base{hitCount(e) >= 2 && !e.avenged && <span className="text-orange-300 font-bold"> · revenge pays 1.5×</span>}</div>
                 </div>
                 <div className="ml-auto text-right shrink-0 flex flex-col items-end gap-1">
                   <div className="flex items-center gap-0.5 justify-end">

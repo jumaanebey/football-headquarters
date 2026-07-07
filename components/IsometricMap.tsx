@@ -362,7 +362,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.8 : 1;
   // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
   // not the board's geometric middle — so the base reads centered, especially zoomed in.
-  const homeY = Math.round((BOARD_H / 2 - tileToScreen(6, 6).y) * scale * homeZ);
+  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ); // stadium center (anchor 4,4 → center tile 5,5)
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
     const z = Math.min(3, Math.max(0.55, c.z));
@@ -497,7 +497,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               [BuildingType.YOUTH_ACADEMY]: 0.35,
             };
             return (
-              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y + TILE_H * (TAG_Y[b.type] ?? 0.45), zIndex: 46 }}>
+              <div key={`tag-${b.id}`} className="absolute pointer-events-none" style={{ left: c.x - TILE_W * 0.92, top: c.y + TILE_H * (TAG_Y[b.type] ?? 0.45), zIndex: 46 }}>
                 <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/70 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
                   {BUILDING_INFO[b.type].name} <span className="text-yellow-300">L{b.level}</span>
                 </span>

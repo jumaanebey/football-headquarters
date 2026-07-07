@@ -750,7 +750,12 @@ function App() {
       power: raidPower(),
       heroes: heroesForBattle(gameState.heroes),
       specials: specialsForBattle(gameState.resources.FANS),
-      loot: { coins: Math.round(entry.coinsLost * 1.5) + 200, fans: 25 }, // reclaim more than they took
+      // 🔥 FEUD: a rival who's hit you 2+ times pays extra when you finally hit back.
+      loot: (() => {
+        const hits = gameState.defenseLog.filter(e => (entry.attackerPid ? e.attackerPid === entry.attackerPid : e.attacker === entry.attacker)).length;
+        const feud = hits >= 2 ? 1.5 : 1;
+        return { coins: Math.round((Math.round(entry.coinsLost * 1.5) + 200) * feud), fans: Math.round(25 * feud) };
+      })(),
       rival: entry.attackerPid ? undefined : coachForBase(entry.attacker), // real people speak for themselves
       pvpTarget,
     });

@@ -1003,7 +1003,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               // Blocking Sled — hazard-striped barrier. Sized as a % of the field so it
               // tracks its world footprint at any viewport size.
               return (
-                <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.size * 1.4}%`, zIndex: Math.round(b.y) }}>
+                <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.size * 1.7}%`, zIndex: Math.round(b.y) }}>
                   {/* HP bar only once it's TAKEN damage — 30 full green bars was pure noise */}
                   {!b.dead && b.hp < b.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%', minWidth: 18 }}><div className="h-full bg-lime-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
                   <img src="/assets/battle/blocking-sled.png" alt="" draggable={false} className="w-full" style={{ height: 'auto', aspectRatio: '1', objectFit: 'contain', opacity: b.dead ? 0.25 : 1, filter: b.dead ? 'grayscale(1) brightness(0.55)' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }} />
@@ -1012,7 +1012,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             }
             // Buildings: width is a % of the field, so `size` (world radius) maps straight
             // to on-screen footprint. HQ size 8 → 17.6% ; buildings size 5–6 → 11–13%.
-            const wpct = b.size * 2.2;
+            const wpct = b.size * 2.8; // buildings OWN their ground — toy-scale was killing the drama
             // Fixed base: layouts carry the REAL building art (type + level) so the field
             // is the same base you built. Old published bases / bot bases lack it → pool art.
             const sprite = b.art ?? battleBuildingSprite(b.kind, b.id, !isDefense && !isReplay, b.flavor);

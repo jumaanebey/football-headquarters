@@ -109,7 +109,7 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
       [BuildingType.TACTICS_ROOM]:   { gridX: 2, gridY: 1 }, // War Room — north wall, west end
       [BuildingType.YOUTH_ACADEMY]:  { gridX: 6, gridY: 1 }, // Scouting — north wall, east end
       [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 6 }, // Rehab — west wall, south end
-      [BuildingType.TRAINING_PITCH]: { gridX: 6, gridY: 7 }, // Training — south wall, east end
+      [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // Training — owns the SE corner
     },
     slotPos: {
       D1: { gridX: 4, gridY: 3, covers: 'Field ring N' },
@@ -125,7 +125,7 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     // Wall ring at 1..8 WITHOUT corners (the four corner gaps are the gates);
     // the facility blocks punch their own sections out (occupied-filtered).
     wallOrder: ring(1, 8, K([1, 1], [8, 1], [1, 8], [8, 8])),
-    busTile: { gridX: 8, gridY: 8 }, // parks the SE corner gate
+    busTile: { gridX: 1, gridY: 8 }, // parks the SW corner gate (Training owns the SE)
   },
 
   // ── FORMATION 3: Cover 3's shell + an inner KEEP around the Field. Double wall.
@@ -139,7 +139,7 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
       [BuildingType.TACTICS_ROOM]:   { gridX: 2, gridY: 1 },
       [BuildingType.YOUTH_ACADEMY]:  { gridX: 6, gridY: 1 },
       [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 6 },
-      [BuildingType.TRAINING_PITCH]: { gridX: 6, gridY: 7 },
+      [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // SE corner (matches Cover 3)
     },
     slotPos: {
       D1: { gridX: 4, gridY: 2, covers: 'North courtyard' },
@@ -160,7 +160,7 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
       // then the outer shell (same as Cover 3 — corners open)
       ...ring(1, 8, K([1, 1], [8, 1], [1, 8], [8, 8])),
     ],
-    busTile: { gridX: 8, gridY: 8 },
+    busTile: { gridX: 1, gridY: 8 }, // SW corner gate
   },
 };
 
