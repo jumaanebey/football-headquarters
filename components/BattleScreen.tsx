@@ -114,7 +114,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
     return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
   };
-  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number }>({
+  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; punchT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
     guards: (() => {
@@ -127,7 +127,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       });
     })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
-    shots: [], pulses: [], fx: [], shakeT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
+    shots: [], pulses: [], fx: [], shakeT: 0, punchT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
     momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0,
   });
   const [driveStats, setDriveStats] = useState<{ mvp: string; mvpDmg: number; pancakes: number; lost: number; bonus: number } | null>(null);
@@ -369,6 +369,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 s.fx.push({ type: 'coin', x: target.x, y: target.y, vx: Math.cos(ca) * 9, vy: Math.sin(ca) * 5 - 9, life: 0.7, maxLife: 0.7 });
               }
               s.shakeT = scored ? 0.55 : 0.35;
+              s.punchT = scored ? 0.4 : 0.18; // camera ZOOM-PUNCH — the moment lands physically
             }
           }
         }
@@ -543,6 +544,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         }
       }
       if (s.shakeT > 0) s.shakeT = Math.max(0, s.shakeT - DT);
+      if (s.punchT > 0) s.punchT = Math.max(0, s.punchT - DT);
 
       s.time -= DT;
       const allDead = s.buildings.filter(b => b.kind !== 'wall').every(b => b.dead);
@@ -753,7 +755,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           onPointerUp={() => { pourRef.current.down = false; }}
           onPointerLeave={() => { pourRef.current.down = false; }}
           className={`relative rounded-2xl overflow-hidden shadow-2xl ${isDefense ? '' : castMode ? 'cursor-pointer ring-4 ring-offset-0' : 'cursor-crosshair'}`}
-          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-linear-gradient(180deg, #2f9e44 0% 10%, #2b8a3e 10% 20%)', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
+          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-linear-gradient(180deg, #2f9e44 0% 10%, #2b8a3e 10% 20%)', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: s.punchT > 0 ? `scale(${(1 + s.punchT * 0.16).toFixed(3)})` : undefined, transition: 'transform 90ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
 
           {/* 🏟 FIELD PAINT — yard lines, hash marks, end zones, midfield mark. The fight
               happens ON A FOOTBALL FIELD, not a green checkerboard. */}
@@ -778,21 +780,23 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
           </div>
 
-          {/* Stadium surround — a dark stands ring + crowd doing the wave on all four sides,
-              with tailgaters in the corners. Makes every battle read as being INSIDE a stadium. */}
+          {/* Stadium surround — a dark stands ring + crowd doing the wave on all four sides.
+              The crowd SWELLS with momentum: dots grow, the wave speeds up, the stands
+              glow warmer — a hot drive FEELS hot before you read a single number. */}
+          {(() => { const crowdE = Math.min(1, Math.max(0, s.momentum) / 100); const dot = 5 + crowdE * 3.5; const waveDur = (1.3 - crowdE * 0.65).toFixed(2); return (
           <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: 'inset 0 0 0 14px rgba(15,23,42,0.35)' }} />
+            <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 0 14px rgba(15,23,42,0.35)${crowdE > 0.4 ? `, inset 0 0 ${Math.round(crowdE * 26)}px rgba(249,115,22,${(crowdE * 0.35).toFixed(2)})` : ''}` }} />
             {(['top', 'bottom'] as const).map(side => (
               <div key={side} className="absolute left-0 right-0 flex justify-around px-1" style={{ [side]: 2 }}>
                 {Array.from({ length: 26 }).map((_, i) => (
-                  <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: i % 3 === 0 ? '#f59e0b' : i % 3 === 1 ? '#3b82f6' : '#e2e8f0', animation: `fhq-wave 1.3s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` }} />
+                  <div key={i} style={{ width: dot, height: dot, borderRadius: '50%', background: i % 3 === 0 ? '#f59e0b' : i % 3 === 1 ? '#3b82f6' : '#e2e8f0', filter: crowdE > 0.5 ? 'brightness(1.35)' : undefined, animation: `fhq-wave ${waveDur}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` }} />
                 ))}
               </div>
             ))}
             {(['left', 'right'] as const).map(side => (
               <div key={side} className="absolute top-0 bottom-0 flex flex-col justify-around py-1" style={{ [side]: 2 }}>
                 {Array.from({ length: 20 }).map((_, i) => (
-                  <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: i % 3 === 0 ? '#e2e8f0' : i % 3 === 1 ? '#f59e0b' : '#3b82f6', animation: `fhq-wave 1.3s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` }} />
+                  <div key={i} style={{ width: dot, height: dot, borderRadius: '50%', background: i % 3 === 0 ? '#e2e8f0' : i % 3 === 1 ? '#f59e0b' : '#3b82f6', filter: crowdE > 0.5 ? 'brightness(1.35)' : undefined, animation: `fhq-wave ${waveDur}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` }} />
                 ))}
               </div>
             ))}
@@ -812,6 +816,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               </>
             )}
           </div>
+          ); })()}
 
           {!isDefense && phase === 'deploy' && (
             <div className="absolute rounded-full border-2 border-white/20 border-dashed pointer-events-none" style={{ left: '14%', top: '14%', width: '72%', height: '72%' }} />
