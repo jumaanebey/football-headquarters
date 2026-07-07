@@ -76,8 +76,8 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
     id: 'pitch-1',
     type: BuildingType.TRAINING_PITCH,
     level: 1,
-    gridX: 8,
-    gridY: 8,
+    gridX: 7,
+    gridY: 7,
     activeDrillId: null,
     targetUnit: null,
     startTime: null,
@@ -89,7 +89,7 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
     type: BuildingType.YOUTH_ACADEMY,
     level: 1,
     gridX: 7,
-    gridY: 1,
+    gridY: 3,
     activeDrillId: null,
     targetUnit: null,
     startTime: null,
@@ -100,7 +100,7 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
     id: 'med-1',
     type: BuildingType.MEDICAL_CENTER,
     level: 1,
-    gridX: 1,
+    gridX: 3,
     gridY: 7,
     activeDrillId: null,
     targetUnit: null,
@@ -125,8 +125,8 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
     id: 'tactics-1',
     type: BuildingType.TACTICS_ROOM,
     level: 1,
-    gridX: 1,
-    gridY: 1,
+    gridX: 3,
+    gridY: 3,
     activeDrillId: null,
     targetUnit: null,
     startTime: null,
@@ -181,14 +181,10 @@ export const collectorCap = (type: BuildingType, level: number): number => {
 // 2,2 / 6,1 / 1,6 / 6,6).
 // (team-bus is NOT decor anymore — it's a movable blocker piece on GameState.bus)
 export const DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
-  // Placed for the CENTERED-stadium campus: statue on the north plaza, fountain by
-  // the west path, merch + tailgate flanking the east/south fan zones.
   { slug: 'statue-legends', gridX: 4, gridY: 0, scale: 0.75 },
   { slug: 'merch-stand',    gridX: 9, gridY: 4, scale: 0.7 },
-  { slug: 'club-fountain',  gridX: 1, gridY: 4, scale: 0.6 }, // fully ON the grass — (0,4) hung off the island edge
-  { slug: 'tailgate-tent',  gridX: 5, gridY: 9, scale: 0.75 }, // one more tile left — clear of the practice field
-  // parking-lot decor retired — the Parking Lot is a Front Office upgrade whose
-  // apron shows in the DEFENSE view only (FIXED-BASE-PLAN.md).
+  { slug: 'club-fountain',  gridX: 1, gridY: 2, scale: 0.6 }, // ON the grass — (0,4) hung off the island edge
+  { slug: 'tailgate-tent',  gridX: 4, gridY: 9, scale: 0.75 },
 ];
 
 // Steeper curve so upgrades are a real coin sink: you can't afford every building's
@@ -276,10 +272,10 @@ export const wallCap = (stadiumLevel: number) => Math.min(40, 16 + 2 * stadiumLe
 export const WALL_HP = 220;
 // Starter ring protecting the 2×2 Stadium (anchor 6,6 → covers 6-7 × 6-7).
 export const INITIAL_WALLS: { gridX: number; gridY: number }[] = [
-  { gridX: 5, gridY: 5 }, { gridX: 6, gridY: 5 }, { gridX: 7, gridY: 5 }, { gridX: 8, gridY: 5 },
-  { gridX: 5, gridY: 6 }, { gridX: 8, gridY: 6 },
-  { gridX: 5, gridY: 7 }, { gridX: 8, gridY: 7 },
-  { gridX: 5, gridY: 8 }, { gridX: 6, gridY: 8 }, { gridX: 7, gridY: 8 }, { gridX: 8, gridY: 8 },
+  { gridX: 1, gridY: 1 }, { gridX: 2, gridY: 1 }, { gridX: 3, gridY: 1 },
+  { gridX: 6, gridY: 1 }, { gridX: 7, gridY: 1 }, { gridX: 8, gridY: 1 },
+  { gridX: 1, gridY: 8 }, { gridX: 2, gridY: 8 }, { gridX: 3, gridY: 8 },
+  { gridX: 6, gridY: 8 }, { gridX: 7, gridY: 8 }, { gridX: 8, gridY: 8 },
 ];
 
 // HELPER: Generate roster

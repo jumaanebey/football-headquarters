@@ -779,7 +779,7 @@ function App() {
       buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
-      homeGuards: [...homeDefenders(gameState.roster), ...heroGuards], // defenders + heroes, on the field
+      homeGuards: [...homeDefenders(gameState.roster, gameState.parkingLot), ...heroGuards], // defenders + heroes, on the field
       fans: gameState.resources.FANS,              // the crowd stalls enemy drives
       parkingLot: gameState.parkingLot,            // visible apron (layout pre-compressed)
       loot: { coins: coinsAtRisk, fans: 0 },

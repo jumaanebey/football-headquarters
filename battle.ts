@@ -404,13 +404,14 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
 // too when there aren't enough true defenders). Stats scale with each player's OVR —
 // recruiting and training your defense is now something you can WATCH work.
 export interface HomeGuardDef { jersey: number; hp: number; dps: number; name: string; art?: string; unit?: UnitGroup; }
-export const homeDefenders = (roster: Player[]): HomeGuardDef[] => {
+export const homeDefenders = (roster: Player[], parkingLotLevel = 0): HomeGuardDef[] => {
   const side = (p: Player) => {
     const t = TENDENCIES[p.tendency as TendencyKey];
     return t?.side === 'defense' ? 2 : t?.side === 'balanced' ? 1 : 0;
   };
   const jerseyOf = (id: string) => { let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return 40 + (h % 59); };
-  return roster
+  
+  const rosterGuards = roster
     .filter(p => side(p) > 0)
     .sort((a, b) => side(b) - side(a) || playerOvr(b) - playerOvr(a))
     .slice(0, 4)
@@ -425,6 +426,23 @@ export const homeDefenders = (roster: Player[]): HomeGuardDef[] => {
         unit: p.unit, // real position group → the guard wears the right sprite
       };
     });
+
+  const fanGuards: HomeGuardDef[] = [];
+  const pl = Math.min(PARKING_LOT.maxLevel, Math.max(0, parkingLotLevel));
+  if (pl > 0) {
+    const mobCount = pl * 3; // L1=3, L2=6, L3=9 swarms
+    for (let i = 0; i < mobCount; i++) {
+      fanGuards.push({
+        jersey: 99,
+        hp: 75,
+        dps: 12,
+        name: 'Tailgate Mob',
+        art: '/assets/units/fan-mob.png'
+      });
+    }
+  }
+
+  return [...rosterGuards, ...fanGuards];
 };
 
 // The AI raiding party, pre-placed around the perimeter of your base.

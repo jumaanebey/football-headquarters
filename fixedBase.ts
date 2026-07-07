@@ -15,16 +15,21 @@ import { DEFENSE_TYPES, buildingTiles, wallCap } from './constants';
 // walled in. The four departments hold the four corners — Training NW, Scouting NE,
 // Rehab SW, War Room SE — so the dirt paths radiate out symmetrically and the build
 // view and defense view read as the SAME place at a glance.
+// THE FORT: stadium dead center, the four departments packed CORNER-ADJACENT
+// (diagonal cross). In grid space a straight N/S/E/W cross looks tight, but the
+// ISO camera renders grid-diagonal neighbors on the SAME screen column — buildings
+// stacked and hiding each other. Diagonal adjacency renders as a clean diamond:
+// one building above, below, left, and right of the stadium on screen.
 export const FIXED_ANCHORS: Record<BuildingType, { gridX: number; gridY: number }> = {
   [BuildingType.STADIUM]:        { gridX: 5, gridY: 5 }, // centerpiece (tiles 5-6 × 5-6)
-  [BuildingType.TACTICS_ROOM]:   { gridX: 1, gridY: 1 }, // NW — War Room up top, out of the way
-  [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 1 }, // NE — Scouting Dept by the road in
-  [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 7 }, // SW — Rehab next to the practice side
-  [BuildingType.TRAINING_PITCH]: { gridX: 8, gridY: 8 }, // hard SE corner — the practice field
+  [BuildingType.TACTICS_ROOM]:   { gridX: 3, gridY: 3 }, // screen-TOP of the stadium
+  [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 3 }, // screen-RIGHT
+  [BuildingType.MEDICAL_CENTER]: { gridX: 3, gridY: 7 }, // screen-LEFT
+  [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // screen-BOTTOM
 };
 
-// ── The Team Bus: permanent blocker at the south gate (defense view only) ──────
-export const BUS_TILE = { gridX: 5, gridY: 8 };
+// ── The Team Bus: parked IN the south gate — raiders climb over it or go around ──
+export const BUS_TILE = { gridX: 5, gridY: 9 };
 
 // ── Defense emplacements: fixed spot, fixed kind, upgradable level ─────────────
 // Turret ranges are short (1.4–3 tiles in world units), so every slot hugs the
@@ -41,16 +46,18 @@ export interface DefenseSlotDef {
   covers: string;            // shown in the Front Office
 }
 
+// Slots live in the four POCKETS between the corner blocks — every approach to the
+// stadium walks past a turret.
 export const DEFENSE_SLOTS: DefenseSlotDef[] = [
-  { id: 'D1', kind: 'jugs',   gridX: 5, gridY: 3, stadiumReq: 1,  covers: 'North gate' },
-  { id: 'D2', kind: 'sled',   gridX: 7, gridY: 5, stadiumReq: 1,  covers: 'East wall (point-blank)' },
-  { id: 'D3', kind: 'ref',    gridX: 3, gridY: 6, stadiumReq: 3,  covers: 'West lane (long range)' },
-  { id: 'D4', kind: 'tshirt', gridX: 6, gridY: 8, stadiumReq: 6,  covers: 'South gate splash' },
-  { id: 'D5', kind: 'jugs',   gridX: 8, gridY: 6, stadiumReq: 9,  covers: 'East approach' },
-  { id: 'D6', kind: 'sled',   gridX: 5, gridY: 4, stadiumReq: 12, covers: 'North wall (point-blank)' },
-  { id: 'C1', kind: 'ref',    gridX: 6, gridY: 3, crownIndex: 0,  covers: 'North overwatch' },
-  { id: 'C2', kind: 'tshirt', gridX: 3, gridY: 5, crownIndex: 1,  covers: 'West splash' },
-  { id: 'C3', kind: 'jugs',   gridX: 8, gridY: 5, crownIndex: 2,  covers: 'East gate' },
+  { id: 'D1', kind: 'jugs',   gridX: 5, gridY: 4, stadiumReq: 1,  covers: 'North pocket' },
+  { id: 'D2', kind: 'sled',   gridX: 7, gridY: 5, stadiumReq: 1,  covers: 'East pocket (point-blank)' },
+  { id: 'D3', kind: 'ref',    gridX: 4, gridY: 6, stadiumReq: 3,  covers: 'West pocket (long range)' },
+  { id: 'D4', kind: 'tshirt', gridX: 6, gridY: 7, stadiumReq: 6,  covers: 'South pocket splash' },
+  { id: 'D5', kind: 'jugs',   gridX: 4, gridY: 5, stadiumReq: 9,  covers: 'West pocket second' },
+  { id: 'D6', kind: 'sled',   gridX: 6, gridY: 4, stadiumReq: 12, covers: 'North pocket second' },
+  { id: 'C1', kind: 'ref',    gridX: 7, gridY: 6, crownIndex: 0,  covers: 'East pocket second' },
+  { id: 'C2', kind: 'tshirt', gridX: 5, gridY: 7, crownIndex: 1,  covers: 'South pocket second' },
+  { id: 'C3', kind: 'jugs',   gridX: 6, gridY: 8, crownIndex: 2,  covers: 'South gate overwatch' },
 ];
 
 export const slotById = (id: string) => DEFENSE_SLOTS.find(s => s.id === id);
@@ -79,20 +86,24 @@ export const slotDmgMult = (level: number) => 1 + 0.10 * Math.max(0, level - 1);
 // emplacements, or the bus are skipped automatically.
 const WALL_CANDIDATES: { gridX: number; gridY: number }[] = (() => {
   const out: { gridX: number; gridY: number }[] = [];
-  const ringAround = (lo: number, hi: number) => {
-    for (let x = lo; x <= hi; x++) out.push({ gridX: x, gridY: lo });           // top
-    for (let y = lo + 1; y <= hi; y++) out.push({ gridX: hi, gridY: y });       // right
-    for (let x = hi - 1; x >= lo; x--) out.push({ gridX: x, gridY: hi });       // bottom
-    for (let y = hi - 1; y >= lo + 1; y--) out.push({ gridX: lo, gridY: y });   // left
-  };
-  ringAround(4, 7); // inner ring hugging the Stadium at 5-6 × 5-6 (12 tiles)
-  ringAround(3, 8); // outer ring (20 tiles, minus corner/facility collisions)
-  // reinforcement arcs (high Stadium levels): mid-edge segments one ring further out
-  for (let x = 4; x <= 7; x++) out.push({ gridX: x, gridY: 2 });
-  for (let x = 3; x <= 6; x++) out.push({ gridX: x, gridY: 9 });
-  for (let y = 4; y <= 7; y++) out.push({ gridX: 2, gridY: y });
-  for (let y = 3; y <= 6; y++) out.push({ gridX: 9, gridY: y });
-  return out;
+
+  // FULL perimeter ring at the island's edge (0..9) with 2-tile GATES at each
+  // side's center (tiles 4,5) — attackers funnel through gates or smash through.
+  for (const x of [0, 1, 2, 3, 6, 7, 8, 9]) out.push({ gridX: x, gridY: 0 }); // north wall
+  for (const x of [0, 1, 2, 3, 6, 7, 8, 9]) out.push({ gridX: x, gridY: 9 }); // south wall
+  for (const y of [1, 2, 3, 6, 7, 8]) out.push({ gridX: 0, gridY: y });       // west wall
+  for (const y of [1, 2, 3, 6, 7, 8]) out.push({ gridX: 9, gridY: y });       // east wall
+
+  // High Stadium levels NARROW the gates to 1 tile (never fully closed — attackers
+  // always have a funnel to fight through, walls just make going around expensive).
+  out.push({ gridX: 4, gridY: 0 }); // north gate → 1-wide
+  out.push({ gridX: 0, gridY: 4 }); // west gate → 1-wide
+  out.push({ gridX: 9, gridY: 4 }); // east gate → 1-wide
+  // (south gate stays 2-wide — the Team Bus parks in it)
+
+  // Dedupe defensively — a duplicate here would trip the dev assert below.
+  const seen = new Set<string>();
+  return out.filter(t => { const k = `${t.gridX},${t.gridY}`; if (seen.has(k)) return false; seen.add(k); return true; });
 })();
 
 const occupied = new Set<string>();
