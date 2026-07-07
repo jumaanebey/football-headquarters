@@ -290,7 +290,7 @@ function App() {
     window.addEventListener('beforeunload', () => {
       for (const k of KEYS) {
         const v = (importPending as Record<string, string | null>)[k];
-        if (v != null) localStorage.setItem(k, v); else localStorage.removeItem(k);
+        if (v != null) localStorage.setItem(k, v); // absent keys KEEP current values — a save-only bundle must not wipe your PvP identity
       }
     });
     location.reload();
@@ -324,6 +324,25 @@ function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
+
+  // 💰 OWNER BOOST (temporary, pre-launch): /?boost=vega300 maxes the CURRENT save
+  // in place — identity, name, trophies, and PvP session untouched. Strip before wide launch.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('boost') !== 'vega300') return;
+    window.history.replaceState({}, '', window.location.pathname);
+    setGameState(prev => ({
+      ...prev,
+      resources: { ...prev.resources, [ResourceType.COINS]: 300000, [ResourceType.GEMS]: 3000, [ResourceType.ENERGY]: 100, [ResourceType.FANS]: 15000 },
+      buildings: prev.buildings.map(b => ({ ...b, level: 12 })),
+      defenseSlots: { D1: 10, D2: 10, D3: 10, D4: 10, D5: 10, D6: 10, C1: 10, C2: 10, C3: 10 },
+      bonusDefSlots: 3,
+      parkingLot: 3,
+      builders: MAX_BUILDERS,
+      heroes: prev.heroes.map(h => ({ ...h, unlocked: true, level: 17, stars: 5 })),
+    }));
+    setTimeout(() => spawnText('Front office FUNDED — everything maxed 💰', window.innerWidth / 2, window.innerHeight / 2, '#fde047'), 600);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastUpdateRef = useRef(Date.now());
 
