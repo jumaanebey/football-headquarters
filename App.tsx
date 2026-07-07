@@ -24,7 +24,7 @@ import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } f
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
-import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor } from './fixedBase';
+import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor, masteryLevel, masteryDefMult, nextMasteryAt, MASTERY_THRESHOLDS } from './fixedBase';
 
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
@@ -74,7 +74,8 @@ const INITIAL_STATE: GameState = {
   bonusDefSlots: 0,
   defenseSlots: { D1: 1 }, // starter JUGS machine lives in its fixed slot
   formation: 'goalline',   // starter scheme; Cover 3 @ Stadium L3, Max Protect @ L5
-  heroGates: {}            // gate posts auto-fill with your strongest heroes until assigned
+  heroGates: {},           // gate posts auto-fill with your strongest heroes until assigned
+  formationMastery: {}     // holds per formation — tiers at 3/8/15 (+3% defense each)
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -90,12 +91,13 @@ const layoutFromFixedBase = (
   defenseSlots: Record<string, number>,
   parkingLot: number,
   formation: FormationKey,
+  mastery = 0, // holds in THIS formation → +3%/tier on the whole defense
 ): ReturnType<typeof defenseLayoutFromBase> => {
   const sl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
   const emplacements = slotsFor(formation)
     .filter(s => (defenseSlots[s.id] ?? 0) > 0)
     .map(s => ({ id: s.id, kind: s.kind, gridX: s.gridX, gridY: s.gridY, level: defenseSlots[s.id] }));
-  return defenseLayoutFromBase(buildings, wallsFor(formation, sl), defenseTroopBoost(roster), emplacements, busTileFor(formation), parkingLot, wallHpFor(sl), formation);
+  return defenseLayoutFromBase(buildings, wallsFor(formation, sl), defenseTroopBoost(roster) * masteryDefMult(mastery), emplacements, busTileFor(formation), parkingLot, wallHpFor(sl), formation);
 };
 
 // Load a persisted game, merging over defaults so new fields never come back undefined.
@@ -188,6 +190,7 @@ const loadState = (): GameState => {
       }
       // "While you were away" — resolve rival raids against your ACTUAL base for the
       // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
+      const formationMastery: Record<string, number> = { ...(saved.formationMastery ?? {}) };
       let defenseLog = [...(saved.defenseLog || [])];
       let coins = (saved.resources?.[ResourceType.COINS] ?? INITIAL_STATE.resources[ResourceType.COINS]) + slotRefund;
       let shieldUntil = saved.shieldUntil || 0;
@@ -197,7 +200,7 @@ const loadState = (): GameState => {
       const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
       if (numAttacks > 0) {
         const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = layoutFromFixedBase(buildings, roster, defenseSlots, parkingLot, formation);
+        const layout = layoutFromFixedBase(buildings, roster, defenseSlots, parkingLot, formation, (saved.formationMastery ?? {})[formation] ?? 0);
         let worstPct = 0;
         for (let a = 0; a < numAttacks; a++) {
           const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
@@ -205,6 +208,7 @@ const loadState = (): GameState => {
           const coinsLost = Math.min(coins, Math.round(coins * 0.12 * (res.pct / 100)));
           coins -= coinsLost;
           trophies = Math.max(0, trophies + trophiesLostOnDefense(res.pct)); // storming your stadium costs you rank
+          if (res.stars === 0) formationMastery[formation] = (formationMastery[formation] ?? 0) + 1; // HELD → scheme mastery
           worstPct = Math.max(worstPct, res.pct);
           defenseLog.unshift({
             id: `def_${now}_${a}`, attacker: opp.name, at: now - Math.floor(Math.random() * offlineSecs * 1000),
@@ -216,7 +220,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, heroGates: saved.heroGates ?? {}, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, heroGates: saved.heroGates ?? {}, formationMastery, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -300,7 +304,7 @@ function App() {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
-    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation)), 400);
+    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0)), 400);
     if (startRaid) openRaid();
   };
 
@@ -818,7 +822,7 @@ function App() {
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
-      buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation),
+      buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
       homeGuards: [...homeDefenders(gameState.roster, gameState.parkingLot), ...heroGuards], // defenders + heroes, on the field
@@ -998,7 +1002,10 @@ function App() {
           trophies = Math.max(0, trophies + trophiesLostOnDefense(a.pct));
           return { id: `pvp_${a.id}`, attacker: `${a.attacker_name} ⚡`, at: Date.parse(a.created_at), stars: a.stars, pct: a.pct, coinsLost, seen: false, replay: a.replay ?? undefined, attackerPid: a.attacker_pid };
         });
-        return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: coins }, trophies, defenseLog: [...entries.reverse(), ...prev.defenseLog].slice(0, 20) };
+        // Every HELD live attack (0 game balls) builds mastery in the scheme you were running
+        const holds = fresh.filter(a => a.stars === 0).length;
+        const fm = holds > 0 ? { ...prev.formationMastery, [prev.formation]: (prev.formationMastery[prev.formation] ?? 0) + holds } : prev.formationMastery;
+        return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: coins }, trophies, formationMastery: fm, defenseLog: [...entries.reverse(), ...prev.defenseLog].slice(0, 20) };
       });
     });
   }, []);
@@ -1006,7 +1013,7 @@ function App() {
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
-    publishBase(gameState.teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation));
+    publishBase(gameState.teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0));
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1319,7 +1326,7 @@ function App() {
                       className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-fuchsia-700/70 hover:border-fuchsia-400 bg-fuchsia-950/30 hover:bg-fuchsia-900/30 transition-all active:scale-95 text-left">
                       <div>
                         <div className="font-bold text-white text-lg">⚡ {b.name}</div>
-                        <div className="text-xs text-fuchsia-200/70">🏆 {b.trophies} · {b.layout.filter(x => x.kind !== 'wall').length} buildings · live player</div>
+                        <div className="text-xs text-fuchsia-200/70">🏆 {b.trophies} · {b.layout.filter(x => x.kind !== 'wall').length} buildings · live player{(() => { const f = b.layout.find(x => x.kind === 'hq')?.formation; return f && FORMATIONS[f as FormationKey] ? <span className="text-sky-300 font-bold"> · 📋 {FORMATIONS[f as FormationKey].name}</span> : null; })()}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-yellow-400 font-mono font-bold">+{500 + b.trophies * 3}</div>
@@ -1341,6 +1348,7 @@ function App() {
                     <div className="text-xs text-slate-400 flex items-center gap-2">
                       {Array.from({ length: Math.max(1, Math.min(5, Math.round(b.difficulty))) }).map((_, i) => <Swords key={i} size={11} className="text-red-400 inline" />)}
                       <span>• {b.buildings.filter(x => x.kind !== 'wall').length} buildings</span>
+                      {(() => { const f = b.buildings.find(x => x.kind === 'hq')?.formation; return f && FORMATIONS[f as FormationKey] ? <span className="text-sky-300 font-bold">• 📋 {FORMATIONS[f as FormationKey].name}</span> : null; })()}
                     </div>
                   </div>
                   <div className="text-right">
@@ -1426,7 +1434,7 @@ function App() {
           <Sheet
             title="Front Office"
             icon={<Shield className="text-sky-400" size={22} />}
-            subtitle={<>Every club defends the same field — your edge is <b className="text-sky-300">upgrades</b>. See it fight with 🧪 Test.</>}
+            subtitle={<>Call your scheme, upgrade your emplacements — <b className="text-sky-300">levels and mastery</b> are your edge. See it fight with 🧪 Test.</>}
             onClose={() => setFrontOfficeOpen(false)}
             maxWidth="max-w-xl"
             footer={
@@ -1461,6 +1469,13 @@ function App() {
                       <button key={key} onClick={() => handleSetFormation(key)} disabled={!unlocked}
                         className={`rounded-xl border-2 p-2.5 text-left transition-all active:scale-95 ${active ? 'border-sky-400 bg-sky-950/40' : unlocked ? 'border-slate-700 bg-slate-800/50 hover:border-slate-500' : 'border-slate-800 bg-slate-900/40 opacity-55 cursor-not-allowed'}`}>
                         <div className="text-[12px] font-display font-bold uppercase text-white leading-tight">{fdef.name}{active && <span className="ml-1 text-[9px] text-sky-300 align-middle">ACTIVE</span>}</div>
+                        {(() => { const holds = gameState.formationMastery[key] ?? 0; const lvl = masteryLevel(holds); const next = nextMasteryAt(holds); return (
+                          <div className="text-[10px] leading-none mt-1" title={`Formation mastery — hold your stadium (0 game balls allowed) while running this scheme. +3% defense per ★`}>
+                            {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < lvl ? 1 : 0.25, filter: i < lvl ? 'none' : 'grayscale(1)' }}>⭐</span>)}
+                            {lvl > 0 && <span className="ml-1 text-green-400 font-bold">+{lvl * 3}%</span>}
+                            {next !== null && <span className="ml-1 text-slate-500 font-mono">{holds}/{next}</span>}
+                          </div>
+                        ); })()}
                         <div className="text-[10px] text-slate-400 leading-snug mt-0.5">{unlocked ? fdef.motto : `🔒 Stadium L${fdef.unlockStadium}`}</div>
                         {unlocked && (
                           <div className="text-[9px] mt-1 leading-snug">

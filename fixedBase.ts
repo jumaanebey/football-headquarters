@@ -176,6 +176,16 @@ const GATE_POSTS: Record<FormationKey, GatePost[]> = {
 };
 export const gatePostsFor = (f: FormationKey): GatePost[] => GATE_POSTS[f] ?? GATE_POSTS.goalline;
 
+// ── FORMATION MASTERY: holding your stadium while running a scheme builds tiers ──
+// ★ at 3 holds, ★★ at 8, ★★★ at 15. Each tier: your ENTIRE defense fights +3%
+// tougher while running that formation. Loyalty to a scheme is power.
+export const MASTERY_THRESHOLDS = [3, 8, 15];
+export const masteryLevel = (holds: number): number =>
+  MASTERY_THRESHOLDS.filter(t => holds >= t).length;
+export const masteryDefMult = (holds: number): number => 1 + 0.03 * masteryLevel(holds);
+export const nextMasteryAt = (holds: number): number | null =>
+  MASTERY_THRESHOLDS.find(t => holds < t) ?? null;
+
 export const formationDef = (f: FormationKey): FormationDef => FORMATIONS[f] ?? FORMATIONS.goalline;
 export const formationUnlocked = (f: FormationKey, stadiumLevel: number) =>
   stadiumLevel >= formationDef(f).unlockStadium;

@@ -197,6 +197,9 @@ export interface GameState {
   /** Hero gate assignments: gate post id → hero key. Unassigned posts auto-fill
    *  with your strongest available heroes. */
   heroGates: Record<string, string>;
+  /** Formation mastery: HOLDS (defenses where the attacker scored 0 game balls)
+   *  per formation key. Tiers at 3/8/15 → +3% defense each while running it. */
+  formationMastery: Record<string, number>;
 }
 
 // Pieces you own but currently have OFF the board (Design-mode inventory).

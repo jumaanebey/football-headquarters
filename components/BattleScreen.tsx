@@ -282,7 +282,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
   useEffect(() => {
     if (phase !== 'fighting') return;
-    const iv = setInterval(() => {
+    // REAL-TIME SIM: the old loop assumed the interval fires every 50ms, but each
+    // tick re-renders the whole scene — on phones/dense bases renders exceed 50ms,
+    // ticks coalesce, and the 60s clock crawled (~1 game-sec per 10 real-sec).
+    // Now: accumulate REAL elapsed time, run fixed DT sub-steps to catch up (max 8).
+    const clock = { t: performance.now(), acc: 0 };
+    const stepSim = () => {
       const s = sim.current;
       if (s.ended) return;
       // REPLAY: fire the attacker's recorded actions scheduled for this tick boundary —
@@ -575,7 +580,15 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       const anyTroopAlive = s.troops.some(t => !t.dead);
       const anyToDeploy = UNIT_ORDER.some(u => army[u] > 0) || heroes.some(h => !deployedHeroes.has(h.key)) || specials.some(sp => (specialCharges[sp.key] ?? 0) > 0);
       if (allDead || s.time <= 0 || (s.troops.length > 0 && !anyTroopAlive && !anyToDeploy)) endBattle();
-      forceTick(x => x + 1);
+    };
+    const iv = setInterval(() => {
+      const now = performance.now();
+      clock.acc += (now - clock.t) / 1000;
+      clock.t = now;
+      let n = 0;
+      while (clock.acc >= DT && n < 8) { stepSim(); clock.acc -= DT; n++; }
+      if (clock.acc > DT * 8) clock.acc = DT * 2; // fell far behind (tab bg) — don't spiral
+      if (n > 0) forceTick(x => x + 1);
     }, TICK_MS);
     return () => clearInterval(iv);
   }, [phase, army, deployedHeroes, specialCharges]);
@@ -780,7 +793,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 px-2.5 sm:px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button onClick={onExit} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
+          <button onClick={() => { if (phase === 'fighting' && !sim.current.ended) { endBattle(); } else onExit(); }} title="Blow the whistle — see the result" className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
           <div className="min-w-0">
             {/* Phone: ONE line, truncated — the two-line wrap crushed the whole bar */}
             <div className="font-display font-bold text-white uppercase tracking-tight leading-none flex items-center gap-1.5 sm:gap-2 text-[13px] sm:text-base min-w-0">
