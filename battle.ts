@@ -344,7 +344,7 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
     const botFormation = tier >= 2.2 ? 'maxprotect' : tier >= 1.4 ? 'cover3' : 'goalline';
     const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage, formation: b.kind === 'hq' ? botFormation : undefined }));
     const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 30], [50, 70], [38, 64]];
-    const extras = Math.min(5, Math.floor(tier / 1.4));
+    const extras = Math.min(6, 1 + Math.floor(tier / 1.1)); // every bot fields real turret coverage — empty bases read as no game
     const flavors: BattleBuildingDef['flavor'][] = ['tshirt', 'ref', 'sled', 'tshirt', 'ref']; // varied looks at higher tiers
     for (let e = 0; e < extras; e++) {
       const [x, y] = extraSpots[e];
