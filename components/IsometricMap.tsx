@@ -496,8 +496,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               [BuildingType.TRAINING_PITCH]: 0.5,   // flat field art
               [BuildingType.YOUTH_ACADEMY]: 0.35,
             };
+            // Pin INSIDE the sprite's lower-left corner — any placement outside the art
+            // lands on the neighbor down-screen in iso and reads as their label.
             return (
-              <div key={`tag-${b.id}`} className="absolute pointer-events-none" style={{ left: c.x - TILE_W * 0.92, top: c.y + TILE_H * (TAG_Y[b.type] ?? 0.45), zIndex: 46 }}>
+              <div key={`tag-${b.id}`} className="absolute pointer-events-none" style={{ left: c.x - TILE_W * 0.88, top: c.y - TILE_H * 0.15, zIndex: 46 }}>
                 <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/70 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
                   {BUILDING_INFO[b.type].name} <span className="text-yellow-300">L{b.level}</span>
                 </span>

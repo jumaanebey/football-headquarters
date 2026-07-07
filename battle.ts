@@ -465,7 +465,11 @@ export const defenseAiTroops = (): { unit: UnitGroup; x: number; y: number }[] =
   for (const [unit, count] of spec) {
     for (let k = 0; k < count; k++) {
       const ang = (i / total) * Math.PI * 2;
-      out.push({ unit, x: 50 + Math.cos(ang) * 44, y: 50 + Math.sin(ang) * 44 });
+      // Storm from the BOARD EDGE (the landing apron), never from inside the walls:
+      // project the ring angle out to the perimeter band.
+      const px = 50 + Math.cos(ang) * 47, py = 50 + Math.sin(ang) * 47;
+      const m = Math.max(Math.abs(px - 50), Math.abs(py - 50));
+      out.push({ unit, x: 50 + (px - 50) / m * 47, y: 50 + (py - 50) / m * 47 });
       i++;
     }
   }

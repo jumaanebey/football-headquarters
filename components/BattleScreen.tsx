@@ -832,6 +832,17 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
           </div>
 
+          {/* 🏰 MOAT + DRAWBRIDGES (home base views): a water ring outside the walls and
+              plank bridges at the gates — attackers cross the moat, storm the gate. */}
+          {(isDefense || isReplay) && (
+            <div className="absolute inset-0 pointer-events-none z-0">
+              <div className="absolute rounded-[10%]" style={{ left: '6%', top: '6%', right: '6%', bottom: '6%', boxShadow: '0 0 0 3.2vmin rgba(37,99,235,0.28), 0 0 0 3.6vmin rgba(147,197,253,0.25)' }} />
+              {[{ l: '47%', t: '2.2%', w: '7%', h: '5%' }, { l: '47%', t: '92.8%', w: '7%', h: '5%' }, { l: '2.2%', t: '47%', w: '5%', h: '7%' }, { l: '92.8%', t: '47%', w: '5%', h: '7%' }].map((b, i) => (
+                <div key={i} className="absolute" style={{ left: b.l, top: b.t, width: b.w, height: b.h, background: 'repeating-linear-gradient(90deg, #7c4a24 0 6px, #935a2e 6px 12px)', border: '1.5px solid #4a2c14', borderRadius: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.45)' }} />
+              ))}
+            </div>
+          )}
+
           {/* Stadium surround — a dark stands ring + crowd doing the wave on all four sides.
               The crowd SWELLS with momentum: dots grow, the wave speeds up, the stands
               glow warmer — a hot drive FEELS hot before you read a single number. */}
