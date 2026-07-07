@@ -849,14 +849,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
           )}
 
-          {/* 🔥 Momentum meter — fill it and the squad catches fire */}
-          {!isDefense && phase === 'fighting' && (
-            <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ top: 42, zIndex: 218, width: '46%', maxWidth: 260 }}>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[9px] font-black tracking-widest ${s.momentum > 75 ? 'text-orange-300 animate-pulse' : 'text-white/40'}`}>🔥</span>
-                <div className="flex-1 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/10">
-                  <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.momentum}%`, background: s.momentum > 75 ? 'linear-gradient(90deg,#f97316,#fde047)' : '#f97316' }} />
-                </div>
+          {/* 🔥 Momentum meter — a labeled pill in the corner, only when it's YOUR live
+              drive (in replays/defense it floated mid-field like a rendering glitch). */}
+          {!isDefense && !isReplay && phase === 'fighting' && (
+            <div className="absolute pointer-events-none flex items-center gap-1.5 rounded-full bg-slate-900/75 border border-white/10 px-2 py-1 shadow-lg" style={{ right: 8, top: 36, zIndex: 218, width: '32%', maxWidth: 170 }}>
+              <span className={`text-[10px] font-black ${s.momentum > 75 ? 'text-orange-300 animate-pulse' : 'text-white/50'}`}>🔥</span>
+              <div className="flex-1 h-1.5 rounded-full bg-black/60 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.momentum}%`, background: s.momentum > 75 ? 'linear-gradient(90deg,#f97316,#fde047)' : '#f97316' }} />
               </div>
             </div>
           )}
