@@ -37,7 +37,7 @@ export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal, dailyClaim
   const toggle = () => setCollapsed(c => { localStorage.setItem('fhq_goals_collapsed', c ? '0' : '1'); return !c; });
 
   return (
-    <div className="fixed top-16 left-2 z-30 w-[min(80vw,290px)]">
+    <div className="fixed top-16 left-2 z-30 w-[min(72vw,290px)]">
       <div className="bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden">
         <button onClick={toggle} className="w-full flex items-center gap-1.5 px-3 pt-2 pb-1.5 text-left">
           <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Goals</span>
@@ -59,7 +59,7 @@ export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal, dailyClaim
           </button>
         )}
         {!collapsed && (
-        <div className="pb-1.5">
+        <div className="pb-1.5 overflow-y-auto" style={{ maxHeight: '34vh' }}>{/* phones: the open panel must never bury the base */}
           {goals.map((g, i) => (
             <button
               key={g.id}

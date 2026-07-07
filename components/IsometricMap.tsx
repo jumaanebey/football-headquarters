@@ -363,7 +363,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   // Interaction math reads getBoundingClientRect, which already reflects the
   // transform — so zooming never breaks taps.
   // Phones open ZOOMED IN (a base you can read, pan to explore) — desktop fits the island.
-  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.8 : 1;
+  // Phone home zoom fits the WHOLE campus (fort spans tiles ~1..8 ≈ 944px board units;
+  // at 390px that means z ≤ ~1.3 — 1.8 was tuned for the old spread layout and cropped
+  // both edge buildings off-screen).
+  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.28 : 1;
   // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
   // not the board's geometric middle — so the base reads centered, especially zoomed in.
   const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ); // stadium center (anchor 4,4 → center tile 5,5)
