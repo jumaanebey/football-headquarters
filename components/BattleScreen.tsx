@@ -27,6 +27,7 @@ export interface BattleConfig {
   campaignStage?: number; // set when this attack is a Season campaign stage
   pvpTarget?: string;     // set when raiding a LIVE rival's published base (their pid)
   rival?: RivalCoach;     // the coach across the field — trash talk pre-game, reaction post-game
+  attackerName?: string;  // YOUR club name — shown on the pre-game matchup card
   homeGuards?: HomeGuardDef[]; // defense mode: YOUR roster's defenders start on the field
   fans?: number;          // defense mode: your fanbase — the crowd erupts and stalls drives
   parkingLot?: number;    // defense mode: apron level (visual; the layout is pre-compressed)
@@ -175,6 +176,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // Replays restore the exact plan the attacker locked in.
   const [plan, setPlan] = useState<GamePlanDef>(() => GAME_PLANS.find(g => g.key === config.replay?.planKey) ?? GAME_PLANS[1]);
   const planRef = useRef(plan); planRef.current = plan;
+  // 🆚 MATCHUP CARD — a 3-second broadcast open before you take the field.
+  const [matchup, setMatchup] = useState(!isDefense && !isReplay);
+  useEffect(() => {
+    if (!matchup) return;
+    const t = setTimeout(() => setMatchup(false), 3000);
+    return () => clearTimeout(t);
+  }, [matchup]);
+
   // 📋 FORMATION COUNTERPLAY: the defender's scheme vs your play call. Pure function
   // of (plan, published layout) — replays recompute the exact same modifier.
   const defFormation = (config.buildings.find(b => b.kind === 'hq')?.formation ?? null) as FormationKey | null;
@@ -734,6 +743,34 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
+      {/* 🆚 Pre-game matchup card (tap to skip) */}
+      {matchup && (
+        <div className="absolute inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in" onClick={() => setMatchup(false)}>
+          <div className="w-full max-w-md px-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 text-center min-w-0">
+                <div className="w-16 h-16 mx-auto rounded-full border-4 border-orange-500 bg-[#111827] overflow-hidden relative flex items-center justify-center">
+                  <span className="text-2xl">🏈</span>
+                  <img src="/assets/brand/app-icon.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
+                </div>
+                <div className="mt-2 font-display font-black text-white uppercase text-sm leading-tight truncate">{config.attackerName ?? 'Your Squad'}</div>
+                <div className="text-[10px] text-orange-300 font-bold uppercase mt-0.5">{plan.emoji} {plan.name}</div>
+              </div>
+              <div className="shrink-0 font-display font-black text-4xl italic text-yellow-400" style={{ textShadow: '0 0 14px rgba(250,204,21,0.5), 0 3px 6px #000' }}>VS</div>
+              <div className="flex-1 text-center min-w-0">
+                <div className="w-16 h-16 mx-auto rounded-full border-4 border-red-600 bg-[#111827] overflow-hidden relative flex items-center justify-center" style={config.rival ? { background: `radial-gradient(circle at 35% 30%, ${config.rival.color}bb, #0f172a 90%)` } : undefined}>
+                  <span className="text-2xl">{config.rival?.emoji ?? '🛡'}</span>
+                  {config.rival && <img src={config.rival.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />}
+                </div>
+                <div className="mt-2 font-display font-black text-white uppercase text-sm leading-tight truncate">{config.rival?.name ?? config.title.replace(/^(Raiding|Attacking)\s+/i, '')}</div>
+                {defFormation && FORMATIONS[defFormation] && <div className="text-[10px] text-sky-300 font-bold uppercase mt-0.5">📋 {FORMATIONS[defFormation].name}</div>}
+              </div>
+            </div>
+            {config.rival?.intro && <p className="mt-5 text-center text-[12px] italic text-slate-300 leading-snug">“{config.rival.intro}”</p>}
+            <div className="mt-5 text-center text-[10px] uppercase tracking-widest text-slate-500 font-bold animate-pulse">Kickoff — tap to skip</div>
+          </div>
+        </div>
+      )}
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-3">
@@ -812,21 +849,40 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 ))}
               </div>
             ))}
-            {/* Tailgaters ringing the lot */}
-            <span className="absolute text-[10px]" style={{ left: 6, top: '40%' }}>🚗</span>
-            <span className="absolute text-[10px]" style={{ left: 6, top: '58%' }}>🎉</span>
-            <span className="absolute text-[10px]" style={{ right: 6, top: '44%' }}>🍔</span>
-            <span className="absolute text-[10px]" style={{ right: 6, top: '60%' }}>🚙</span>
-            {/* 🅿️ Parking-lot apron — visible bought territory the raiders must cross */}
-            {(config.parkingLot ?? 0) > 0 && (
-              <>
-                <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 0 ${5 + config.parkingLot! * 2.2}vmin rgba(52,58,70,0.30)` }} />
-                {['12%', '38%', '62%', '88%'].map((p, i) => (
-                  <span key={i} className="absolute" style={{ left: p, [i % 2 ? 'bottom' : 'top']: '5%', fontSize: `${1.1 + config.parkingLot! * 0.2}vmin` }}>{i % 2 ? '🚙' : '🚗'}</span>
-                ))}
-                <span className="absolute font-black text-white/25" style={{ left: '4%', bottom: '3.5%', fontSize: '2.2vmin' }}>🅿️</span>
-              </>
-            )}
+            {/* 🅿️ THE APRON IS YOUR FAN ECONOMY — every Parking Lot level visibly packs
+                the outer ring with real tailgate art. Raiders fight through your fans. */}
+            {(() => {
+              const pl = Math.min(3, Math.max(0, config.parkingLot ?? 0));
+              const img = (src: string, style: React.CSSProperties, key: string) => (
+                <img key={key} src={src} alt="" draggable={false}
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  className="absolute pointer-events-none" style={{ opacity: 0.95, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))', ...style }} />
+              );
+              const props: React.ReactNode[] = [
+                // every base has SOME tailgaters (corners)
+                img('/assets/decor/tailgate-tent.png', { left: '1%', top: '1%', width: '9%' }, 'tt1'),
+                img('/assets/decor/merch-stand.png', { right: '1%', bottom: '1%', width: '9%' }, 'ms1'),
+              ];
+              if (pl >= 1) {
+                props.push(img('/assets/decor/parking-lot.png', { right: '1%', top: '1%', width: '11%' }, 'pk1'));
+                props.push(img('/assets/decor/parking-lot.png', { left: '1%', bottom: '1%', width: '11%' }, 'pk2'));
+              }
+              if (pl >= 2) {
+                props.push(img('/assets/decor/tailgate-tent.png', { left: '45%', top: '0.5%', width: '8%' }, 'tt2'));
+                props.push(img('/assets/decor/parking-lot.png', { left: '45%', bottom: '0.5%', width: '10%' }, 'pk3'));
+              }
+              if (pl >= 3) {
+                props.push(img('/assets/decor/tailgate-tent.png', { left: '0.5%', top: '44%', width: '8%' }, 'tt3'));
+                props.push(img('/assets/decor/merch-stand.png', { right: '0.5%', top: '44%', width: '8%' }, 'ms2'));
+              }
+              return (
+                <>
+                  {pl > 0 && <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 0 ${5 + pl * 2.2}vmin rgba(52,58,70,0.30)` }} />}
+                  {props}
+                  {pl > 0 && <span className="absolute font-black text-white/25" style={{ left: '4%', bottom: '12%', fontSize: '2.2vmin' }}>🅿️ L{pl}</span>}
+                </>
+              );
+            })()}
           </div>
           ); })()}
 
