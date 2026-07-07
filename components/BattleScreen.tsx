@@ -778,23 +778,24 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         </div>
       )}
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={onExit} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={18} /></button>
-          <div>
-            <div className="font-display font-bold text-white uppercase tracking-tight leading-none flex items-center gap-2">
-              {isDefense && <Shield size={16} className="text-blue-400" />}{config.title}
-              {isReplay && <span className="text-[9px] font-black bg-red-600 text-white px-1.5 py-0.5 rounded animate-pulse">● REPLAY</span>}
+      <div className="flex items-center justify-between gap-2 px-2.5 sm:px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button onClick={onExit} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
+          <div className="min-w-0">
+            {/* Phone: ONE line, truncated — the two-line wrap crushed the whole bar */}
+            <div className="font-display font-bold text-white uppercase tracking-tight leading-none flex items-center gap-1.5 sm:gap-2 text-[13px] sm:text-base min-w-0">
+              {isDefense && <Shield size={14} className="text-blue-400 shrink-0" />}<span className="truncate">{config.title}</span>
+              {isReplay && <span className="text-[9px] font-black bg-red-600 text-white px-1.5 py-0.5 rounded animate-pulse shrink-0">● REPLAY</span>}
             </div>
-            <div className="flex items-center gap-1 mt-0.5 text-base leading-none">
+            <div className="flex items-center gap-1 mt-0.5 text-sm sm:text-base leading-none">
               {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < liveStars ? 1 : 0.25, filter: i < liveStars ? 'none' : 'grayscale(1)' }}>🏈</span>)}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <div className="text-center">
-            <div className="text-[10px] uppercase text-slate-500 font-bold leading-none">{isDefense ? 'Ground lost' : 'Drive'}</div>
-            <div className={`font-mono font-bold text-lg leading-none ${isDefense && pct >= 50 ? 'text-red-400' : 'text-white'}`}>{pct}%</div>
+            <div className="text-[9px] sm:text-[10px] uppercase text-slate-500 font-bold leading-none whitespace-nowrap">{isDefense ? 'Ground lost' : 'Drive'}</div>
+            <div className={`font-mono font-bold text-base sm:text-lg leading-none ${isDefense && pct >= 50 ? 'text-red-400' : 'text-white'}`}>{pct}%</div>
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold ${timeLeft <= 10 ? 'bg-red-900/50 text-red-300' : 'bg-slate-800 text-white'}`}>
             <Clock size={15} /> 0:{timeLeft.toString().padStart(2, '0')}

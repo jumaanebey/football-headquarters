@@ -499,7 +499,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             if (!st) return null;
             const c = tileToScreen(st.gridX + 0.5, st.gridY + 0.5);
             return (
-              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * 3.1, zIndex: 47 }}>
+              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * 3.9, zIndex: 47 }}>
                 <span className="text-[10px] font-display font-black uppercase tracking-wide text-sky-200 bg-sky-950/80 border border-sky-700/60 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
                   📋 {formationName}
                 </span>

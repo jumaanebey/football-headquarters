@@ -327,10 +327,7 @@ function App() {
 
   // 💰 OWNER BOOST (temporary, pre-launch): /?boost=vega300 maxes the CURRENT save
   // in place — identity, name, trophies, and PvP session untouched. Strip before wide launch.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('boost') !== 'vega300') return;
-    window.history.replaceState({}, '', window.location.pathname);
+  const applyOwnerBoost = () => {
     setGameState(prev => ({
       ...prev,
       resources: { ...prev.resources, [ResourceType.COINS]: 300000, [ResourceType.GEMS]: 3000, [ResourceType.ENERGY]: 100, [ResourceType.FANS]: 15000 },
@@ -341,7 +338,13 @@ function App() {
       builders: MAX_BUILDERS,
       heroes: prev.heroes.map(h => ({ ...h, unlocked: true, level: 17, stars: 5 })),
     }));
-    setTimeout(() => spawnText('Front office FUNDED — everything maxed 💰', window.innerWidth / 2, window.innerHeight / 2, '#fde047'), 600);
+    setTimeout(() => spawnText('Front office FUNDED — everything maxed 💰', window.innerWidth / 2, window.innerHeight / 2, '#fde047'), 400);
+  };
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('boost') !== 'vega300') return;
+    window.history.replaceState({}, '', window.location.pathname);
+    applyOwnerBoost();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastUpdateRef = useRef(Date.now());
@@ -1633,6 +1636,14 @@ function App() {
                     </div>
                   </div>
                 )}
+              </div>
+              <div className="pt-2 border-t border-slate-800">
+                <div className="text-sm text-slate-300 mb-1.5">Redeem a code</div>
+                <div className="flex gap-2">
+                  <input id="fhq-redeem" type="text" placeholder="Enter code" className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600" style={{ fontSize: 16 }} />
+                  <button onClick={() => { const el = document.getElementById('fhq-redeem') as HTMLInputElement | null; const code = (el?.value ?? '').trim().toLowerCase(); if (code === 'vega300') { applyOwnerBoost(); setSettingsOpen(false); } else { sfx.error(); spawnText('Unknown code', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); } }}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Redeem</button>
+                </div>
               </div>
               <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
                 <div className="text-sm text-slate-400">Start a brand-new franchise</div>

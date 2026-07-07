@@ -12,7 +12,7 @@ interface Props {
 }
 
 // Big numbers stay scannable: 98,785 → 98.8k
-const fmtNum = (n: number) => n >= 100000 ? `${Math.round(n / 1000)}k` : n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString();
+const fmtNum = (n: number) => n >= 100000 ? `${Math.round(n / 1000)}k` : n >= 10000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : n.toLocaleString();
 
 export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => {
   const { resources } = gameState;
@@ -35,7 +35,7 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => 
             <span className="text-lg">🏈</span>
             <img src="/assets/brand/app-icon.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
           </div>
-          <div className="flex flex-col max-w-[92px] sm:max-w-[150px]">
+          <div className="flex flex-col max-w-[76px] sm:max-w-[150px]">
             <span className="text-[11px] sm:text-xs font-bold text-white leading-tight truncate">
               {gameState.teamName}
               {gameState.campaign?.claimed?.includes(12) && <span title="League Champion — conquered the full Season"> 💍</span>}
@@ -50,11 +50,11 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => 
         </button>
 
         {/* Resources — ONE tight row on phones (no wrapping into a jumble), roomier on desktop */}
-        <div className="flex gap-1 sm:gap-2 items-center justify-end mr-7 sm:mr-0 min-w-0">
+        <div className="flex gap-0.5 sm:gap-2 items-center justify-end mr-6 sm:mr-0 min-w-0">
           {/* Energy (+ Rally button when affordable) */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-blue-500 px-1.5 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Energy — powers training drills and away games (⚡12 per game). Regens over time; the Rehab Center speeds it up.">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-blue-500 px-1 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Energy — powers training drills and away games (⚡12 per game). Regens over time; the Rehab Center speeds it up.">
             <img src={RESOURCE_ICON.energy} alt="Energy" className="w-4 h-4 object-contain" draggable={false} />
-            <span className="font-display font-bold text-sm sm:text-lg">{resources.ENERGY}</span>
+            <span className="font-display font-bold text-[13px] sm:text-lg">{resources.ENERGY}</span>
             <span className="text-[10px] text-slate-400 ml-1 hidden sm:inline">/ 100</span>
             {canRally && (
               <button
@@ -69,21 +69,21 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => 
           </div>
 
           {/* Coins */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-1.5 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Coins — gate revenue. Spend on upgrades, equipment, heroes, and the Parking Lot.">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-1 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Coins — gate revenue. Spend on upgrades, equipment, heroes, and the Parking Lot.">
             <img src={RESOURCE_ICON.coins} alt="Coins" className="w-4 h-4 object-contain" draggable={false} />
-            <span className="font-display font-bold text-sm sm:text-lg" title={resources.COINS.toLocaleString()}>{fmtNum(resources.COINS)}</span>
+            <span className="font-display font-bold text-[13px] sm:text-lg" title={resources.COINS.toLocaleString()}>{fmtNum(resources.COINS)}</span>
           </div>
 
           {/* Fans */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-rose-500 px-1.5 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Fans — your crowd. They rally your Energy, fill the Fan Mob, boost home-crowd defense, and ERUPT to stall enemy drives.">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-rose-500 px-1 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Fans — your crowd. They rally your Energy, fill the Fan Mob, boost home-crowd defense, and ERUPT to stall enemy drives.">
             <Users size={14} className="text-rose-400 fill-rose-400" />
-            <span className="font-display font-bold text-sm sm:text-lg" title={resources.FANS.toLocaleString()}>{fmtNum(resources.FANS)}</span>
+            <span className="font-display font-bold text-[13px] sm:text-lg" title={resources.FANS.toLocaleString()}>{fmtNum(resources.FANS)}</span>
           </div>
 
           {/* Gems */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-purple-500 px-1.5 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Crowns — earned from raids & dailies; spent on Scout Searches, finishing timers, and builders">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-purple-500 px-1 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Crowns — earned from raids & dailies; spent on Scout Searches, finishing timers, and builders">
             <Crown size={14} className="text-purple-400 fill-purple-400" />
-            <span className="font-display font-bold text-sm sm:text-lg">{resources.GEMS}</span>
+            <span className="font-display font-bold text-[13px] sm:text-lg">{resources.GEMS}</span>
           </div>
         </div>
       </div>
