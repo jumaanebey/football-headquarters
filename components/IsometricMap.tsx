@@ -207,10 +207,12 @@ const BuildingSprite: React.FC<{
   const collectorCfg = COLLECTOR_CONFIG[building.type];
   const banked = Math.floor(building.accrued || 0);
   const cap = collectorCfg ? collectorCap(building.type, building.level) : 0;
-  // The bubble is an INDICATOR, not a separate button — it only appears once the haul
-  // is worth taking, and tapping the building itself is what collects it.
-  const bubbleReady = !!collectorCfg && banked >= Math.max(30, cap * 0.25);
-  const showBubble = bubbleReady;
+  // The bubble is an INDICATOR, not a separate button — tapping the BUILDING collects.
+  // Collect floor is a flat 30: at higher levels the old cap-based threshold left up to
+  // ~225 coins in an uncollectable dead zone where taps opened the modal instead (TASK-1).
+  const collectReady = !!collectorCfg && banked >= 30;
+  const bubbleReady = !!collectorCfg && banked >= Math.max(30, cap * 0.25); // bounce = storage filling
+  const showBubble = collectReady;
 
   // A building is "actionable" (glowing) when there's something to tap.
   const actionable = isCompleted || recruitReady || bubbleReady;
@@ -226,7 +228,7 @@ const BuildingSprite: React.FC<{
     if (clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
     const screenPos = { x: e.clientX, y: e.clientY };
     if (isCompleted) onCollect(building, screenPos);
-    else if (bubbleReady) onCollectResource?.(building, screenPos);
+    else if (collectReady) onCollectResource?.(building, screenPos);
     else onBuildingClick(building, screenPos);
   };
 
