@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FHQ — Bullseye Layout Mockups</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b0f1a; color: #e2e8f0; font-family: -apple-system, 'Segoe UI', sans-serif; padding: 24px 16px 80px; }
+  h1 { font-size: 22px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .sub { color: #94a3b8; font-size: 13px; margin-bottom: 24px; max-width: 640px; }
+  .opt { margin: 0 auto 56px; max-width: 720px; border: 1px solid #1f2937; border-radius: 16px; padding: 20px; background: #111827; }
+  .opt h2 { font-size: 17px; margin-bottom: 2px; color: #f97316; }
+  .opt .tag { font-size: 12px; color: #94a3b8; margin-bottom: 14px; }
+  .views { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; justify-content: center; }
+  .grid { display: grid; grid-template-columns: repeat(12, 26px); grid-template-rows: repeat(12, 26px); gap: 1px; background: #0b0f1a; padding: 1px; border-radius: 8px; }
+  .iso-wrap { width: 340px; height: 260px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .iso { transform: rotateX(58deg) rotateZ(45deg); transform-style: preserve-3d; }
+  .c { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 2px; }
+  .apron   { background: #14532d; }           /* attack zone */
+  .grass   { background: #166534; }
+  .field   { background: #22c55e; }
+  .fac     { background: #f97316; font-size: 11px; }
+  .wall    { background: #334155; border: 1px solid #475569; }
+  .gate    { background: #166534; outline: 2px dashed #fde047; outline-offset: -3px; }
+  .def     { background: #b91c1c; }
+  .decor   { background: #166534; }
+  .bus     { background: #7c2d12; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 14px 0 4px; font-size: 12px; color: #cbd5e1; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+  .pros { margin-top: 12px; font-size: 13px; line-height: 1.55; color: #cbd5e1; }
+  .pros b.good { color: #4ade80; } .pros b.bad { color: #f87171; }
+  .lbl { text-align: center; font-size: 11px; color: #64748b; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .rec { border-color: #f97316; box-shadow: 0 0 0 1px #f9731655; }
+  .recbadge { display: inline-block; background: #f97316; color: #000; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<h1>🎯 Bullseye Layouts</h1>
+<p class="sub">Rule for all three: <b>field in the middle → your stuff in rings moving out → the outermost ring is open ground where attackers land.</b> Walls never touch the island edge — raiders need somewhere to stand. Diagrams are top-down (12×12 shown: the outer 1-tile border is the landing apron beyond the 10×10 board); the tilted view approximates the in-game camera.</p>
+
+<div id="opts"></div>
+
+<script>
+// tile codes: A apron(attack), G grass, F field(stadium), B building(facility), W wall, T gate, D defense, U bus, S statue/decor
+const OPTS = [
+  {
+    key: 'A', name: 'Option A — Tight Bullseye', rec: true,
+    tag: 'Small fortified core, huge open kill-zone. Reads instantly as a bullseye.',
+    pros: '<b class="good">+</b> Strongest ring read: core → wall → wide apron → attackers.<br><b class="good">+</b> Long approach under fire = defenses matter, parking lot extends it further.<br><b class="bad">−</b> Buildings tight together — labels/taps need the spacing we already solved.',
+    rows: [
+      'AAAAAAAAAAAA',
+      'AGGGGGGGGGGA',
+      'AGGGGGGGGGGA',
+      'AGGWWTTWWGGA',
+      'AGGWBDDBWGGA',
+      'AGTDBFFBDTGA',
+      'AGTDBFFBDTGA',
+      'AGGWBDDBWGGA',
+      'AGGWWUTWWGGA',
+      'AGGGGGGGGGGA',
+      'AGGGGGGGGGGA',
+      'AAAAAAAAAAAA',
+    ],
+  },
+  {
+    key: 'B', name: 'Option B — Three Rings',
+    tag: 'Field → defense ring → facility ring → wall → apron. Every ring is one kind of thing.',
+    pros: '<b class="good">+</b> Cleanest "as you move out" story: each ring has ONE job.<br><b class="good">+</b> Facilities act as a second layer of meat shields protecting the field.<br><b class="bad">−</b> Facilities sit outside the defense ring, so turrets protect the FIELD more than the buildings.',
+    rows: [
+      'AAAAAAAAAAAA',
+      'AGWWWTTWWWGA',
+      'AGWGBBBBGWGA',
+      'AGWBGDDGBWGA',
+      'AGTBDFFDBTGA',
+      'AGTBDFFDBTGA',
+      'AGWBGDDGBWGA',
+      'AGWGBBBBGWGA',
+      'AGWWWUTWWWGA',
+      'AGGGGGGGGGGA',
+      'AGGGGGGGGGGA',
+      'AAAAAAAAAAAA',
+    ],
+  },
+  {
+    key: 'C', name: 'Option C — Citadel (double wall)',
+    tag: 'Inner keep around the field, facilities in the courtyard, outer wall, then the apron.',
+    pros: '<b class="good">+</b> Most "fort" fantasy: breach the outer wall, fight the courtyard, crack the keep.<br><b class="good">+</b> Two wall layers = wall upgrades feel meaningful all game.<br><b class="bad">−</b> Busiest board; at phone zoom the double ring costs the most readability.',
+    rows: [
+      'AAAAAAAAAAAA',
+      'AGWWWTTWWWGA',
+      'AGWGGBBGGWGA',
+      'AGWBWWTWBWGA',
+      'AGTBWFFWDTGA',
+      'AGTDWFFWBTGA',
+      'AGWBWTWWBWGA',
+      'AGWGGBBGGWGA',
+      'AGWWWUTWWWGA',
+      'AGGGGGGGGGGA',
+      'AGGGGGGGGGGA',
+      'AAAAAAAAAAAA',
+    ],
+  },
+];
+const CLS = { A:'apron', G:'grass', F:'field', B:'fac', W:'wall', T:'gate', D:'def', U:'bus', S:'decor' };
+const TXT = { F:'🏟', B:'🏢', D:'🎯', U:'🚌', T:'', A:'', G:'', W:'' };
+const root = document.getElementById('opts');
+OPTS.forEach(o => {
+  const grid = mk(o), iso = mk(o);
+  const d = document.createElement('div');
+  d.className = 'opt' + (o.rec ? ' rec' : '');
+  d.innerHTML = `<h2>${o.name}${o.rec ? '<span class="recbadge">MY PICK</span>' : ''}</h2><p class="tag">${o.tag}</p>`;
+  const v = document.createElement('div'); v.className = 'views';
+  const w1 = document.createElement('div'); w1.appendChild(grid); w1.insertAdjacentHTML('beforeend', '<div class="lbl">top-down plan</div>');
+  const w2 = document.createElement('div'); w2.className = 'iso-wrap'; const inner = document.createElement('div'); inner.className = 'iso'; inner.appendChild(iso); w2.appendChild(inner);
+  const w2o = document.createElement('div'); w2o.appendChild(w2); w2o.insertAdjacentHTML('beforeend', '<div class="lbl">≈ in-game camera</div>');
+  v.appendChild(w1); v.appendChild(w2o); d.appendChild(v);
+  d.insertAdjacentHTML('beforeend',
+    `<div class="legend">
+      <span><span class="sw" style="background:#22c55e"></span>Field / Stadium</span>
+      <span><span class="sw" style="background:#f97316"></span>Facilities</span>
+      <span><span class="sw" style="background:#b91c1c"></span>Defenses</span>
+      <span><span class="sw" style="background:#334155"></span>Walls</span>
+      <span><span class="sw" style="background:#166534;outline:2px dashed #fde047;outline-offset:-3px"></span>Gate</span>
+      <span><span class="sw" style="background:#7c2d12"></span>Team Bus</span>
+      <span><span class="sw" style="background:#14532d"></span>ATTACK ZONE (they land here)</span>
+    </div><p class="pros">${o.pros}</p>`);
+  root.appendChild(d);
+});
+function mk(o) {
+  const g = document.createElement('div'); g.className = 'grid';
+  o.rows.forEach(r => [...r].forEach(ch => {
+    const c = document.createElement('div');
+    c.className = 'c ' + (CLS[ch] || 'grass');
+    c.textContent = TXT[ch] || '';
+    g.appendChild(c);
+  }));
+  return g;
+}
+</script>
+</body>
+</html>
