@@ -125,7 +125,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       const hq = config.buildings.find(b => b.kind === 'hq') ?? config.buildings[0];
       return gs.map((g, i) => {
         const a = (i / gs.length) * Math.PI * 2 + 0.6;
-        return { id: `hg${++troopUid}`, unit: g.unit ?? UnitGroup.DEFENSE_LINE, x: hq.x + Math.cos(a) * 10, y: hq.y + Math.sin(a) * 10, hp: g.hp, maxHp: g.hp, dps: g.dps, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: g.jersey, guardArt: g.art } as BTroop & { guardArt?: string };
+        // Gate-posted heroes hold THEIR gate; everyone else rings the stadium.
+        const gx = g.x ?? hq.x + Math.cos(a) * 10;
+        const gy = g.y ?? hq.y + Math.sin(a) * 10;
+        return { id: `hg${++troopUid}`, unit: g.unit ?? UnitGroup.DEFENSE_LINE, x: gx, y: gy, hp: g.hp, maxHp: g.hp, dps: g.dps, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: g.jersey, guardArt: g.art } as BTroop & { guardArt?: string };
       });
     })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),

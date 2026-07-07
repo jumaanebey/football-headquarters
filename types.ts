@@ -194,6 +194,9 @@ export interface GameState {
   /** Your defensive FORMATION — one of three fixed schemes (fixedBase.ts FORMATIONS).
    *  Slot levels carry across formations; only positions change. */
   formation: 'goalline' | 'cover3' | 'maxprotect';
+  /** Hero gate assignments: gate post id → hero key. Unassigned posts auto-fill
+   *  with your strongest available heroes. */
+  heroGates: Record<string, string>;
 }
 
 // Pieces you own but currently have OFF the board (Design-mode inventory).

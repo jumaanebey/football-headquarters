@@ -164,6 +164,15 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
   },
 };
 
+// ── Hero gate posts: the two stations your heroes hold on defense ─────────────
+export interface GatePost { id: string; label: string; gridX: number; gridY: number; }
+const GATE_POSTS: Record<FormationKey, GatePost[]> = {
+  goalline:   [{ id: 'north', label: 'North Gate', gridX: 4, gridY: 1 }, { id: 'south', label: 'South Gate', gridX: 5, gridY: 8 }],
+  cover3:     [{ id: 'north', label: 'North Wall', gridX: 4, gridY: 2 }, { id: 'south', label: 'SE Corner Gate', gridX: 7, gridY: 7 }],
+  maxprotect: [{ id: 'north', label: 'Courtyard North', gridX: 4, gridY: 2 }, { id: 'south', label: 'Keep South Gate', gridX: 4, gridY: 7 }],
+};
+export const gatePostsFor = (f: FormationKey): GatePost[] => GATE_POSTS[f] ?? GATE_POSTS.goalline;
+
 export const formationDef = (f: FormationKey): FormationDef => FORMATIONS[f] ?? FORMATIONS.goalline;
 export const formationUnlocked = (f: FormationKey, stadiumLevel: number) =>
   stadiumLevel >= formationDef(f).unlockStadium;

@@ -409,7 +409,7 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
 // and trained start the defense battle guarding the stadium (balanced tendencies suit up
 // too when there aren't enough true defenders). Stats scale with each player's OVR —
 // recruiting and training your defense is now something you can WATCH work.
-export interface HomeGuardDef { jersey: number; hp: number; dps: number; name: string; art?: string; unit?: UnitGroup; }
+export interface HomeGuardDef { jersey: number; hp: number; dps: number; name: string; art?: string; unit?: UnitGroup; x?: number; y?: number; /* world spawn (hero gate posts) — absent = ring around the HQ */ }
 export const homeDefenders = (roster: Player[], parkingLotLevel = 0): HomeGuardDef[] => {
   const side = (p: Player) => {
     const t = TENDENCIES[p.tendency as TendencyKey];

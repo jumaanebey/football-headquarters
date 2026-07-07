@@ -24,7 +24,7 @@ import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } f
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
-import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor } from './fixedBase';
+import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor } from './fixedBase';
 
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
@@ -73,7 +73,8 @@ const INITIAL_STATE: GameState = {
   parkingLot: 0,
   bonusDefSlots: 0,
   defenseSlots: { D1: 1 }, // starter JUGS machine lives in its fixed slot
-  formation: 'goalline'    // starter scheme; Cover 3 @ Stadium L3, Max Protect @ L5
+  formation: 'goalline',   // starter scheme; Cover 3 @ Stadium L3, Max Protect @ L5
+  heroGates: {}            // gate posts auto-fill with your strongest heroes until assigned
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -215,7 +216,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, heroGates: saved.heroGates ?? {}, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -775,11 +776,18 @@ function App() {
   const startDefense = () => {
     const coinsAtRisk = Math.min(gameState.resources.COINS, Math.round(gameState.resources.COINS * 0.15) + 120);
     const stadiumLvl = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-    // Your two strongest heroes patrol the stadium alongside the roster defenders —
-    // "heroes defending it" is literal. (75% strength: they're surprised, not suited up.)
-    const heroGuards = heroesForBattle(gameState.heroes)
-      .sort((a, b) => b.hp * b.dps - a.hp * a.dps).slice(0, 2)
-      .map(h => ({ jersey: 0, hp: Math.round(h.hp * 0.75), dps: Math.round(h.dps * 0.75 * 10) / 10, name: h.name, art: h.art, unit: h.unit }));
+    // ⭐ HERO GATES: each gate post is held by its ASSIGNED hero (Front Office), or
+    // auto-fills with your strongest available. (75% strength: surprised, not suited up.)
+    const posts = gatePostsFor(gameState.formation);
+    const pool = heroesForBattle(gameState.heroes).sort((a, b) => b.hp * b.dps - a.hp * a.dps);
+    const taken = new Set<string>();
+    const heroGuards = posts.map(post => {
+      const assigned = pool.find(h => h.key === gameState.heroGates[post.id] && !taken.has(h.key));
+      const h = assigned ?? pool.find(hh => !taken.has(hh.key));
+      if (!h) return null;
+      taken.add(h.key);
+      return { jersey: 0, hp: Math.round(h.hp * 0.75), dps: Math.round(h.dps * 0.75 * 10) / 10, name: h.name, art: h.art, unit: h.unit, x: post.gridX * 10 + 5, y: post.gridY * 10 + 5 };
+    }).filter(Boolean) as import('./battle').HomeGuardDef[];
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
@@ -1074,6 +1082,17 @@ function App() {
     sfx.upgrade();
     spawnText(`${formationDef(key).name} — new scheme called! 📋`, window.innerWidth / 2, window.innerHeight / 2, '#38bdf8');
     setTimeout(publishMyBase, 500);
+  };
+
+  // ⭐ Assign a hero to a gate post (one gate per hero — reassigning moves them).
+  const handleAssignHeroGate = (postId: string, heroKey: string) => {
+    setGameState(prev => {
+      const next: Record<string, string> = { ...prev.heroGates };
+      for (const k of Object.keys(next)) if (next[k] === heroKey) delete next[k]; // one post per hero
+      next[postId] = heroKey;
+      return { ...prev, heroGates: next };
+    });
+    sfx.click();
   };
 
   // 🏛 FRONT OFFICE — activate or upgrade a fixed defense emplacement.
@@ -1483,6 +1502,38 @@ function App() {
                     Pave L{gameState.parkingLot + 1} · {(PARKING_LOT.costs[gameState.parkingLot] / 1000).toFixed(0)}k🪙
                   </Btn>
                 ) : <span className="text-[11px] text-green-400 font-bold shrink-0">MAX</span>}
+              </div>
+
+              {/* ⭐ HERO GATES — who holds each gate when your stadium is stormed */}
+              <div>
+                <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">⭐ Hero Gate Assignment</div>
+                <div className="space-y-1.5">
+                  {gatePostsFor(gameState.formation).map(post => {
+                    const unlockedHeroes = gameState.heroes.filter(h => h.unlocked !== false);
+                    const assignedKey = gameState.heroGates[post.id];
+                    return (
+                      <div key={post.id} className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2">
+                        <span className="text-[12px] font-bold text-white w-32 shrink-0 truncate">🚪 {post.label}</span>
+                        <div className="flex gap-1.5 flex-wrap min-w-0">
+                          {unlockedHeroes.map(h => {
+                            const def = HERO_DEFS.find(d => d.key === h.key);
+                            if (!def) return null;
+                            const active = assignedKey === h.key;
+                            return (
+                              <button key={h.key} onClick={() => handleAssignHeroGate(post.id, h.key)} title={`${def.name} — Lv${h.level}`}
+                                className={`w-9 h-9 rounded-full overflow-hidden relative flex items-center justify-center border-2 transition-all active:scale-90 ${active ? 'border-yellow-400 ring-2 ring-yellow-400/40' : 'border-slate-600 opacity-60 hover:opacity-100'}`}
+                                style={{ background: `radial-gradient(circle at 50% 35%, ${def.color}cc, #0f172a 90%)` }}>
+                                <span className="absolute text-sm">{def.emoji}</span>
+                                <img src={def.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-cover" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="text-[11px] text-slate-500">Unassigned gates auto-fill with your strongest heroes. One gate per hero.</div>
+                </div>
               </div>
 
               {/* Perimeter + crowd — automatic layers, shown so the player knows they exist */}
