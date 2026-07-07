@@ -191,6 +191,9 @@ export interface GameState {
   /** FIXED BASE: emplacement levels by slot id (D1-D6, C1-C3). Absent/0 = not activated.
    *  Geometry lives in fixedBase.ts — the save stores ONLY levels. */
   defenseSlots: Record<string, number>;
+  /** Your defensive FORMATION — one of three fixed schemes (fixedBase.ts FORMATIONS).
+   *  Slot levels carry across formations; only positions change. */
+  formation: 'goalline' | 'cover3' | 'maxprotect';
 }
 
 // Pieces you own but currently have OFF the board (Design-mode inventory).

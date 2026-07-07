@@ -22,6 +22,9 @@ export interface BattleBuildingDef {
    *  the same base you built — not a hash-picked stand-in. Absent on old published
    *  bases and bot bases → renderer falls back to the pool art. */
   art?: string;
+  /** On the HQ entry only: the defender's formation key — lets the attacker's sim
+   *  apply plan-vs-formation counterplay. Absent (old rows, bots) = no modifier. */
+  formation?: string;
 }
 
 export interface EnemyBase {
@@ -359,7 +362,7 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
 // FIXED BASE: `defenses` come from the fixed emplacements (fixedBase.ts) with a LEVEL —
 // upgrading a slot is the strategy now; `level` scales its HP (+12%/lvl) and damage
 // (+10%/lvl). `wallHp` scales with the Stadium (wallHpFor) — walls have no UI at all.
-export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number; level?: number }[] = [], bus: { gridX: number; gridY: number } | null = null, parkingLot = 0, wallHp = WALL_HP): BattleBuildingDef[] => {
+export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gridX: number; gridY: number }[] = [], defBoost = 1, defenses: { id: string; kind: string; gridX: number; gridY: number; level?: number }[] = [], bus: { gridX: number; gridY: number } | null = null, parkingLot = 0, wallHp = WALL_HP, formation?: string): BattleBuildingDef[] => {
   // 🅿️ Parking Lot: compress the whole base toward center — attackers deploy at the
   // same perimeter but everything they want is farther away, so your turrets, crowd,
   // and defenders get more time on them. (Positions squeeze ~5.5%/level toward 50,50.)
@@ -372,7 +375,7 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
     const lvl = b.level;
     const art = buildingSprite(b.type, lvl); // defense view shows YOUR actual building art
     if (b.type === BuildingType.STADIUM)
-      return { id: b.id, kind: 'hq', x, y, hp: Math.round(500 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 8, art };
+      return { id: b.id, kind: 'hq', x, y, hp: Math.round(500 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 8, art, formation };
     if (b.type === BuildingType.MEDICAL_CENTER || b.type === BuildingType.YOUTH_ACADEMY)
       return { id: b.id, kind: 'defense', x, y, hp: Math.round(210 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 6, damage: Math.round((12 + lvl * 3) * defBoost), range: 24, art };
     return { id: b.id, kind: 'building', x, y, hp: Math.round(150 * (1 + 0.3 * (lvl - 1)) * defBoost), size: 6, art };

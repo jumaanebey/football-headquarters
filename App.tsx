@@ -24,7 +24,7 @@ import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } f
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
-import { FIXED_ANCHORS, DEFENSE_SLOTS, slotUnlocked, slotById, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, BUS_TILE } from './fixedBase';
+import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor } from './fixedBase';
 
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
@@ -50,9 +50,9 @@ const INITIAL_STATE: GameState = {
   level: 1,
   xp: 0,
   xpToNextLevel: 100,
-  // Snap to the one true map even for brand-new saves — fresh players never pass
-  // through loadState's migration, so anchor drift here would ship a scrambled base.
-  buildings: INITIAL_BUILDINGS.map(b => ({ ...b, gridX: FIXED_ANCHORS[b.type].gridX, gridY: FIXED_ANCHORS[b.type].gridY })),
+  // Snap to the starter formation even for brand-new saves — fresh players never
+  // pass through loadState's migration, so anchor drift here would ship scrambled.
+  buildings: INITIAL_BUILDINGS.map(b => ({ ...b, gridX: anchorsFor('goalline')[b.type].gridX, gridY: anchorsFor('goalline')[b.type].gridY })),
   roster: INITIAL_ROSTER,
   bonusOrbs: [],
   lastTick: Date.now(),
@@ -72,7 +72,8 @@ const INITIAL_STATE: GameState = {
   bus: { gridX: 6, gridY: 9 }, // LEGACY — bus is a fixed fixture at BUS_TILE now
   parkingLot: 0,
   bonusDefSlots: 0,
-  defenseSlots: { D1: 1 } // starter JUGS machine lives in its fixed north-gate slot
+  defenseSlots: { D1: 1 }, // starter JUGS machine lives in its fixed slot
+  formation: 'goalline'    // starter scheme; Cover 3 @ Stadium L3, Max Protect @ L5
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -87,12 +88,13 @@ const layoutFromFixedBase = (
   roster: Player[],
   defenseSlots: Record<string, number>,
   parkingLot: number,
+  formation: FormationKey,
 ): ReturnType<typeof defenseLayoutFromBase> => {
   const sl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-  const emplacements = DEFENSE_SLOTS
+  const emplacements = slotsFor(formation)
     .filter(s => (defenseSlots[s.id] ?? 0) > 0)
     .map(s => ({ id: s.id, kind: s.kind, gridX: s.gridX, gridY: s.gridY, level: defenseSlots[s.id] }));
-  return defenseLayoutFromBase(buildings, wallsFor(sl), defenseTroopBoost(roster), emplacements, BUS_TILE, parkingLot, wallHpFor(sl));
+  return defenseLayoutFromBase(buildings, wallsFor(formation, sl), defenseTroopBoost(roster), emplacements, busTileFor(formation), parkingLot, wallHpFor(sl), formation);
 };
 
 // Load a persisted game, merging over defaults so new fields never come back undefined.
@@ -153,10 +155,16 @@ const loadState = (): GameState => {
       const parkingLot = saved.parkingLot ?? 0;
       const bonusDefSlots = saved.bonusDefSlots ?? 0;
 
-      // --- FIXED BASE: facilities live at canonical anchors. Positions are geometry,
-      //     not player data — every save snaps to the one true map (FIXED-BASE-PLAN.md).
+      // --- FORMATION: which fixed scheme this club runs (default = starter).
+      //     If the save somehow holds a formation it hasn't unlocked, fall back.
+      const stadiumLvlNow = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+      let formation: FormationKey = (saved.formation as FormationKey) ?? 'goalline';
+      if (!FORMATIONS[formation] || !formationUnlocked(formation, stadiumLvlNow)) formation = 'goalline';
+
+      // --- FIXED BASE: facilities live at the formation's anchors. Positions are
+      //     geometry, not player data — every save snaps to its formation's map.
       for (const b of buildings) {
-        const a = FIXED_ANCHORS[b.type];
+        const a = anchorsFor(formation)[b.type];
         if (a) { b.gridX = a.gridX; b.gridY = a.gridY; }
       }
       var migratedWalls = saved.walls || INITIAL_WALLS; // legacy field (battle still reads it until Stage 4)
@@ -170,10 +178,9 @@ const loadState = (): GameState => {
         defenseSlots = { ...saved.defenseSlots };
       } else {
         defenseSlots = {};
-        const stadiumLvlNow = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
         const ownedKinds = [...defenses.map(d => d.kind), ...inventory.defenses.map(d => d.kind)];
         for (const kind of ownedKinds) {
-          const slot = DEFENSE_SLOTS.find(s => s.kind === kind && !defenseSlots[s.id] && slotUnlocked(s, stadiumLvlNow, bonusDefSlots));
+          const slot = slotsFor(formation).find(s => s.kind === kind && !defenseSlots[s.id] && slotUnlocked(s, stadiumLvlNow, bonusDefSlots));
           if (slot) defenseSlots[slot.id] = 1;
           else slotRefund += DEFENSE_TYPES.find(t => t.kind === kind)?.cost ?? 0;
         }
@@ -189,7 +196,7 @@ const loadState = (): GameState => {
       const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
       if (numAttacks > 0) {
         const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = layoutFromFixedBase(buildings, roster, defenseSlots, parkingLot);
+        const layout = layoutFromFixedBase(buildings, roster, defenseSlots, parkingLot, formation);
         let worstPct = 0;
         for (let a = 0; a < numAttacks; a++) {
           const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
@@ -208,7 +215,7 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -292,7 +299,7 @@ function App() {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
-    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot)), 400);
+    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation)), 400);
     if (startRaid) openRaid();
   };
 
@@ -776,7 +783,7 @@ function App() {
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
-      buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot),
+      buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
       homeGuards: [...homeDefenders(gameState.roster, gameState.parkingLot), ...heroGuards], // defenders + heroes, on the field
@@ -964,7 +971,7 @@ function App() {
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
-    publishBase(gameState.teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot));
+    publishBase(gameState.teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation));
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1055,11 +1062,25 @@ function App() {
     startDefense();
   };
 
+  // 📋 CALL A FORMATION — free to switch; slot levels carry, only geometry moves.
+  const handleSetFormation = (key: FormationKey) => {
+    if (!formationUnlocked(key, stadiumLevel)) { sfx.error(); return; }
+    if (key === gameState.formation) return;
+    setGameState(prev => ({
+      ...prev,
+      formation: key,
+      buildings: prev.buildings.map(b => { const a = anchorsFor(key)[b.type]; return a ? { ...b, gridX: a.gridX, gridY: a.gridY } : b; }),
+    }));
+    sfx.upgrade();
+    spawnText(`${formationDef(key).name} — new scheme called! 📋`, window.innerWidth / 2, window.innerHeight / 2, '#38bdf8');
+    setTimeout(publishMyBase, 500);
+  };
+
   // 🏛 FRONT OFFICE — activate or upgrade a fixed defense emplacement.
   // Level 0→1 costs the kind's shop price; higher levels follow the slot ladder.
   // Emplacement level can never exceed your Stadium level (same gate as facilities).
   const handleUpgradeSlot = (slotId: string) => {
-    const slot = slotById(slotId);
+    const slot = slotById(gameState.formation, slotId);
     if (!slot) return;
     const cur = gameState.defenseSlots[slotId] ?? 0;
     const toLevel = cur + 1;
@@ -1348,8 +1369,8 @@ function App() {
       {/* 🏛 FRONT OFFICE — the whole defensive layer, managed from one list. Fixed
           formation (same field for every club); your edge is LEVELS, not layout. */}
       {frontOfficeOpen && (() => {
-        const activeSlots = DEFENSE_SLOTS.filter(s => (gameState.defenseSlots[s.id] ?? 0) > 0).length;
-        const walls = wallsFor(stadiumLevel);
+        const activeSlots = slotsFor(gameState.formation).filter(s => (gameState.defenseSlots[s.id] ?? 0) > 0).length;
+        const walls = wallsFor(gameState.formation, stadiumLevel);
         const dr = computeDefenseRating(gameState.buildings, walls, gameState.roster, gameState.resources.FANS, activeSlots, gameState.parkingLot);
         const gradeColor = dr.score >= 70 ? '#22c55e' : dr.score >= 40 ? '#eab308' : '#ef4444';
         return (
@@ -1377,11 +1398,38 @@ function App() {
                 'Walls and the Team Bus are automatic — they grow with your Stadium. No placing anything.',
                 'Tap 🧪 Test Defense to watch your setup fight off a raid.',
               ]} />
+              {/* 📋 FORMATION — call your defensive scheme. Free to switch; emplacement
+                  levels carry over, only the geometry changes. Rivals see your scheme. */}
+              <div>
+                <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">📋 Formation</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {FORMATION_ORDER.map(key => {
+                    const fdef = formationDef(key);
+                    const active = gameState.formation === key;
+                    const unlocked = formationUnlocked(key, stadiumLevel);
+                    const PLAN_NAME: Record<string, string> = { ground: 'Ground', air: 'Air Raid', balanced: 'Balanced' };
+                    return (
+                      <button key={key} onClick={() => handleSetFormation(key)} disabled={!unlocked}
+                        className={`rounded-xl border-2 p-2.5 text-left transition-all active:scale-95 ${active ? 'border-sky-400 bg-sky-950/40' : unlocked ? 'border-slate-700 bg-slate-800/50 hover:border-slate-500' : 'border-slate-800 bg-slate-900/40 opacity-55 cursor-not-allowed'}`}>
+                        <div className="text-[12px] font-display font-bold uppercase text-white leading-tight">{fdef.name}{active && <span className="ml-1 text-[9px] text-sky-300 align-middle">ACTIVE</span>}</div>
+                        <div className="text-[10px] text-slate-400 leading-snug mt-0.5">{unlocked ? fdef.motto : `🔒 Stadium L${fdef.unlockStadium}`}</div>
+                        {unlocked && (
+                          <div className="text-[9px] mt-1 leading-snug">
+                            <span className="text-green-400">eats {fdef.counter.strongVs.map(k => PLAN_NAME[k]).join(' & ')}</span>
+                            <span className="text-slate-600"> · </span>
+                            <span className="text-red-400">soft vs {fdef.counter.weakTo.map(k => PLAN_NAME[k]).join(' & ')}</span>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               {/* Emplacements */}
               <div>
                 <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">🛡 Defense Emplacements</div>
                 <div className="space-y-1.5">
-                  {DEFENSE_SLOTS.map(slot => {
+                  {slotsFor(gameState.formation).map(slot => {
                     const t = DEFENSE_TYPES.find(x => x.kind === slot.kind)!;
                     const lvl = gameState.defenseSlots[slot.id] ?? 0;
                     const unlocked = slotUnlocked(slot, stadiumLevel, gameState.bonusDefSlots);

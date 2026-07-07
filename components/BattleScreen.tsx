@@ -11,6 +11,7 @@ import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
 import { sfx, crowdBedStart, crowdBedStop, crowdBedIntensity } from '../sound';
 import { CROWD_PULSE } from '../constants';
 import { X, Clock, Flag, Shield } from 'lucide-react';
+import { FORMATIONS, COUNTER_WEAK_MULT, COUNTER_STRONG_MULT, FormationKey } from '../fixedBase';
 
 export interface BattleConfig {
   mode: 'attack' | 'defense';
@@ -174,12 +175,23 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // Replays restore the exact plan the attacker locked in.
   const [plan, setPlan] = useState<GamePlanDef>(() => GAME_PLANS.find(g => g.key === config.replay?.planKey) ?? GAME_PLANS[1]);
   const planRef = useRef(plan); planRef.current = plan;
+  // 📋 FORMATION COUNTERPLAY: the defender's scheme vs your play call. Pure function
+  // of (plan, published layout) — replays recompute the exact same modifier.
+  const defFormation = (config.buildings.find(b => b.kind === 'hq')?.formation ?? null) as FormationKey | null;
+  const counterMultFor = (planKey: string): number => {
+    if (!defFormation || isDefense) return 1;
+    const fdef = FORMATIONS[defFormation];
+    if (!fdef) return 1;
+    if (fdef.counter.weakTo.includes(planKey)) return COUNTER_WEAK_MULT;     // their scheme is soft vs this call
+    if (fdef.counter.strongVs.includes(planKey)) return COUNTER_STRONG_MULT; // their scheme eats this call
+    return 1;
+  };
   // Every unit sent in plays to the scheme.
   const coach = (t: BTroop): BTroop => {
     if (isDefense) return t;
     const p = planRef.current;
     t.hp = Math.round(t.hp * p.hp); t.maxHp = t.hp;
-    t.dps *= p.dps; t.speed *= p.speed;
+    t.dps *= p.dps * counterMultFor(p.key); t.speed *= p.speed;
     return t;
   };
 
@@ -1095,15 +1107,22 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">🧠 Game Plan</span>
                   {GAME_PLANS.map(gp => {
                     const active = plan.key === gp.key;
+                    // Scouting read: how does this call fare against THEIR formation?
+                    const cm = counterMultFor(gp.key);
                     return (
                       <button key={gp.key} onClick={() => setPlan(gp)}
-                        className={`flex flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
+                        className={`relative flex flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
                           ${active ? 'border-orange-400 bg-orange-900/40' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
                         <span className={`text-[10px] font-bold uppercase leading-tight ${active ? 'text-orange-200' : 'text-white'}`}>{gp.emoji} {gp.name}</span>
                         <span className="text-[8px] text-slate-400 leading-tight">{gp.blurb}</span>
+                        {cm > 1 && <span className="absolute -top-2 -right-1 text-[8px] font-black uppercase bg-green-500 text-black px-1 rounded">they're soft vs this</span>}
+                        {cm < 1 && <span className="absolute -top-2 -right-1 text-[8px] font-black uppercase bg-red-600 text-white px-1 rounded">countered</span>}
                       </button>
                     );
                   })}
+                  {defFormation && FORMATIONS[defFormation] && (
+                    <span className="w-full text-center text-[9px] text-sky-300 font-bold">📋 They're running {FORMATIONS[defFormation].name}</span>
+                  )}
                 </div>
               )}
               <div className="text-center text-xs text-orange-300 font-bold mb-2">
