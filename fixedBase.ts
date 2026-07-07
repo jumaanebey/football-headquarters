@@ -69,12 +69,15 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     key: 'goalline', name: 'Goal Line', motto: 'Tight core, one wall, nothing easy.',
     unlockStadium: 1,
     counter: { strongVs: ['ground'], weakTo: ['air'] },
+    // Radius-3 quincunx (was radius-2, which bunched the campus in the top third
+    // and left the south half empty). Corners embed in the wall ring — the
+    // facilities ARE the fort's corner towers. Board is 0..9; 2×2 max anchor is 8.
     anchors: {
       [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 },
-      [BuildingType.TACTICS_ROOM]:   { gridX: 2, gridY: 2 }, // War Room NW
-      [BuildingType.YOUTH_ACADEMY]:  { gridX: 6, gridY: 2 }, // Scouting NE
-      [BuildingType.MEDICAL_CENTER]: { gridX: 2, gridY: 6 }, // Rehab SW
-      [BuildingType.TRAINING_PITCH]: { gridX: 6, gridY: 6 }, // Training SE
+      [BuildingType.TACTICS_ROOM]:   { gridX: 1, gridY: 1 }, // War Room — north corner
+      [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 1 }, // Scouting — east corner
+      [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 7 }, // Rehab — west corner
+      [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // Training — south corner
     },
     slotPos: {
       D1: { gridX: 4, gridY: 2, covers: 'North pocket' },
