@@ -19,6 +19,8 @@ interface Props {
   recruitSlot?: RecruitSlot | null;
   upgrades?: UpgradeJob[];
   formationName?: string; // current defensive scheme — shown as a pennant so switching visibly changes the board
+  rankColor?: string;      // 🎖 RANK SKIN: trophy tier tints the board (light pool, flags)
+  rankName?: string;
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollectResource?: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -351,7 +353,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -471,6 +473,22 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {/* Name tags live in their OWN layer above every sprite (nested z-index gets
               trapped in a building's stacking context) and sit UNDER each building at
               its base — on the grass, never across the art. */}
+          {/* 🎖 RANK SKIN — pennant flags in your TIER's color fly over the stadium;
+              they recolor every time you climb the ladder (Sandlot grey → GOAT gold). */}
+          {rankColor && (() => {
+            const st = buildings.find(b => b.type === BuildingType.STADIUM);
+            if (!st) return null;
+            const corners = [[0, 0], [2, 0], [0, 2], [2, 2]] as const;
+            return corners.map(([dx, dy], i) => {
+              const c = tileToScreen(st.gridX + dx, st.gridY + dy);
+              return (
+                <div key={`rf${i}`} className="absolute pointer-events-none" style={{ left: c.x - 1, top: c.y - 46, zIndex: st.gridX + st.gridY + 7 }}>
+                  <div style={{ width: 2, height: 34, background: '#cbd5e1', borderRadius: 1 }} />
+                  <div className="absolute" style={{ left: 2, top: 2, width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderLeft: `16px solid ${rankColor}`, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))', animation: `fhq-wave 1.6s ease-in-out ${i * 0.2}s infinite` }} />
+                </div>
+              );
+            });
+          })()}
           {/* 📋 Scheme pennant — the one element that ALWAYS changes when you switch
               formations (Cover 3 and Max Protect share anchors, so without this the
               switch looked like a no-op on the home board). */}

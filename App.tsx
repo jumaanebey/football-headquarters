@@ -1162,6 +1162,8 @@ function App() {
         recruitSlot={gameState.recruitSlot}
         upgrades={gameState.upgrades}
         formationName={formationDef(gameState.formation).name}
+        rankColor={rankFor(gameState.trophies).rank.color}
+        rankName={rankFor(gameState.trophies).rank.name}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
           else setSelectedBuilding(b);

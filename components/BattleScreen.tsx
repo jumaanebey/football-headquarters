@@ -733,7 +733,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
   const s = sim.current;
   const destroyed = s.buildings.filter(b => b.dead && b.kind !== 'wall').length;
-  const pct = Math.round((destroyed / total) * 100);
+  // Drive = DAMAGE dealt, not just demolitions — the meter moves within seconds of
+  // first contact instead of sitting at 0% until a whole building falls (TASK-4).
+  const nonWall = s.buildings.filter(b => b.kind !== 'wall');
+  const pct = nonWall.length ? Math.round(nonWall.reduce((sum, b) => sum + (1 - Math.max(0, b.hp) / b.maxHp), 0) / nonWall.length * 100) : 0;
   const hqDead = s.buildings.find(b => b.kind === 'hq')?.dead ?? false;
   const liveStars = (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0);
   const timeLeft = Math.max(0, Math.ceil(s.time));
