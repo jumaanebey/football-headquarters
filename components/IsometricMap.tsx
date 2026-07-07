@@ -472,9 +472,12 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               its base — on the grass, never across the art. */}
           {sortedBuildings.map((b) => {
             const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
+            // Tag rides the building's own PLINTH (just above its base vertex). Hanging
+            // it below the base put it on top of the next building down-screen in dense
+            // formations — names looked attached to the wrong art.
             return (
-              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y + TILE_H + 8, zIndex: 46 }}>
-                <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/55 px-2 py-0.5 rounded-full whitespace-nowrap">
+              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y + TILE_H * 0.45, zIndex: 46 }}>
+                <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/70 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
                   {BUILDING_INFO[b.type].name} <span className="text-yellow-300">L{b.level}</span>
                 </span>
               </div>

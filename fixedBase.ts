@@ -101,12 +101,15 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     key: 'cover3', name: 'Cover 3', motto: 'Rings on rings — every layer has one job.',
     unlockStadium: 3,
     counter: { strongVs: ['air'], weakTo: ['ground'] },
+    // Facilities embed in the wall ring at DISTINCT grid diagonals (gx−gy all
+    // different) — straight N/E/S/W axes share a screen column in iso and the
+    // buildings stack on top of each other, scrambling the name tags.
     anchors: {
       [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 },
-      [BuildingType.TACTICS_ROOM]:   { gridX: 4, gridY: 1 }, // War Room N — embedded in the wall line
-      [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 4 }, // Scouting E
-      [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 4 }, // Rehab W
-      [BuildingType.TRAINING_PITCH]: { gridX: 4, gridY: 7 }, // Training S
+      [BuildingType.TACTICS_ROOM]:   { gridX: 2, gridY: 1 }, // War Room — north wall, west end
+      [BuildingType.YOUTH_ACADEMY]:  { gridX: 6, gridY: 1 }, // Scouting — north wall, east end
+      [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 6 }, // Rehab — west wall, south end
+      [BuildingType.TRAINING_PITCH]: { gridX: 6, gridY: 7 }, // Training — south wall, east end
     },
     slotPos: {
       D1: { gridX: 4, gridY: 3, covers: 'Field ring N' },
@@ -130,22 +133,23 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     key: 'maxprotect', name: 'Max Protect', motto: 'Breach the wall. Fight the courtyard. Crack the keep.',
     unlockStadium: 5,
     counter: { strongVs: ['ground', 'air'], weakTo: ['balanced'] },
+    // Same distinct-diagonal shell as Cover 3 (see note there) + the inner keep.
     anchors: {
       [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 },
-      [BuildingType.TACTICS_ROOM]:   { gridX: 4, gridY: 1 },
-      [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 4 },
-      [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 4 },
-      [BuildingType.TRAINING_PITCH]: { gridX: 4, gridY: 7 },
+      [BuildingType.TACTICS_ROOM]:   { gridX: 2, gridY: 1 },
+      [BuildingType.YOUTH_ACADEMY]:  { gridX: 6, gridY: 1 },
+      [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 6 },
+      [BuildingType.TRAINING_PITCH]: { gridX: 6, gridY: 7 },
     },
     slotPos: {
-      D1: { gridX: 3, gridY: 2, covers: 'NW courtyard' },
-      D2: { gridX: 6, gridY: 2, covers: 'NE courtyard (point-blank)' },
-      D3: { gridX: 2, gridY: 3, covers: 'W courtyard (long range)' },
-      D4: { gridX: 6, gridY: 7, covers: 'SE courtyard splash' },
-      D5: { gridX: 7, gridY: 6, covers: 'E courtyard' },
+      D1: { gridX: 4, gridY: 2, covers: 'North courtyard' },
+      D2: { gridX: 7, gridY: 3, covers: 'NE courtyard (point-blank)' },
+      D3: { gridX: 2, gridY: 4, covers: 'W courtyard (long range)' },
+      D4: { gridX: 5, gridY: 7, covers: 'S courtyard splash' },
+      D5: { gridX: 7, gridY: 5, covers: 'E courtyard' },
       D6: { gridX: 5, gridY: 3, covers: 'Keep north gate' },
-      C1: { gridX: 2, gridY: 6, covers: 'SW courtyard' },
-      C2: { gridX: 7, gridY: 2, covers: 'NE corner overwatch' },
+      C1: { gridX: 2, gridY: 5, covers: 'SW courtyard' },
+      C2: { gridX: 7, gridY: 4, covers: 'E corner overwatch' },
       C3: { gridX: 4, gridY: 6, covers: 'Keep south gate' },
     },
     wallOrder: [
