@@ -183,7 +183,7 @@ export const collectorCap = (type: BuildingType, level: number): number => {
 export const DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
   { slug: 'statue-legends', gridX: 4, gridY: 0, scale: 0.75 },
   { slug: 'merch-stand',    gridX: 9, gridY: 4, scale: 0.7 },
-  { slug: 'club-fountain',  gridX: 1, gridY: 2, scale: 0.6 }, // ON the grass — (0,4) hung off the island edge
+  { slug: 'club-fountain',  gridX: 1, gridY: 4, scale: 0.6 }, // west lawn — clear of every formation's facility blocks
   { slug: 'tailgate-tent',  gridX: 4, gridY: 9, scale: 0.75 },
 ];
 

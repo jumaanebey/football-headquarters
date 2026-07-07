@@ -18,6 +18,7 @@ interface Props {
   timeOfDay: number; // 0-24
   recruitSlot?: RecruitSlot | null;
   upgrades?: UpgradeJob[];
+  formationName?: string; // current defensive scheme — shown as a pennant so switching visibly changes the board
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollectResource?: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -350,7 +351,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -470,13 +471,33 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {/* Name tags live in their OWN layer above every sprite (nested z-index gets
               trapped in a building's stacking context) and sit UNDER each building at
               its base — on the grass, never across the art. */}
+          {/* 📋 Scheme pennant — the one element that ALWAYS changes when you switch
+              formations (Cover 3 and Max Protect share anchors, so without this the
+              switch looked like a no-op on the home board). */}
+          {formationName && (() => {
+            const st = buildings.find(b => b.type === BuildingType.STADIUM);
+            if (!st) return null;
+            const c = tileToScreen(st.gridX + 0.5, st.gridY + 0.5);
+            return (
+              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * 3.1, zIndex: 47 }}>
+                <span className="text-[10px] font-display font-black uppercase tracking-wide text-sky-200 bg-sky-950/80 border border-sky-700/60 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+                  📋 {formationName}
+                </span>
+              </div>
+            );
+          })()}
           {sortedBuildings.map((b) => {
             const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
-            // Tag rides the building's own PLINTH (just above its base vertex). Hanging
-            // it below the base put it on top of the next building down-screen in dense
-            // formations — names looked attached to the wrong art.
+            // Tag rides the building's own PLINTH. Each art file has different transparent
+            // padding below the pixels, so the baseline is tuned per building type.
+            const TAG_Y: Partial<Record<BuildingType, number>> = {
+              [BuildingType.MEDICAL_CENTER]: 0.22,  // keep-style art sits high in its canvas
+              [BuildingType.STADIUM]: 0.5,
+              [BuildingType.TRAINING_PITCH]: 0.5,   // flat field art
+              [BuildingType.YOUTH_ACADEMY]: 0.35,
+            };
             return (
-              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y + TILE_H * 0.45, zIndex: 46 }}>
+              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y + TILE_H * (TAG_Y[b.type] ?? 0.45), zIndex: 46 }}>
                 <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/70 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
                   {BUILDING_INFO[b.type].name} <span className="text-yellow-300">L{b.level}</span>
                 </span>

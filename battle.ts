@@ -277,7 +277,7 @@ export const ENEMY_BASES: EnemyBase[] = [
   {
     id: 'valley', name: 'Valley State', difficulty: 1, reward: { coins: 700, fans: 30 },
     buildings: [
-      { id: 'hq',  kind: 'hq',       x: 50, y: 50, hp: 480, size: 8 },
+      { id: 'hq',  kind: 'hq',       x: 50, y: 50, hp: 480, size: 8, formation: 'goalline' },
       { id: 'd1',  kind: 'defense',  x: 32, y: 34, hp: 200, size: 5, damage: 16, range: 22 },
       { id: 'd2',  kind: 'defense',  x: 68, y: 66, hp: 200, size: 5, damage: 16, range: 22 },
       { id: 'b1',  kind: 'building', x: 30, y: 66, hp: 150, size: 5 },
@@ -293,7 +293,7 @@ export const ENEMY_BASES: EnemyBase[] = [
   {
     id: 'tech', name: 'Tech University', difficulty: 2, reward: { coins: 1400, fans: 55 },
     buildings: [
-      { id: 'hq',  kind: 'hq',       x: 50, y: 50, hp: 620, size: 8 },
+      { id: 'hq',  kind: 'hq',       x: 50, y: 50, hp: 620, size: 8, formation: 'cover3' },
       { id: 'd1',  kind: 'defense',  x: 28, y: 30, hp: 260, size: 5, damage: 20, range: 24 },
       { id: 'd2',  kind: 'defense',  x: 72, y: 30, hp: 260, size: 5, damage: 20, range: 24 },
       { id: 'd3',  kind: 'defense',  x: 50, y: 74, hp: 260, size: 5, damage: 20, range: 24 },
@@ -339,7 +339,10 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
     // Loot targets scale linearly, but turret LETHALITY scales superlinearly — attacker power
     // compounds (levels × stars × roster), so defenses must actually kill units at high tiers.
     const tDmg = Math.round(14 * Math.pow(tier, 1.3));
-    const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage }));
+    // Every bot RUNS A SCHEME too — the ladder teaches plan-vs-formation counterplay
+    // before you ever meet a live rival. Harder tiers call smarter schemes.
+    const botFormation = tier >= 2.2 ? 'maxprotect' : tier >= 1.4 ? 'cover3' : 'goalline';
+    const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage, formation: b.kind === 'hq' ? botFormation : undefined }));
     const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 30], [50, 70], [38, 64]];
     const extras = Math.min(5, Math.floor(tier / 1.4));
     const flavors: BattleBuildingDef['flavor'][] = ['tshirt', 'ref', 'sled', 'tshirt', 'ref']; // varied looks at higher tiers

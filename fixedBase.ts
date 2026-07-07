@@ -223,23 +223,45 @@ export const wallsFor = (f: FormationKey, stadiumLevel: number) => {
 export const wallHpFor = (stadiumLevel: number) =>
   Math.round(220 * (1 + 0.08 * Math.max(0, stadiumLevel - 1)));
 
-// Geometry audit: overlaps between slots/bus/walls/facilities are authoring bugs —
-// fail loudly in dev for EVERY formation, not just the selected one.
+// Geometry audit — overlaps between slots/bus/walls/facilities are authoring bugs.
+// Exported so the vitest suite runs the EXACT same checks as the dev-mode guard.
+export const auditFormation = (f: FormationKey): string[] => {
+  const errors: string[] = [];
+  const def = formationDef(f);
+  const seen = new Set<string>();
+  const claim = (x: number, y: number, what: string) => {
+    const k = `${x},${y}`;
+    if (seen.has(k)) errors.push(`overlap at ${k} (${what})`);
+    if (x < 0 || x > 9 || y < 0 || y > 9) errors.push(`${what} off-board at ${k}`);
+    seen.add(k);
+  };
+  for (const type of Object.keys(def.anchors) as BuildingType[]) {
+    const a = def.anchors[type];
+    for (const [tx, ty] of buildingTiles(a.gridX, a.gridY)) claim(tx, ty, type);
+  }
+  for (const s of slotsFor(f)) claim(s.gridX, s.gridY, s.id);
+  claim(def.busTile.gridX, def.busTile.gridY, 'bus');
+  for (const w of wallOrderFor(f)) claim(w.gridX, w.gridY, 'wall');
+  // THE ISO RULE (this bug shipped 3× before it got a check): two 2×2 blocks on the
+  // same screen diagonal (equal gx−gy) with nearly-equal depth (gx+gy) render fully
+  // stacked in iso — one hides the other. A depth gap of ≥4 (2 tiles) is deliberate
+  // fort layering (Goal Line's diamond) and reads fine; below that is a bug.
+  const blocks = (Object.keys(def.anchors) as BuildingType[]).map(t => {
+    const a = def.anchors[t];
+    return { t, diag: a.gridX - a.gridY, depth: a.gridX + a.gridY };
+  });
+  for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
+    if (blocks[i].diag === blocks[j].diag && Math.abs(blocks[i].depth - blocks[j].depth) < 4) {
+      errors.push(`iso-stack: ${blocks[i].t} and ${blocks[j].t} share screen diagonal ${blocks[i].diag} too closely`);
+    }
+  }
+  return errors;
+};
+
+// Fail loudly in dev for EVERY formation, not just the selected one.
 if (import.meta.env?.DEV) {
   for (const f of FORMATION_ORDER) {
-    const def = formationDef(f);
-    const seen = new Set<string>();
-    const claim = (x: number, y: number, what: string) => {
-      const k = `${x},${y}`;
-      if (seen.has(k)) throw new Error(`fixedBase[${f}]: overlap at ${k} (${what})`);
-      seen.add(k);
-    };
-    for (const type of Object.keys(def.anchors) as BuildingType[]) {
-      const a = def.anchors[type];
-      for (const [tx, ty] of buildingTiles(a.gridX, a.gridY)) claim(tx, ty, type);
-    }
-    for (const s of slotsFor(f)) claim(s.gridX, s.gridY, s.id);
-    claim(def.busTile.gridX, def.busTile.gridY, 'bus');
-    for (const w of wallOrderFor(f)) claim(w.gridX, w.gridY, 'wall');
+    const errs = auditFormation(f);
+    if (errs.length) throw new Error(`fixedBase[${f}]: ${errs.join('; ')}`);
   }
 }

@@ -496,7 +496,7 @@ function App() {
           : b
         ),
         roster: prev.roster.map(p => {
-          if (p.unit === unit) {
+          if (drill.targetUnit === 'ALL' || p.unit === unit) { // Full Scrimmage sends EVERYONE
             return { ...p, state: PlayerState.WALKING, targetPos: { x: pitchTargetX + (Math.random()*6 - 3), y: pitchTargetY + (Math.random()*6 - 3), z: 1 } };
           }
           return p;
@@ -525,7 +525,7 @@ function App() {
          resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS + drill.rewardCoins },
          teamReadiness: newReadiness,
          roster: prev.roster.map(p => {
-           if (p.unit === building.targetUnit) {
+           if (drill.targetUnit === 'ALL' || p.unit === building.targetUnit) { // scrimmage trains the whole squad
              return {
                ...p,
                level: p.level + 1,
@@ -1137,6 +1137,7 @@ function App() {
         timeOfDay={gameState.timeOfDay}
         recruitSlot={gameState.recruitSlot}
         upgrades={gameState.upgrades}
+        formationName={formationDef(gameState.formation).name}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
           else setSelectedBuilding(b);

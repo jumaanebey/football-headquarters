@@ -166,6 +166,34 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], up
           <div className="text-center text-[12px] text-slate-500 py-2">Readiness fires up your next raid (+15% at 100%) — drills build it.</div>
         )}
 
+        {/* 🏈 FULL SCRIMMAGE — the whole squad trains at once (big energy, big payoff) */}
+        {(() => {
+          const sc = DRILLS['scrimmage'];
+          if (!sc) return null;
+          const canAfford = resources.ENERGY >= sc.costEnergy;
+          return (
+            <button onClick={() => onTrainGroup(UnitGroup.OFFENSE_LINE, 'scrimmage')} disabled={!canAfford}
+              className={`w-full flex items-center justify-between gap-2 p-3 rounded-2xl border-2 transition-all text-left active:scale-[0.98]
+                ${canAfford ? 'bg-purple-950/40 border-purple-700 hover:border-purple-400' : 'bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed'}`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 bg-black rounded-xl flex items-center justify-center border border-purple-800 shrink-0 text-lg">🏈</div>
+                <div className="min-w-0">
+                  <div className="font-bold text-white leading-tight">Full Scrimmage <span className="ml-1 text-[9px] font-black uppercase bg-purple-600 text-white px-1.5 py-0.5 rounded align-middle">whole team</span></div>
+                  <div className="flex gap-2.5 text-[11px] text-slate-400 mt-0.5">
+                    <span className="text-green-400 font-bold">+{sc.readinessGain}% ready</span>
+                    <span>⚡{sc.costEnergy}</span>
+                    <span>{sc.durationSeconds}s</span>
+                    <span className="text-yellow-500">+{sc.rewardCoins}🪙</span>
+                  </div>
+                </div>
+              </div>
+              <div className={`shrink-0 flex items-center gap-1 px-3.5 py-2.5 rounded-xl font-bold text-sm ${canAfford ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                <Play size={14} fill="currentColor" /> {canAfford ? 'Run it' : 'Low ⚡'}
+              </div>
+            </button>
+          );
+        })()}
+
         {/* ⭐ HEROES train here too — longer sessions (a player getting better is a grind,
             not a construction job). Row shows hero + role + level; tap to open training. */}
         <div>
