@@ -234,6 +234,17 @@ const BuildingSprite: React.FC<{
 
   const SPRITE_W = TILE_W * 1.9; // fills the 2×2 footprint — buildings OWN their 4 tiles
 
+  // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
+  // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
+  // Fractions of SPRITE_W: x from sprite left, y up from sprite base.
+  const WINDOW_GLOWS: Partial<Record<BuildingType, { x: number; y: number; w: number }[]>> = {
+    [BuildingType.STADIUM]:        [{ x: 0.28, y: 0.30, w: 0.44 }],                              // bowl wash
+    [BuildingType.YOUTH_ACADEMY]:  [{ x: 0.30, y: 0.34, w: 0.24 }],                              // tower glass
+    [BuildingType.TACTICS_ROOM]:   [{ x: 0.26, y: 0.26, w: 0.26 }, { x: 0.52, y: 0.34, w: 0.2 }], // war-room windows
+    [BuildingType.MEDICAL_CENTER]: [{ x: 0.30, y: 0.28, w: 0.24 }],                              // rehab windows
+    [BuildingType.TRAINING_PITCH]: [{ x: 0.20, y: 0.30, w: 0.18 }, { x: 0.60, y: 0.30, w: 0.18 }], // field lights
+  };
+
   // ROOT IS NOT CLICKABLE: the sprite img is a big square with transparent corners,
   // and those invisible corners were stealing taps from neighbors' labels/bubbles.
   // Only the explicit hitbox (building body) and the badge buttons take pointers.
@@ -259,6 +270,14 @@ const BuildingSprite: React.FC<{
           <img key={i} src="/assets/fx/smoke-puff.png" alt="" draggable={false} className="absolute select-none" style={{
             width: 14 + i * 4, left: SPRITE_W * 0.44, bottom: SPRITE_W * 0.58,
             opacity: 0, animation: `fhq-smoke 4.5s linear ${i * 1.5}s infinite`,
+          }} />
+        ))}
+        {/* Lit windows — always on (the night never ends here), breathing slowly.
+            Screen blend keeps the art underneath readable. */}
+        {(WINDOW_GLOWS[building.type] ?? []).map((g, i) => (
+          <img key={`g${i}`} src="/assets/fx/window-glow.png" alt="" draggable={false} className="absolute select-none" style={{
+            width: SPRITE_W * g.w, left: SPRITE_W * g.x, bottom: SPRITE_W * g.y,
+            mixBlendMode: 'screen', animation: `fhq-glow ${4 + i}s ease-in-out ${(building.gridX * 3 + i * 2) % 4}s infinite`,
           }} />
         ))}
         {/* Stadium dressing: swaying team banner off the near corner + crowd shimmer isn't
