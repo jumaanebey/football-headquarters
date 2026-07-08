@@ -58,10 +58,12 @@ Next, in impact order:
       to the HUD counter (nested X/Y easing), count scales with haul
 - [ ] Counter rollup — SHIPPED (confirm to close): coins/fans/crowns tick to new values
       (550ms ease-out) with a scale-pop on change
-- [ ] Deploy dust — landing puff when a troop/hero drops on the sideline (dust-impact.png
-      is already in fx/)
-- [ ] Verdict card entrance — scale-bounce in, game balls stamp in one-by-one with sfx
-- [ ] Damage numbers — arc + scale-pop instead of straight float
+- [ ] Deploy dust — SHIPPED (confirm to close): dust puff blooms under every troop/hero/
+      special drop (new 'land' fx type, dust-impact.png)
+- [ ] Verdict card entrance — SHIPPED (confirm to close): card scale-bounces in; earned
+      game balls stamp in one-by-one (0.28s stagger). Sfx still open.
+- [ ] Damage numbers — SHIPPED (confirm to close): spawn 1.6x pop, deterministic sideways
+      drift + ease-out rise (arcs, not elevator floats)
 - [ ] Drive meter milestone pulses at 25/50/75/100%
 - [ ] Hero ability cast — screen-edge flash in the hero's color when an ability fires
 - [ ] Sheet/modal entrances — slide-up + backdrop fade (they currently pop)

@@ -60,7 +60,7 @@ interface Shot { sx: number; sy: number; tx: number; ty: number; t: number; dur:
 interface Pulse { x: number; y: number; r: number; life: number; maxLife: number; color: string; }
 // Ephemeral battle FX: dust puffs under runners, impact pops on contact, floating "SACKED!" text,
 // Castle-Clash-style floating damage numbers ('dmg') and knocked-down player chips ('down').
-interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'debris' | 'confetti' | 'smoke' | 'boom'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
+interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'debris' | 'confetti' | 'smoke' | 'boom' | 'land'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
 
 const TICK_MS = 50;
 const DT = TICK_MS / 1000;
@@ -211,11 +211,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // so a recorded attack re-creates itself exactly (including RNG consumption order).
   const doDeployTroop = (unit: UnitGroup, x: number, y: number) => {
     sim.current.troops.push(coach(makeTroop(unit, x, y, config.power?.[unit] ?? 1, rand)));
+    sim.current.fx.push({ type: 'land', x, y, life: 0.45, maxLife: 0.45 });
   };
   const doDeployHero = (key: string, x: number, y: number) => {
     const h = heroes.find(hh => hh.key === key);
     if (!h) return;
     sim.current.troops.push(coach(makeHeroTroop(h, x, y)));
+    sim.current.fx.push({ type: 'land', x, y, life: 0.55, maxLife: 0.55 });
     say(`${h.name.toUpperCase()} TAKES THE FIELD!`);
   };
   const doDeploySpecial = (key: string, x: number, y: number) => {
@@ -226,6 +228,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       const off = sp.count > 1 ? 2.5 : 0;
       sim.current.troops.push(coach(makeSpecialTroop(sp, x + Math.cos(a) * off, y + Math.sin(a) * off)));
     }
+    sim.current.fx.push({ type: 'land', x, y, life: 0.45, maxLife: 0.45 });
   };
   const doCastPlay = (key: string, x: number, y: number) => {
     const p = PLAYBOOK.find(pp => pp.key === key);
@@ -1007,8 +1010,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               );
             }
             if (f.type === 'dmg') return (
-              // Floating damage number — rises and fades, gold for your hits, red for theirs.
-              <div key={i} className="absolute pointer-events-none font-black" style={{ left: `${f.x}%`, top: `${f.y}%`, color: f.color, fontSize: '2.1vmin', textShadow: '0 1px 2px #000, 0 0 3px rgba(0,0,0,0.6)', zIndex: 208, transform: `translate(-50%, calc(-50% - ${(1 - k) * 26}px))`, opacity: Math.min(1, k * 1.8) }}>{f.text}</div>
+              // Damage number with LIFE: pops in oversized, arcs sideways as it rises
+              // (deterministic drift from spawn coords), eases out. Gold = yours, red = theirs.
+              (() => { const drift = (((f.x * 13 + f.y * 7) % 11) - 5) * 4; // -20..+20px, stable per number
+                const rise = (1 - k * k) * 30;               // ease-out rise
+                const pop = 1 + Math.max(0, (k - 0.72) / 0.28) * 0.6; // 1.6x at spawn → 1x
+                return (
+              <div key={i} className="absolute pointer-events-none font-black" style={{ left: `${f.x}%`, top: `${f.y}%`, color: f.color, fontSize: '2.1vmin', textShadow: '0 1px 2px #000, 0 0 3px rgba(0,0,0,0.6)', zIndex: 208, transform: `translate(calc(-50% + ${(1 - k) * drift}px), calc(-50% - ${rise}px)) scale(${pop})`, opacity: Math.min(1, k * 1.8) }}>{f.text}</div>
+                ); })()
             );
             if (f.type === 'down') return (
               // Knocked-down player — the jersey chip tips over and fades where they fell.
@@ -1019,6 +1028,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             );
             if (f.type === 'impact') return (
               <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3.6vmin', height: '3.6vmin', background: 'radial-gradient(circle, #fff 0%, #fde047 45%, transparent 72%)', zIndex: 150, transform: `translate(-50%,-50%) scale(${0.6 + (1 - k) * 1.1})`, opacity: k }} />
+            );
+            if (f.type === 'land') return (
+              // Deploy landing puff — small dust burst under fresh boots
+              <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '4.6vmin', zIndex: 96, transform: `translate(-50%,-60%) scale(${0.45 + (1 - k) * 0.75})`, opacity: k * 0.85 }} />
             );
             if (f.type === 'boom') return (
               // Teardown dust burst — the art sprite blooms out and fades over the wreck
@@ -1360,7 +1373,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           {result.won && Array.from({ length: 40 }).map((_, i) => (
             <div key={i} className="absolute top-0 pointer-events-none" style={{ left: `${(i * 137) % 100}%`, width: 8, height: 12, background: ['#f59e0b', '#3b82f6', '#ef4444', '#22c55e', '#e2e8f0'][i % 5], borderRadius: 2, animation: `fhq-confetti ${1.8 + (i % 5) * 0.25}s linear ${(i % 7) * 0.13}s infinite` }} />
           ))}
-          <div className="relative bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl overflow-hidden">
+          <div className="relative bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl overflow-hidden" style={{ animation: 'fhq-reveal-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
             <div className={`py-6 text-center ${result.won ? 'bg-gradient-to-b from-green-700 to-green-900' : 'bg-gradient-to-b from-red-800 to-red-950'}`}>
               <div className="text-3xl font-display font-black text-white uppercase mb-3">
                 {result.campaignStage === 12 && result.won ? '💍 League Champions!'
@@ -1368,7 +1381,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   : isDefense ? (result.won ? 'Goal-Line Stand!' : 'They Scored!') : (result.won ? 'Crowd Silenced!' : 'Shut Out')}
               </div>
               <div className="flex justify-center gap-3 text-4xl">
-                {[0, 1, 2].map(i => <span key={i} className={i < result.stars ? 'animate-bounce-sm' : ''} style={{ opacity: i < result.stars ? 1 : 0.25, filter: i < result.stars ? 'none' : 'grayscale(1)', animationDelay: `${i * 120}ms` }}>🏈</span>)}
+                {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < result.stars ? 1 : 0.25, filter: i < result.stars ? 'none' : 'grayscale(1)', display: 'inline-block', animation: i < result.stars ? `fhq-reveal-in 0.45s cubic-bezier(0.34,1.56,0.64,1) ${0.35 + i * 0.28}s both` : undefined }}>🏈</span>)}
               </div>
               <div className="text-[11px] uppercase tracking-widest text-white/60 font-bold mt-2">Game Balls</div>
               {!isDefense && config.rival && (
