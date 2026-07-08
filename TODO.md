@@ -5,15 +5,13 @@ never delete incomplete tasks.
 
 ## Open — from the July 2026 full review
 
-- [ ] **Early-base defense balance** — L1 Sandlot bases can lose ~48% ground mid-drive in
-      Test Defense. Expected at that level, but watch that new players don't feel hopeless
-      before their first upgrades land. Candidate levers: soften bot raid `extras` at tier 0,
-      longer starter shield, or a gentler first-week attacker pool. Needs playtest data
-      before tuning (ties into the existing ladder win-rate watch below).
-- [ ] **Formation unlock timing** — Cover 3 gates at Stadium L3, Max Protect at L5. If
-      formations should feel like a *choice* (identity) rather than a progression unlock,
-      surface all three as selectable from L1 and let the 9-slot emplacement ladder +
-      mastery carry progression instead. Decision needed from Jumaane before implementing.
+- [ ] **Early-base defense balance** — SHIPPED 475ee6f (confirm to close): newbie mercy in
+      `raidAiMult` — attackers hit at 78% strength vs Stadium L1, 90% vs L2, full from L3.
+      Applies to offline raids, Test Defense, and the balance sim (one shared curve).
+      Keep watching real early-account results before further tuning.
+- [ ] **Formation unlock timing** — SHIPPED 475ee6f (confirm to close): all three schemes
+      selectable from Stadium L1 (`formationUnlocked` → always true); progression carried by
+      the 9-slot emplacement ladder + mastery. Test + audit-runner assertions updated.
 
 ## Verified already done (claimed as open in that review)
 
@@ -29,8 +27,11 @@ never delete incomplete tasks.
 - [ ] Balance watch: post-castle density + defense buffs may push ladder win rates below
       the 60–75% attacker-fun target
 - [ ] Jumaane phone-verify pass after each deploy batch (fresh tab — Safari cache ritual)
-- [ ] Coach portrait preload (empty circles flash briefly on first open)
-- [ ] README screenshot is stale
+- [ ] Coach portrait preload — SHIPPED 475ee6f (confirm to close): all 18 portraits warmed
+      on an idle tick 2.5s after boot (`preloadCoachArt`)
+- [ ] README screenshot — SHIPPED 475ee6f (confirm to close): fresh L12 black/orange board
+      capture; `scripts/readme-shot.mjs` also updated to the fixed-base save shape (note:
+      Playwright launch hangs on this machine — shot was taken via screencapture instead)
 - [ ] Sound: game is near-silent (synth sfx only) — music/crowd loops are a bigger juice
       win than remaining art; needs a music tool, not Antigravity
 
