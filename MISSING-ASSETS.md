@@ -125,3 +125,23 @@ something else specific. No speculative art.
 
 ## Delivery report format
 Path list of what landed, anything skipped for silhouette drift, 2–3 samples pasted.
+
+---
+
+# Round 5 — ANIMATION OVERLAY PACK (opened 2026-07-07)
+
+Purpose-built (not speculative): code-side animation pass shipped (building breathe,
+HQ smoke) and these 6 standalone FX sprites are the art half. They composite ON TOP of
+existing art — nothing is overwritten. All to NEW paths under `public/assets/fx/`:
+
+| # | File | What |
+|---|---|---|
+| 31 | `fx/banner-team.png` (512²) | hanging black/orange team banner, mid-wave |
+| 32 | `fx/smoke-puff.png` (256²) | single cartoon smoke puff |
+| 33 | `fx/window-glow.png` (256²) | warm orange window-light blob (soft, no outline) |
+| 34 | `fx/crowd-strip.png` (1024×256) | stadium-bowl crowd strip, orange/black fans |
+| 35 | `fx/dust-impact.png` (256²) | battle impact dust burst |
+| 36 | `fx/spark-star.png` (256²) | golden sparkle for coin shimmer |
+
+Same laws: chroma-green knockout, zero opaque edge pixels, no text. These 6 close
+Round 5 — no extras.
