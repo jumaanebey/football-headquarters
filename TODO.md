@@ -51,11 +51,13 @@ one-character-layer rule (flat art fully hides under rig frames), hero card acti
 every 5.5s (was buried in a 7s idle), sideline deploy glow, nameplate fade.
 
 Next, in impact order:
-- [ ] Scout Search reveal — gacha has zero suspense: add card-flip / glow-burst before the
-      result banner (the single most emotional moment in the economy)
-- [ ] Collect arc — coins should physically fly from the building to the HUD counter
-      (floating text exists; the arc sells the earn)
-- [ ] Counter rollup — resource numbers snap instantly; animate tick-up on change
+- [ ] Scout Search reveal — SHIPPED (confirm to close): spinning flame ring + shaking
+      mystery card ~1.4s, hero bursts out with ring recolored to their aura, name +
+      NEW/duplicate result, tap to dismiss
+- [ ] Collect arc — SHIPPED (confirm to close): coins fly curved paths from the building
+      to the HUD counter (nested X/Y easing), count scales with haul
+- [ ] Counter rollup — SHIPPED (confirm to close): coins/fans/crowns tick to new values
+      (550ms ease-out) with a scale-pop on change
 - [ ] Deploy dust — landing puff when a troop/hero drops on the sideline (dust-impact.png
       is already in fx/)
 - [ ] Verdict card entrance — scale-bounce in, game balls stamp in one-by-one with sfx

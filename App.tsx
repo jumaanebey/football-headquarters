@@ -238,6 +238,23 @@ function App() {
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
+  // 🪙 COIN ARCS: on collect, coins physically fly from the building to the HUD counter.
+  // Curved flight = nested X/Y elements with different easing (see fhq-coin-x/y).
+  const [coinFlights, setCoinFlights] = useState<{ id: number; x: number; y: number; dx: number; dy: number; delay: number }[]>([]);
+  const coinFlightId = useRef(1);
+  const spawnCoinArc = (from: { x: number; y: number }, amount: number) => {
+    const hud = document.getElementById('hud-coins')?.getBoundingClientRect();
+    if (!hud) return;
+    const n = Math.max(4, Math.min(9, Math.round(Math.log2(Math.max(2, amount)))));
+    const flights = Array.from({ length: n }, (_, i) => ({
+      id: coinFlightId.current++,
+      x: from.x + (Math.random() * 30 - 15), y: from.y + (Math.random() * 22 - 11),
+      dx: hud.left + hud.width / 2 - from.x, dy: hud.top + hud.height / 2 - from.y,
+      delay: i * 60,
+    }));
+    setCoinFlights(prev => [...prev, ...flights]);
+    setTimeout(() => setCoinFlights(prev => prev.filter(f => !flights.some(g => g.id === f.id))), 1400);
+  };
   const [muted, setMuted] = useState(isMuted());
   const [confirmingReset, setConfirmingReset] = useState(false);
   // 🏛 FRONT OFFICE: the one panel that manages the whole defensive layer (fixed base —
@@ -575,6 +592,7 @@ function App() {
      });
 
      spawnText(`+${drill.rewardCoins} Coins`, screenPos.x, screenPos.y, '#fbbf24');
+     spawnCoinArc(screenPos, drill.rewardCoins);
      spawnText(`+${xpGained} XP`, screenPos.x, screenPos.y - 30, '#3b82f6');
      sfx.collect();
      bumpDaily('drills');
@@ -650,6 +668,7 @@ function App() {
     }));
     const label = cfg.resource === ResourceType.FANS ? 'Fans' : 'Coins';
     spawnText(`+${amount} ${label}`, screenPos.x, screenPos.y, '#fbbf24');
+    if (label === 'Coins') spawnCoinArc(screenPos, amount);
     sfx.collect();
     if (cfg.resource === ResourceType.COINS) bumpDaily('bank_coins', amount);
   };
@@ -1244,6 +1263,13 @@ function App() {
       />
 
       <FloatingTextLayer items={floatingTexts} />
+      {/* coin flights: outer = X easing, inner = Y easing → curved arc to the HUD */}
+      {coinFlights.map(f => (
+        <span key={f.id} className="fixed pointer-events-none" style={{ left: f.x, top: f.y, zIndex: 95, animation: `fhq-coin-x 0.75s cubic-bezier(0.55,0,1,0.45) ${f.delay}ms forwards` , ['--dx' as string]: `${f.dx}px` } as React.CSSProperties}>
+          <img src="/assets/icons/coins.png" alt="" draggable={false} className="w-5 h-5 select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
+            style={{ animation: `fhq-coin-y 0.75s cubic-bezier(0,0.55,0.45,1) ${f.delay}ms forwards`, ['--dy' as string]: `${f.dy}px` } as React.CSSProperties} />
+        </span>
+      ))}
 
       {isSquadOpen && (
         <SquadModal

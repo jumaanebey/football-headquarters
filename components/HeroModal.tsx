@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ResourceType, HeroState } from '../types';
 import { HERO_DEFS, heroLevelMult, heroStarMult, heroUpgradeCost, heroMaxLevel } from '../battle';
 import { ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS, RollResult } from '../gacha';
@@ -47,6 +47,22 @@ const heroHue = (hex: string): number => {
 
 export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
   const stateOf = (key: string) => heroes.find(h => h.key === key);
+
+  // 🎰 SCOUT SEARCH REVEAL: the roll gets a suspense beat (spinning ring + shaking
+  // mystery card) before the hero bursts out. Only fires on NEW rolls this session —
+  // reopening the modal with an old lastRoll stays quiet.
+  const [reveal, setReveal] = useState<'idle' | 'suspense' | 'shown'>('idle');
+  const seenRoll = useRef(lastRoll);
+  useEffect(() => {
+    if (lastRoll && lastRoll !== seenRoll.current) {
+      seenRoll.current = lastRoll;
+      setReveal('suspense');
+      const t1 = setTimeout(() => setReveal('shown'), 1400);
+      const t2 = setTimeout(() => setReveal('idle'), 4200);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [lastRoll]);
+  const revealDef = reveal !== 'idle' && lastRoll ? HERO_DEFS.find(d => d.key === lastRoll.key) : null;
   const maxLevel = heroMaxLevel(stadiumLevel);
   const canRoll = resources.GEMS >= ROLL_COST_GEMS;
 
@@ -66,6 +82,43 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
         </button>
       }
     >
+        {/* 🎰 Scout Search reveal overlay */}
+        {revealDef && lastRoll && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm animate-fade-in cursor-pointer" onClick={() => setReveal('idle')}>
+            <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
+              <img src="/assets/heroes/franchise-rig/aura-ring.png" alt="" draggable={false} className="absolute select-none"
+                style={{ width: 230, height: 230, animation: `fhq-aura ${reveal === 'suspense' ? '0.9s' : '6s'} linear infinite`, opacity: 0.95,
+                  filter: reveal === 'shown' ? `hue-rotate(${heroHue(revealDef.color) - 45}deg) saturate(1.2) drop-shadow(0 0 14px ${revealDef.color})` : 'drop-shadow(0 0 10px #f97316aa)' }} />
+              {reveal === 'suspense' ? (
+                <div className="relative rounded-2xl border-2 border-yellow-400/70 bg-slate-900 flex items-center justify-center shadow-2xl"
+                  style={{ width: 120, height: 160, animation: 'fhq-reveal-pulse 0.5s ease-in-out infinite' }}>
+                  <span className="text-6xl font-black text-yellow-400/90">?</span>
+                </div>
+              ) : (
+                <>
+                  <div className="absolute rounded-full border-4 pointer-events-none" style={{ width: 200, height: 200, borderColor: revealDef.color, animation: 'fhq-reveal-burst 0.7s ease-out forwards' }} />
+                  <img src={revealDef.art} alt={revealDef.name} draggable={false} className="relative h-56 w-auto max-w-none object-contain select-none drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]"
+                    style={{ animation: 'fhq-reveal-in 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                </>
+              )}
+            </div>
+            <div className="mt-5 text-center" style={{ minHeight: 60 }}>
+              {reveal === 'suspense' ? (
+                <div className="text-sm font-black uppercase tracking-[0.3em] text-yellow-300 animate-pulse">Scouting…</div>
+              ) : (
+                <div className="animate-fade-in">
+                  <div className="text-2xl font-display font-black text-white drop-shadow">{lastRoll.name}</div>
+                  {lastRoll.isNew
+                    ? <div className="text-sm font-black uppercase tracking-widest mt-1" style={{ color: revealDef.color }}>🎉 New hero unlocked!</div>
+                    : <div className="text-sm font-bold text-purple-300 mt-1">Duplicate → +{lastRoll.shards} 🧩 shards</div>}
+                  <div className="text-[10px] text-slate-500 mt-2">tap to continue</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Latest Scout Search result */}
         {lastRoll && (
           <div className={`px-5 py-2.5 border-b flex items-center gap-2 text-sm font-bold ${lastRoll.isNew ? 'bg-fuchsia-950/60 border-fuchsia-800 text-fuchsia-200' : 'bg-slate-900/80 border-slate-800 text-slate-200'}`}>

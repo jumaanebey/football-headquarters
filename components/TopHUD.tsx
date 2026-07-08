@@ -1,4 +1,25 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+
+// Counter ROLLUP: numbers tick to their new value instead of snapping (ease-out cubic,
+// ~550ms). Paired with a scale-pop on the digits (keyed remount replays the animation).
+const useRollup = (target: number): number => {
+  const [shown, setShown] = useState(target);
+  const prev = useRef(target);
+  useEffect(() => {
+    const from = prev.current; prev.current = target;
+    if (from === target) return;
+    const t0 = performance.now(); const dur = 550;
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / dur);
+      setShown(Math.round(from + (target - from) * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return shown;
+};
 import { GameState } from '../types';
 import { RALLY_CONFIG } from '../constants';
 import { RESOURCE_ICON } from '../assets';
@@ -19,6 +40,10 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => 
   const { resources } = gameState;
   const { rank } = rankFor(gameState.trophies ?? 0);
   const power = clubPower(gameState);
+
+  const coinsShown = useRollup(resources.COINS);
+  const fansShown = useRollup(resources.FANS);
+  const gemsShown = useRollup(resources.GEMS);
 
   const canRally = resources.ENERGY < 100 && resources.FANS >= RALLY_CONFIG.fanCost;
 
@@ -70,21 +95,21 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => 
           </div>
 
           {/* Coins */}
-          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-1 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Coins — gate revenue. Spend on upgrades, equipment, heroes, and the Parking Lot.">
+          <div id="hud-coins" className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-yellow-500 px-1 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Coins — gate revenue. Spend on upgrades, equipment, heroes, and the Parking Lot.">
             <img src={RESOURCE_ICON.coins} alt="Coins" className="w-4 h-4 object-contain" draggable={false} />
-            <span className="font-display font-bold text-[13px] sm:text-lg" title={resources.COINS.toLocaleString()}>{fmtNum(resources.COINS)}</span>
+            <span key={resources.COINS} className="inline-block font-display font-bold text-[13px] sm:text-lg" style={{ animation: 'fhq-counter-pop 0.4s ease-out' }} title={resources.COINS.toLocaleString()}>{fmtNum(coinsShown)}</span>
           </div>
 
           {/* Fans */}
           <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-rose-500 px-1 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Fans — your crowd. They rally your Energy, fill the Fan Mob, boost home-crowd defense, and ERUPT to stall enemy drives.">
             <Users size={14} className="text-rose-400 fill-rose-400" />
-            <span className="font-display font-bold text-[13px] sm:text-lg" title={resources.FANS.toLocaleString()}>{fmtNum(resources.FANS)}</span>
+            <span key={resources.FANS} className="inline-block font-display font-bold text-[13px] sm:text-lg" style={{ animation: 'fhq-counter-pop 0.4s ease-out' }} title={resources.FANS.toLocaleString()}>{fmtNum(fansShown)}</span>
           </div>
 
           {/* Gems */}
           <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur border-b-2 border-purple-500 px-1 sm:px-3 py-1 rounded-lg pointer-events-auto shadow-lg" title="Crowns — earned from raids & dailies; spent on Scout Searches, finishing timers, and builders">
             <Crown size={14} className="text-purple-400 fill-purple-400" />
-            <span className="font-display font-bold text-[13px] sm:text-lg">{resources.GEMS}</span>
+            <span key={resources.GEMS} className="inline-block font-display font-bold text-[13px] sm:text-lg" style={{ animation: 'fhq-counter-pop 0.4s ease-out' }}>{gemsShown}</span>
           </div>
         </div>
       </div>
