@@ -427,8 +427,9 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
           const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
           return (
             <>
-              <img src={`${base}-walkA.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: 'fhq-stepA 0.4s linear infinite', transform: wFlip }} />
-              <img src={`${base}-walkB.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: 'fhq-stepB 0.4s linear infinite', transform: wFlip }} />
+              {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
+                <img key={fr} src={`${base}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: `fhq-q${qi + 1} 0.5s linear infinite`, transform: wFlip }} />
+              ))}
             </>
           ); })()}
       </div>

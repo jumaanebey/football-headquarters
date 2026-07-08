@@ -182,6 +182,11 @@
       /* Two-frame walk cycle: A and B alternate on a square wave (near-instant crossfade
          at the 50% mark reads as a step, not a blend). */
       @keyframes fhq-stepA { 0%,49.5% { opacity: 1; } 50%,100% { opacity: 0; } }
+      /* 4-frame walk: contact-L → passing → contact-R → passing (quarter phases) */
+      @keyframes fhq-q1 { 0%,24.5% { opacity: 1; } 25%,100% { opacity: 0; } }
+      @keyframes fhq-q2 { 0%,24.5% { opacity: 0; } 25%,49.5% { opacity: 1; } 50%,100% { opacity: 0; } }
+      @keyframes fhq-q3 { 0%,49.5% { opacity: 0; } 50%,74.5% { opacity: 1; } 75%,100% { opacity: 0; } }
+      @keyframes fhq-q4 { 0%,74.5% { opacity: 0; } 75%,100% { opacity: 1; } }
       @keyframes fhq-stepB { 0%,49.5% { opacity: 0; } 50%,100% { opacity: 1; } }
       /* Hero nameplate: readable at deploy, then drops to a whisper so it stops
          fighting the sprites and hit VFX for screen space. */

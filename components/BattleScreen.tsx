@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { UnitGroup } from '../types';
+import { UnitGroup , Player } from '../types';
 import {
   BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER, UNIT_PREF,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS, planPath, losClear,
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
   SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef, HomeGuardDef, mulberry32, ReplayAction, ReplayData,
-} from '../battle';
+  ROLE_COMBAT, POCKET_RADIUS, RECEIVER_BONUS, POCKET_FACTOR } from '../battle';
 import { RivalCoach } from '../campaign';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
 import { sfx, crowdBedStart, crowdBedStop, crowdBedIntensity } from '../sound';
@@ -22,6 +22,7 @@ export interface BattleConfig {
   heroes?: RaidHero[];
   specials?: SpecialDef[];
   preTroops?: { unit: UnitGroup; x: number; y: number }[];
+  squad?: Player[];       // the roster as INDIVIDUALS — deploys pull real named players
   aiMult?: number;
   loot: { coins: number; fans: number };
   campaignStage?: number; // set when this attack is a Season campaign stage
@@ -60,7 +61,7 @@ interface Shot { sx: number; sy: number; tx: number; ty: number; t: number; dur:
 interface Pulse { x: number; y: number; r: number; life: number; maxLife: number; color: string; }
 // Ephemeral battle FX: dust puffs under runners, impact pops on contact, floating "SACKED!" text,
 // Castle-Clash-style floating damage numbers ('dmg') and knocked-down player chips ('down').
-interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'debris' | 'confetti' | 'smoke' | 'boom' | 'land'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
+interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'debris' | 'confetti' | 'smoke' | 'boom' | 'land' | 'ballshot'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
 
 const TICK_MS = 50;
 const DT = TICK_MS / 1000;
@@ -71,14 +72,20 @@ const emptyArmy = (): Record<UnitGroup, number> => ({
   [UnitGroup.DEFENSE_LINE]: 0, [UnitGroup.DEFENSE_SECONDARY]: 0,
 });
 
-const makeTroop = (unit: UnitGroup, x: number, y: number, mult = 1, rand: () => number = Math.random): BTroop => {
+const makeTroop = (unit: UnitGroup, x: number, y: number, mult = 1, rand: () => number = Math.random, player?: { name: string; role: string }): BTroop => {
   const st = TROOP_STATS[unit];
-  const hp = Math.round(st.hp * mult);
-  return { id: `tr${++troopUid}`, unit, x, y, hp, maxHp: hp, dps: st.dps * mult, speed: st.speed, range: st.range, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 1 + Math.floor(rand() * 98) };
+  const rc = player ? ROLE_COMBAT[player.role] : undefined;
+  const hp = Math.round(st.hp * mult * (rc?.hpMult ?? 1));
+  return { id: `tr${++troopUid}`, unit, x, y, hp, maxHp: hp,
+    dps: st.dps * mult * (rc?.dmgMult ?? 1),
+    speed: st.speed * (rc?.speedMult ?? 1),
+    range: rc?.range ?? st.range,
+    targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0,
+    jersey: 1 + Math.floor(rand() * 98), role: player?.role, nameTag: player?.name };
 };
 
 const makeHeroTroop = (h: RaidHero, x: number, y: number): BTroop => ({
-  id: `hero_${h.key}_${++troopUid}`, unit: h.unit, x, y, hp: h.hp, maxHp: h.hp, dps: h.dps, speed: h.speed, range: h.range,
+  id: `hero_${h.key}_${++troopUid}`, unit: h.unit, x, y, hp: h.hp, maxHp: h.hp, dps: h.dps, speed: h.speed, range: h.key === 'qb' ? 13 : h.key === 'kicker' ? 16 : h.range,
   targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, isHero: true, heroKey: h.key, ability: h.ability, abilityCd: 0,
 });
 
@@ -209,10 +216,24 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
   // Shared deploy primitives — live input and the replay script run the SAME code path,
   // so a recorded attack re-creates itself exactly (including RNG consumption order).
+  // INDIVIDUALS, not squads: each deploy pulls the next real roster player of that
+  // position group (deterministic order → replays stay faithful).
+  const squadQueues = useRef<Record<string, { name: string; role: string }[]>>({});
+  useEffect(() => {
+    const q: Record<string, { name: string; role: string }[]> = {};
+    for (const p of [...(config.squad ?? [])].sort((a, b) => a.id.localeCompare(b.id))) {
+      (q[p.unit] = q[p.unit] ?? []).push({ name: p.name, role: p.role });
+    }
+    squadQueues.current = q;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (import.meta.env.DEV) (window as unknown as { __sim?: unknown }).__sim = sim; // dev-only sim inspection
   const doDeployTroop = (unit: UnitGroup, x: number, y: number) => {
-    sim.current.troops.push(coach(makeTroop(unit, x, y, config.power?.[unit] ?? 1, rand)));
+    const player = squadQueues.current[unit]?.shift();
+    sim.current.troops.push(coach(makeTroop(unit, x, y, config.power?.[unit] ?? 1, rand, player)));
     sim.current.fx.push({ type: 'land', x, y, life: 0.45, maxLife: 0.45 });
     sfx.thud();
+    if (player) say(`${player.name.toUpperCase()} (${player.role}) — ${ROLE_COMBAT[player.role]?.power ?? 'in the game'}!`);
   };
   const doDeployHero = (key: string, x: number, y: number) => {
     const h = heroes.find(hh => hh.key === key);
@@ -321,7 +342,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         if (t.abilityCd && t.abilityCd > 0) t.abilityCd = Math.max(0, t.abilityCd - DT);
 
         const raging = t.rageT > 0;
-        const dps = t.dps * (raging ? 2 : 1);
+        // WR power: catching — big damage while any thrower (QB player or QB hero) is out
+        const rc = t.role ? ROLE_COMBAT[t.role] : undefined;
+        const catching = rc?.receiver && s.troops.some(o => !o.dead && (ROLE_COMBAT[o.role ?? '']?.thrower || o.heroKey === 'qb'));
+        const dps = t.dps * (raging ? 2 : 1) * (catching ? RECEIVER_BONUS : 1);
         const speed = t.speed * (raging ? 1.5 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1); // penalty flag = mud in your cleats
 
         const goal = nearestBuilding(t.x, t.y, s.buildings, t.special ? undefined : UNIT_PREF[t.unit]); // position-group targeting roles
@@ -367,6 +391,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           t.dmgTimer = (t.dmgTimer ?? 0) + DT;
           if (t.dmgTimer >= 0.65) {
             s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(t.dmgAcc))}`, color: '#fde047', x: target.x + (rand() * 4 - 2), y: target.y - target.size * 0.4, life: 0.7, maxLife: 0.7 });
+            // QBs THROW and kickers KICK — a visible football flies with every hit cycle
+            if (rc?.thrower || t.heroKey === 'qb' || t.heroKey === 'kicker') {
+              s.fx.push({ type: 'ballshot', x: t.x, y: t.y - 2, vx: target.x, vy: target.y - 1, life: 0.4, maxLife: 0.4 });
+              if (import.meta.env.DEV) (window as unknown as { __shots: number }).__shots = ((window as unknown as { __shots?: number }).__shots ?? 0) + 1;
+            }
             t.dmgAcc = 0; t.dmgTimer = 0;
           }
           // GOAL-LINE STAND: crack their stadium below half and the defense throws everything at you.
@@ -441,7 +470,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           g.attacking = true;
           const shieldFactor = (prey.shieldT && prey.shieldT > 0) ? 0.5 : 1;
           const preyOut = prey.dps * (prey.rageT > 0 ? 2 : 1) * 0.55 * DT;
-          prey.hp -= g.dps * shieldFactor * DT; prey.hitFlash = 0.12;
+          // OL power: the pocket — QB/RB near a live lineman take reduced damage
+          const pocket = (prey.role === 'QB' || prey.role === 'RB') && s.troops.some(o => !o.dead && ROLE_COMBAT[o.role ?? '']?.protector && dist(o.x, o.y, prey.x, prey.y) < POCKET_RADIUS) ? POCKET_FACTOR : 1;
+          prey.hp -= g.dps * shieldFactor * pocket * DT; prey.hitFlash = 0.12;
           g.hp -= preyOut; g.hitFlash = 0.12;
           prey.dmg = (prey.dmg ?? 0) + preyOut;
           // Red numbers when the defense is chewing on your player.
@@ -1054,6 +1085,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             if (f.type === 'impact') return (
               <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3.6vmin', height: '3.6vmin', background: 'radial-gradient(circle, #fff 0%, #fde047 45%, transparent 72%)', zIndex: 150, transform: `translate(-50%,-50%) scale(${0.6 + (1 - k) * 1.1})`, opacity: k }} />
             );
+            if (f.type === 'ballshot') return (
+              // A thrown/kicked football spiraling to its target (lerp + arc + spin)
+              (() => { const p = 1 - k; const bx = f.x + (f.vx! - f.x) * p; const by = f.y + (f.vy! - f.y) * p - Math.sin(p * Math.PI) * 4;
+                return <img key={i} src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${bx}%`, top: `${by}%`, width: '2.6vmin', zIndex: 202, transform: `translate(-50%,-50%) rotate(${p * 720}deg)`, opacity: Math.min(1, k * 3) }} />;
+              })()
+            );
             if (f.type === 'land') return (
               // Deploy landing puff — small dust burst under fresh boots
               <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '4.6vmin', zIndex: 96, transform: `translate(-50%,-60%) scale(${0.45 + (1 - k) * 0.75})`, opacity: k * 0.85 }} />
@@ -1152,8 +1189,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
                     return (
                       <>
-                        <img src={`/assets/heroes/rig/${hk}-walkA.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ animation: 'fhq-stepA 0.46s linear infinite', transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
-                        <img src={`/assets/heroes/rig/${hk}-walkB.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
+                        {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
+                          <img key={fr} src={`/assets/heroes/rig/${hk}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.55s linear infinite`, transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
+                        ))}
                       </>
                     ); })()}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
@@ -1206,9 +1244,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     {/* HEROES WALK: two-frame stride while moving, action pose while attacking.
                         Walk frames face viewer-LEFT natively → flip when running right. Missing
                         frames self-hide, leaving the flat art underneath. */}
-                    {(() => { const rp = t.heroKey === 'qb'
-                        ? { action: '/assets/heroes/franchise-rig/body-followthrough.png', walkA: '/assets/heroes/rig/qb-walkA.png', walkB: '/assets/heroes/rig/qb-walkB.png' }
-                        : { action: `/assets/heroes/rig/${t.heroKey}-action.png`, walkA: `/assets/heroes/rig/${t.heroKey}-walkA.png`, walkB: `/assets/heroes/rig/${t.heroKey}-walkB.png` };
+                    {(() => { const rp = { action: t.heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.png' : `/assets/heroes/rig/${t.heroKey}-action.png`, base: `/assets/heroes/rig/${t.heroKey}` };
                       const rigFlip = face > 0 ? ' scaleX(-1)' : '';
                       const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
                       const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
@@ -1216,8 +1252,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                         <img src={rp.action} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-pop 0.35s ease-in-out infinite', transform: `translateZ(0)${rigFlip}` }} />
                       ) : (
                         <>
-                          <img src={rp.walkA} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepA 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
-                          <img src={rp.walkB} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
+                          {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
+                            <img key={fr} src={`${rp.base}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: `fhq-q${qi + 1} 0.55s linear infinite`, transform: `translateZ(0)${rigFlip}` }} />
+                          ))}
                         </>
                       ); })()}
                     {/* Nameplate: full strength for the deploy moment, then fades way down —
@@ -1226,7 +1263,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   </div>
                 ) : (
                   // ONE individual player — chip fallback until the sprite loads, then pure sprite.
-                  <div className="relative w-full" style={{ aspectRatio: '1', filter: pGlow, opacity: t.hitFlash > 0 ? 0.5 : 1, animation: anim }}>
+                  <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: pGlow, opacity: t.hitFlash > 0 ? 0.5 : 1, animation: anim }}>
                     {shadow}
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       {/* helmet (team black w/ orange stripe) */}
@@ -1236,7 +1273,15 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       {/* numbered jersey (position color) */}
                       <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: st.color, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{t.jersey}</div>
                     </div>
-                    <img src={unitPlayerSprite(t.unit)} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="absolute inset-0 w-full h-full object-contain" style={{ transform: `translateZ(0)${flip}` }} />
+                    <img src={unitPlayerSprite(t.unit)} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ transform: `translateZ(0)${flip}` }} />
+                    {!t.attacking && (() => {
+                      const base = unitPlayerSprite(t.unit).replace('-player.png', '');
+                      const uFlip = face > 0 ? ' scaleX(-1)' : '';
+                      const rigOn2 = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
+                      const rigOff2 = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+                      return (['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
+                        <img key={fr} src={`${base}-${fr}.png`} alt="" draggable={false} onLoad={rigOn2} onError={rigOff2} className="absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.55s linear infinite`, transform: `translateZ(0)${uFlip}` }} />
+                      )); })()}
                     {/* jersey number rides the real sprite — the announcer talks about #23, so show #23 */}
                     <span className="absolute flex items-center justify-center font-black text-white" style={{ right: '-4%', bottom: '-2%', minWidth: '38%', height: '32%', borderRadius: 4, background: st.color, border: '1px solid rgba(0,0,0,0.55)', fontSize: '1.15vmin', boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t.jersey}</span>
                   </div>
@@ -1317,6 +1362,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: st.color }}>{st.emoji}</div>
                       <span className="text-[9px] font-bold text-white uppercase">{st.label}</span>
                       <span className="text-[8px] font-bold text-orange-300">⚡×{(config.power?.[u] ?? 1).toFixed(1)}</span>
+                        {squadQueues.current[u]?.[0] && <span className="text-[7px] font-bold text-slate-300 leading-none max-w-[64px] truncate">{squadQueues.current[u][0].name} · {squadQueues.current[u][0].role}</span>}
                       <span className="absolute -top-2 -right-1 min-w-5 h-5 px-1 rounded-full bg-orange-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center">{count}</span>
                     </button>
                   );

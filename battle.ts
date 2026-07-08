@@ -66,6 +66,8 @@ export interface BTroop {
   attacking?: boolean; // true this tick if in range and hitting a target (drives lunge anim)
   special?: SpecialKind; // set for Mascot / Fan-Mob support units
   jersey?: number;     // individual jersey number (each deployed player is their own person)
+  role?: string;       // PlayerRole — drives ROLE_COMBAT powers (QB throws, OL protects…)
+  nameTag?: string;    // the roster player's NAME — individuals, not squads
   dmg?: number;        // total damage dealt this battle (drives the MVP award)
   kills?: number;      // defenders pancaked by this player
   dmgAcc?: number;     // damage accumulated since the last floating number popped
@@ -76,8 +78,8 @@ export interface BTroop {
 // Troop archetypes per position group.
 // Colors are on the home-team identity (steel / orange / charcoal / gold) — see ART-DIRECTION.md.
 export const TROOP_STATS: Record<UnitGroup, { hp: number; dps: number; speed: number; range: number; label: string; color: string; emoji: string; hint: string }> = {
-  [UnitGroup.OFFENSE_LINE]:      { hp: 280, dps: 14, speed: 9,  range: 4,  label: 'Linemen',   color: '#475569', emoji: '🛡️', hint: 'tanks — soak up the defense' },       // steel
-  [UnitGroup.OFFENSE_SKILL]:     { hp: 95,  dps: 34, speed: 15, range: 7,  label: 'Skill',     color: '#f97316', emoji: '⚡', hint: 'hunt loot & the stadium' },            // team orange
+  [UnitGroup.OFFENSE_LINE]:      { hp: 280, dps: 14, speed: 9,  range: 4,  label: 'Linemen',   color: '#475569', emoji: '🛡️', hint: 'the POCKET — OL shield your QB & RB' },       // steel
+  [UnitGroup.OFFENSE_SKILL]:     { hp: 95,  dps: 34, speed: 15, range: 7,  label: 'Skill',     color: '#f97316', emoji: '⚡', hint: 'QBs THROW · RBs TRUCK · WRs CATCH' },            // team orange
   [UnitGroup.DEFENSE_LINE]:      { hp: 175, dps: 24, speed: 11, range: 4,  label: 'Front 7',   color: '#1f2937', emoji: '💥', hint: 'BLITZ defensive gear first' },         // charcoal
   [UnitGroup.DEFENSE_SECONDARY]: { hp: 90,  dps: 22, speed: 17, range: 8,  label: 'Secondary', color: '#eab308', emoji: '🏃', hint: 'fast — race to open loot' },           // gold
 };
@@ -126,6 +128,34 @@ export const armyFromRoster = (roster: Player[]): Record<UnitGroup, number> => {
 };
 
 export const playerOvr = (p: Player) => (p.stats.strength + p.stats.speed + p.stats.iq) / 3;
+
+// ── ROLE POWERS: every deployed player is an INDIVIDUAL who plays his position ──
+// QBs throw from the pocket, RBs hit downhill, WRs catch (huge dps while a QB is on
+// the field), OL forms the pocket (QB/RB near an OL take less damage). Defense roles
+// get flavor tunings. This is what makes WHO you send a football decision.
+export interface RoleCombat {
+  range?: number;        // overrides the group range (throwers/kickers attack from distance)
+  speedMult?: number;
+  dmgMult?: number;
+  hpMult?: number;
+  thrower?: boolean;     // attacks fire a visible football
+  receiver?: boolean;    // +60% dmg while a thrower is alive on the field
+  protector?: boolean;   // QB/RB within the pocket radius take 40% less damage
+  power: string;         // one-line power description (deploy bar + coach tips)
+}
+export const POCKET_RADIUS = 9;
+export const RECEIVER_BONUS = 1.6;
+export const POCKET_FACTOR = 0.6;
+export const ROLE_COMBAT: Record<string, RoleCombat> = {
+  QB: { range: 13, thrower: true, dmgMult: 1.15, hpMult: 0.8, power: 'throws from distance' },
+  RB: { speedMult: 1.4, dmgMult: 1.5, hpMult: 1.1, power: 'fast — hits HARD' },
+  WR: { speedMult: 1.3, receiver: true, hpMult: 0.75, power: 'catches: +60% dmg with a QB out' },
+  OL: { protector: true, hpMult: 1.35, power: 'the pocket — shields QB & RB' },
+  DL: { dmgMult: 1.2, power: 'trench bully' },
+  LB: { dmgMult: 1.1, speedMult: 1.1, power: 'sideline to sideline' },
+  CB: { speedMult: 1.35, power: 'ballhawk — races to loot' },
+  S:  { range: 9, speedMult: 1.2, power: 'plays deep — mid range' },
+};
 
 // --- HEROES: your best players, as powerful ability units ---
 export interface RaidHero {

@@ -836,7 +836,7 @@ function App() {
       return false;
     }
     setGameState(prev => ({ ...prev, resources: { ...prev.resources, [ResourceType.ENERGY]: Math.max(0, prev.resources.ENERGY - RAID_ENERGY) } }));
-    setBattleConfig({ ...config, attackerName: gameState.teamName }); // matchup card shows YOUR club
+    setBattleConfig({ ...config, attackerName: gameState.teamName, squad: gameState.roster }); // your club + your INDIVIDUALS
     return true;
   };
 
