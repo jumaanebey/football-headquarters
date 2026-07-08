@@ -982,7 +982,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div className="absolute rounded-full border-2 border-white/20 border-dashed pointer-events-none" style={{ left: '14%', top: '14%', width: '72%', height: '72%' }} />
               {/* The SIDELINE is the tap target — make it glow until the first deploy
                   (review: first-time raiders tapped open field and thought it was broken). */}
-              <div className="absolute inset-0 pointer-events-none animate-pulse" style={{ border: '1.2vmin solid rgba(253,224,71,0.25)', boxShadow: 'inset 0 0 2.4vmin rgba(253,224,71,0.35)' }} />
+              <div className="absolute inset-0 pointer-events-none animate-pulse" style={{ border: '1.5vmin solid rgba(253,224,71,0.42)', boxShadow: 'inset 0 0 3vmin rgba(253,224,71,0.55), 0 0 1.5vmin rgba(253,224,71,0.35)' }} />
               <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ bottom: '3%', zIndex: 220 }}>
                 <span className="inline-block animate-bounce-sm text-[11px] font-black uppercase tracking-wide bg-yellow-400 text-black px-3 py-1 rounded-full shadow-xl whitespace-nowrap">👇 tap the glowing sideline to deploy</span>
               </div>
