@@ -145,3 +145,15 @@ existing art — nothing is overwritten. All to NEW paths under `public/assets/f
 
 Same laws: chroma-green knockout, zero opaque edge pixels, no text. These 6 close
 Round 5 — no extras.
+
+
+---
+
+# Round 6 — RANK CREST SET (opened 2026-07-07)
+
+Seven trophy-ladder emblems replacing emoji, to NEW paths under `public/assets/ranks/`:
+sandlot / jv / varsity / pro / allpro / halloffame / goat — one shared shield silhouette
+family, escalating material + ornament, each in its rank color (slate/green/sky/purple/
+amber/red/gold), charcoal-black base metal, NO club orange, NO text. 512², chroma
+knockout, zero opaque edge pixels, readable at 24px. Code wires them into the HUD chip +
+Ranks ladder after delivery. These 7 close Round 6 — no extras.
