@@ -163,3 +163,27 @@ quota reset: **halloffame**, **goat**, and a **jv REDO** (shipped with interior 
 residue + a blank-white ribbon where its green identity should be — defringed in place
 as a stopgap). ⚠️ Lesson for every future delivery: edge-only pixel checks miss INTERIOR
 chroma residue — scan the whole sprite for green-dominant pixels before delivering.
+
+
+---
+
+# Round 7 — "THE FRANCHISE" ANIMATION LAYER PACK (opened 2026-07-07)
+
+Gameplay-grade hero motion (Castle Clash-style idle/wind-up/throw). The flat qb.png is
+512² — below the 1024 rigging bar — and slicing flat art leaves holes behind overlaps,
+so the hero is REGENERATED AS LAYERS instead (the clean path). All 1024², identity
+reference = current qb.png, to `public/assets/heroes/franchise-rig/`:
+
+| # | File | Layer |
+|---|---|---|
+| 37 | body.png | clean character, empty throwing hand, NO aura/ball |
+| 38 | aura-ring.png | flat flame ring alone (will spin) |
+| 39 | aura-glow.png | soft golden radial glow alone |
+| 40 | ball.png | glowing football alone, flame trail |
+| 41 | body-armless.png | OPTIONAL — body w/ throwing arm omitted (skip-on-drift) |
+| 42 | arm-throw.png | OPTIONAL — the arm alone, +20px shoulder overlap (skip-on-drift) |
+
+Code side after delivery (no Spine/DragonBones/Lottie — DOM game, CSS cutout puppet):
+stack layers, pivots via transform-origin, states = idle (sway/breathe/ring-spin),
+wind-up (lean + arm cock if Tier 2 lands), throw (ball launches w/ trail). This closes
+Round 7 — no extras.
