@@ -155,5 +155,11 @@ Seven trophy-ladder emblems replacing emoji, to NEW paths under `public/assets/r
 sandlot / jv / varsity / pro / allpro / halloffame / goat — one shared shield silhouette
 family, escalating material + ornament, each in its rank color (slate/green/sky/purple/
 amber/red/gold), charcoal-black base metal, NO club orange, NO text. 512², chroma
-knockout, zero opaque edge pixels, readable at 24px. Code wires them into the HUD chip +
-Ranks ladder after delivery. These 7 close Round 6 — no extras.
+knockout, zero opaque edge pixels, readable at 24px. These 7 close Round 6 — no extras.
+
+**STATUS (2026-07-07):** 5/7 delivered and WIRED IN (HUD chip, Ranks ladder, standings
+rows — emoji is the fallback, so missing crests degrade gracefully). Outstanding after
+quota reset: **halloffame**, **goat**, and a **jv REDO** (shipped with interior green
+residue + a blank-white ribbon where its green identity should be — defringed in place
+as a stopgap). ⚠️ Lesson for every future delivery: edge-only pixel checks miss INTERIOR
+chroma residue — scan the whole sprite for green-dominant pixels before delivering.
