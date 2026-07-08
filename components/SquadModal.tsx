@@ -4,6 +4,7 @@ import { Player, UnitGroup, ResourceType, HeroState, UpgradeJob } from '../types
 import { DRILLS, TENDENCIES, TendencyKey } from '../constants';
 import { unitSprite, unitPlayerSprite } from '../assets';
 import { HERO_DEFS, heroUpgradeCost, heroMaxLevel } from '../battle';
+import { candidateOvr } from '../recruiting';
 import { Shield, Target, Users, Zap, Dumbbell, Play, Star, ChevronRight } from 'lucide-react';
 import { Sheet, HowTo } from './ui';
 
@@ -145,19 +146,26 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], up
             </button>
             {rosterOpen && (
               <div className="space-y-1.5">
-                {unitPlayers.map(p => (
+                {unitPlayers.map(p => {
+                  // Cut decisions need numbers: same OVR the Scouting cards show + the three raw stats.
+                  const ovr = candidateOvr(p);
+                  return (
                   <div key={p.id} className="flex items-center justify-between px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] text-white shrink-0" style={{ backgroundColor: p.avatarColor }}>{p.role}</div>
                       <div className="min-w-0">
                         <div className="font-bold text-slate-200 text-sm leading-tight truncate">{p.name}</div>
-                        {(() => { const t = TENDENCIES[p.tendency as TendencyKey]; return t ? (
-                          <span className="text-[10px] font-bold" style={{ color: t.color }} title={t.desc}>{t.emoji} {t.label}</span>
-                        ) : null; })()}
+                        <div className="flex items-center gap-1.5 leading-tight">
+                          {(() => { const t = TENDENCIES[p.tendency as TendencyKey]; return t ? (
+                            <span className="text-[10px] font-bold shrink-0" style={{ color: t.color }} title={t.desc}>{t.emoji} {t.label}</span>
+                          ) : null; })()}
+                          <span className="font-mono text-[10px] text-slate-500 truncate" title="Strength · Speed · IQ">STR {p.stats.strength} · SPD {p.stats.speed} · IQ {p.stats.iq}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-mono text-[11px] text-slate-400">L{p.level}</span>
+                      <span className={`font-mono text-[11px] font-bold ${ovr >= 80 ? 'text-yellow-400' : ovr >= 60 ? 'text-slate-200' : 'text-slate-400'}`} title="Overall — average of Strength, Speed, and IQ">OVR {ovr}</span>
+                      <span className="font-mono text-[11px] text-slate-500">L{p.level}</span>
                       {onCutPlayer && (roster.length > 6 ? (
                         cutArmed === p.id ? (
                           <button onClick={() => { onCutPlayer(p.id); setCutArmed(null); }}
@@ -171,7 +179,8 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], up
                       ))}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
