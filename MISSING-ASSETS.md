@@ -176,10 +176,10 @@ reference = current qb.png, to `public/assets/heroes/franchise-rig/`:
 
 | # | File | Layer |
 |---|---|---|
-| 37 | body.png | clean character, empty throwing hand, NO aura/ball |
+| 37 | body.png | ✅ DELIVERED — Higgsfield ref-gen (qb.png identity attached), verified |
 | 38 | aura-ring.png | ✅ DELIVERED 2026-07-07 via Higgsfield pilot (nano_banana_2, passed all checks first try) |
-| 39 | aura-glow.png | soft golden radial glow alone |
-| 40 | ball.png | glowing football alone, flame trail |
+| 39 | aura-glow.png | ✅ BUILT procedurally (PIL radial gradient — no AI needed) |
+| 40 | ball.png | ✅ placeholder BUILT procedurally (PIL) — fine at card size; regenerate via Gemini for close-ups |
 | 41 | body-armless.png | OPTIONAL — body w/ throwing arm omitted (skip-on-drift) |
 | 42 | arm-throw.png | OPTIONAL — the arm alone, +20px shoulder overlap (skip-on-drift) |
 
