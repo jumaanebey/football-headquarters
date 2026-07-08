@@ -78,13 +78,13 @@ existing PNG, identical silhouette/camera, repaint accents to black `#111827` / 
 materials natural (water stays water, grass stays grass, stone stays stone). 1024²,
 knockout, overwrite in place; skip-on-drift rule applies.
 
-| # | File |
-|---|---|
-| 24 | `public/assets/decor/statue-legends.png` |
-| 25 | `public/assets/decor/merch-stand.png` |
-| 26 | `public/assets/decor/club-fountain.png` |
-| 27 | `public/assets/decor/tailgate-tent.png` |
-| 28 | `public/assets/decor/parking-lot.png` |
+| # | File | Status |
+|---|---|---|
+| 24 | `public/assets/decor/statue-legends.png` | ⚠️ REDO — first delivery drifted (came back as a mansion, not the statue); reverted. Re-attach the ORIGINAL statue PNG as reference. |
+| 25 | `public/assets/decor/merch-stand.png` | queued |
+| 26 | `public/assets/decor/club-fountain.png` | queued |
+| 27 | `public/assets/decor/tailgate-tent.png` | ⚠️ REDO — first delivery had knockout artifacts (green fringe/holes in the alpha); reverted. Re-run `remove_background.py` and inspect edges before delivering. |
+| 28 | `public/assets/decor/parking-lot.png` | queued |
 
 (`team-bus.png` is already on-identity — do not touch.)
 
