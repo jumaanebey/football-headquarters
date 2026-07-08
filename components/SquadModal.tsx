@@ -16,6 +16,7 @@ interface Props {
   onClose: () => void;
   onTrainGroup: (unit: UnitGroup, drillId: string) => void;
   onTrainHero?: (key: string, cost: number) => void;
+  onCutPlayer?: (id: string) => void;
   onOpenHeroes?: () => void;
 }
 
@@ -33,9 +34,10 @@ const GROUPS: { unit: UnitGroup; title: string; subtitle: string; icon: React.Re
   { unit: UnitGroup.DEFENSE_SECONDARY, title: 'No Fly Zone',     subtitle: 'CB·S',      icon: <Target size={13} />, ring: '#6366f1' },
 ];
 
-export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], upgrades = [], stadiumLevel = 1, onClose, onTrainGroup, onTrainHero, onOpenHeroes }) => {
+export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], upgrades = [], stadiumLevel = 1, onClose, onTrainGroup, onTrainHero, onCutPlayer, onOpenHeroes }) => {
   const [selectedUnit, setSelectedUnit] = useState<UnitGroup | null>(null);
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [cutArmed, setCutArmed] = useState<string | null>(null); // two-tap confirm
   const [selectedHero, setSelectedHero] = useState<string | null>(null);
   const unlockedHeroes = heroes.filter(h => h.unlocked !== false);
 
@@ -154,7 +156,20 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], up
                         ) : null; })()}
                       </div>
                     </div>
-                    <span className="font-mono text-[11px] text-slate-400 shrink-0">L{p.level}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-mono text-[11px] text-slate-400">L{p.level}</span>
+                      {onCutPlayer && (roster.length > 6 ? (
+                        cutArmed === p.id ? (
+                          <button onClick={() => { onCutPlayer(p.id); setCutArmed(null); }}
+                            className="text-[10px] font-black uppercase px-2 py-1 rounded-lg bg-red-600 text-white animate-pulse">Sure?</button>
+                        ) : (
+                          <button onClick={() => setCutArmed(p.id)} title="Release this player to free a roster spot"
+                            className="text-[10px] font-bold px-2 py-1 rounded-lg border border-red-900 text-red-400 hover:bg-red-950/50">✂️ Cut</button>
+                        )
+                      ) : (
+                        <span className="text-[9px] text-slate-600" title="Squad floor — you can't cut below 6 players">min 6</span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

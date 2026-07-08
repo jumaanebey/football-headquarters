@@ -1097,11 +1097,45 @@ function App() {
     if (ok) { sfx.upgrade(); spawnText('+1 equipment slot!', window.innerWidth / 2, window.innerHeight / 2, '#a855f7'); }
   };
 
+  // ✂️ CUT a player — frees a roster spot so you can scout better talent.
+  // Floor of 6: you can't cut your way below a fieldable squad.
+  const handleCutPlayer = (id: string) => {
+    setGameState(prev => {
+      if (prev.roster.length <= 6) { sfx.error(); return prev; }
+      const p = prev.roster.find(pl => pl.id === id);
+      if (!p) return prev;
+      return { ...prev, roster: prev.roster.filter(pl => pl.id !== id) };
+    });
+    if (gameState.roster.length > 6) { sfx.click(); spawnText('Released to free agency ✂️', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); }
+  };
+
   // 🧪 TEST DEFENSE: run a scrimmage against your own base — see the Front Office
   // upgrades actually fight.
   const handleTestDefense = () => {
     setFrontOfficeOpen(false);
     startDefense();
+  };
+
+  // 🗺 Mini layout preview — drawn from the REAL formation geometry, so what you
+  // see on the card is exactly the base you'll defend.
+  const FormationPreview = ({ f }: { f: FormationKey }) => {
+    const cells: Record<string, string> = {};
+    for (const w of wallsFor(f, 12)) cells[`${w.gridX},${w.gridY}`] = '#475569';
+    for (const sl of slotsFor(f)) cells[`${sl.gridX},${sl.gridY}`] = '#b91c1c';
+    const bt = busTileFor(f); cells[`${bt.gridX},${bt.gridY}`] = '#7c2d12';
+    const an = anchorsFor(f);
+    for (const t of Object.keys(an) as BuildingType[]) {
+      const a = an[t]; const col = t === BuildingType.STADIUM ? '#22c55e' : '#f97316';
+      for (const [tx, ty] of buildingTiles(a.gridX, a.gridY)) cells[`${tx},${ty}`] = col;
+    }
+    return (
+      <div className="grid mt-1.5 rounded overflow-hidden border border-slate-700/60" style={{ gridTemplateColumns: 'repeat(10, 1fr)', width: 70, height: 70 }}>
+        {Array.from({ length: 100 }).map((_, i) => {
+          const x = i % 10, y = Math.floor(i / 10);
+          return <div key={i} style={{ background: cells[`${x},${y}`] ?? '#14532d' }} />;
+        })}
+      </div>
+    );
   };
 
   // 📋 CALL A FORMATION — free to switch; slot levels carry, only geometry moves.
@@ -1214,6 +1248,7 @@ function App() {
           onClose={() => setIsSquadOpen(false)}
           onTrainGroup={handleTrainGroup}
           onTrainHero={handleUpgradeHero}
+          onCutPlayer={handleCutPlayer}
           onOpenHeroes={() => { setIsSquadOpen(false); setIsHeroOpen(true); }}
         />
       )}
@@ -1484,6 +1519,7 @@ function App() {
                             <span className="text-red-400">soft vs {fdef.counter.weakTo.map(k => PLAN_NAME[k]).join(' & ')}</span>
                           </div>
                         )}
+                        <FormationPreview f={key} />
                       </button>
                     );
                   })}

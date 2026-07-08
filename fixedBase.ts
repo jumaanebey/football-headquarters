@@ -81,21 +81,23 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     },
     slotPos: {
       D1: { gridX: 4, gridY: 2, covers: 'North pocket' },
-      D2: { gridX: 6, gridY: 4, covers: 'East pocket (point-blank)' },
+      D2: { gridX: 7, gridY: 4, covers: 'East flank (point-blank)' },
       D3: { gridX: 2, gridY: 4, covers: 'West pocket (long range)' },
-      D4: { gridX: 4, gridY: 6, covers: 'South pocket splash' },
+      D4: { gridX: 4, gridY: 7, covers: 'South approach splash' },
       D5: { gridX: 2, gridY: 5, covers: 'West pocket second' },
-      D6: { gridX: 5, gridY: 3, covers: 'North pocket second' },
-      C1: { gridX: 7, gridY: 4, covers: 'East pocket second' },
-      C2: { gridX: 5, gridY: 7, covers: 'South pocket second' },
-      C3: { gridX: 5, gridY: 8, covers: 'South gate overwatch' },
+      D6: { gridX: 5, gridY: 2, covers: 'North gate second' },
+      C1: { gridX: 7, gridY: 5, covers: 'East flank second' },
+      C2: { gridX: 6, gridY: 7, covers: 'South flank splash' },
+      C3: { gridX: 3, gridY: 2, covers: 'NW overwatch' },
     },
     // One wall ring at 1..8 with 2-tile gates mid-side; high levels narrow them.
+    // TIGHT wall hugging the Stadium only (ring 3..6) — facilities stand OUTSIDE as
+    // sacrificial buildings; open ground surrounds the wall (never touches the edge).
     wallOrder: [
-      ...ring(1, 8, K([4, 1], [5, 1], [4, 8], [5, 8], [1, 4], [1, 5], [8, 4], [8, 5])),
-      { gridX: 4, gridY: 1 }, { gridX: 1, gridY: 4 }, { gridX: 8, gridY: 4 }, // narrow N/W/E gates
+      ...ring(3, 6, K([4, 3], [5, 6])), // north + south 1-tile gates
+      { gridX: 4, gridY: 3 }, // high levels seal the north gate
     ],
-    busTile: { gridX: 4, gridY: 8 }, // parks half the south gate
+    busTile: { gridX: 5, gridY: 7 }, // parked on the south-gate approach
   },
 
   // ── FORMATION 2: field → turret ring → facility ring (facilities ARE the wall
@@ -127,8 +129,8 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     },
     // Wall ring at 1..8 WITHOUT corners (the four corner gaps are the gates);
     // the facility blocks punch their own sections out (occupied-filtered).
-    wallOrder: ring(1, 8, K([1, 1], [8, 1], [1, 8], [8, 8])),
-    busTile: { gridX: 1, gridY: 8 }, // parks the SW corner gate (Training owns the SE)
+    wallOrder: ring(2, 7, K([4, 2], [7, 5])), // ring 2..7 — open apron all around; N + E gates
+    busTile: { gridX: 8, gridY: 5 }, // parked across the EAST gate approach
   },
 
   // ── FORMATION 3: Cover 3's shell + an inner KEEP around the Field. Double wall.
@@ -160,10 +162,10 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
       { gridX: 3, gridY: 3 }, { gridX: 4, gridY: 3 }, { gridX: 6, gridY: 3 },
       { gridX: 6, gridY: 4 }, { gridX: 6, gridY: 6 }, { gridX: 5, gridY: 6 },
       { gridX: 3, gridY: 6 }, { gridX: 3, gridY: 5 },
-      // then the outer shell (same as Cover 3 — corners open)
-      ...ring(1, 8, K([1, 1], [8, 1], [1, 8], [8, 8])),
+      // then the outer shell (ring 2..7 — perimeter never touches the map edge)
+      ...ring(2, 7, K([4, 2], [7, 5])),
     ],
-    busTile: { gridX: 1, gridY: 8 }, // SW corner gate
+    busTile: { gridX: 8, gridY: 5 }, // parked across the EAST gate approach
   },
 };
 
