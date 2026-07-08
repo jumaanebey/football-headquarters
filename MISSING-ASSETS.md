@@ -189,3 +189,17 @@ wind-up (lean + arm cock if Tier 2 lands), throw (ball launches w/ trail). This 
 Round 7 — no extras.
 
 **Round 7 CLOSED (2026-07-08).** Gemini API pipeline (`scripts/gen_asset.py`, billing enabled) is now the primary generator: ref-attached, auto flood-knockout fallback for off-tint backgrounds, full verify. ~3-4c/image.
+
+---
+
+# Round 8 — ALL-HERO RIG BATCH (2026-07-08) ✅ COMPLETE
+
+16 layers generated in one batch via `scripts/gen_hero_rigs.py` (Gemini pipeline,
+ref-attached to each hero's card art): <key>-body.png + <key>-action.png in
+`public/assets/heroes/rig/` for enforcer/coach/kicker/burner/medic/captain/playmaker/
+legend. One identity failure (medic-action came back male) re-run with explicit gender
++ hair anchors — lesson: identity refs need EXPLICIT anchors for non-default characters.
+All 9 heroes now run the two-pose rig in the Hall of Heroes (HERO_RIG map in HeroModal):
+idle sway → wind-up → role action pose (truck stick / play call / kick / sprint /
+rally-heal / shield wall / juke / showboat) on staggered 7s clocks. QB + kicker launch
+the ball. Total Round 8 cost ≈ 65¢.
