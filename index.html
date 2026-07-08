@@ -131,6 +131,13 @@
       @keyframes fhq-twinkle { 0%,100% { transform: scale(0.4) rotate(0deg); opacity: 0; } 50% { transform: scale(1) rotate(24deg); opacity: .95; } }
       @keyframes fhq-sway { 0%,100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
       @keyframes fhq-glow { 0%,100% { opacity: .3; } 50% { opacity: .62; } }
+      /* --- HERO CARD FLOURISH (Hall of Heroes) --- */
+      @keyframes fhq-aura { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes fhq-hero-breathe { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.012); } }
+      @keyframes fhq-sweep { to { left: 115%; } }
+      .fhq-shine { position: relative; overflow: hidden; }
+      .fhq-shine::after { content: ''; position: absolute; top: -30%; bottom: -30%; width: 34%; left: -45%; background: linear-gradient(105deg, transparent, rgba(255,255,255,0.75), transparent); transform: skewX(-20deg); pointer-events: none; }
+      .fhq-shine:hover::after { animation: fhq-sweep 0.6s ease-out; }
       @keyframes fhq-confetti { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(85vh) rotate(720deg); opacity: 0; } }
       @keyframes fade-in   { from { opacity: 0; } to { opacity: 1; } }
 

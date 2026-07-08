@@ -82,21 +82,37 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
             return (
               <div key={def.key} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
                 <div className="relative shrink-0 flex items-end justify-center h-44 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 40%, ${def.color}44, #0f172a 70%)` }}>
+                  {/* CARD FLOURISH (unlocked heroes only): spinning aura ring in the hero's
+                      color + a breathing warm glow behind the art. Pure CSS — no Lottie. */}
+                  {unlocked && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+                      <div style={{ width: 148, height: 148, borderRadius: '50%', filter: 'blur(7px)', animation: 'fhq-aura 7s linear infinite',
+                        background: `conic-gradient(from 0deg, transparent 0deg, ${def.color}66 45deg, transparent 100deg, ${def.color}99 170deg, transparent 235deg, ${def.color}66 305deg, transparent 360deg)` }} />
+                    </div>
+                  )}
+                  {unlocked && (
+                    <img src="/assets/fx/window-glow.png" alt="" draggable={false}
+                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none"
+                      style={{ width: 150, mixBlendMode: 'screen', animation: 'fhq-glow 3s ease-in-out infinite' }} />
+                  )}
                   {/* fallback: a glowing color medallion (covered by the portrait once its art lands) */}
                   <div className="absolute inset-0 flex items-center justify-center select-none" style={{ opacity: unlocked ? 1 : 0.6 }}>
                     <div className="rounded-full flex items-center justify-center" style={{ width: 94, height: 94, background: `radial-gradient(circle at 50% 36%, ${def.color}, #0f172a 92%)`, border: `3px solid ${def.color}`, boxShadow: `0 0 22px ${def.color}55` }}>
                       <span style={{ fontSize: '2.9rem', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>{def.emoji}</span>
                     </div>
                   </div>
-                  <img src={def.art} alt={def.name} draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className={`relative h-[112%] w-auto max-w-none object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] select-none ${unlocked ? '' : 'grayscale opacity-50'}`} />
+                  <img src={def.art} alt={def.name} draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    style={unlocked ? { animation: 'fhq-hero-breathe 4s ease-in-out infinite', transformOrigin: '50% 100%' } : undefined}
+                    className={`relative h-[112%] w-auto max-w-none object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] select-none ${unlocked ? '' : 'grayscale opacity-50'}`} />
                   {unlocked ? (
                     <>
                       <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded-full px-2 py-0.5">
                         <Star size={12} className="text-yellow-400 fill-yellow-400" />
                         <span className="text-xs font-bold text-white">Lv {lvl}</span>
                       </div>
-                      {/* Evolution stars */}
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-0.5 bg-black/55 rounded-full px-2 py-1">
+                      {/* Evolution stars — hover sweeps a shine across the row */}
+                      <div className="fhq-shine absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-0.5 bg-black/55 rounded-full px-2 py-1">
                         {Array.from({ length: MAX_STARS }).map((_, i) => (
                           <Star key={i} size={13} className={i < strs ? 'text-amber-400 fill-amber-400' : 'text-slate-600'} />
                         ))}
