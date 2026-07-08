@@ -115,7 +115,63 @@ export const crowdBedStop = () => {
   bed = null;
 };
 
+/** Low-end impact: noise click + sub-sine drop. dur/deep scale the weight. */
+const impact = (deep = 60, dur = 0.28, peak = 0.3) => {
+  if (muted) return;
+  const a = ac();
+  if (!a) return;
+  const t0 = a.currentTime;
+  // sub thump
+  const osc = a.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(deep * 2.4, t0);
+  osc.frequency.exponentialRampToValueAtTime(deep, t0 + dur * 0.7);
+  const g = a.createGain();
+  g.gain.setValueAtTime(peak, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g).connect(a.destination);
+  osc.start(t0); osc.stop(t0 + dur + 0.02);
+  // dirt click on top
+  const len = Math.floor(a.sampleRate * 0.06);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+  const g2 = a.createGain(); g2.gain.value = peak * 0.5;
+  src.connect(f).connect(g2).connect(a.destination);
+  src.start(t0);
+};
+
+/** Filtered-noise sweep — throw whoosh / formation shift. */
+const sweep = (from = 400, to = 1900, dur = 0.35, peak = 0.14) => {
+  if (muted) return;
+  const a = ac();
+  if (!a) return;
+  const t0 = a.currentTime;
+  const len = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2.5;
+  f.frequency.setValueAtTime(from, t0);
+  f.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + dur * 0.3);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f).connect(g).connect(a.destination);
+  src.start(t0); src.stop(t0 + dur);
+};
+
 export const sfx = {
+  thud:    () => impact(60, 0.26, 0.26),                              // boots hit the turf
+  boom:    () => { impact(45, 0.5, 0.4); roar(0.8, 0.1); },           // facility sacked
+  whoosh:  () => sweep(400, 1900, 0.35, 0.14),                        // throw / formation shift
+  tick:    () => seq([[1320, 0, 0.04]], 'square', 0.08),              // suspense tick
+  sting:   () => seq([[392, 0, 0.1], [587, 0.08, 0.12], [784, 0.16, 0.3]], 'sawtooth', 0.12), // reveal hit
+  coinLand: () => seq([[1760, 0, 0.05], [2093, 0.04, 0.09]], 'triangle', 0.1), // arc arrival
   click:   () => seq([[880, 0, 0.06]], 'square', 0.12),
   crowdRoar: () => { roar(); seq([[659, 0.12, 0.12], [880, 0.26, 0.22]], 'triangle', 0.1); }, // roar + cheer sparkle
   kickoff:  () => { seq([[2100, 0, 0.14], [1800, 0.12, 0.1]], 'square', 0.14); roar(0.9, 0.12); }, // whistle + crowd stir

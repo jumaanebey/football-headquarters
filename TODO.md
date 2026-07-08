@@ -32,8 +32,13 @@ never delete incomplete tasks.
 - [ ] README screenshot — SHIPPED 475ee6f (confirm to close): fresh L12 black/orange board
       capture; `scripts/readme-shot.mjs` also updated to the fixed-base save shape (note:
       Playwright launch hangs on this machine — shot was taken via screencapture instead)
-- [ ] Sound: game is near-silent (synth sfx only) — music/crowd loops are a bigger juice
-      win than remaining art; needs a music tool, not Antigravity
+- [ ] Sound — MAJOR PASS SHIPPED (confirm to close): synth palette extended (thud, boom,
+      whoosh, suspense tick, reveal sting, coin-land ding) and wired into every juice
+      moment: deploys thud, facility sacks boom+roar, verdict plays victory/defeat,
+      gacha ticks then stings (fanfare on a NEW hero), coin arcs ding on arrival,
+      formation switches whoosh. Crowd bed + kickoff whistle already existed.
+      Still open (post-launch): real recorded samples / music loop via ElevenLabs or
+      Higgsfield credits if the synth identity ever feels thin
 
 ## Art (Antigravity — pipeline closed unless ordered)
 

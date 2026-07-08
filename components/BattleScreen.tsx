@@ -212,12 +212,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const doDeployTroop = (unit: UnitGroup, x: number, y: number) => {
     sim.current.troops.push(coach(makeTroop(unit, x, y, config.power?.[unit] ?? 1, rand)));
     sim.current.fx.push({ type: 'land', x, y, life: 0.45, maxLife: 0.45 });
+    sfx.thud();
   };
   const doDeployHero = (key: string, x: number, y: number) => {
     const h = heroes.find(hh => hh.key === key);
     if (!h) return;
     sim.current.troops.push(coach(makeHeroTroop(h, x, y)));
     sim.current.fx.push({ type: 'land', x, y, life: 0.55, maxLife: 0.55 });
+    sfx.thud();
     say(`${h.name.toUpperCase()} TAKES THE FIELD!`);
   };
   const doDeploySpecial = (key: string, x: number, y: number) => {
@@ -251,7 +253,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // underneath the whole battle and dies with the final whistle.
   useEffect(() => {
     if (phase === 'fighting') { sfx.kickoff(); say(config.homeGuards?.length ? `KICKOFF! Your ${config.homeGuards.length} defenders take the field!` : `KICKOFF! ${config.title.toUpperCase()}!`); crowdBedStart(); }
-    if (phase === 'result') crowdBedStop();
+    if (phase === 'result') { crowdBedStop(); if (result) (result.won ? sfx.victory : sfx.defeat)(); }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => crowdBedStop(), []); // never leak the loop on exit
 
@@ -386,6 +388,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               // 💥 The teardown MOMENT: shockwave ring + dust burst + tumbling debris + smoke + loot.
               s.pulses.push({ x: target.x, y: target.y, r: scored ? 15 : 10, life: 0.45, maxLife: 0.45, color: scored ? '#fde047' : '#f8fafc' });
               s.fx.push({ type: 'boom', x: target.x, y: target.y - 1, life: 0.55, maxLife: 0.55 });
+              sfx.boom();
               for (let di = 0; di < (scored ? 8 : 6); di++) {
                 const da = rand() * Math.PI * 2;
                 s.fx.push({ type: 'debris', x: target.x, y: target.y - 1, vx: Math.cos(da) * (8 + rand() * 8), vy: -6 - rand() * 10, life: 0.8, maxLife: 0.8, color: ['#64748b', '#94a3b8', '#f97316'][di % 3] });

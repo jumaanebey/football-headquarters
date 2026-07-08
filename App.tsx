@@ -253,6 +253,7 @@ function App() {
       delay: i * 60,
     }));
     setCoinFlights(prev => [...prev, ...flights]);
+    setTimeout(() => sfx.coinLand(), 780); // first coins hit the counter
     setTimeout(() => setCoinFlights(prev => prev.filter(f => !flights.some(g => g.id === f.id))), 1400);
   };
   const [muted, setMuted] = useState(isMuted());
@@ -1173,7 +1174,7 @@ function App() {
       formation: key,
       buildings: prev.buildings.map(b => { const a = anchorsFor(key)[b.type]; return a ? { ...b, gridX: a.gridX, gridY: a.gridY } : b; }),
     }));
-    sfx.upgrade();
+    sfx.whoosh(); // buildings glide to their new anchors
     spawnText(`${formationDef(key).name} — new scheme called! 📋`, window.innerWidth / 2, window.innerHeight / 2, '#38bdf8');
     setTimeout(publishMyBase, 500);
   };

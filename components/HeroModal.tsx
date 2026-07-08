@@ -5,6 +5,7 @@ import { HERO_DEFS, heroLevelMult, heroStarMult, heroUpgradeCost, heroMaxLevel }
 import { ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS, RollResult } from '../gacha';
 import { Star, ArrowUpCircle, Coins, Dumbbell, Swords, Lock, Crown, Sparkles } from 'lucide-react';
 import { Sheet, HowTo } from './ui';
+import { sfx } from '../sound';
 
 interface Props {
   heroes: HeroState[];
@@ -57,9 +58,10 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
     if (lastRoll && lastRoll !== seenRoll.current) {
       seenRoll.current = lastRoll;
       setReveal('suspense');
-      const t1 = setTimeout(() => setReveal('shown'), 1400);
+      const ticks = [0, 350, 700, 1050].map(ms => setTimeout(() => sfx.tick(), ms));
+      const t1 = setTimeout(() => { setReveal('shown'); (lastRoll.isNew ? sfx.sign : sfx.sting)(); }, 1400);
       const t2 = setTimeout(() => setReveal('idle'), 4200);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+      return () => { clearTimeout(t1); clearTimeout(t2); ticks.forEach(clearTimeout); };
     }
   }, [lastRoll]);
   const revealDef = reveal !== 'idle' && lastRoll ? HERO_DEFS.find(d => d.key === lastRoll.key) : null;
