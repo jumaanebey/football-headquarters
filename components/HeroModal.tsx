@@ -18,6 +18,21 @@ interface Props {
   onStarUp: (key: string) => void;
 }
 
+// Every hero's two-pose rig: clean body (idle sway + wind-up) and an action pose that
+// swaps in on the beat (fhq-qb-body/body2 keyframes — generic despite the name).
+// Missing files degrade: body falls back to the flat card art, action/ball just hide.
+const HERO_RIG: Record<string, { body: string; action: string; ball?: { left: string; top: string } }> = {
+  qb:        { body: '/assets/heroes/franchise-rig/body.png', action: '/assets/heroes/franchise-rig/body-followthrough.png', ball: { left: '52%', top: '22%' } },
+  enforcer:  { body: '/assets/heroes/rig/enforcer-body.png',  action: '/assets/heroes/rig/enforcer-action.png' },
+  coach:     { body: '/assets/heroes/rig/coach-body.png',     action: '/assets/heroes/rig/coach-action.png' },
+  kicker:    { body: '/assets/heroes/rig/kicker-body.png',    action: '/assets/heroes/rig/kicker-action.png', ball: { left: '44%', top: '48%' } },
+  burner:    { body: '/assets/heroes/rig/burner-body.png',    action: '/assets/heroes/rig/burner-action.png' },
+  medic:     { body: '/assets/heroes/rig/medic-body.png',     action: '/assets/heroes/rig/medic-action.png' },
+  captain:   { body: '/assets/heroes/rig/captain-body.png',   action: '/assets/heroes/rig/captain-action.png' },
+  playmaker: { body: '/assets/heroes/rig/playmaker-body.png', action: '/assets/heroes/rig/playmaker-action.png' },
+  legend:    { body: '/assets/heroes/rig/legend-body.png',    action: '/assets/heroes/rig/legend-action.png' },
+};
+
 // Hue (0-360) of a hex color — used to hue-shift the golden flame ring (base hue ≈45°)
 // to each hero's signature color without needing a ring sprite per hero.
 const heroHue = (hex: string): number => {
@@ -116,24 +131,27 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                       <span style={{ fontSize: '2.9rem', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>{def.emoji}</span>
                     </div>
                   </div>
-                  {def.key === 'qb' && unlocked ? (
-                    /* THE FRANCHISE RIG (Round 7): layered body + ball on a shared 7s
-                       clock — idle sway → wind-up → snap → the ball spirals off the card. */
+                  {HERO_RIG[def.key] && unlocked ? (
+                    /* TWO-POSE RIG: body sways/winds up, action pose snaps in on the beat,
+                       optional projectile launches. Staggered per hero so cards don't sync. */
+                    (() => { const rig = HERO_RIG[def.key]; const dly = `-${(heroIdx * 1.9) % 7}s`; return (
                     <div className="relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
-                      <img src="/assets/heroes/franchise-rig/body.png" alt={def.name} draggable={false}
+                      <img src={rig.body} alt={def.name} draggable={false}
                         onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
                         className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
-                        style={{ animation: 'fhq-qb-body 7s ease-in-out infinite', transformOrigin: '50% 100%' }} />
-                      {/* Pose swap: the follow-through frame takes over for the release beat */}
-                      <img src="/assets/heroes/franchise-rig/body-followthrough.png" alt="" draggable={false}
+                        style={{ animation: `fhq-qb-body 7s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
+                      <img src={rig.action} alt="" draggable={false}
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
-                        style={{ animation: 'fhq-qb-body2 7s ease-in-out infinite', transformOrigin: '50% 100%', opacity: 0 }} />
-                      <img src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false}
-                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                        className="absolute pointer-events-none"
-                        style={{ width: '34%', left: '52%', top: '22%', animation: 'fhq-qb-ball 7s ease-in-out infinite', opacity: 0 }} />
+                        style={{ animation: `fhq-qb-body2 7s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
+                      {rig.ball && (
+                        <img src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false}
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          className="absolute pointer-events-none"
+                          style={{ width: '34%', left: rig.ball.left, top: rig.ball.top, animation: `fhq-qb-ball 7s ease-in-out ${dly} infinite`, opacity: 0 }} />
+                      )}
                     </div>
+                    ); })()
                   ) : (
                   <img src={def.art} alt={def.name} draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     style={unlocked ? { animation: `fhq-hero-idle ${5.2 + (heroIdx % 3) * 0.6}s ease-in-out ${-(heroIdx * 1.7)}s infinite`, transformOrigin: '50% 100%' } : undefined}
