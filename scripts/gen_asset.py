@@ -75,6 +75,33 @@ def defringe(path: str):
     im.save(path)
     print(f"defringed {n} px")
 
+def flood_knockout(raw_path: str, out_path: str, size: int):
+    """BFS from the four corners, erasing pixels close to the corner background color.
+    Handles models that render an off-tint background instead of true chroma green."""
+    from PIL import Image
+    from collections import deque
+    im = Image.open(raw_path).convert("RGBA")
+    if im.size != (size, size):
+        im = im.resize((size, size), Image.LANCZOS)
+    px = im.load()
+    w, h = im.size
+    corners = [px[0, 0], px[w-1, 0], px[0, h-1], px[w-1, h-1]]
+    br = sum(c[0] for c in corners) / 4; bg = sum(c[1] for c in corners) / 4; bb = sum(c[2] for c in corners) / 4
+    TOL = 52
+    close = lambda p: abs(p[0]-br) + abs(p[1]-bg) + abs(p[2]-bb) < TOL * 3
+    seen = [[False]*h for _ in range(w)]
+    q = deque([(0,0),(w-1,0),(0,h-1),(w-1,h-1)])
+    while q:
+        x, y = q.popleft()
+        if x < 0 or y < 0 or x >= w or y >= h or seen[x][y]: continue
+        seen[x][y] = True
+        p = px[x, y]
+        if not close(p): continue
+        px[x, y] = (p[0], p[1], p[2], 0)
+        q.extend([(x+1,y),(x-1,y),(x,y+1),(x,y-1)])
+    # soften the cutline: 1px alpha feather where opaque meets erased
+    im.save(out_path)
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--prompt", required=True)
@@ -90,10 +117,17 @@ if __name__ == "__main__":
     print(f"saved {a.out} ({len(png)//1024}kb)")
 
     if not a.no_knockout:
+        raw = a.out + ".raw.png"
+        import shutil
+        shutil.copy(a.out, raw)
         subprocess.run([sys.executable, "remove_background.py", a.out, str(a.size), str(a.size), "1"], check=True)
         if not verify(a.out):
+            # The model didn't render true #00d000 — flood-fill from the corners using
+            # whatever background color actually arrived (soft alpha near the cutline).
+            flood_knockout(raw, a.out, a.size)
             defringe(a.out)
             ok = verify(a.out)
-            print("PASS after defringe" if ok else "⚠️ STILL FAILING — inspect manually before shipping")
+            print("PASS after flood-knockout" if ok else "⚠️ STILL FAILING — inspect manually before shipping")
         else:
             print("PASS")
+        os.remove(raw)

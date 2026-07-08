@@ -124,6 +124,11 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                         onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
                         className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
                         style={{ animation: 'fhq-qb-body 7s ease-in-out infinite', transformOrigin: '50% 100%' }} />
+                      {/* Pose swap: the follow-through frame takes over for the release beat */}
+                      <img src="/assets/heroes/franchise-rig/body-followthrough.png" alt="" draggable={false}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
+                        style={{ animation: 'fhq-qb-body2 7s ease-in-out infinite', transformOrigin: '50% 100%', opacity: 0 }} />
                       <img src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false}
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         className="absolute pointer-events-none"
