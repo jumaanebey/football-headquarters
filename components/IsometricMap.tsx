@@ -245,9 +245,23 @@ const BuildingSprite: React.FC<{
           style={{ left: 0, bottom: -TILE_H / 2 - 6, width: SPRITE_W * 0.8, height: TILE_H * 1.1 }} />
       )}
 
-      <img src={src} alt={info.name} draggable={false}
-        className="select-none transition-transform group-hover:-translate-y-1 group-active:scale-95"
-        style={{ position: 'absolute', width: SPRITE_W, maxWidth: 'none', height: 'auto', left: -SPRITE_W / 2, bottom: -TILE_H / 2, filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} />
+      {/* Idle "breathe" lives on a wrapper (base-anchored scaleY) so it can't fight the
+          hover/active transforms on the img. Negative delay de-syncs neighbors. */}
+      <div className="absolute pointer-events-none" style={{
+        width: SPRITE_W, left: -SPRITE_W / 2, bottom: -TILE_H / 2, transformOrigin: '50% 100%',
+        animation: `fhq-breathe ${6 + ((building.gridX + building.gridY) % 3)}s ease-in-out -${(building.gridX * 7 + building.gridY * 13) % 6}s infinite`,
+      }}>
+        <img src={src} alt={info.name} draggable={false}
+          className="select-none transition-transform group-hover:-translate-y-1 group-active:scale-95"
+          style={{ display: 'block', width: '100%', maxWidth: 'none', height: 'auto', filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} />
+        {/* Scouting HQ chimney smoke — three staggered wisps rising off the roofline */}
+        {isAcademy && [0, 1, 2].map(i => (
+          <div key={i} className="absolute rounded-full bg-slate-200/60" style={{
+            width: 9 + i * 2, height: 9 + i * 2, left: SPRITE_W * 0.46, bottom: SPRITE_W * 0.58,
+            filter: 'blur(3px)', opacity: 0, animation: `fhq-smoke 4.5s linear ${i * 1.5}s infinite`,
+          }} />
+        ))}
+      </div>
 
       {/* Tap hitbox — the building's BODY, aligned to the art's true base (the sprite
           bottoms out at the footprint's low vertex, a full tile below center). */}
