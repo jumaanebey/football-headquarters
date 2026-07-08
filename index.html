@@ -198,6 +198,9 @@
       @keyframes fhq-coin-x { to { transform: translateX(var(--dx)); } }
       @keyframes fhq-coin-y { to { transform: translateY(var(--dy)); } }
       @keyframes fhq-counter-pop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+      @keyframes fhq-flashfade { 0% { opacity: 1; } 100% { opacity: 0; } }
+      /* Sheet entrance: backdrop fades, panel slides up with a soft settle */
+      @keyframes fhq-sheet-in { 0% { transform: translateY(26px) scale(0.985); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
       /* Mirrored flight for lefts-facing throws (QB's throwing hand is on the viewer's
          left; scaleX(-1) also flips the ball art so its flame trail points the right way). */
       @keyframes fhq-ball-left {

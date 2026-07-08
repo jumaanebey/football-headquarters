@@ -600,11 +600,15 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     return () => clearInterval(iv);
   }, [phase, army, deployedHeroes, specialCharges]);
 
+  // ⚡ ABILITY FLASH: the screen edges pulse in the caster's color when an ability fires.
+  const [abilityFlash, setAbilityFlash] = useState<{ color: string; key: number } | null>(null);
   const useAbility = (heroKey: string) => {
     const s = sim.current;
     const h = s.troops.find(t => t.heroKey === heroKey && !t.dead);
     if (!h || (h.abilityCd ?? 0) > 0) return;
     record({ k: 'a', key: heroKey });
+    const hDef = heroes.find(hh => hh.key === heroKey);
+    if (hDef) { setAbilityFlash(f => ({ color: hDef.color, key: (f?.key ?? 0) + 1 })); sfx.whoosh(); }
     if (h.ability === 'hailmary') {
       const tgt = nearestBuilding(h.x, h.y, s.buildings);
       if (tgt) {
@@ -761,6 +765,19 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const liveStars = (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0);
   const timeLeft = Math.max(0, Math.ceil(s.time));
 
+  // 🎯 DRIVE MILESTONES: crossing 25/50/75/100 pops the readout and stirs the crowd.
+  const [milestoneKey, setMilestoneKey] = useState(0);
+  const lastMilestone = useRef(0);
+  useEffect(() => {
+    const m = Math.floor(pct / 25);
+    if (m > lastMilestone.current && pct > 0 && phase === 'fighting') {
+      lastMilestone.current = m;
+      setMilestoneKey(k => k + 1);
+      crowdBedIntensity(Math.min(1, m * 0.3));
+      sfx.crowdRoar();
+    }
+  }, [pct, phase]);
+
   const instruction = castMode ? `Tap the field to call ${castMode.name}`
     : pendingSpecial ? `Tap the sideline to send in the ${pendingSpecial.name}`
     : pendingHero ? `Tap the sideline to send in ${pendingHero.name}`
@@ -769,6 +786,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
+      {/* ⚡ ability cast — edges flash in the caster's color */}
+      {abilityFlash && (
+        <div key={abilityFlash.key} className="absolute inset-0 pointer-events-none z-[250]"
+          style={{ boxShadow: `inset 0 0 12vmin 2vmin ${abilityFlash.color}99`, animation: 'fhq-flashfade 0.7s ease-out forwards' }} />
+      )}
       {/* 🆚 Pre-game matchup card (tap to skip) */}
       {matchup && (
         <div className="absolute inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in" onClick={() => setMatchup(false)}>
@@ -815,7 +837,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <div className="text-center">
             <div className="text-[9px] sm:text-[10px] uppercase text-slate-500 font-bold leading-none whitespace-nowrap">{isDefense ? 'Ground lost' : 'Drive'}</div>
-            <div className={`font-mono font-bold text-base sm:text-lg leading-none ${isDefense && pct >= 50 ? 'text-red-400' : 'text-white'}`}>{pct}%</div>
+            <div key={milestoneKey} className={`font-mono font-bold text-base sm:text-lg leading-none ${isDefense && pct >= 50 ? 'text-red-400' : 'text-white'}`} style={{ animation: milestoneKey ? 'fhq-counter-pop 0.55s ease-out' : undefined, display: 'inline-block' }}>{pct}%</div>
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold ${timeLeft <= 10 ? 'bg-red-900/50 text-red-300' : 'bg-slate-800 text-white'}`}>
             <Clock size={15} /> 0:{timeLeft.toString().padStart(2, '0')}

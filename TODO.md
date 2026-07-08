@@ -69,9 +69,12 @@ Next, in impact order:
       game balls stamp in one-by-one (0.28s stagger). Sfx still open.
 - [ ] Damage numbers — SHIPPED (confirm to close): spawn 1.6x pop, deterministic sideways
       drift + ease-out rise (arcs, not elevator floats)
-- [ ] Drive meter milestone pulses at 25/50/75/100%
-- [ ] Hero ability cast — screen-edge flash in the hero's color when an ability fires
-- [ ] Sheet/modal entrances — slide-up + backdrop fade (they currently pop)
+- [ ] Drive meter milestone pulses — SHIPPED (confirm to close): crossing 25/50/75/100
+      pops the Drive % readout, bumps crowd-bed intensity, fires a roar
+- [ ] Hero ability cast — SHIPPED (confirm to close): screen edges flash in the caster's
+      color (inset glow, 0.7s fade) + whoosh
+- [ ] Sheet/modal entrances — SHIPPED (confirm to close): backdrop fades, panel slides up
+      with a soft settle (0.26s) — every modal in the game (one Sheet shell)
 - [ ] Board walkers — upgrade from position-group singles to hero walk frames where the
       walker is a hero; add stop-and-idle pose
 - [ ] Upgrade-complete celebration — building pop + spark burst at the building itself
