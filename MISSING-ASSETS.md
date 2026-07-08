@@ -1,5 +1,10 @@
 # Missing Assets — Round 4 queue (nano_banana_pro)
 
+**STATUS (verified on disk 2026-07-07):** Tier 1 (all 21 building recolors) ✅ ·
+Tier 2 (crowns + fans icons) ✅ · Tier 3: merch-stand, club-fountain, parking-lot ✅ —
+statue-legends + tailgate-tent still owed (redos) · Tier 4 (qb + enforcer) still owed.
+**Remaining: 4 files → #24, #27, #29, #30.**
+
 **Rounds 1–3: ✅ 100% complete** (buildings, units, heroes, coaches ×18, single-player
 sprites ×4, ground, brand, rivals, fences). Round 3's rival-stadium redo is ACCEPTED.
 
