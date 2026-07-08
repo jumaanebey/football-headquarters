@@ -203,3 +203,17 @@ All 9 heroes now run the two-pose rig in the Hall of Heroes (HERO_RIG map in Her
 idle sway → wind-up → role action pose (truck stick / play call / kick / sprint /
 rally-heal / shield wall / juke / showboat) on staggered 7s clocks. QB + kicker launch
 the ball. Total Round 8 cost ≈ 65¢.
+
+---
+
+# Round 9 — WALK CYCLES (2026-07-08) ✅ COMPLETE
+
+18 frames via `scripts/gen_hero_walks.py`: <key>-walkA/-walkB (left/right foot forward,
+facing viewer-LEFT) for all 9 heroes, ref-attached with identity anchors (ANCHOR map —
+medic anchored MALE after the Round 8 genderflip lesson; his rig body/action were also
+regenerated to match the canon male base art). Wired in BattleScreen: hero attackers AND
+hero gate guards alternate walk frames (fhq-stepA/B square wave, 0.46s) while moving,
+snap to their -action pose while attacking, flip scaleX by movement direction (walk art
+faces LEFT natively → flip when face>0). QB card ball corrected: spawns at his viewer-
+LEFT throwing hand, flies up-LEFT (fhq-ball-left; scaleX(-1) LAST in transform order).
+Full sprite system reference: HERO-SPRITES.md at repo root.
