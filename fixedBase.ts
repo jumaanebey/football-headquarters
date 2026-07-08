@@ -191,8 +191,10 @@ export const nextMasteryAt = (holds: number): number | null =>
   MASTERY_THRESHOLDS.find(t => holds < t) ?? null;
 
 export const formationDef = (f: FormationKey): FormationDef => FORMATIONS[f] ?? FORMATIONS.goalline;
-export const formationUnlocked = (f: FormationKey, stadiumLevel: number) =>
-  stadiumLevel >= formationDef(f).unlockStadium;
+/** Formations are a CHOICE, not a progression unlock — all three schemes are callable
+ *  from Stadium L1 (July 2026 review decision). Progression lives in the 9-slot
+ *  emplacement ladder + mastery. unlockStadium stays on the defs as flavor/history. */
+export const formationUnlocked = (_f: FormationKey, _stadiumLevel: number) => true;
 
 // ── Formation-aware geometry API ───────────────────────────────────────────────
 export const anchorsFor = (f: FormationKey) => formationDef(f).anchors;

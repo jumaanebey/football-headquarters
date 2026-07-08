@@ -55,12 +55,10 @@ describe('formation geometry', () => {
     });
   }
 
-  it('formation unlocks ladder up: goalline always, cover3 @3, maxprotect @5', () => {
+  it('formations are a choice, not an unlock — all three callable from Stadium L1 (July 2026 review)', () => {
     expect(formationUnlocked('goalline', 1)).toBe(true);
-    expect(formationUnlocked('cover3', 2)).toBe(false);
-    expect(formationUnlocked('cover3', 3)).toBe(true);
-    expect(formationUnlocked('maxprotect', 4)).toBe(false);
-    expect(formationUnlocked('maxprotect', 5)).toBe(true);
+    expect(formationUnlocked('cover3', 1)).toBe(true);
+    expect(formationUnlocked('maxprotect', 1)).toBe(true);
   });
 });
 

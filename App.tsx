@@ -19,7 +19,7 @@ import { tendencyFromId, TENDENCIES, TendencyKey } from './constants';
 import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
-import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase } from './campaign';
+import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt } from './campaign';
 import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
@@ -373,6 +373,13 @@ function App() {
       window.removeEventListener('beforeunload', persist);
       persist();
     };
+  }, []);
+
+  // Warm the coach-portrait cache off the critical path — Game Day used to open to a
+  // flash of empty circles while 18 PNGs raced in.
+  useEffect(() => {
+    const t = setTimeout(preloadCoachArt, 2500);
+    return () => clearTimeout(t);
   }, []);
 
   // --- GAME LOOP ---

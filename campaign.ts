@@ -63,6 +63,12 @@ export const coachForBase = (baseName: string): RivalCoach => {
   return RAID_COACHES[h % RAID_COACHES.length];
 };
 
+/** Warm the browser cache for all 18 coach portraits so Game Day never opens to a
+ *  wall of empty circles. Called once from App on an idle tick after boot. */
+export const preloadCoachArt = (): void => {
+  for (const c of [...COACHES, ...RAID_COACHES]) { const img = new Image(); img.src = c.art; }
+};
+
 const SCHEDULE: [string, string][] = [
   ['Preseason Opener', 'Dust Bowl Prospects'],
   ['Week 2', 'Valley State'],

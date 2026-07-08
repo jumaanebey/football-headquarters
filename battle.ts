@@ -480,7 +480,10 @@ export const defenseAiTroops = (): { unit: UnitGroup; x: number; y: number }[] =
 // so a maintained base (wall ring + upgrades) holds, while a neglected base falls.
 // Defense HP/damage already scale with building level, so this stays gentle on level.
 export const raidAiMult = (offenseRating: number, stadiumLevel: number) =>
-  (0.55 + offenseRating / 150) * (1 + 0.03 * (stadiumLevel - 1)); // balance-sim tuned: low tiers concede 1-2⭐, fortified tiers hold
+  (0.55 + offenseRating / 150) * (1 + 0.03 * (stadiumLevel - 1)) // balance-sim tuned: low tiers concede 1-2⭐, fortified tiers hold
+  // Newbie mercy: an L1-L2 base has 0-2 emplacements and no wall depth — full-strength
+  // raiders read as hopeless there (48% ground mid-drive in review). Gone by L3.
+  * (stadiumLevel === 1 ? 0.78 : stadiumLevel === 2 ? 0.9 : 1);
 
 export const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 

@@ -1,31 +1,19 @@
 // README beauty shot: loads the game in headless Chromium with a staged demo save
 // (rich board: full wall ring, all 4 equipment kinds, bus, fans for patrol density)
 // and screenshots the viewport. Run: node scripts/readme-shot.mjs
-import { chromium } from 'playwright';
+import { webkit } from 'playwright';
 
+// FIXED-BASE era: geometry comes from the formation (loadState snaps buildings to
+// anchors and derives the wall ring) — the save only stages LEVELS + slot levels.
 const demoSave = {
   resources: { COINS: 148200, GEMS: 140, ENERGY: 100, FANS: 2600 },
   teamName: 'Beck Dynasty',
   trophies: 342,
   level: 9,
-  walls: [
-    // sealed ring around the 2×2 stadium at (6,6)
-    ...[5, 6, 7, 8].map(x => ({ gridX: x, gridY: 5 })),
-    { gridX: 5, gridY: 6 }, { gridX: 8, gridY: 6 },
-    { gridX: 5, gridY: 7 }, { gridX: 8, gridY: 7 },
-    ...[5, 6, 7, 8].map(x => ({ gridX: x, gridY: 8 })),
-    // a forward picket line
-    ...[1, 2, 3].map(x => ({ gridX: x, gridY: 4 })),
-    ...[0, 1].map(y => ({ gridX: 5, gridY: y })),
-  ],
-  defenses: [
-    { id: 'd1', kind: 'jugs', gridX: 5, gridY: 4 },
-    { id: 'd2', kind: 'sled', gridX: 8, gridY: 4 },
-    { id: 'd3', kind: 'ref', gridX: 4, gridY: 7 },
-    { id: 'd4', kind: 'tshirt', gridX: 8, gridY: 9 },
-  ],
-  bus: { gridX: 6, gridY: 9 },
-  parkingLot: 1,
+  formation: 'goalline',
+  formationMastery: { goalline: 4 },
+  parkingLot: 2,
+  defenseSlots: { D1: 6, D2: 6, D3: 5, D4: 5, D5: 4, D6: 4 },
   buildings: [
     { id: 'pitch-1', type: 'TRAINING_PITCH', level: 8, gridX: 2, gridY: 2, activeDrillId: null, targetUnit: null, startTime: null, finishTime: null, state: 'IDLE' },
     { id: 'academy-1', type: 'YOUTH_ACADEMY', level: 9, gridX: 7, gridY: 2, activeDrillId: null, targetUnit: null, startTime: null, finishTime: null, state: 'IDLE' },
@@ -36,7 +24,7 @@ const demoSave = {
 };
 
 console.log('launching chromium…');
-const browser = await chromium.launch();
+const browser = await webkit.launch();
 console.log('launched');
 const page = await browser.newPage({ viewport: { width: 1440, height: 860 }, deviceScaleFactor: 2 });
 await page.addInitScript(save => {
