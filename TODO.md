@@ -82,3 +82,15 @@ Next, in impact order:
 - [ ] CC-style building tap — SHIPPED (confirm to close): tap → spotlight + title/cost
       over the board + chunky Info/Level Up (+Defense on Stadium, +Game Day on War Room)
       buttons; Info opens the full sheet; tap empty turf deselects
+
+## Football-combat redesign (shipped, confirm to close)
+
+- Deploys are INDIVIDUALS: every troop is a named roster player (announced with their
+  power on entry; deploy cards show who's next)
+- Role powers: QB throws from range 13 (visible spiraling footballs) · RB 1.4x speed,
+  1.5x hit damage · WR +60% damage while a QB is on the field · OL "pocket" — QB/RB
+  within 9 units of a live OL take 40% less damage · DL/LB/CB/S flavor tunings ·
+  Franchise hero throws (range 13), Specialist hero kicks (range 16)
+- 4-frame walk cycles (contact→passing→contact→passing) for all 9 heroes + 4 position
+  groups, in battle (attackers + gate guards) and on the home board
+- Balance watch: role multipliers are first-pass — tune after ladder data
