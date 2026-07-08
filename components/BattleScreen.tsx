@@ -919,7 +919,15 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           ); })()}
 
           {!isDefense && phase === 'deploy' && (
-            <div className="absolute rounded-full border-2 border-white/20 border-dashed pointer-events-none" style={{ left: '14%', top: '14%', width: '72%', height: '72%' }} />
+            <>
+              <div className="absolute rounded-full border-2 border-white/20 border-dashed pointer-events-none" style={{ left: '14%', top: '14%', width: '72%', height: '72%' }} />
+              {/* The SIDELINE is the tap target — make it glow until the first deploy
+                  (review: first-time raiders tapped open field and thought it was broken). */}
+              <div className="absolute inset-0 pointer-events-none animate-pulse" style={{ border: '1.2vmin solid rgba(253,224,71,0.25)', boxShadow: 'inset 0 0 2.4vmin rgba(253,224,71,0.35)' }} />
+              <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ bottom: '3%', zIndex: 220 }}>
+                <span className="inline-block animate-bounce-sm text-[11px] font-black uppercase tracking-wide bg-yellow-400 text-black px-3 py-1 rounded-full shadow-xl whitespace-nowrap">👇 tap the glowing sideline to deploy</span>
+              </div>
+            </>
           )}
 
           {/* 🎙️ Rival coach trash talk — the pre-game presser, gone at the snap */}
@@ -1172,7 +1180,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                           <img src={rp.walkB} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
                         </>
                       ); })()}
-                    <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: '-16%', fontSize: '1.1vmin', background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(253,224,71,0.4)' }}>{heroDef.name}</span>
+                    {/* Nameplate: full strength for the deploy moment, then fades way down —
+                        review flagged clustered pills occluding sprites and hit VFX. */}
+                    <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: '-14%', fontSize: '0.95vmin', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(253,224,71,0.35)', animation: 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>
                   </div>
                 ) : (
                   // ONE individual player — chip fallback until the sprite loads, then pure sprite.
