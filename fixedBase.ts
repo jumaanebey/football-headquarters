@@ -23,13 +23,15 @@ export interface DefenseSlotDef {
   crownIndex?: number;       // … or index into EXTRA_SLOT_COSTS (crown slots)
   covers: string;            // shown in the Front Office
 }
+// Unlock order thickens the defense RING BY RING (perimeter → mid → perimeter →
+// flex → mid): every Stadium upgrade reads as "my defense grew another layer".
 const SLOT_IDS: { id: string; kind: string; stadiumReq?: number; crownIndex?: number }[] = [
-  { id: 'D1', kind: 'jugs',   stadiumReq: 1 },
-  { id: 'D2', kind: 'sled',   stadiumReq: 1 },
-  { id: 'D3', kind: 'ref',    stadiumReq: 2 },
-  { id: 'D4', kind: 'tshirt', stadiumReq: 3 },
-  { id: 'D5', kind: 'jugs',   stadiumReq: 5 },
-  { id: 'D6', kind: 'sled',   stadiumReq: 7 },
+  { id: 'D1', kind: 'jugs',   stadiumReq: 1 }, // flex — first gun up
+  { id: 'D3', kind: 'ref',    stadiumReq: 2 }, // first PERIMETER piece
+  { id: 'D2', kind: 'sled',   stadiumReq: 3 }, // first MID piece
+  { id: 'D4', kind: 'tshirt', stadiumReq: 4 }, // second perimeter
+  { id: 'D5', kind: 'jugs',   stadiumReq: 6 }, // flex second
+  { id: 'D6', kind: 'sled',   stadiumReq: 8 }, // second mid
   { id: 'C1', kind: 'ref',    crownIndex: 0 },
   { id: 'C2', kind: 'tshirt', crownIndex: 1 },
   { id: 'C3', kind: 'jugs',   crownIndex: 2 },
@@ -119,12 +121,12 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     slotPos: {
       D1: { gridX: 4, gridY: 3, covers: 'Field ring N' },
       D2: { gridX: 6, gridY: 4, covers: 'Field ring E (point-blank)' },
-      D3: { gridX: 3, gridY: 4, covers: 'Field ring W (long range)' },
-      D4: { gridX: 4, gridY: 6, covers: 'Field ring S splash' },
+      D3: { gridX: 1, gridY: 4, covers: 'West perimeter (long range)' },
+      D4: { gridX: 4, gridY: 8, covers: 'South perimeter splash' },
       D5: { gridX: 3, gridY: 5, covers: 'Field ring SW' },
       D6: { gridX: 5, gridY: 3, covers: 'Field ring NE' },
-      C1: { gridX: 6, gridY: 5, covers: 'Field ring SE' },
-      C2: { gridX: 5, gridY: 6, covers: 'Field ring S second' },
+      C1: { gridX: 8, gridY: 4, covers: 'East perimeter (long range)' },
+      C2: { gridX: 5, gridY: 1, covers: 'North perimeter splash' },
       C3: { gridX: 6, gridY: 6, covers: 'SE diagonal overwatch' },
     },
     // Wall ring at 1..8 WITHOUT corners (the four corner gaps are the gates);
@@ -278,6 +280,17 @@ export const auditFormation = (f: FormationKey): string[] => {
     if (blocks[i].diag === blocks[j].diag && Math.abs(blocks[i].depth - blocks[j].depth) < 4) {
       errors.push(`iso-stack: ${blocks[i].t} and ${blocks[j].t} share screen diagonal ${blocks[i].diag} too closely`);
     }
+  }
+  // RING LEGALITY (the rule that kills 'turret dropped in the middle of nowhere'):
+  // distance from the stadium's center decides the ring. Point-blank sleds must sit
+  // MID (close enough that raiders come to them); long-range refs and splash cannons
+  // must sit PERIMETER (facing the approach). JUGS is the swing piece — legal anywhere.
+  const stadium = def.anchors[BuildingType.STADIUM];
+  const scx = stadium.gridX + 0.5, scy = stadium.gridY + 0.5;
+  for (const sl of slotsFor(f)) {
+    const d = Math.max(Math.abs(sl.gridX - scx), Math.abs(sl.gridY - scy));
+    if (sl.kind === 'sled' && d > 2.5) errors.push(`${sl.id} (sled) too far out (d=${d}) — point-blank belongs MID`);
+    if ((sl.kind === 'ref' || sl.kind === 'tshirt') && d < 2.5) errors.push(`${sl.id} (${sl.kind}) too close in (d=${d}) — belongs PERIMETER`);
   }
   return errors;
 };

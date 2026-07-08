@@ -1532,7 +1532,7 @@ function App() {
                   {slotsFor(gameState.formation).map(slot => {
                     const t = DEFENSE_TYPES.find(x => x.kind === slot.kind)!;
                     const lvl = gameState.defenseSlots[slot.id] ?? 0;
-                    const unlocked = slotUnlocked(slot, stadiumLevel, gameState.bonusDefSlots);
+                    const unlocked = lvl > 0 || slotUnlocked(slot, stadiumLevel, gameState.bonusDefSlots); // installed = yours, even if gates later shift
                     const isCrown = slot.crownIndex !== undefined;
                     const maxed = lvl >= MAX_SLOT_LEVEL;
                     const gatedByStadium = !maxed && lvl + 1 > stadiumLevel;
@@ -1698,8 +1698,11 @@ function App() {
               </div>
               <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
                 <div className="text-sm text-slate-400">Start a brand-new franchise</div>
+                {/* build-stamp sits with reset — see note below the button */}
                 <button onClick={() => { setSettingsOpen(false); setConfirmingReset(true); }} className="px-3 py-1.5 rounded-lg border border-red-900 text-red-400 hover:bg-red-950/50 text-sm font-bold transition-colors">Reset…</button>
               </div>
+              {/* Which build am I on? Baked at deploy time — if this timestamp is old, Safari is serving cache. */}
+              <div className="text-center text-[10px] text-slate-600 font-mono">build {typeof __BUILD_TS__ !== 'undefined' ? __BUILD_TS__ : 'dev'}</div>
             </div>
           </div>
         </div>
