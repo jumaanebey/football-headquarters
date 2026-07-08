@@ -1485,7 +1485,7 @@ function App() {
           >
             <div className="p-4 sm:p-5 space-y-4">
               <HowTo id="frontoffice" lines={[
-                'Your defenses sit at FIXED spots — every club defends the same field. Your edge is upgrade levels.',
+                'Pick a FORMATION (your defensive scheme), then level its emplacements — spots are fixed per scheme.',
                 'Install and level emplacements with Coins. Higher Stadium levels unlock more slots.',
                 'Walls and the Team Bus are automatic — they grow with your Stadium. No placing anything.',
                 'Tap 🧪 Test Defense to watch your setup fight off a raid.',
@@ -1494,7 +1494,7 @@ function App() {
                   levels carry over, only the geometry changes. Rivals see your scheme. */}
               <div>
                 <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">📋 Formation</div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">{/* phones: stack — 3-across clipped the third card */}
                   {FORMATION_ORDER.map(key => {
                     const fdef = formationDef(key);
                     const active = gameState.formation === key;
