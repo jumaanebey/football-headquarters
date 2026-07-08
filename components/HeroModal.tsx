@@ -18,6 +18,17 @@ interface Props {
   onStarUp: (key: string) => void;
 }
 
+// Hue (0-360) of a hex color — used to hue-shift the golden flame ring (base hue ≈45°)
+// to each hero's signature color without needing a ring sprite per hero.
+const heroHue = (hex: string): number => {
+  const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  if (!d) return 45; // gray heroes keep the golden ring
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h *= 60;
+  return h < 0 ? h + 360 : h;
+};
+
 export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
   const stateOf = (key: string) => heroes.find(h => h.key === key);
   const maxLevel = heroMaxLevel(stadiumLevel);
@@ -82,12 +93,15 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
             return (
               <div key={def.key} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
                 <div className="relative shrink-0 flex items-end justify-center h-44 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 40%, ${def.color}44, #0f172a 70%)` }}>
-                  {/* CARD FLOURISH (unlocked heroes only): spinning aura ring in the hero's
-                      color + a breathing warm glow behind the art. Pure CSS — no Lottie. */}
+                  {/* CARD FLOURISH (unlocked heroes only): the REAL flame-ring sprite
+                      (franchise-rig #38) spinning behind the art, hue-shifted from its
+                      golden base to each hero's signature color. Glow breathes behind it. */}
                   {unlocked && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-                      <div style={{ width: 148, height: 148, borderRadius: '50%', filter: 'blur(7px)', animation: 'fhq-aura 7s linear infinite',
-                        background: `conic-gradient(from 0deg, transparent 0deg, ${def.color}66 45deg, transparent 100deg, ${def.color}99 170deg, transparent 235deg, ${def.color}66 305deg, transparent 360deg)` }} />
+                      <img src="/assets/heroes/franchise-rig/aura-ring.png" alt="" draggable={false}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        style={{ width: 152, height: 152, animation: 'fhq-aura 9s linear infinite', opacity: 0.92,
+                          filter: `hue-rotate(${heroHue(def.color) - 45}deg) saturate(1.15) drop-shadow(0 0 8px ${def.color}66)` }} />
                     </div>
                   )}
                   {unlocked && (
