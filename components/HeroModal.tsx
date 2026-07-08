@@ -116,9 +116,24 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                       <span style={{ fontSize: '2.9rem', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>{def.emoji}</span>
                     </div>
                   </div>
+                  {def.key === 'qb' && unlocked ? (
+                    /* THE FRANCHISE RIG (Round 7): layered body + ball on a shared 7s
+                       clock — idle sway → wind-up → snap → the ball spirals off the card. */
+                    <div className="relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
+                      <img src="/assets/heroes/franchise-rig/body.png" alt={def.name} draggable={false}
+                        onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
+                        className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
+                        style={{ animation: 'fhq-qb-body 7s ease-in-out infinite', transformOrigin: '50% 100%' }} />
+                      <img src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        className="absolute pointer-events-none"
+                        style={{ width: '34%', left: '52%', top: '22%', animation: 'fhq-qb-ball 7s ease-in-out infinite', opacity: 0 }} />
+                    </div>
+                  ) : (
                   <img src={def.art} alt={def.name} draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     style={unlocked ? { animation: `fhq-hero-idle ${5.2 + (heroIdx % 3) * 0.6}s ease-in-out ${-(heroIdx * 1.7)}s infinite`, transformOrigin: '50% 100%' } : undefined}
                     className={`relative h-[112%] w-auto max-w-none object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] select-none ${unlocked ? '' : 'grayscale opacity-50'}`} />
+                  )}
                   {unlocked ? (
                     <>
                       <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded-full px-2 py-0.5">
