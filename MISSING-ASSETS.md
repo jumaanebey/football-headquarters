@@ -1,10 +1,9 @@
 # Missing Assets — Round 4 queue (nano_banana_pro)
 
-**STATUS (verified on disk 2026-07-07, second check):** Tiers 1–4 delivered and accepted,
-alpha verified clean (no green fringe, transparent corners) — EXCEPT one fix outstanding:
-`heroes/enforcer.png` is cropped at the bottom edge (legs cut at the shins, no feet;
-every other hero has full-body margin). **Remaining: 1 re-run → #30 enforcer, full body
-with margin on all four edges.** After that the art pipeline is CLOSED until Phase C.
+**STATUS: ✅ ROUND 4 COMPLETE (verified on disk 2026-07-07).** All tiers delivered and
+accepted — enforcer v2 re-run fixed the bottom crop (full body, zero opaque edge pixels,
+no green fringe). **The art pipeline is CLOSED** until the Phase C on-device playtest
+surfaces something specific. No speculative art.
 
 **Rounds 1–3: ✅ 100% complete** (buildings, units, heroes, coaches ×18, single-player
 sprites ×4, ground, brand, rivals, fences). Round 3's rival-stadium redo is ACCEPTED.
