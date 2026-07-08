@@ -4,6 +4,7 @@ import { RALLY_CONFIG } from '../constants';
 import { RESOURCE_ICON } from '../assets';
 import { rankFor, clubPower } from '../ranks';
 import { Crown, Users, Megaphone } from 'lucide-react';
+import { RankCrest } from './ui';
 
 interface Props {
   gameState: GameState;
@@ -41,8 +42,8 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => 
               {gameState.campaign?.claimed?.includes(12) && <span title="League Champion — conquered the full Season"> 💍</span>}
             </span>
             <span className="text-[10px] sm:text-[11px] font-bold flex items-center gap-1 sm:gap-1.5 leading-tight" style={{ color: rank.color }}>
-              <span className="hidden sm:inline">{rank.emoji} {rank.name}</span>
-              <span className="sm:hidden">{rank.emoji}</span>
+              <span className="hidden sm:inline-flex items-center gap-1"><RankCrest rank={rank} size={14} /> {rank.name}</span>
+              <span className="sm:hidden inline-flex"><RankCrest rank={rank} size={13} /></span>
               <span className="font-mono text-amber-300">🏆{gameState.trophies}</span>
               <span className="font-mono text-orange-300 hidden sm:inline" title="Club Power — every upgrade adds to it">⚡{power >= 1000 ? `${(power / 1000).toFixed(1)}k` : power}</span>
             </span>

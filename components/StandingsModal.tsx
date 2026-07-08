@@ -5,7 +5,7 @@ import { computeStandings } from '../league';
 import { rankFor, RANKS, clubPower, clubPowerBreakdown } from '../ranks';
 import { pvpEnabled, fetchLeaderboard, playerId, LeaderRow } from '../pvp';
 import { Trophy, TrendingUp, TrendingDown, Dumbbell, Zap } from 'lucide-react';
-import { Sheet, Btn, HowTo } from './ui';
+import { Sheet, Btn, HowTo, RankCrest } from './ui';
 
 interface Props {
   gameState: GameState;
@@ -115,7 +115,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
                       const nextMin = RANKS[i + 1]?.min ?? null;
                       return (
                         <div key={r.name} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${here ? 'border-yellow-500 bg-yellow-950/30' : reached ? 'border-slate-700 bg-slate-800/40' : 'border-slate-800 bg-slate-900/40'}`}>
-                          <span className="text-xl w-7 text-center" style={{ filter: reached ? 'none' : 'grayscale(1) opacity(0.6)' }}>{r.emoji}</span>
+                          <RankCrest rank={r} size={30} grayscale={!reached} />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-bold" style={{ color: reached ? r.color : '#64748b' }}>{r.name}</span>
@@ -159,7 +159,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
                           <div className={`font-bold truncate ${me ? 'text-fuchsia-200' : 'text-white'}`}>
                             {r.name} {me && <span className="text-[9px] font-bold uppercase bg-fuchsia-500 text-white px-1.5 rounded align-middle">You</span>}
                           </div>
-                          <div className="text-[10px] font-bold" style={{ color: rk.color }}>{rk.emoji} {rk.name}</div>
+                          <div className="text-[10px] font-bold flex items-center gap-1" style={{ color: rk.color }}><RankCrest rank={rk} size={13} /> {rk.name}</div>
                         </div>
                         <span className="font-mono font-bold text-amber-300 shrink-0">🏆 {r.trophies}</span>
                       </div>

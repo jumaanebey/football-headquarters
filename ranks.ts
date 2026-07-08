@@ -1,15 +1,17 @@
 // Trophy-based rank ladder — the "one more level" progression hook. You gain trophies for
 // winning raids and lose them when your stadium gets stormed; your rank is your standing.
-export interface Rank { name: string; min: number; color: string; emoji: string; }
+export interface Rank { name: string; min: number; color: string; emoji: string; art: string; }
 
+// `art` = crest PNG (Round 6); the emoji stays as the loading/fallback glyph so ranks
+// whose crest hasn't landed yet (or fails to load) degrade gracefully.
 export const RANKS: Rank[] = [
-  { name: 'Sandlot',      min: 0,    color: '#94a3b8', emoji: '🏈' },
-  { name: 'JV',           min: 100,  color: '#22c55e', emoji: '🌱' },
-  { name: 'Varsity',      min: 250,  color: '#38bdf8', emoji: '⭐' },
-  { name: 'Pro',          min: 500,  color: '#a855f7', emoji: '💪' },
-  { name: 'All-Pro',      min: 900,  color: '#f59e0b', emoji: '🏆' },
-  { name: 'Hall of Fame', min: 1400, color: '#ef4444', emoji: '🔥' },
-  { name: 'G.O.A.T.',     min: 2100, color: '#fde047', emoji: '👑' },
+  { name: 'Sandlot',      min: 0,    color: '#94a3b8', emoji: '🏈', art: '/assets/ranks/sandlot.png' },
+  { name: 'JV',           min: 100,  color: '#22c55e', emoji: '🌱', art: '/assets/ranks/jv.png' },
+  { name: 'Varsity',      min: 250,  color: '#38bdf8', emoji: '⭐', art: '/assets/ranks/varsity.png' },
+  { name: 'Pro',          min: 500,  color: '#a855f7', emoji: '💪', art: '/assets/ranks/pro.png' },
+  { name: 'All-Pro',      min: 900,  color: '#f59e0b', emoji: '🏆', art: '/assets/ranks/allpro.png' },
+  { name: 'Hall of Fame', min: 1400, color: '#ef4444', emoji: '🔥', art: '/assets/ranks/halloffame.png' },
+  { name: 'G.O.A.T.',     min: 2100, color: '#fde047', emoji: '👑', art: '/assets/ranks/goat.png' },
 ];
 
 export const rankFor = (trophies: number): { rank: Rank; next: Rank | null; progress: number; index: number } => {

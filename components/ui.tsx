@@ -120,3 +120,16 @@ export const Sheet: React.FC<{
     </div>
   </div>
 );
+
+// Rank crest with graceful degradation: the emoji renders underneath and the crest PNG
+// covers it once loaded; a missing/failed crest (e.g. not delivered yet) just leaves the
+// emoji — no broken-image icon, no layout shift.
+export const RankCrest: React.FC<{ rank: { emoji: string; art: string }; size?: number; grayscale?: boolean }> = ({ rank, size = 20, grayscale = false }) => (
+  <span className="relative inline-flex items-center justify-center shrink-0 align-middle" style={{ width: size, height: size, filter: grayscale ? 'grayscale(1) opacity(0.6)' : undefined }}>
+    <span style={{ fontSize: size * 0.72, lineHeight: 1 }}>{rank.emoji}</span>
+    <img src={rank.art} alt="" draggable={false}
+      onLoad={e => { const em = e.currentTarget.previousElementSibling as HTMLElement; if (em) em.style.visibility = 'hidden'; }}
+      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+      className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none" />
+  </span>
+);
