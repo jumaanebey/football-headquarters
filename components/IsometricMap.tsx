@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
 import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR } from '../constants';
-import { buildingSprite } from '../assets';
+import { buildingSprite, unitPlayerSprite } from '../assets';
 import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
 
 // ─── BUILD VIEW ────────────────────────────────────────────────────────────────
@@ -378,12 +378,23 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
   if (player.unit === UnitGroup.OFFENSE_LINE || player.unit === UnitGroup.OFFENSE_SKILL) color = '#ef4444';
   if (player.unit === UnitGroup.DEFENSE_LINE || player.unit === UnitGroup.DEFENSE_SECONDARY) color = '#3b82f6';
 
+  // Real player art on the board (the `*-player.png` singles) — the color chip is only
+  // the fallback while the sprite loads. Face the direction of travel.
+  const facingLeft = player.targetPos.x < player.worldPos.x;
+
   return (
     <div className="absolute transition-all duration-[200ms] ease-linear animate-hop pointer-events-none"
       style={{ left: c.x, top: c.y, zIndex: Math.round((player.worldPos.y / 100) * GRID * 2) + 6, transform: 'translate(-50%,-100%)' }}>
-      <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30" style={{ bottom: -4, width: 18, height: 7 }} />
-      <div className="w-4 h-6 rounded-t-full rounded-b-sm border border-black/30 flex items-start justify-center shadow" style={{ backgroundColor: color }}>
-        <span className="text-[7px] font-bold text-white/90 leading-tight mt-0.5">{player.role}</span>
+      <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30" style={{ bottom: -3, width: 20, height: 7 }} />
+      <div className="relative flex items-end justify-center" style={{ width: 30, height: 34 }}>
+        <div className="absolute bottom-1 w-4 h-6 rounded-t-full rounded-b-sm border border-black/30 flex items-start justify-center shadow" style={{ backgroundColor: color }}>
+          <span className="text-[7px] font-bold text-white/90 leading-tight mt-0.5">{player.role}</span>
+        </div>
+        <img src={unitPlayerSprite(player.unit)} alt="" draggable={false}
+          onLoad={e => { const chip = e.currentTarget.previousElementSibling as HTMLElement; if (chip) chip.style.display = 'none'; }}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          className="relative w-full h-auto max-w-none select-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]"
+          style={{ transform: facingLeft ? 'scaleX(-1)' : undefined }} />
       </div>
       {isTraining && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px]">💪</div>}
       {isPatrolling && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px]">🛡️</div>}
