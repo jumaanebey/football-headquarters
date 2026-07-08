@@ -180,10 +180,12 @@ reference = current qb.png, to `public/assets/heroes/franchise-rig/`:
 | 38 | aura-ring.png | ✅ DELIVERED 2026-07-07 via Higgsfield pilot (nano_banana_2, passed all checks first try) |
 | 39 | aura-glow.png | ✅ BUILT procedurally (PIL radial gradient — no AI needed) |
 | 40 | ball.png | ✅ placeholder BUILT procedurally (PIL) — fine at card size; regenerate via Gemini for close-ups |
-| 41 | body-armless.png | OPTIONAL — body w/ throwing arm omitted (skip-on-drift) |
-| 42 | arm-throw.png | OPTIONAL — the arm alone, +20px shoulder overlap (skip-on-drift) |
+| 41 | body-armless.png | ❌ SKIPPED-ON-DRIFT (model deleted the whole upper body) — replaced by POSE-SWAP: body-followthrough.png ✅ (full follow-through frame, Gemini ref-gen, verified) |
+| 42 | arm-throw.png | ✅ delivered clean (Gemini ref-gen) — BANKED for a future true-arm rig; pose-swap ships first |
 
 Code side after delivery (no Spine/DragonBones/Lottie — DOM game, CSS cutout puppet):
 stack layers, pivots via transform-origin, states = idle (sway/breathe/ring-spin),
 wind-up (lean + arm cock if Tier 2 lands), throw (ball launches w/ trail). This closes
 Round 7 — no extras.
+
+**Round 7 CLOSED (2026-07-08).** Gemini API pipeline (`scripts/gen_asset.py`, billing enabled) is now the primary generator: ref-attached, auto flood-knockout fallback for off-tint backgrounds, full verify. ~3-4c/image.
