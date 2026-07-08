@@ -54,7 +54,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
             'Heroes are your stars — deploy them in raids and fire their signature abilities mid-drive.',
             'Unlock new heroes with Coins/Crowns or find them in Scout Searches — duplicates become 🧩 shards.',
             'Shards buy ⭐ star-ups (big power spikes). Level training happens in the COACH tab and takes time.',
-            'Your two strongest heroes also guard the stadium when you get raided.',
+            'Heroes guard your GATES on defense — assign who holds which gate in the Front Office.',
           ]} />
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 content-start auto-rows-max">
