@@ -157,12 +157,12 @@ family, escalating material + ornament, each in its rank color (slate/green/sky/
 amber/red/gold), charcoal-black base metal, NO club orange, NO text. 512², chroma
 knockout, zero opaque edge pixels, readable at 24px. These 7 close Round 6 — no extras.
 
-**STATUS (2026-07-07):** 5/7 delivered and WIRED IN (HUD chip, Ranks ladder, standings
-rows — emoji is the fallback, so missing crests degrade gracefully). Outstanding after
-quota reset: **halloffame**, **goat**, and a **jv REDO** (shipped with interior green
-residue + a blank-white ribbon where its green identity should be — defringed in place
-as a stopgap). ⚠️ Lesson for every future delivery: edge-only pixel checks miss INTERIOR
-chroma residue — scan the whole sprite for green-dominant pixels before delivering.
+**STATUS: ✅ ROUND 6 COMPLETE (2026-07-08).** All 7 crests delivered and wired (HUD chip,
+Ranks ladder, standings rows). halloffame + goat + jv-redo came via the Gemini pipeline
+(`scripts/gen_asset.py`). ⚠️ TWO standing lessons: (1) edge-only checks miss INTERIOR
+chroma residue — scan whole sprite; (2) image models REFUSE to paint green elements on a
+chroma-green screen (JV's green ribbon came back white twice) — generate such elements
+neutral and tint/fill programmatically after knockout.
 
 
 ---
