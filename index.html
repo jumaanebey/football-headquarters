@@ -186,6 +186,10 @@
       /* Hero nameplate: readable at deploy, then drops to a whisper so it stops
          fighting the sprites and hit VFX for screen space. */
       @keyframes fhq-tagfade { 0%,55% { opacity: 1; } 100% { opacity: 0.28; } }
+      /* ONE character layer at a time: when a unit's rig frames (walk/action) have
+         loaded, the flat portrait fallback underneath goes fully invisible instead of
+         peeking out around the frames' edges. */
+      .fhq-unit[data-rig="1"] .fhq-flat { visibility: hidden; }
       /* Mirrored flight for lefts-facing throws (QB's throwing hand is on the viewer's
          left; scaleX(-1) also flips the ball art so its flame trail points the right way). */
       @keyframes fhq-ball-left {

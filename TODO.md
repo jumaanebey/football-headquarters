@@ -43,3 +43,26 @@ never delete incomplete tasks.
 - [ ] Loading/splash art (needed for App Store build anyway)
 - [ ] Launch round: app icon variants + App Store screenshot frames
 - [ ] Hero ability icons (9) — currently emoji, fine until Phase C says otherwise
+
+## Animation / juice backlog — animator's lens (July 2026 sweep)
+
+Shipped this pass: formation-switch GLIDE (buildings slide to new anchors, no teleport),
+one-character-layer rule (flat art fully hides under rig frames), hero card action beat
+every 5.5s (was buried in a 7s idle), sideline deploy glow, nameplate fade.
+
+Next, in impact order:
+- [ ] Scout Search reveal — gacha has zero suspense: add card-flip / glow-burst before the
+      result banner (the single most emotional moment in the economy)
+- [ ] Collect arc — coins should physically fly from the building to the HUD counter
+      (floating text exists; the arc sells the earn)
+- [ ] Counter rollup — resource numbers snap instantly; animate tick-up on change
+- [ ] Deploy dust — landing puff when a troop/hero drops on the sideline (dust-impact.png
+      is already in fx/)
+- [ ] Verdict card entrance — scale-bounce in, game balls stamp in one-by-one with sfx
+- [ ] Damage numbers — arc + scale-pop instead of straight float
+- [ ] Drive meter milestone pulses at 25/50/75/100%
+- [ ] Hero ability cast — screen-edge flash in the hero's color when an ability fires
+- [ ] Sheet/modal entrances — slide-up + backdrop fade (they currently pop)
+- [ ] Board walkers — upgrade from position-group singles to hero walk frames where the
+      walker is a hero; add stop-and-idle pose
+- [ ] Upgrade-complete celebration — building pop + spark burst at the building itself

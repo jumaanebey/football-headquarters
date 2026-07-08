@@ -1091,7 +1091,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${g.x}%`, top: `${g.y}%`, width: isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isHeroGuard ? 48 : 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {g.hp < g.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
-                <div className="relative w-full" style={{ aspectRatio: '1', opacity: g.hitFlash > 0 ? 0.5 : 1, animation: g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite' }}>
+                <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', opacity: g.hitFlash > 0 ? 0.5 : 1, animation: g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-bob 0.5s ease-in-out infinite' }}>
                   <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
                   {/* Chip fallback hides the moment the sprite loads — no floating bubble. */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -1103,18 +1103,19 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   <img src={art ?? unitPlayerSprite(g.unit)} alt="" draggable={false}
                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     onLoad={e => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; }}
-                    className="absolute inset-0 w-full h-full object-contain"
+                    className="fhq-flat absolute inset-0 w-full h-full object-contain"
                     style={{ transform: `translateZ(0)${((g as BTroop & { face?: number }).face ?? 1) < 0 ? ' scaleX(-1)' : ''}`, filter: isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)' }} />
                   {/* Hero gate guards WALK too — same two-frame stride, derived from the portrait path */}
                   {isHeroGuard && !g.attacking && (() => {
                     const hk = (art!.match(/heroes\/(\w+)\.png/) || [])[1];
                     if (!hk) return null;
                     const gFlip = ((g as BTroop & { face?: number }).face ?? 1) > 0 ? ' scaleX(-1)' : '';
-                    const hideSelf = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; };
+                    const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
+                    const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
                     return (
                       <>
-                        <img src={`/assets/heroes/rig/${hk}-walkA.png`} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ animation: 'fhq-stepA 0.46s linear infinite', transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
-                        <img src={`/assets/heroes/rig/${hk}-walkB.png`} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
+                        <img src={`/assets/heroes/rig/${hk}-walkA.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ animation: 'fhq-stepA 0.46s linear infinite', transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
+                        <img src={`/assets/heroes/rig/${hk}-walkB.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
                       </>
                     ); })()}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
@@ -1157,13 +1158,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     <img src={specialDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="absolute inset-0 w-full h-full object-contain" style={{ filter: spGlow, opacity: t.hitFlash > 0 ? 0.5 : 1, animation: anim, transform: `translateZ(0)${flip}` }} />
                   </div>
                 ) : heroDef ? (
-                  <div className="relative w-full" style={{ aspectRatio: '1' }}>
+                  <div className="fhq-unit relative w-full" style={{ aspectRatio: '1' }}>
                     {shadow}
                     {/* fallback badge hides once the portrait loads */}
                     <div className="absolute inset-0 rounded-full flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 38%, ${heroDef.color}e0, #0f172a 88%)`, border: '2px solid #fde047', filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim }}>
                       <span style={{ fontSize: '2.3vmin', lineHeight: 1 }}>{heroDef.emoji}</span>
                     </div>
-                    <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim, transform: `translateZ(0)${flip}` }} />
+                    <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim, transform: `translateZ(0)${flip}` }} />
                     {/* HEROES WALK: two-frame stride while moving, action pose while attacking.
                         Walk frames face viewer-LEFT natively → flip when running right. Missing
                         frames self-hide, leaving the flat art underneath. */}
@@ -1171,13 +1172,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                         ? { action: '/assets/heroes/franchise-rig/body-followthrough.png', walkA: '/assets/heroes/rig/qb-walkA.png', walkB: '/assets/heroes/rig/qb-walkB.png' }
                         : { action: `/assets/heroes/rig/${t.heroKey}-action.png`, walkA: `/assets/heroes/rig/${t.heroKey}-walkA.png`, walkB: `/assets/heroes/rig/${t.heroKey}-walkB.png` };
                       const rigFlip = face > 0 ? ' scaleX(-1)' : '';
-                      const hideSelf = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; };
+                      const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
+                      const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
                       return t.attacking ? (
-                        <img src={rp.action} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-pop 0.35s ease-in-out infinite', transform: `translateZ(0)${rigFlip}` }} />
+                        <img src={rp.action} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-pop 0.35s ease-in-out infinite', transform: `translateZ(0)${rigFlip}` }} />
                       ) : (
                         <>
-                          <img src={rp.walkA} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepA 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
-                          <img src={rp.walkB} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
+                          <img src={rp.walkA} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepA 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
+                          <img src={rp.walkB} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
                         </>
                       ); })()}
                     {/* Nameplate: full strength for the deploy moment, then fades way down —

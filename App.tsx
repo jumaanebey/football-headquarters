@@ -19,7 +19,7 @@ import { tendencyFromId, TENDENCIES, TendencyKey } from './constants';
 import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
-import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt } from './campaign';
+import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, crestForTeam } from './campaign';
 import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
@@ -1348,7 +1348,10 @@ function App() {
                           {isNext && <div className="text-[10px] italic text-orange-200/80 mt-1 line-clamp-2">“{coach.intro}”</div>}
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 flex flex-col items-end">
+                        <img src={crestForTeam(st.opponent)} alt="" draggable={false}
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          className="w-7 h-7 object-contain mb-0.5 select-none" style={{ filter: locked ? 'grayscale(1) opacity(0.5)' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                         <div className="text-yellow-400 font-mono font-bold text-sm">+{st.reward.coins}</div>
                         {!cleared && !locked && <div className="text-[10px] text-purple-300 font-bold">1st: +{st.firstClear.gems}👑 +{st.firstClear.shards}🧩</div>}
                         {cleared && <div className="text-[10px] text-green-500 font-bold">CLEARED</div>}
@@ -1385,6 +1388,10 @@ function App() {
               {raidTargets.map(b => (
                 <button key={b.id} onClick={() => { if (launchAttack({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) })) setAttackSelectOpen(false); }}
                   className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img src={crestForTeam(b.name)} alt="" draggable={false}
+                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      className="w-9 h-9 object-contain shrink-0 select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
                   <div>
                     <div className="font-bold text-white text-lg">{b.name}</div>
                     <div className="text-xs text-slate-400 flex items-center gap-2">
@@ -1392,6 +1399,7 @@ function App() {
                       <span>• {b.buildings.filter(x => x.kind !== 'wall').length} buildings</span>
                       {(() => { const f = b.buildings.find(x => x.kind === 'hq')?.formation; return f && FORMATIONS[f as FormationKey] ? <span className="text-sky-300 font-bold">• 📋 {FORMATIONS[f as FormationKey].name}</span> : null; })()}
                     </div>
+                  </div>
                   </div>
                   <div className="text-right">
                     <div className="text-yellow-400 font-mono font-bold">+{b.reward.coins}</div>

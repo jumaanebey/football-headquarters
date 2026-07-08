@@ -135,21 +135,23 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                   {HERO_RIG[def.key] && unlocked ? (
                     /* TWO-POSE RIG: body sways/winds up, action pose snaps in on the beat,
                        optional projectile launches. Staggered per hero so cards don't sync. */
-                    (() => { const rig = HERO_RIG[def.key]; const dly = `-${(heroIdx * 1.9) % 7}s`; return (
+                    (() => { /* 5.5s cycle: the action beat lands every ~5s instead of hiding in a 7s idle */
+                    const rig = HERO_RIG[def.key]; const dly = `-${(heroIdx * 1.45) % 5.5}s`; return (
                     <div className="relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
                       <img src={rig.body} alt={def.name} draggable={false}
+                        onLoad={e => { const med = e.currentTarget.parentElement?.previousElementSibling as HTMLElement | null; if (med) med.style.visibility = 'hidden'; }}
                         onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
                         className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
-                        style={{ animation: `fhq-qb-body 7s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
+                        style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
                       <img src={rig.action} alt="" draggable={false}
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
-                        style={{ animation: `fhq-qb-body2 7s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
+                        style={{ animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
                       {rig.ball && (
                         <img src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false}
                           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           className="absolute pointer-events-none"
-                          style={{ width: '34%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 7s ease-in-out ${dly} infinite`, opacity: 0 }} />
+                          style={{ width: '34%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 5.5s ease-in-out ${dly} infinite`, opacity: 0 }} />
                       )}
                     </div>
                     ); })()

@@ -121,3 +121,20 @@ export const campaignBase = (stage: number): EnemyBase => {
   }
   return { id: `camp_${stage}`, name: st.opponent, difficulty: st.mult, reward: st.reward, buildings };
 };
+
+// ─── RIVAL CRESTS (Round 10) ──────────────────────────────────────────────────
+// 8 emblems in public/assets/rivals/. Schedule teams with a namesake crest get it
+// outright; everything else (raid bots, live rivals) hash-assigns deterministically
+// so the same team always flies the same flag.
+const RIVAL_CREST_SLUGS = ['sharks', 'bandits', 'iron', 'mustangs', 'knights', 'empire', 'pumas', 'hawks'];
+const CREST_BY_TEAM: Record<string, string> = {
+  'North Sharks': 'sharks', 'Bayou Bandits': 'bandits', 'Iron City': 'iron', 'Metro Mustangs': 'mustangs',
+  'Golden Knights': 'knights', 'Crimson Empire': 'empire', 'Prairie Pumas': 'pumas', 'Harbor Hawks': 'hawks',
+};
+export const crestForTeam = (teamName: string): string => {
+  const named = CREST_BY_TEAM[teamName];
+  if (named) return `/assets/rivals/crest-${named}.png`;
+  let h = 0;
+  for (let i = 0; i < teamName.length; i++) h = (h * 31 + teamName.charCodeAt(i)) >>> 0;
+  return `/assets/rivals/crest-${RIVAL_CREST_SLUGS[h % RIVAL_CREST_SLUGS.length]}.png`;
+};

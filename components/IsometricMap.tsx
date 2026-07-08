@@ -249,7 +249,7 @@ const BuildingSprite: React.FC<{
   // and those invisible corners were stealing taps from neighbors' labels/bubbles.
   // Only the explicit hitbox (building body) and the badge buttons take pointers.
   return (
-    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6 }}>
+    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6, transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting */}
       {/* Glow ring under actionable buildings */}
       {actionable && (
         <div className="absolute -translate-x-1/2 rounded-[50%] bg-yellow-300/25 blur-md animate-pulse pointer-events-none"
