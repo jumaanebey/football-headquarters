@@ -69,7 +69,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
           ]} />
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 content-start auto-rows-max">
-          {HERO_DEFS.map(def => {
+          {HERO_DEFS.map((def, heroIdx) => {
             const st = stateOf(def.key);
             const unlocked = st?.unlocked ?? !!def.starter;
             const lvl = st?.level ?? 1;
@@ -117,7 +117,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                     </div>
                   </div>
                   <img src={def.art} alt={def.name} draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                    style={unlocked ? { animation: 'fhq-hero-breathe 4s ease-in-out infinite', transformOrigin: '50% 100%' } : undefined}
+                    style={unlocked ? { animation: `fhq-hero-idle ${5.2 + (heroIdx % 3) * 0.6}s ease-in-out ${-(heroIdx * 1.7)}s infinite`, transformOrigin: '50% 100%' } : undefined}
                     className={`relative h-[112%] w-auto max-w-none object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] select-none ${unlocked ? '' : 'grayscale opacity-50'}`} />
                   {unlocked ? (
                     <>

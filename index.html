@@ -134,6 +134,20 @@
       /* --- HERO CARD FLOURISH (Hall of Heroes) --- */
       @keyframes fhq-aura { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       @keyframes fhq-hero-breathe { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.012); } }
+      /* Full-body idle: weight-shift sway for most of the cycle, then an anticipation
+         squash → hop → landing recover near the end. Origin at the feet. */
+      @keyframes fhq-hero-idle {
+        0%   { transform: rotate(0deg)    translateY(0)    scale(1, 1); }
+        18%  { transform: rotate(-1.7deg) translateY(-1px) scale(1.012, 0.994); }
+        38%  { transform: rotate(1.1deg)  translateY(0)    scale(0.994, 1.008); }
+        56%  { transform: rotate(-0.7deg) translateY(-2px) scale(1, 1); }
+        72%  { transform: rotate(0deg)    translateY(0)    scale(1, 1); }
+        79%  { transform: translateY(2px)  scale(1.06, 0.93); }
+        86%  { transform: translateY(-9px) scale(0.965, 1.07); }
+        91%  { transform: translateY(0)    scale(1.04, 0.96); }
+        95%  { transform: translateY(-2px) scale(0.99, 1.015); }
+        100% { transform: rotate(0deg)    translateY(0)    scale(1, 1); }
+      }
       @keyframes fhq-sweep { to { left: 115%; } }
       .fhq-shine { position: relative; overflow: hidden; }
       .fhq-shine::after { content: ''; position: absolute; top: -30%; bottom: -30%; width: 34%; left: -45%; background: linear-gradient(105deg, transparent, rgba(255,255,255,0.75), transparent); transform: skewX(-20deg); pointer-events: none; }
