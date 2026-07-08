@@ -254,11 +254,26 @@ const BuildingSprite: React.FC<{
         <img src={src} alt={info.name} draggable={false}
           className="select-none transition-transform group-hover:-translate-y-1 group-active:scale-95"
           style={{ display: 'block', width: '100%', maxWidth: 'none', height: 'auto', filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} />
-        {/* Scouting HQ chimney smoke — three staggered wisps rising off the roofline */}
+        {/* Scouting HQ chimney smoke — three staggered puffs rising off the roofline */}
         {isAcademy && [0, 1, 2].map(i => (
-          <div key={i} className="absolute rounded-full bg-slate-200/60" style={{
-            width: 9 + i * 2, height: 9 + i * 2, left: SPRITE_W * 0.46, bottom: SPRITE_W * 0.58,
-            filter: 'blur(3px)', opacity: 0, animation: `fhq-smoke 4.5s linear ${i * 1.5}s infinite`,
+          <img key={i} src="/assets/fx/smoke-puff.png" alt="" draggable={false} className="absolute select-none" style={{
+            width: 14 + i * 4, left: SPRITE_W * 0.44, bottom: SPRITE_W * 0.58,
+            opacity: 0, animation: `fhq-smoke 4.5s linear ${i * 1.5}s infinite`,
+          }} />
+        ))}
+        {/* Stadium dressing: swaying team banner off the near corner + crowd shimmer isn't
+            needed here (the bowl is tiny at board zoom) — banner only. */}
+        {building.type === BuildingType.STADIUM && (
+          <img src="/assets/fx/banner-team.png" alt="" draggable={false} className="absolute select-none" style={{
+            width: SPRITE_W * 0.2, left: SPRITE_W * 0.03, bottom: SPRITE_W * 0.34,
+            transformOrigin: '50% 0%', animation: 'fhq-sway 4s ease-in-out infinite',
+          }} />
+        )}
+        {/* Collect-ready shimmer: two golden sparks twinkling over the haul */}
+        {showBubble && [0, 1].map(i => (
+          <img key={`s${i}`} src="/assets/fx/spark-star.png" alt="" draggable={false} className="absolute select-none" style={{
+            width: 16 - i * 4, left: SPRITE_W * (0.3 + i * 0.28), bottom: SPRITE_W * (0.42 - i * 0.14),
+            opacity: 0, animation: `fhq-twinkle 1.8s ease-in-out ${i * 0.7}s infinite`,
           }} />
         ))}
       </div>

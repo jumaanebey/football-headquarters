@@ -60,7 +60,7 @@ interface Shot { sx: number; sy: number; tx: number; ty: number; t: number; dur:
 interface Pulse { x: number; y: number; r: number; life: number; maxLife: number; color: string; }
 // Ephemeral battle FX: dust puffs under runners, impact pops on contact, floating "SACKED!" text,
 // Castle-Clash-style floating damage numbers ('dmg') and knocked-down player chips ('down').
-interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'debris' | 'confetti' | 'smoke'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
+interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'debris' | 'confetti' | 'smoke' | 'boom'; x: number; y: number; life: number; maxLife: number; text?: string; vx?: number; vy?: number; color?: string; }
 
 const TICK_MS = 50;
 const DT = TICK_MS / 1000;
@@ -380,8 +380,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               say(scored ? '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!' : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(rand() * 3)]);
               s.momentum = Math.min(100, s.momentum + (scored ? 25 : 12) * planRef.current.momentum);
               if (scored) { s.freezeT = 0.45; sfx.crowdRoar(); } // freeze-frame + the stadium erupts
-              // 💥 The teardown MOMENT: shockwave ring + tumbling debris + smoke + loot.
+              // 💥 The teardown MOMENT: shockwave ring + dust burst + tumbling debris + smoke + loot.
               s.pulses.push({ x: target.x, y: target.y, r: scored ? 15 : 10, life: 0.45, maxLife: 0.45, color: scored ? '#fde047' : '#f8fafc' });
+              s.fx.push({ type: 'boom', x: target.x, y: target.y - 1, life: 0.55, maxLife: 0.55 });
               for (let di = 0; di < (scored ? 8 : 6); di++) {
                 const da = rand() * Math.PI * 2;
                 s.fx.push({ type: 'debris', x: target.x, y: target.y - 1, vx: Math.cos(da) * (8 + rand() * 8), vy: -6 - rand() * 10, life: 0.8, maxLife: 0.8, color: ['#64748b', '#94a3b8', '#f97316'][di % 3] });
@@ -1011,6 +1012,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             if (f.type === 'impact') return (
               <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3.6vmin', height: '3.6vmin', background: 'radial-gradient(circle, #fff 0%, #fde047 45%, transparent 72%)', zIndex: 150, transform: `translate(-50%,-50%) scale(${0.6 + (1 - k) * 1.1})`, opacity: k }} />
             );
+            if (f.type === 'boom') return (
+              // Teardown dust burst — the art sprite blooms out and fades over the wreck
+              <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '9vmin', zIndex: 158, transform: `translate(-50%,-55%) scale(${0.5 + (1 - k) * 0.9}) rotate(${(1 - k) * 20}deg)`, opacity: Math.min(1, k * 1.6) }} />
+            );
             if (f.type === 'debris') return (
               // Chunks of the sacked facility tumbling out of the wreck
               <div key={i} className="absolute pointer-events-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '1.3vmin', height: '1.3vmin', background: f.color, border: '1px solid rgba(0,0,0,0.4)', borderRadius: 2, zIndex: 160, transform: `translate(-50%,-50%) rotate(${(1 - k) * 560}deg)`, opacity: Math.min(1, k * 1.6) }} />
@@ -1053,7 +1058,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     <span className="absolute inset-0 flex items-center justify-center text-2xl">💥</span>
                   </div>
                 ) : (
-                  <img src={sprite} alt="" draggable={false} className="w-full" style={{ height: 'auto', filter: 'drop-shadow(0 5px 5px rgba(0,0,0,0.45))' }} />
+                  <div className="relative w-full">
+                    <img src={sprite} alt="" draggable={false} className="w-full" style={{ height: 'auto', filter: 'drop-shadow(0 5px 5px rgba(0,0,0,0.45))' }} />
+                    {/* Live crowd in the stadium bowl — a shallow shimmer strip that hides once the place is sacked */}
+                    {b.kind === 'hq' && (
+                      <img src="/assets/fx/crowd-strip.png" alt="" draggable={false} className="absolute select-none"
+                        style={{ left: '14%', top: '26%', width: '72%', opacity: 0.85, animation: 'fhq-breathe 3s ease-in-out infinite', transformOrigin: '50% 100%' }} />
+                    )}
+                  </div>
                 )}
               </div>
             );
