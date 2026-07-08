@@ -177,7 +177,7 @@ reference = current qb.png, to `public/assets/heroes/franchise-rig/`:
 | # | File | Layer |
 |---|---|---|
 | 37 | body.png | clean character, empty throwing hand, NO aura/ball |
-| 38 | aura-ring.png | flat flame ring alone (will spin) |
+| 38 | aura-ring.png | ✅ DELIVERED 2026-07-07 via Higgsfield pilot (nano_banana_2, passed all checks first try) |
 | 39 | aura-glow.png | soft golden radial glow alone |
 | 40 | ball.png | glowing football alone, flame trail |
 | 41 | body-armless.png | OPTIONAL — body w/ throwing arm omitted (skip-on-drift) |
