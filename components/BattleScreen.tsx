@@ -1097,6 +1097,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     onLoad={e => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; }}
                     className="absolute inset-0 w-full h-full object-contain"
                     style={{ transform: `translateZ(0)${((g as BTroop & { face?: number }).face ?? 1) < 0 ? ' scaleX(-1)' : ''}`, filter: isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)' }} />
+                  {/* Hero gate guards WALK too — same two-frame stride, derived from the portrait path */}
+                  {isHeroGuard && !g.attacking && (() => {
+                    const hk = (art!.match(/heroes\/(\w+)\.png/) || [])[1];
+                    if (!hk) return null;
+                    const gFlip = ((g as BTroop & { face?: number }).face ?? 1) > 0 ? ' scaleX(-1)' : '';
+                    const hideSelf = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; };
+                    return (
+                      <>
+                        <img src={`/assets/heroes/rig/${hk}-walkA.png`} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ animation: 'fhq-stepA 0.46s linear infinite', transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
+                        <img src={`/assets/heroes/rig/${hk}-walkB.png`} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
+                      </>
+                    ); })()}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
                 </div>
               </div>
@@ -1144,6 +1156,22 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       <span style={{ fontSize: '2.3vmin', lineHeight: 1 }}>{heroDef.emoji}</span>
                     </div>
                     <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: anim, transform: `translateZ(0)${flip}` }} />
+                    {/* HEROES WALK: two-frame stride while moving, action pose while attacking.
+                        Walk frames face viewer-LEFT natively → flip when running right. Missing
+                        frames self-hide, leaving the flat art underneath. */}
+                    {(() => { const rp = t.heroKey === 'qb'
+                        ? { action: '/assets/heroes/franchise-rig/body-followthrough.png', walkA: '/assets/heroes/rig/qb-walkA.png', walkB: '/assets/heroes/rig/qb-walkB.png' }
+                        : { action: `/assets/heroes/rig/${t.heroKey}-action.png`, walkA: `/assets/heroes/rig/${t.heroKey}-walkA.png`, walkB: `/assets/heroes/rig/${t.heroKey}-walkB.png` };
+                      const rigFlip = face > 0 ? ' scaleX(-1)' : '';
+                      const hideSelf = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; };
+                      return t.attacking ? (
+                        <img src={rp.action} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-pop 0.35s ease-in-out infinite', transform: `translateZ(0)${rigFlip}` }} />
+                      ) : (
+                        <>
+                          <img src={rp.walkA} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepA 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
+                          <img src={rp.walkB} alt="" draggable={false} onError={hideSelf} className="absolute inset-0 w-full h-full object-contain" style={{ filter: glow, opacity: t.hitFlash > 0 ? 0.6 : 1, animation: 'fhq-stepB 0.46s linear infinite', transform: `translateZ(0)${rigFlip}` }} />
+                        </>
+                      ); })()}
                     <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: '-16%', fontSize: '1.1vmin', background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(253,224,71,0.4)' }}>{heroDef.name}</span>
                   </div>
                 ) : (

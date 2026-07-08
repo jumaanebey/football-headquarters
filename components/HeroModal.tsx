@@ -21,8 +21,9 @@ interface Props {
 // Every hero's two-pose rig: clean body (idle sway + wind-up) and an action pose that
 // swaps in on the beat (fhq-qb-body/body2 keyframes — generic despite the name).
 // Missing files degrade: body falls back to the flat card art, action/ball just hide.
-const HERO_RIG: Record<string, { body: string; action: string; ball?: { left: string; top: string } }> = {
-  qb:        { body: '/assets/heroes/franchise-rig/body.png', action: '/assets/heroes/franchise-rig/body-followthrough.png', ball: { left: '52%', top: '22%' } },
+const HERO_RIG: Record<string, { body: string; action: string; ball?: { left: string; top: string; anim?: string } }> = {
+  // QB throws with the viewer-LEFT hand — ball spawns there and flies up-left (mirrored flight).
+  qb:        { body: '/assets/heroes/franchise-rig/body.png', action: '/assets/heroes/franchise-rig/body-followthrough.png', ball: { left: '10%', top: '18%', anim: 'fhq-ball-left' } },
   enforcer:  { body: '/assets/heroes/rig/enforcer-body.png',  action: '/assets/heroes/rig/enforcer-action.png' },
   coach:     { body: '/assets/heroes/rig/coach-body.png',     action: '/assets/heroes/rig/coach-action.png' },
   kicker:    { body: '/assets/heroes/rig/kicker-body.png',    action: '/assets/heroes/rig/kicker-action.png', ball: { left: '44%', top: '48%' } },
@@ -148,7 +149,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                         <img src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false}
                           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           className="absolute pointer-events-none"
-                          style={{ width: '34%', left: rig.ball.left, top: rig.ball.top, animation: `fhq-qb-ball 7s ease-in-out ${dly} infinite`, opacity: 0 }} />
+                          style={{ width: '34%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 7s ease-in-out ${dly} infinite`, opacity: 0 }} />
                       )}
                     </div>
                     ); })()
