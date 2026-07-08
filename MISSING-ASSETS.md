@@ -217,3 +217,11 @@ snap to their -action pose while attacking, flip scaleX by movement direction (w
 faces LEFT natively → flip when face>0). QB card ball corrected: spawns at his viewer-
 LEFT throwing hand, flies up-LEFT (fhq-ball-left; scaleX(-1) LAST in transform order).
 Full sprite system reference: HERO-SPRITES.md at repo root.
+
+
+**Round 7 NOTE (2026-07-08):** Antigravity later re-ran the stale Round 7 clipboard brief
+and re-delivered body/aura-ring/aura-glow/ball. Audited: all four passed pixel checks and
+are UPGRADES (1024² ball with intact flame trail, richer ring) — accepted and committed
+over the earlier versions. Tier 2 (armless body + separate arm) is NOT needed: the
+pose-swap rig shipped instead and a clean arm-throw.png is already banked. Antigravity
+should treat the art pipeline as CLOSED — current queue lives in MISSING-ASSETS.md only.

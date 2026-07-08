@@ -75,6 +75,10 @@ Next, in impact order:
       color (inset glow, 0.7s fade) + whoosh
 - [ ] Sheet/modal entrances — SHIPPED (confirm to close): backdrop fades, panel slides up
       with a soft settle (0.26s) — every modal in the game (one Sheet shell)
-- [ ] Board walkers — upgrade from position-group singles to hero walk frames where the
-      walker is a hero; add stop-and-idle pose
-- [ ] Upgrade-complete celebration — building pop + spark burst at the building itself
+- [ ] Board walkers — SHIPPED (confirm to close): 8 new position-group walk frames;
+      roster walkers stride (two-frame cycle, direction-facing) while WALKING
+- [ ] Upgrade-complete celebration — SHIPPED (confirm to close): burst ring + spark
+      twinkles + "LEVEL UP!" stamp at the building + fanfare when a job finishes
+- [ ] CC-style building tap — SHIPPED (confirm to close): tap → spotlight + title/cost
+      over the board + chunky Info/Level Up (+Defense on Stadium, +Game Day on War Room)
+      buttons; Info opens the full sheet; tap empty turf deselects

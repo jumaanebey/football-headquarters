@@ -20,6 +20,9 @@ interface Props {
   upgrades?: UpgradeJob[];
   formationName?: string; // current defensive scheme — shown as a pennant so switching visibly changes the board
   rankColor?: string;      // 🎖 RANK SKIN: trophy tier tints the board (light pool, flags)
+  selectedId?: string | null;          // CC-style selection: spotlight under this building
+  celebrationId?: string | null;       // 🎉 upgrade just finished here — burst + LEVEL UP!
+  onDeselect?: () => void;             // tap empty turf → clear the selection
   rankName?: string;
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -192,7 +195,9 @@ const BuildingSprite: React.FC<{
   onBuildingClick: Props['onBuildingClick'];
   onCollect: Props['onCollect'];
   onCollectResource?: Props['onCollectResource'];
-}> = ({ building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource }) => {
+  selected?: boolean;
+  celebrating?: boolean;
+}> = ({ building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
   const c = tileToScreen(building.gridX + 0.5, building.gridY + 0.5); // 2×2 footprint center
   const info = BUILDING_INFO[building.type];
   const src = buildingSprite(building.type, building.level);
@@ -225,6 +230,7 @@ const BuildingSprite: React.FC<{
   // ONE tap, one behavior: collect whatever's ready (drill or coins), otherwise open
   // the building. No separate hit-targets fighting each other on the same sprite.
   const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // board-level tap-away must not fire for building taps
     if (clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
     const screenPos = { x: e.clientX, y: e.clientY };
     if (isCompleted) onCollect(building, screenPos);
@@ -250,6 +256,24 @@ const BuildingSprite: React.FC<{
   // Only the explicit hitbox (building body) and the badge buttons take pointers.
   return (
     <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6, transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting */}
+      {/* 🔦 CC spotlight under the selected building */}
+      {selected && (
+        <div className="absolute -translate-x-1/2 rounded-[50%] pointer-events-none animate-pulse"
+          style={{ left: 0, bottom: -TILE_H / 2 - 14, width: SPRITE_W * 1.3, height: TILE_H * 1.75, background: 'radial-gradient(ellipse, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.18) 55%, transparent 75%)', mixBlendMode: 'screen' }} />
+      )}
+      {/* 🎉 upgrade-complete burst */}
+      {celebrating && (
+        <div className="absolute pointer-events-none" style={{ left: 0, bottom: TILE_H * 0.4, zIndex: 70 }}>
+          <div className="absolute -translate-x-1/2 rounded-full border-4 border-yellow-300" style={{ width: 20, height: 20, left: 0, bottom: 0, animation: 'fhq-reveal-burst 0.8s ease-out forwards' }} />
+          {[0, 1, 2, 3].map(i => (
+            <img key={i} src="/assets/fx/spark-star.png" alt="" draggable={false} className="absolute select-none" style={{
+              width: 18, left: -30 + i * 20, bottom: -6 + (i % 2) * 16, opacity: 0,
+              animation: `fhq-twinkle 0.9s ease-in-out ${i * 0.18}s 2`,
+            }} />
+          ))}
+          <div className="absolute -translate-x-1/2 whitespace-nowrap font-display font-black text-yellow-300 text-sm uppercase" style={{ left: 0, bottom: 26, textShadow: '0 2px 4px #000', animation: 'fhq-reveal-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>Level up!</div>
+        </div>
+      )}
       {/* Glow ring under actionable buildings */}
       {actionable && (
         <div className="absolute -translate-x-1/2 rounded-[50%] bg-yellow-300/25 blur-md animate-pulse pointer-events-none"
@@ -386,15 +410,27 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
     <div className="absolute transition-all duration-[200ms] ease-linear animate-hop pointer-events-none"
       style={{ left: c.x, top: c.y, zIndex: Math.round((player.worldPos.y / 100) * GRID * 2) + 6, transform: 'translate(-50%,-100%)' }}>
       <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30" style={{ bottom: -3, width: 20, height: 7 }} />
-      <div className="relative flex items-end justify-center" style={{ width: 30, height: 34 }}>
+      <div className="fhq-unit relative flex items-end justify-center" style={{ width: 30, height: 34 }}>
         <div className="absolute bottom-1 w-4 h-6 rounded-t-full rounded-b-sm border border-black/30 flex items-start justify-center shadow" style={{ backgroundColor: color }}>
           <span className="text-[7px] font-bold text-white/90 leading-tight mt-0.5">{player.role}</span>
         </div>
         <img src={unitPlayerSprite(player.unit)} alt="" draggable={false}
           onLoad={e => { const chip = e.currentTarget.previousElementSibling as HTMLElement; if (chip) chip.style.display = 'none'; }}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          className="relative w-full h-auto max-w-none select-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]"
+          className="fhq-flat relative w-full h-auto max-w-none select-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]"
           style={{ transform: facingLeft ? 'scaleX(-1)' : undefined }} />
+        {/* Real stride while WALKING: two frames alternate; art faces LEFT natively */}
+        {player.state === PlayerState.WALKING && (() => {
+          const base = unitPlayerSprite(player.unit).replace('-player.png', '');
+          const wFlip = facingLeft ? undefined : 'scaleX(-1)';
+          const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
+          const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+          return (
+            <>
+              <img src={`${base}-walkA.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: 'fhq-stepA 0.4s linear infinite', transform: wFlip }} />
+              <img src={`${base}-walkB.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: 'fhq-stepB 0.4s linear infinite', transform: wFlip }} />
+            </>
+          ); })()}
       </div>
       {isTraining && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px]">💪</div>}
       {isPatrolling && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px]">🛡️</div>}
@@ -414,7 +450,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, selectedId, celebrationId, onDeselect, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -508,7 +544,8 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
 
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ background: 'linear-gradient(180deg, #05070f 0%, #0a1024 30%, #10203a 55%, #0d2b23 80%, #081d17 100%)' }}>
+    <div className="absolute inset-0 overflow-hidden" style={{ background: 'linear-gradient(180deg, #05070f 0%, #0a1024 30%, #10203a 55%, #0d2b23 80%, #081d17 100%)' }}
+      onClick={() => { if (panMovedRef.current) { panMovedRef.current = false; return; } onDeselect?.(); }}>{/* tap empty turf → CC bar closes */}
       {/* Stadium-night backdrop: starfield, floodlight beams, and a warm field glow. */}
       <div className="absolute inset-x-0 top-0 h-3/5 pointer-events-none opacity-70" style={{
         backgroundImage: 'radial-gradient(1px 1px at 22% 28%, rgba(255,255,255,0.8), transparent 100%), radial-gradient(1px 1px at 68% 14%, rgba(255,255,255,0.6), transparent 100%), radial-gradient(1.5px 1.5px at 44% 40%, rgba(255,255,255,0.5), transparent 100%), radial-gradient(1px 1px at 84% 34%, rgba(255,255,255,0.7), transparent 100%), radial-gradient(1px 1px at 8% 12%, rgba(255,255,255,0.5), transparent 100%)',
@@ -532,7 +569,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             <DecorSprite key={d.slug} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
           {sortedBuildings.map((b) => (
-            <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} />
+            <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} selected={selectedId === b.id} celebrating={celebrationId === b.id} />
           ))}
           {/* Name tags live in their OWN layer above every sprite (nested z-index gets
               trapped in a building's stacking context) and sit UNDER each building at

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap, buildingTiles, inFootprint, EXTRA_SLOT_COSTS } from './constants';
+import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap, buildingTiles, inFootprint, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap, screenToTile, BOARD_DIMS } from './components/IsometricMap';
@@ -237,6 +237,10 @@ function App() {
   const [attackSelectOpen, setAttackSelectOpen] = useState(false);
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
+  // CC-style tap: the action bar shows first; Info opens the full sheet.
+  const [buildingInfoOpen, setBuildingInfoOpen] = useState(false);
+  // 🎉 Upgrade-complete celebration: building id → burst timestamp (IsometricMap renders it)
+  const [celebration, setCelebration] = useState<{ id: string; at: number } | null>(null);
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   // 🪙 COIN ARCS: on collect, coins physically fly from the building to the HUD counter.
   // Curved flight = nested X/Y elements with different easing (see fhq-coin-x/y).
@@ -488,7 +492,12 @@ function App() {
           finalUpgrades = prev.upgrades.filter(u => now < u.finishTime);
           for (const job of prev.upgrades) {
             if (now < job.finishTime) continue;
-            if (job.kind === 'building') finalBuildings = finalBuildings.map(b => b.id === job.key ? { ...b, level: job.toLevel } : b);
+            if (job.kind === 'building') {
+              finalBuildings = finalBuildings.map(b => b.id === job.key ? { ...b, level: job.toLevel } : b);
+              // celebrate at the building: burst + fanfare (outside the reducer)
+              setTimeout(() => { setCelebration({ id: job.key, at: Date.now() }); sfx.sign(); }, 0);
+              setTimeout(() => setCelebration(c => (c && c.id === job.key ? null : c)), 2400);
+            }
             else finalHeroes = finalHeroes.map(h => h.key === job.key ? { ...h, level: job.toLevel } : h);
           }
         }
@@ -1254,9 +1263,12 @@ function App() {
         formationName={formationDef(gameState.formation).name}
         rankColor={rankFor(gameState.trophies).rank.color}
         rankName={rankFor(gameState.trophies).rank.name}
+        selectedId={selectedBuilding?.id ?? null}
+        celebrationId={celebration?.id ?? null}
+        onDeselect={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
-          else setSelectedBuilding(b);
+          else { setSelectedBuilding(b); setBuildingInfoOpen(false); sfx.click(); }
         }}
         onCollect={handleCollect}
         onCollectResource={handleCollectResource}
@@ -1287,19 +1299,57 @@ function App() {
         />
       )}
 
-      {selectedBuilding && (
+      {selectedBuilding && buildingInfoOpen && (
           <ActionModal
              building={selectedBuilding}
              resources={gameState.resources}
              stadiumLevel={stadiumLevel}
              upgrades={gameState.upgrades}
              builders={gameState.builders}
-             onClose={() => setSelectedBuilding(null)}
+             onClose={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }}
              onUpgrade={handleUpgradeBuilding}
              onFinishNow={handleFinishNow}
              onHireBuilder={handleHireBuilder}
           />
       )}
+
+      {/* 🏰 CC-style building bar: tap a building → it stays in view with a spotlight,
+          title + upgrade cost over the board, chunky actions below. Info opens the sheet. */}
+      {selectedBuilding && !buildingInfoOpen && (() => {
+        const b = gameState.buildings.find(x => x.id === selectedBuilding.id) ?? selectedBuilding;
+        const info = BUILDING_INFO[b.type];
+        const cost = Math.floor(UPGRADE_CONFIG.baseCost * Math.pow(UPGRADE_CONFIG.costMultiplier, b.level - 1));
+        const isStadium = b.type === BuildingType.STADIUM;
+        const gated = !isStadium && b.level >= stadiumLevel;
+        const busy = gameState.upgrades.some(u => u.kind === 'building' && u.key === b.id);
+        const canAfford = gameState.resources.COINS >= cost;
+        const CCBtn = ({ label, emoji, onClick, disabled, accent }: { label: string; emoji: string; onClick: () => void; disabled?: boolean; accent?: boolean }) => (
+          <button onClick={onClick} disabled={disabled}
+            className={`flex flex-col items-center gap-1 w-[74px] py-2.5 rounded-xl border-2 shadow-xl transition-all active:scale-90 pointer-events-auto
+              ${disabled ? 'border-slate-700 bg-slate-900/90 opacity-50' : accent ? 'border-yellow-500 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-yellow-300' : 'border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-slate-400'}`}>
+            <span className="text-2xl leading-none drop-shadow">{emoji}</span>
+            <span className="text-[10px] font-black uppercase text-white leading-none">{label}</span>
+          </button>
+        );
+        return (
+          <div className="fixed left-0 right-0 z-40 flex flex-col items-center gap-1.5 pointer-events-none animate-fade-in" style={{ bottom: 96 }}>
+            <div className="font-display font-black text-white text-xl sm:text-2xl uppercase tracking-tight text-center px-3" style={{ textShadow: '0 2px 6px #000, 0 0 14px rgba(0,0,0,0.8)' }}>
+              {info.name} <span className="text-yellow-300">(Level {b.level})</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-sm font-mono font-bold" style={{ textShadow: '0 1px 4px #000' }}>
+              {busy ? <span className="text-amber-300">🔨 upgrading…</span>
+                : gated ? <span className="text-slate-300">🔒 needs Stadium L{b.level + 1}</span>
+                : <><img src="/assets/icons/coins.png" alt="" className="w-4 h-4" draggable={false} /><span className={canAfford ? 'text-yellow-300' : 'text-red-400'}>{cost.toLocaleString()}</span></>}
+            </div>
+            <div className="flex items-end gap-2 mt-1">
+              <CCBtn label="Info" emoji="💬" onClick={() => setBuildingInfoOpen(true)} />
+              <CCBtn label="Level Up" emoji="🔨" accent disabled={busy || gated || !canAfford} onClick={() => { handleUpgradeBuilding(b.id, cost); }} />
+              {isStadium && <CCBtn label="Defense" emoji="🛡️" onClick={() => { setSelectedBuilding(null); setFrontOfficeOpen(true); }} />}
+              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="⚔️" onClick={() => { setSelectedBuilding(null); setAttackSelectOpen(true); }} />}
+            </div>
+          </div>
+        );
+      })()}
 
       {isStandingsOpen && (
         <StandingsModal
