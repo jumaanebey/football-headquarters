@@ -208,15 +208,24 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             grass wears away where a building stands, and the dark contact ring kills
             the pasted-sticker read. */}
         {buildings.map(b => {
-          // centered on the sprite anchor (gridX+0.5, gridY+0.5 — matches BuildingSprite)
-          const t = tileToScreen(b.gridX + 0.5, b.gridY - 0.9), r = tileToScreen(b.gridX + 1.9, b.gridY + 0.5), bo = tileToScreen(b.gridX + 0.5, b.gridY + 1.9), l = tileToScreen(b.gridX - 0.9, b.gridY + 0.5);
-          const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
+          // Apron center sits a touch NORTH of the sprite anchor — the art's visual
+          // base reads higher than the tile center (first pass landed the shadows
+          // down-left of every building).
+          const cx = b.gridX + 0.5, cy = b.gridY + 0.15;
+          const t = tileToScreen(cx, cy - 1.4), r = tileToScreen(cx + 1.4, cy), bo = tileToScreen(cx, cy + 1.4), l = tileToScreen(cx - 1.4, cy);
+          const c = tileToScreen(cx, cy);
           return (
             <g key={`ap${b.id}`}>
               <polygon points={`${t.x},${t.y} ${r.x},${r.y} ${bo.x},${bo.y} ${l.x},${l.y}`} fill="url(#apronG)" />
-              <ellipse cx={c.x} cy={c.y + TILE_H * 0.55} rx={TILE_W * 1.25} ry={TILE_H * 1.05} fill="rgba(6,10,6,0.38)" />
+              <ellipse cx={c.x} cy={c.y} rx={TILE_W * 1.2} ry={TILE_H * 1.0} fill="rgba(6,10,6,0.38)" />
             </g>
           );
+        })}
+        {/* Contact shadows under the big outer props (grandstands, bus) so they sit
+            on the rough instead of hovering */}
+        {([[8.6, -2.6, 2.6], [12.6, 0.2, 2.6], [10.9, 9.55, 1.5]] as const).map(([gx, gy, rr], i) => {
+          const c = tileToScreen(gx, gy);
+          return <ellipse key={`os${i}`} cx={c.x} cy={c.y} rx={TILE_W * rr * 0.62} ry={TILE_H * rr * 0.52} fill="rgba(4,8,5,0.42)" />;
         })}
         {/* boundary: a groundskeeper's line where the mowed campus meets the rough */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth={2.5} />
@@ -287,9 +296,9 @@ const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, f
         {/* LED face — aligned + skewed onto the panel art; values pop on change */}
         {trophies !== undefined && (
           <div className="absolute flex flex-col items-center justify-center gap-[6%]"
-            style={{ left: '38.5%', top: '27%', width: '20.5%', height: '21%', transform: 'rotate(12.5deg) skewY(2deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
-            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.047, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
-            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.041, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
+            style={{ left: '39%', top: '27.5%', width: '19%', height: '20%', transform: 'rotate(12.5deg) skewY(2deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
+            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.042, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
+            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.037, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
           </div>
         )}
       </div>
