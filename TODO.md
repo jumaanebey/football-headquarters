@@ -124,6 +124,17 @@ Movement-focus round — no new features, pure motion polish on battle:
 - ROUND 6 SHIPPED (a7cc3e9, confirm to close): practice squad — 4 tiny
   players run staggered shuttle drills on the outer practice field (existing
   walk frames, pure CSS routes, facing flips at the turn)
+- ROUND 7 SHIPPED (dd1b9ce, confirm to close): grounds DENSITY after the
+  "mid" verdict — 13 tree clusters ring the map, 4 glowing floodlight masts
+  at the campus corners, gold goalposts on both ends of the practice field,
+  the practice field itself is real turf with end zones, and an asphalt
+  access road runs from the parking lot off the grounds
+- ROUND 8 SHIPPED (confirm to close): LIVE JUMBOTRON per the external audit —
+  the scoreboard was clipping off the right edge on narrow viewports (~114px
+  at 1054px wide); moved fully inboard, scaled up to a hero prop, and its LED
+  face now burns the club's REAL trophies + fan count (glowing orange rows,
+  screen flicker, pop on change). Plus 3 more tree clusters in the audit's
+  named dead zones (top-center band, right-center wedge, NW corner)
 - Motion ideas still on the shelf: victory dance on the winning squad at the
   whistle, defender knock-back on pancake, ambient birds/steam on the home
   board, deploy-zone shimmer while holding a card, a coach figure watching

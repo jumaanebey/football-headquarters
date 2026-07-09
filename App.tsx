@@ -1263,6 +1263,8 @@ function App() {
         formationName={formationDef(gameState.formation).name}
         rankColor={rankFor(gameState.trophies).rank.color}
         rankName={rankFor(gameState.trophies).rank.name}
+        trophies={gameState.trophies}
+        fans={Math.floor(gameState.resources[ResourceType.FANS] ?? 0)}
         selectedId={selectedBuilding?.id ?? null}
         celebrationId={celebration?.id ?? null}
         onDeselect={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }}

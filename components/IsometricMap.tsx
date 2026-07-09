@@ -24,6 +24,8 @@ interface Props {
   celebrationId?: string | null;       // 🎉 upgrade just finished here — burst + LEVEL UP!
   onDeselect?: () => void;             // tap empty turf → clear the selection
   rankName?: string;
+  trophies?: number;
+  fans?: number;
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollectResource?: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -243,6 +245,33 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
   { slug: 'secondary', gx: -4.2, gy: 8.2, dgy: -4.9, dur: 10.5, delay: -1.6, rev: true },
 ];
 
+// 🟠 LIVE JUMBOTRON: the scoreboard prop promoted to a real scoreboard — the club's
+// trophies and fan count burn on its LED face (HTML overlay skewed to the panel).
+// Positioned inboard so it's FULLY in frame on narrow desktop viewports (the old
+// (11.4, 0.8) spot clipped ~114px off the right edge at 1054px wide — audit finding).
+const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, fans }) => {
+  const c = tileToScreen(10.3, 1.7);
+  const w = TILE_W * 2.6;
+  const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
+  return (
+    <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 12 }}>
+      <div style={{ position: 'absolute', width: w, left: -w / 2, bottom: -TILE_H / 2 }}>
+        <img src="/assets/decor/scoreboard.png" alt="" draggable={false}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{ width: '100%', height: 'auto', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
+        {/* LED face — aligned + skewed onto the panel art; values pop on change */}
+        {trophies !== undefined && (
+          <div className="absolute flex flex-col items-center justify-center gap-[6%]"
+            style={{ left: '38.5%', top: '27%', width: '20.5%', height: '21%', transform: 'rotate(12.5deg) skewY(2deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
+            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.047, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
+            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.041, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, dur, delay, rev }) => {
   const a = tileToScreen(gx, gy), b = tileToScreen(gx, gy + dgy);
   const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
@@ -272,7 +301,6 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
-  { slug: 'scoreboard',  gridX: 11.4, gridY: 0.8, scale: 1.75 },
   { slug: 'bleachers',   gridX: -1.1, gridY: 3.8, scale: 0.95 },
   { slug: 'bleachers',   gridX: -1.1, gridY: 6.4, scale: 0.95 },
   { slug: 'parking-lot', gridX: 10.9, gridY: 6.9, scale: 1.5 },
@@ -287,6 +315,9 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }
   { slug: 'floodlight', gridX: -0.9, gridY: 10.9, scale: 1.35 },
   // Tree line framing the grounds — the rough reads as terrain, not empty lawn
   { slug: 'tree-cluster', gridX: 2.0,  gridY: -2.6, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: 11.2, gridY: -3.2, scale: 1.15 }, // audit: top-center band void
+  { slug: 'tree-cluster', gridX: 14.6, gridY: 6.9,  scale: 1.2 },  // audit: right-center wedge
+  { slug: 'tree-cluster', gridX: -6.8, gridY: -1.2, scale: 1.1 },  // NW corner
   { slug: 'tree-cluster', gridX: 5.2,  gridY: -3.1, scale: 1.05 },
   { slug: 'tree-cluster', gridX: 8.3,  gridY: -2.4, scale: 1.35 },
   { slug: 'tree-cluster', gridX: 13.6, gridY: 2.6,  scale: 1.2 },
@@ -565,7 +596,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, selectedId, celebrationId, onDeselect, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, trophies, fans, selectedId, celebrationId, onDeselect, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -684,6 +715,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {OUTER_DECOR.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
+          <Jumbotron trophies={trophies} fans={fans} />
           {DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
           ))}
