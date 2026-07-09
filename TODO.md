@@ -94,3 +94,13 @@ Next, in impact order:
 - 4-frame walk cycles (contact→passing→contact→passing) for all 9 heroes + 4 position
   groups, in battle (attackers + gate guards) and on the home board
 - Balance watch: role multipliers are first-pass — tune after ladder data
+
+## QB card + walk feedback round (shipped 4996980, confirm to close)
+
+- QB hero card: ball now IN HAND for the whole cycle (cocks back with the windup,
+  launches on the snap), card mirrored so he reads right-handed and throws to the right
+- Battle walk stride tightened 0.55s → 0.42s (heroes, guards, troops)
+- Note: battle-field walk cycles verified working (all 4 frames cycling); the "feet
+  don't walk" read was the CARD idle — card bodies sway/hop but legs hold their pose.
+  True card walk frames would need a dedicated idle-leg loop per hero (art order) if
+  it still bothers on review.
