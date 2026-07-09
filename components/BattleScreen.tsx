@@ -1183,10 +1183,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   return (
                   <div className="relative w-full" style={{ transformOrigin: '50% 92%', animation: bhf ? 'fhq-hitjolt 0.2s ease-out' : critical ? 'fhq-wobble 0.55s ease-in-out infinite' : undefined }}>
                     <img src={sprite} alt="" draggable={false} className="w-full" style={{ height: 'auto', filter: bhf ? 'drop-shadow(0 5px 5px rgba(0,0,0,0.45)) brightness(1.9) saturate(0.7)' : 'drop-shadow(0 5px 5px rgba(0,0,0,0.45))' }} />
-                    {/* Live crowd in the stadium bowl — a shallow shimmer strip that hides once the place is sacked */}
+                    {/* Live crowd in the stadium bowl — breathes normally, does THE WAVE
+                        when the drive crosses a 25% milestone (key remount retriggers). */}
                     {b.kind === 'hq' && (
-                      <img src="/assets/fx/crowd-strip.png" alt="" draggable={false} className="absolute select-none"
-                        style={{ left: '14%', top: '26%', width: '72%', opacity: 0.85, animation: 'fhq-breathe 3s ease-in-out infinite', transformOrigin: '50% 100%' }} />
+                      <img key={milestoneKey} src="/assets/fx/crowd-strip.png" alt="" draggable={false} className="absolute select-none"
+                        style={{ left: '14%', top: '26%', width: '72%', opacity: 0.85, animation: milestoneKey ? 'fhq-crowdwave 1.2s ease-in-out, fhq-breathe 3s ease-in-out 1.2s infinite' : 'fhq-breathe 3s ease-in-out infinite', transformOrigin: '50% 100%' }} />
                     )}
                   </div>
                   ); })()}

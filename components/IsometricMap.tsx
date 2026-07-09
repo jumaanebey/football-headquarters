@@ -110,16 +110,16 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
     });
   }
 
-  // Island skirt: soil faces extruded below the diamond's two lower edges.
-  const D = 34;
+  // NO MORE FLOATING ISLAND: the campus sits on a wide grounds plane that fades into
+  // the night instead of dropping off a cliff into space (user call, July 2026).
   const cT = tileToScreen(0, 0), cR = tileToScreen(GRID - 1, 0), cB = tileToScreen(GRID - 1, GRID - 1), cL = tileToScreen(0, GRID - 1);
   const T = { x: cT.x, y: cT.y - TILE_H / 2 };
   const L = { x: cL.x - TILE_W / 2, y: cL.y }, B = { x: cB.x, y: cB.y + TILE_H / 2 }, R = { x: cR.x + TILE_W / 2, y: cR.y };
   const glow = stadium ? tileToScreen(stadium.gridX, stadium.gridY) : tileToScreen(6, 6);
-  const eh = D + 22;
-  const len = Math.hypot(B.x - L.x, B.y - L.y);
-  const angL = Math.atan2(B.y - L.y, B.x - L.x) * 180 / Math.PI;
-  const angR = Math.atan2(R.y - B.y, R.x - B.x) * 180 / Math.PI;
+  // Surrounding grounds: the same diamond scaled up ~2x about its center — reads as
+  // the dark practice fields beyond the mowed campus, vignetting out to the backdrop.
+  const CX = (T.x + B.x) / 2, CY = (T.y + B.y) / 2, K = 2.1;
+  const OP = [T, R, B, L].map(p => `${CX + (p.x - CX) * K},${CY + (p.y - CY) * K}`).join(' ');
 
   return (
     <>
@@ -139,23 +139,24 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
           </radialGradient>
+          {/* Outer grounds: dark grass near the campus, dissolving into the night. */}
+          <radialGradient id="outerGround" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#16351f" stopOpacity="1" />
+            <stop offset="45%" stopColor="#10281a" stopOpacity="0.9" />
+            <stop offset="78%" stopColor="#0a1c13" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#081d17" stopOpacity="0" />
+          </radialGradient>
         </defs>
-        {/* soil skirt base (under the painted edge strips) */}
-        <polygon points={`${L.x},${L.y} ${B.x},${B.y} ${B.x},${B.y + D} ${L.x},${L.y + D}`} fill="#4a3826" />
-        <polygon points={`${B.x},${B.y} ${R.x},${R.y} ${R.x},${R.y + D} ${B.x},${B.y + D}`} fill="#5c4630" />
-        {/* the whole turf island as ONE pattern-filled polygon */}
+        {/* the grounds BEYOND the campus — same iso plane, scaled up, vignetted out */}
+        <polygon points={OP} fill="url(#outerGround)" />
+        {/* the mowed campus as ONE pattern-filled polygon */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#turfPat)" />
         {bandShades}
-        {/* turf lip highlight along the lower edges */}
-        <polyline points={`${L.x},${L.y} ${B.x},${B.y} ${R.x},${R.y}`} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth={2} />
+        {/* boundary: a groundskeeper's line where the mowed campus meets the rough */}
+        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth={2.5} />
         {/* soft light pool centered on the Stadium */}
         <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
       </svg>
-      {/* Painted cliff edges + dirt paths as GPU-composited HTML imgs (never SVG <image>) */}
-      <img src="/assets/ground/island-edge.png" alt="" draggable={false}
-        style={{ position: 'absolute', left: L.x, top: L.y - 10, width: len, height: eh, maxWidth: 'none', transformOrigin: '0 0', transform: `rotate(${angL}deg)`, opacity: 0.95, pointerEvents: 'none' }} />
-      <img src="/assets/ground/island-edge.png" alt="" draggable={false}
-        style={{ position: 'absolute', left: B.x, top: B.y - 10, width: len, height: eh, maxWidth: 'none', transformOrigin: '0 0', transform: `rotate(${angR}deg)`, opacity: 0.95, pointerEvents: 'none' }} />
       {paths}
     </>
   );
@@ -572,6 +573,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {sortedBuildings.map((b) => (
             <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} selected={selectedId === b.id} celebrating={celebrationId === b.id} />
           ))}
+          {/* ☁️ Cloud shade drifting over the campus — two lanes, same wind, shading
+              everything under them (hidden entirely under prefers-reduced-motion). */}
+          <div className="fhq-cloud absolute pointer-events-none" style={{ left: 0, top: 0, width: 470, height: 280, background: 'radial-gradient(ellipse at center, rgba(2,6,18,0.28) 0%, rgba(2,6,18,0.12) 55%, transparent 76%)', filter: 'blur(24px)', zIndex: 55, animation: 'fhq-cloud1 115s linear infinite' }} />
+          <div className="fhq-cloud absolute pointer-events-none" style={{ left: 0, top: 0, width: 330, height: 190, background: 'radial-gradient(ellipse at center, rgba(2,6,18,0.24) 0%, rgba(2,6,18,0.10) 55%, transparent 76%)', filter: 'blur(20px)', zIndex: 55, animation: 'fhq-cloud2 84s linear -38s infinite' }} />
           {/* Name tags live in their OWN layer above every sprite (nested z-index gets
               trapped in a building's stacking context) and sit UNDER each building at
               its base — on the grass, never across the art. */}
