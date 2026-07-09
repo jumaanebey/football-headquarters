@@ -182,6 +182,12 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             </g>
           );
         })()}
+        {/* SPECTATOR PAD: gravel strip hugging the practice field's east sideline —
+            the bleachers stand on this instead of floating on the rough */}
+        {(() => {
+          const a = tileToScreen(-1.45, 4.5), b = tileToScreen(-0.5, 4.5), c = tileToScreen(-0.5, 8.1), d = tileToScreen(-1.45, 8.1);
+          return <polygon points={`${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`} fill="#2b2e29" opacity="0.85" />;
+        })()}
         {/* ACCESS ROAD: asphalt running from the parking lot east off the grounds */}
         {(() => {
           const a = tileToScreen(9.9, 7.0), b = tileToScreen(16.5, 7.0), c = tileToScreen(16.5, 8.3), d = tileToScreen(9.9, 8.3);
@@ -301,8 +307,11 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
-  { slug: 'bleachers',   gridX: -1.1, gridY: 3.8, scale: 0.95 },
-  { slug: 'bleachers',   gridX: -1.1, gridY: 6.4, scale: 0.95 },
+  // Bleachers on a gravel pad tight along the practice field's east sideline —
+  // aligned with the sideline, grounded, and clear of the Rehab Center. (North-end
+  // placement faces the field perfectly but sits behind the HUD at default camera.)
+  { slug: 'bleachers',   gridX: -1.05, gridY: 5.2, scale: 0.9 },
+  { slug: 'bleachers',   gridX: -1.05, gridY: 7.4, scale: 0.9 },
   { slug: 'parking-lot', gridX: 10.9, gridY: 6.9, scale: 1.5 },
   { slug: 'team-bus',    gridX: 10.7, gridY: 8.7, scale: 1.1 },
   // Practice-field goalposts (north post paints behind the drill runners, south in front)
