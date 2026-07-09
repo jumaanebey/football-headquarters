@@ -50,8 +50,10 @@ public/assets/heroes/
     <key>-walkB.png             # walk frame: RIGHT foot forward, facing viewer-LEFT
     <key>-idleA.png             # CARD leg loop: weight on LEFT leg (idle shuffle, not a stride)
     <key>-idleB.png             # CARD leg loop: weight on RIGHT leg — alternates w/ idleA
-                                # every ~0.55s via fhq-idleA/B; qb's pair is BANKED unused
-                                # (frames dropped his raised throwing arm — ball would float)
+                                # every ~0.55s via fhq-idleA/B. qb's pair is ARM-LOCKED
+                                # (ARMLOCK prompt in gen_card_idle.py): arms must match the
+                                # reference exactly or the in-hand ball floats — first run
+                                # without it relaxed both arms and was thrown away
 ```
 
 All layers: 1024², transparent, zero opaque pixels touching any edge, zero interior

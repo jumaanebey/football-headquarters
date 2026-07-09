@@ -8,6 +8,14 @@ import subprocess, sys, os
 
 HEROES = ["qb", "enforcer", "coach", "kicker", "burner", "medic", "captain", "playmaker", "legend"]
 ANCHOR = {"medic": "a MAN with SHORT dark hair (the male athletic trainer), ", "coach": "the older bearded coach in the tracksuit and cap, "}
+# Per-hero ARM LOCK: appended after the leg pose for heroes whose card rig positions a
+# prop at a specific hand (qb: the in-hand ball rides his extended palm — if the arms
+# move, the ball floats). First qb run WITHOUT this drifted both arms to his sides.
+ARMLOCK = {"qb": (" CRITICAL — THE ARMS MUST NOT MOVE FROM THE REFERENCE: keep his LEFT arm "
+                  "extended out to the viewer's left at shoulder height with the open EMPTY palm "
+                  "up, and his RIGHT arm bent in front of his chest, EXACTLY as in the reference "
+                  "image. Same wide quarterback pre-throw stance, same torso twist, same head "
+                  "direction. ONLY the leg weight shifts.")}
 BASE = ("The EXACT same character as the reference image — IDENTICAL face, uniform, colors, build, "
         "arm position, facing angle, and cel-shaded thick-outline style. Change ONLY the legs: ")
 POSES = {
@@ -31,7 +39,7 @@ def run(key):
             print("skip", path, flush=True); continue
         print("===", path, flush=True)
         subprocess.run([sys.executable, "scripts/gen_asset.py", "--out", path, "--size", "1024",
-                        "--ref", ref, "--prompt", BASE + ANCHOR.get(key, "") + pose + TAIL])
+                        "--ref", ref, "--prompt", BASE + ANCHOR.get(key, "") + pose + ARMLOCK.get(key, "") + TAIL])
 
 if __name__ == "__main__":
     for k in HEROES:

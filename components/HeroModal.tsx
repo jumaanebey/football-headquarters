@@ -205,9 +205,9 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                         style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
                       {/* LEG LOOP: weight-shift frames replace the static body once BOTH load;
                           any load failure puts the static body back (never a blank card).
-                          Skipped for ball-in-hand rigs (QB): his idle frames dropped the raised
-                          throwing arm, which would leave the held ball floating (frames banked). */}
-                      {rig.ball?.anim !== 'fhq-ball-inhand' && (['A', 'B'] as const).map(f => (
+                          QB's frames are ARM-LOCKED to the reference (extended empty palm) so
+                          the in-hand ball keeps riding his hand through the shuffle. */}
+                      {(['A', 'B'] as const).map(f => (
                         <img key={f} src={`/assets/heroes/rig/${def.key}-idle${f}.png`} alt="" draggable={false}
                           onLoad={e => {
                             const p = e.currentTarget.parentElement as HTMLElement;
