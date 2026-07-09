@@ -113,9 +113,14 @@ Movement-focus round — no new features, pure motion polish on battle:
   night (cliff + soil skirt art removed, boundary line where mowed campus
   meets the rough); two cloud-shadow lanes drift over the board; stadium
   crowd does the wave on drive milestones in battle
+- ROUND 4 SHIPPED (0a3f7bc, confirm to close): outer grounds dressed per
+  Jumaane — striped practice mini-field on the west grounds with two new
+  bleacher stands beside it, stadium scoreboard over the NE rough (new art,
+  abstract segments, no text), parking pad + team bus parked in the SE
 - Motion ideas still on the shelf: victory dance on the winning squad at the
   whistle, defender knock-back on pancake, ambient birds/steam on the home
-  board, deploy-zone shimmer while holding a card
+  board, deploy-zone shimmer while holding a card, tiny practice squad
+  running drills on the outer practice field
 
 ## QB card + walk feedback round (shipped 4996980, confirm to close)
 
