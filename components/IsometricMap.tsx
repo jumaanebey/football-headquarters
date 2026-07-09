@@ -149,6 +149,24 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
         </defs>
         {/* the grounds BEYOND the campus — same iso plane, scaled up, vignetted out */}
         <polygon points={OP} fill="url(#outerGround)" />
+        {/* PRACTICE FIELD on the west grounds: a faint striped mini-field so the
+            surroundings read as more football, not empty lawn */}
+        {(() => {
+          const fT = tileToScreen(-5.5, 2.5), fR = tileToScreen(-1.5, 2.5), fB = tileToScreen(-1.5, 8.5), fL = tileToScreen(-5.5, 8.5);
+          const stripes = [];
+          for (let i = 1; i < 6; i++) {
+            const t = i / 6;
+            const ax = fT.x + (fL.x - fT.x) * t, ay = fT.y + (fL.y - fT.y) * t;
+            const bx = fR.x + (fB.x - fR.x) * t, by = fR.y + (fB.y - fR.y) * t;
+            stripes.push(<line key={`pf${i}`} x1={ax} y1={ay} x2={bx} y2={by} stroke="rgba(255,255,255,0.09)" strokeWidth={1.5} />);
+          }
+          return (
+            <g>
+              <polygon points={`${fT.x},${fT.y} ${fR.x},${fR.y} ${fB.x},${fB.y} ${fL.x},${fL.y}`} fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.13)" strokeWidth={1.5} />
+              {stripes}
+            </g>
+          );
+        })()}
         {/* the mowed campus as ONE pattern-filled polygon */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#turfPat)" />
         {bandShades}
@@ -180,13 +198,27 @@ export const BOARD_DIMS = { w: BOARD_W, h: BOARD_H };
 const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale: number }> = ({ slug, gridX, gridY, scale }) => {
   const c = tileToScreen(gridX, gridY);
   const w = TILE_W * 1.35 * scale;
+  // Outer-grounds props sit at out-of-grid coords whose row sum can go negative —
+  // clamp so they never stack UNDER the ground plane itself.
   return (
-    <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: gridX + gridY }}>
+    <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: Math.max(1, Math.round(gridX + gridY)) }}>
       <img src={`/assets/decor/${slug}.png`} alt="" draggable={false}
+        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
     </div>
   );
 };
+
+// The grounds AROUND the campus: practice-field bleachers, the scoreboard over the
+// north-east rough, and the team bus at its parking pad. Pure set dressing — outside
+// the buildable grid, missing art self-hides (DecorSprite onError).
+const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
+  { slug: 'scoreboard',  gridX: 11.4, gridY: 0.8, scale: 1.75 },
+  { slug: 'bleachers',   gridX: -1.1, gridY: 3.8, scale: 0.95 },
+  { slug: 'bleachers',   gridX: -1.1, gridY: 6.4, scale: 0.95 },
+  { slug: 'parking-lot', gridX: 10.9, gridY: 6.9, scale: 1.5 },
+  { slug: 'team-bus',    gridX: 10.7, gridY: 8.7, scale: 1.1 },
+];
 
 const BuildingSprite: React.FC<{
   building: BuildingInstance;
@@ -567,6 +599,9 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           className="absolute"
           style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x}px), calc(-50% + ${cam.y}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
           <GroundLayer buildings={buildings} />
+          {OUTER_DECOR.map((d, i) => (
+            <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
+          ))}
           {DECOR.map((d) => (
             <DecorSprite key={d.slug} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
