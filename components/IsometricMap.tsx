@@ -153,40 +153,35 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
         </defs>
         {/* the grounds BEYOND the campus — same iso plane, scaled up, vignetted out */}
         <polygon points={OP} fill="url(#outerGround)" />
-        {/* PRACTICE FIELD on the west grounds: real turf, end zones, yard stripes —
-            a proper second field, not a chalk outline on the rough */}
+        {/* PRACTICE FIELD on the west grounds: full-size second field (bigger per
+            Jumaane's markup), real turf, end zones, yard stripes */}
         {(() => {
+          const FX1 = -6.6, FX2 = -1.3, FY1 = 1.9, FY2 = 9.1;
           const fc = (gy1: number, gy2: number) => {
-            const a = tileToScreen(-5.5, gy1), b = tileToScreen(-1.5, gy1), c = tileToScreen(-1.5, gy2), d = tileToScreen(-5.5, gy2);
+            const a = tileToScreen(FX1, gy1), b = tileToScreen(FX2, gy1), c = tileToScreen(FX2, gy2), d = tileToScreen(FX1, gy2);
             return `${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`;
           };
-          const fT = tileToScreen(-5.5, 2.5), fR = tileToScreen(-1.5, 2.5), fB = tileToScreen(-1.5, 8.5), fL = tileToScreen(-5.5, 8.5);
+          const fT = tileToScreen(FX1, FY1), fR = tileToScreen(FX2, FY1), fB = tileToScreen(FX2, FY2), fL = tileToScreen(FX1, FY2);
           const stripes = [];
-          for (let i = 1; i < 6; i++) {
-            const t = i / 6;
+          for (let i = 1; i < 8; i++) {
+            const t = i / 8;
             const ax = fT.x + (fL.x - fT.x) * t, ay = fT.y + (fL.y - fT.y) * t;
             const bx = fR.x + (fB.x - fR.x) * t, by = fR.y + (fB.y - fR.y) * t;
             stripes.push(<line key={`pf${i}`} x1={ax} y1={ay} x2={bx} y2={by} stroke="rgba(255,255,255,0.16)" strokeWidth={1.5} />);
           }
           return (
             <g>
-              <polygon points={fc(2.5, 8.5)} fill="#1c4729" />
+              <polygon points={fc(FY1, FY2)} fill="#1c4729" />
               {/* mow bands */}
-              <polygon points={fc(3.5, 4.5)} fill="rgba(255,255,255,0.05)" />
-              <polygon points={fc(5.5, 6.5)} fill="rgba(255,255,255,0.05)" />
+              <polygon points={fc(3.2, 4.5)} fill="rgba(255,255,255,0.05)" />
+              <polygon points={fc(5.8, 7.1)} fill="rgba(255,255,255,0.05)" />
               {/* end zones */}
-              <polygon points={fc(2.5, 3.25)} fill="rgba(249,115,22,0.28)" />
-              <polygon points={fc(7.75, 8.5)} fill="rgba(17,24,39,0.45)" />
+              <polygon points={fc(FY1, 2.8)} fill="rgba(249,115,22,0.28)" />
+              <polygon points={fc(8.2, FY2)} fill="rgba(17,24,39,0.45)" />
               {stripes}
-              <polygon points={fc(2.5, 8.5)} fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth={2} />
+              <polygon points={fc(FY1, FY2)} fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth={2} />
             </g>
           );
-        })()}
-        {/* SPECTATOR PAD: gravel strip hugging the practice field's east sideline —
-            the bleachers stand on this instead of floating on the rough */}
-        {(() => {
-          const a = tileToScreen(-1.45, 4.5), b = tileToScreen(-0.5, 4.5), c = tileToScreen(-0.5, 8.1), d = tileToScreen(-1.45, 8.1);
-          return <polygon points={`${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`} fill="#2b2e29" opacity="0.85" />;
         })()}
         {/* ACCESS ROAD: asphalt running from the parking lot east off the grounds */}
         {(() => {
@@ -245,10 +240,10 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
 // Pure ambience — CSS-driven out-and-back routes (fhq-drill w/ per-runner --dx/--dy),
 // facing flips at the turn, existing unit walk frames do the legs. No game state.
 const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: number; delay: number; rev?: boolean }[] = [
-  { slug: 'offensive-line', gx: -4.7, gy: 3.1, dgy: 5.0, dur: 12.5, delay: 0 },
-  { slug: 'skill-positions', gx: -3.7, gy: 3.3, dgy: 4.6, dur: 9.5, delay: -3.2 },
-  { slug: 'defensive-line', gx: -2.8, gy: 3.0, dgy: 5.2, dur: 13.5, delay: -7.1 },
-  { slug: 'secondary', gx: -4.2, gy: 8.2, dgy: -4.9, dur: 10.5, delay: -1.6, rev: true },
+  { slug: 'offensive-line', gx: -5.6, gy: 2.7, dgy: 5.8, dur: 13.5, delay: 0 },
+  { slug: 'skill-positions', gx: -4.4, gy: 2.9, dgy: 5.4, dur: 10, delay: -3.2 },
+  { slug: 'defensive-line', gx: -3.2, gy: 2.6, dgy: 6.0, dur: 14.5, delay: -7.1 },
+  { slug: 'secondary', gx: -4.9, gy: 8.6, dgy: -5.7, dur: 11, delay: -1.6, rev: true },
 ];
 
 // 🟠 LIVE JUMBOTRON: the scoreboard prop promoted to a real scoreboard — the club's
@@ -256,8 +251,8 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // Positioned inboard so it's FULLY in frame on narrow desktop viewports (the old
 // (11.4, 0.8) spot clipped ~114px off the right edge at 1054px wide — audit finding).
 const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, fans }) => {
-  const c = tileToScreen(10.05, 1.95); // validated fully in-frame w/ margin at 1054px viewport (audit width) — margin only grows on wider screens
-  const w = TILE_W * 2.6;
+  const c = tileToScreen(9.6, 1.95); // scaled up per markup; nudged left to stay fully in-frame at 1054px (re-validated via iframe harness)
+  const w = TILE_W * 3.3;
   const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 12 }}>
@@ -307,38 +302,37 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
-  // Bleachers on a gravel pad tight along the practice field's east sideline —
-  // aligned with the sideline, grounded, and clear of the Rehab Center. (North-end
-  // placement faces the field perfectly but sits behind the HUD at default camera.)
-  { slug: 'bleachers',   gridX: -1.05, gridY: 5.2, scale: 0.9 },
-  { slug: 'bleachers',   gridX: -1.05, gridY: 7.4, scale: 0.9 },
-  { slug: 'parking-lot', gridX: 10.9, gridY: 6.9, scale: 1.5 },
-  { slug: 'team-bus',    gridX: 10.7, gridY: 8.7, scale: 1.1 },
-  // Practice-field goalposts (north post paints behind the drill runners, south in front)
-  { slug: 'goalpost', gridX: -3.5, gridY: 2.35, scale: 0.85 },
-  { slug: 'goalpost', gridX: -3.5, gridY: 8.75, scale: 0.85 },
-  // Floodlight masts at the campus corners — the reason the night is lit
-  { slug: 'floodlight', gridX: -0.9, gridY: -0.9, scale: 1.35 },
-  { slug: 'floodlight', gridX: 10.9, gridY: -0.9, scale: 1.35 },
-  { slug: 'floodlight', gridX: 10.9, gridY: 10.9, scale: 1.35 },
+  // STADIUM STANDS: big covered grandstands filling the NE grounds (Jumaane's
+  // marked-up box) — seats open down-left toward the campus
+  { slug: 'grandstand', gridX: 8.6,  gridY: -3.4, scale: 2.5 },
+  { slug: 'grandstand', gridX: 12.6, gridY: -0.6, scale: 2.5 },
+  { slug: 'parking-lot', gridX: 10.9, gridY: 6.9, scale: 1.9 },
+  { slug: 'team-bus',    gridX: 10.7, gridY: 8.8, scale: 1.35 },
+  // Practice-field goalposts (bigger field → posts follow its new center line)
+  { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
+  { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
+  // Floodlight masts — OFF the campus corners (poles speared through the War Room
+  // and Training Field per the markup): they light the practice field + parking now
+  { slug: 'floodlight', gridX: -7.1, gridY: 1.3,  scale: 1.35 },
+  { slug: 'floodlight', gridX: -7.1, gridY: 9.5,  scale: 1.35 },
+  { slug: 'floodlight', gridX: 12.4, gridY: 5.6,  scale: 1.35 },
   { slug: 'floodlight', gridX: -0.9, gridY: 10.9, scale: 1.35 },
-  // Tree line framing the grounds — the rough reads as terrain, not empty lawn
-  { slug: 'tree-cluster', gridX: 2.0,  gridY: -2.6, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: 11.2, gridY: -3.2, scale: 1.15 }, // audit: top-center band void
-  { slug: 'tree-cluster', gridX: 14.6, gridY: 6.9,  scale: 1.2 },  // audit: right-center wedge
-  { slug: 'tree-cluster', gridX: -6.8, gridY: -1.2, scale: 1.1 },  // NW corner
-  { slug: 'tree-cluster', gridX: 5.2,  gridY: -3.1, scale: 1.05 },
-  { slug: 'tree-cluster', gridX: 8.3,  gridY: -2.4, scale: 1.35 },
-  { slug: 'tree-cluster', gridX: 13.6, gridY: 2.6,  scale: 1.2 },
-  { slug: 'tree-cluster', gridX: 13.2, gridY: 4.8,  scale: 1.0 },
-  { slug: 'tree-cluster', gridX: 13.5, gridY: 9.6,  scale: 1.3 },
-  { slug: 'tree-cluster', gridX: 11.8, gridY: 11.2, scale: 1.05 },
-  { slug: 'tree-cluster', gridX: 7.2,  gridY: 12.3, scale: 1.35 },
-  { slug: 'tree-cluster', gridX: 3.0,  gridY: 11.8, scale: 1.1 },
-  { slug: 'tree-cluster', gridX: -1.5, gridY: 11.0, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: -7.2, gridY: 4.0,  scale: 1.15 },
-  { slug: 'tree-cluster', gridX: -7.0, gridY: 7.5,  scale: 1.3 },
-  { slug: 'tree-cluster', gridX: -4.5, gridY: 0.6,  scale: 1.2 },
+  // Tree line framing the grounds — scaled up per the markup ("bigger"); the two
+  // clusters that stood where the grandstands now live were removed
+  { slug: 'tree-cluster', gridX: 2.0,  gridY: -2.6, scale: 1.4 },
+  { slug: 'tree-cluster', gridX: 14.6, gridY: 6.9,  scale: 1.35 },
+  { slug: 'tree-cluster', gridX: -6.8, gridY: -1.6, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: 5.2,  gridY: -3.1, scale: 1.2 },
+  { slug: 'tree-cluster', gridX: 13.6, gridY: 2.6,  scale: 1.35 },
+  { slug: 'tree-cluster', gridX: 13.9, gridY: 4.6,  scale: 1.15 },
+  { slug: 'tree-cluster', gridX: 13.5, gridY: 9.6,  scale: 1.5 },
+  { slug: 'tree-cluster', gridX: 11.8, gridY: 11.2, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: 7.2,  gridY: 12.3, scale: 1.5 },
+  { slug: 'tree-cluster', gridX: 3.0,  gridY: 11.8, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: -1.5, gridY: 11.0, scale: 1.4 },
+  { slug: 'tree-cluster', gridX: -8.3, gridY: 4.0,  scale: 1.25 },
+  { slug: 'tree-cluster', gridX: -8.1, gridY: 7.5,  scale: 1.4 },
+  { slug: 'tree-cluster', gridX: -4.5, gridY: 0.2,  scale: 1.25 },
 ];
 
 const BuildingSprite: React.FC<{
