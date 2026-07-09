@@ -121,10 +121,13 @@ Movement-focus round — no new features, pure motion polish on battle:
   desktop opens punched in at 1.35x, grounds plane doubled and never fades to
   transparent, backdrop is floodlit dark grass (starfield/space gone), zoom
   floor raised so the grounds rim can never be pulled into view
+- ROUND 6 SHIPPED (a7cc3e9, confirm to close): practice squad — 4 tiny
+  players run staggered shuttle drills on the outer practice field (existing
+  walk frames, pure CSS routes, facing flips at the turn)
 - Motion ideas still on the shelf: victory dance on the winning squad at the
   whistle, defender knock-back on pancake, ambient birds/steam on the home
-  board, deploy-zone shimmer while holding a card, tiny practice squad
-  running drills on the outer practice field
+  board, deploy-zone shimmer while holding a card, a coach figure watching
+  the drills with a whistle beat
 
 ## QB card + walk feedback round (shipped 4996980, confirm to close)
 
