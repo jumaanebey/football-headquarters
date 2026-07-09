@@ -101,6 +101,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const povDefense = isDefense || isReplay; // whose broadcast is this? replays are watched by the DEFENDER
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
+  // Broadcast-camera drift: eases toward the hottest fight each render (presentation
+  // only — sim coords are untouched, and clicks read getBoundingClientRect anyway).
+  const cam = useRef({ x: 0, y: 0 });
   // Deterministic battle RNG — a replay re-seeds with the recorded seed and every random
   // decision (jerseys, wave picks, FX jitter) replays identically.
   const seedRef = useRef(config.replay?.seed ?? Math.floor(Math.random() * 2 ** 31));
@@ -795,6 +798,21 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   };
 
   const s = sim.current;
+  // CAMERA DRIFT: focus on whoever is trading blows right now (fall back to the
+  // advancing pack), ease a small translate toward them. Capped at ±4% of the field
+  // so it reads as a broadcast operator leaning, never a chase-cam.
+  {
+    const fighters = [...s.troops, ...s.guards].filter(u => !u.dead && u.attacking);
+    const pool = fighters.length ? fighters : s.troops.filter(u => !u.dead);
+    if (pool.length) {
+      const fx0 = pool.reduce((a, u) => a + u.x, 0) / pool.length;
+      const fy0 = pool.reduce((a, u) => a + u.y, 0) / pool.length;
+      const tx = Math.max(-4, Math.min(4, (50 - fx0) * 0.12));
+      const ty = Math.max(-4, Math.min(4, (50 - fy0) * 0.12));
+      cam.current.x += (tx - cam.current.x) * 0.06;
+      cam.current.y += (ty - cam.current.y) * 0.06;
+    } else { cam.current.x *= 0.94; cam.current.y *= 0.94; }
+  }
   const destroyed = s.buildings.filter(b => b.dead && b.kind !== 'wall').length;
   // Drive = DAMAGE dealt, not just demolitions — the meter moves within seconds of
   // first contact instead of sitting at 0% until a whole building falls (TASK-4).
@@ -892,7 +910,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           onPointerUp={() => { pourRef.current.down = false; }}
           onPointerLeave={() => { pourRef.current.down = false; }}
           className={`relative rounded-2xl overflow-hidden shadow-2xl ${isDefense ? '' : castMode ? 'cursor-pointer ring-4 ring-offset-0' : 'cursor-crosshair'}`}
-          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-linear-gradient(180deg, #2f9e44 0% 10%, #2b8a3e 10% 20%)', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: `scale(${((typeof window !== 'undefined' && window.innerWidth < 640 ? 1.0 : isDefense || isReplay ? 1.24 : 1.18) * (1 + (s.punchT > 0 ? s.punchT * 0.16 : 0))).toFixed(3)})`, /* phones: field is already 96vw — zooming cropped both edges */ transition: 'transform 90ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
+          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-linear-gradient(180deg, #2f9e44 0% 10%, #2b8a3e 10% 20%)', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: `${(typeof window !== 'undefined' && window.innerWidth < 640) ? '' : `translate(${cam.current.x.toFixed(2)}%, ${cam.current.y.toFixed(2)}%) `}scale(${((typeof window !== 'undefined' && window.innerWidth < 640 ? 1.0 : isDefense || isReplay ? 1.24 : 1.18) * (1 + (s.punchT > 0 ? s.punchT * 0.16 : 0))).toFixed(3)})`, /* phones: field is already 96vw + no zoom crop to hide the pan behind — camera drift is desktop-only */ transition: 'transform 90ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
 
           {/* 🏟 FIELD PAINT — yard lines, hash marks, end zones, midfield mark. The fight
               happens ON A FOOTBALL FIELD, not a green checkerboard. */}
@@ -1094,9 +1112,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3.6vmin', height: '3.6vmin', background: 'radial-gradient(circle, #fff 0%, #fde047 45%, transparent 72%)', zIndex: 150, transform: `translate(-50%,-50%) scale(${0.6 + (1 - k) * 1.1})`, opacity: k }} />
             );
             if (f.type === 'ballshot') return (
-              // A thrown/kicked football spiraling to its target (lerp + arc + spin)
-              (() => { const p = 1 - k; const bx = f.x + (f.vx! - f.x) * p; const by = f.y + (f.vy! - f.y) * p - Math.sin(p * Math.PI) * 4;
-                return <img key={i} src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${bx}%`, top: `${by}%`, width: '2.6vmin', zIndex: 202, transform: `translate(-50%,-50%) rotate(${p * 720}deg)`, opacity: Math.min(1, k * 3) }} />;
+              // A thrown/kicked football spiraling to its target (lerp + arc + spin),
+              // dragging two ghost afterimages along its flight path as a motion trail.
+              (() => { const p = 1 - k;
+                const pos = (pp: number) => ({ bx: f.x + (f.vx! - f.x) * pp, by: f.y + (f.vy! - f.y) * pp - Math.sin(pp * Math.PI) * 4 });
+                return (
+                  <React.Fragment key={i}>
+                    {[0.26, 0.13, 0].map(d => { const pp = Math.max(0, p - d); const { bx, by } = pos(pp); const main = d === 0; return (
+                      <img key={d} src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false} className="absolute pointer-events-none select-none"
+                        style={{ left: `${bx}%`, top: `${by}%`, width: main ? '2.6vmin' : d === 0.13 ? '2.1vmin' : '1.7vmin', zIndex: main ? 202 : 201, transform: `translate(-50%,-50%) rotate(${pp * 720}deg)`, opacity: Math.min(1, k * 3) * (main ? 1 : d === 0.13 ? 0.38 : 0.18), filter: main ? undefined : 'brightness(1.5) blur(0.5px)' }} />
+                    ); })}
+                  </React.Fragment>
+                );
               })()
             );
             if (f.type === 'land') return (
@@ -1179,7 +1206,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${g.x}%`, top: `${g.y}%`, width: isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isHeroGuard ? 48 : 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {g.hp < g.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
-                <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : g.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-stepbob 0.21s ease-in-out infinite', rotate: g.attacking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
+                <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : g.attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : 'fhq-stepbob 0.21s ease-in-out infinite', rotate: g.attacking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
                   <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
                   {/* Chip fallback hides the moment the sprite loads — no floating bubble. */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -1221,16 +1248,17 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const isMascot = t.special === 'mascot';
             const glow = raging ? 'drop-shadow(0 0 7px #ef4444)' : healing ? 'drop-shadow(0 0 7px #22c55e)' : 'drop-shadow(0 0 5px #eab308)';
             const spGlow = raging ? 'drop-shadow(0 0 6px #f97316)' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))';
-            // Alive = animate: crunch-jolt when TAKING a hit, lunge when hitting a
-            // target, otherwise a per-step bob synced to the 0.42s walk stride.
+            // Alive = animate: crunch-jolt when TAKING a hit, lunge INTO the target on
+            // the damage-pop cycle when attacking, else a stride-synced step bob.
             const hf = t.hitFlash > 0;
-            const anim = hf ? 'fhq-hitjolt 0.18s ease-out' : t.attacking ? 'fhq-pop 0.35s ease-in-out infinite' : 'fhq-stepbob 0.21s ease-in-out infinite';
+            const faceEarly = (t as BTroop & { face?: number }).face ?? 1;
+            const anim = hf ? 'fhq-hitjolt 0.18s ease-out' : t.attacking ? `fhq-lunge-${faceEarly > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : 'fhq-stepbob 0.21s ease-in-out infinite';
             // Individual players are a touch bigger + clearer than the old clumpy trios.
             const w = heroDef ? '7%' : specialDef ? (isMascot ? '5.5%' : '3.4%') : '4.6%';
             const wmin = heroDef ? 36 : specialDef ? (isMascot ? 30 : 16) : 26;
             const wmax = heroDef ? 58 : specialDef ? (isMascot ? 48 : 26) : 42;
             const pGlow = shielded ? 'drop-shadow(0 0 6px #0ea5e9)' : raging ? 'drop-shadow(0 0 6px #ef4444)' : healing ? 'drop-shadow(0 0 6px #22c55e)' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))';
-            const face = (t as BTroop & { face?: number }).face ?? 1;
+            const face = faceEarly;
             const flip = face < 0 ? ' scaleX(-1)' : '';
             // Runners LEAN into their line of travel (standalone `rotate` property so it
             // composes with the transform-based bob/jolt animations instead of fighting them).

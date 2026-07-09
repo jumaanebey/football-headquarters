@@ -410,7 +410,7 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
     <div className="absolute transition-all duration-[200ms] ease-linear animate-hop pointer-events-none"
       style={{ left: c.x, top: c.y, zIndex: Math.round((player.worldPos.y / 100) * GRID * 2) + 6, transform: 'translate(-50%,-100%)' }}>
       <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30" style={{ bottom: -3, width: 20, height: 7 }} />
-      <div className="fhq-unit relative flex items-end justify-center" style={{ width: 30, height: 34 }}>
+      <div className="fhq-unit relative flex items-end justify-center" style={{ width: 30, height: 34, rotate: player.state === PlayerState.WALKING ? (facingLeft ? '-2.5deg' : '2.5deg') : undefined }}>
         <div className="absolute bottom-1 w-4 h-6 rounded-t-full rounded-b-sm border border-black/30 flex items-start justify-center shadow" style={{ backgroundColor: color }}>
           <span className="text-[7px] font-bold text-white/90 leading-tight mt-0.5">{player.role}</span>
         </div>

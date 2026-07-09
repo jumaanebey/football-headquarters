@@ -128,6 +128,10 @@
       @keyframes fhq-stepbob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.7px); } }
       /* Impact jolt: crunch in, overshoot out — one-shot on each damage pop. */
       @keyframes fhq-hitjolt { 0% { transform: scale(0.88); } 45% { transform: scale(1.07); } 100% { transform: scale(1); } }
+      /* Attack LUNGE: wind back, drive INTO the target, settle — 0.65s period matches
+         the damage-pop cycle so the hit lands on the drive. -r drives right, -l left. */
+      @keyframes fhq-lunge-r { 0%,60%,100% { transform: translateX(0) scale(1,1); } 12% { transform: translateX(-1.5px) scale(0.96,1.03); } 26% { transform: translateX(6px) scale(1.06,0.95); } 42% { transform: translateX(1px) scale(1,1); } }
+      @keyframes fhq-lunge-l { 0%,60%,100% { transform: translateX(0) scale(1,1); } 12% { transform: translateX(1.5px) scale(0.96,1.03); } 26% { transform: translateX(-6px) scale(1.06,0.95); } 42% { transform: translateX(-1px) scale(1,1); } }
       /* Structure about to fall: rocks on its foundation (origin set at the base). */
       @keyframes fhq-wobble { 0%,100% { transform: rotate(0deg); } 28% { transform: rotate(-1.5deg); } 72% { transform: rotate(1.6deg); } }
       @keyframes fhq-shake { 0%,100% { transform: translate(0,0); }  20% { transform: translate(-4px,2px); } 40% { transform: translate(3px,-3px); } 60% { transform: translate(-3px,2px); } 80% { transform: translate(2px,-2px); } }
