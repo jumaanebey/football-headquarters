@@ -104,9 +104,13 @@ Movement-focus round — no new features, pure motion polish on battle:
   they come down (telegraphs the teardown)
 - Walk bob is synced to the stride (one bounce per footfall) and runners lean
   into their direction of travel
-- Next motion candidates if this lands: attacker lunge toward target on each
-  hit cycle, camera drift toward the hottest fight, kicked-ball trail for the
-  Specialist, board-walker shadows
+- ROUND 2 SHIPPED (eaa38d0, confirm to close): attacker lunge into the target
+  on the damage-pop beat, broadcast camera drift toward the live fight
+  (desktop), ghost trails on every thrown/kicked football, board walkers lean
+  into their travel direction (they already had shadows)
+- Motion ideas still on the shelf: victory dance on the winning squad at the
+  whistle, defender knock-back on pancake, crowd-strip wave on drive
+  milestones, drifting cloud shadows over the home board
 
 ## QB card + walk feedback round (shipped 4996980, confirm to close)
 
