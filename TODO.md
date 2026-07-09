@@ -95,6 +95,19 @@ Next, in impact order:
   groups, in battle (attackers + gate guards) and on the home board
 - Balance watch: role multipliers are first-pass — tune after ladder data
 
+## Combat contact-feedback pass (shipped ffb5bf9, confirm to close)
+
+Movement-focus round — no new features, pure motion polish on battle:
+- Getting hit READS now: troops/guards/buildings flash white + crunch-jolt on
+  every damage pop (was a barely-visible transparency dip)
+- Buildings flinch on hit; below 30% HP they rock on their foundation until
+  they come down (telegraphs the teardown)
+- Walk bob is synced to the stride (one bounce per footfall) and runners lean
+  into their direction of travel
+- Next motion candidates if this lands: attacker lunge toward target on each
+  hit cycle, camera drift toward the hottest fight, kicked-ball trail for the
+  Specialist, board-walker shadows
+
 ## QB card + walk feedback round (shipped 4996980, confirm to close)
 
 - QB hero card: ball now IN HAND for the whole cycle (cocks back with the windup,
