@@ -48,6 +48,10 @@ public/assets/heroes/
     <key>-action.png            # pose B: signature action
     <key>-walkA.png             # walk frame: LEFT foot forward, facing viewer-LEFT
     <key>-walkB.png             # walk frame: RIGHT foot forward, facing viewer-LEFT
+    <key>-idleA.png             # CARD leg loop: weight on LEFT leg (idle shuffle, not a stride)
+    <key>-idleB.png             # CARD leg loop: weight on RIGHT leg — alternates w/ idleA
+                                # every ~0.55s via fhq-idleA/B; qb's pair is BANKED unused
+                                # (frames dropped his raised throwing arm — ball would float)
 ```
 
 All layers: 1024², transparent, zero opaque pixels touching any edge, zero interior

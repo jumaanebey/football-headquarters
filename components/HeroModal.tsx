@@ -23,6 +23,9 @@ interface Props {
 // swaps in on the beat (fhq-qb-body/body2 keyframes — generic despite the name).
 // Missing files degrade: body falls back to the flat card art, action/ball just hide.
 const HERO_RIG: Record<string, { body: string; action: string; flipX?: boolean; ball?: { left: string; top: string; anim?: string } }> = {
+  // Idle LEG-LOOP frames live at rig/<key>-idleA/B.png (derived below, not listed per
+  // hero). When both load they replace the static body during the pose-A window; if
+  // either is missing the card silently keeps the single-pose body.
   // QB reads RIGHT-HANDED: art is flipped so the raised hand is on the viewer's right,
   // the ball sits IN that hand all cycle, and the throw goes downfield to the right.
   qb:        { body: '/assets/heroes/franchise-rig/body.png', action: '/assets/heroes/franchise-rig/body-followthrough.png', flipX: true, ball: { left: '58%', top: '16%', anim: 'fhq-ball-inhand' } },
@@ -196,10 +199,31 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                     <div className="relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
                       <div className="absolute inset-0" style={rig.flipX ? { transform: 'scaleX(-1)' } : undefined}>
                       <img src={rig.body} alt={def.name} draggable={false}
-                        onLoad={e => { const med = e.currentTarget.parentElement?.previousElementSibling as HTMLElement | null; if (med) med.style.visibility = 'hidden'; }}
+                        onLoad={e => { const med = e.currentTarget.parentElement?.parentElement?.previousElementSibling as HTMLElement | null; if (med) med.style.visibility = 'hidden'; }}
                         onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
-                        className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
+                        className="fhq-basebody absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
                         style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
+                      {/* LEG LOOP: weight-shift frames replace the static body once BOTH load;
+                          any load failure puts the static body back (never a blank card).
+                          Skipped for ball-in-hand rigs (QB): his idle frames dropped the raised
+                          throwing arm, which would leave the held ball floating (frames banked). */}
+                      {rig.ball?.anim !== 'fhq-ball-inhand' && (['A', 'B'] as const).map(f => (
+                        <img key={f} src={`/assets/heroes/rig/${def.key}-idle${f}.png`} alt="" draggable={false}
+                          onLoad={e => {
+                            const p = e.currentTarget.parentElement as HTMLElement;
+                            p.dataset[`idle${f}`] = '1';
+                            if (p.dataset.idleA === '1' && p.dataset.idleB === '1' && !p.dataset.idlefail)
+                              (p.querySelector('.fhq-basebody') as HTMLElement).style.visibility = 'hidden';
+                          }}
+                          onError={e => {
+                            const p = e.currentTarget.parentElement as HTMLElement;
+                            p.dataset.idlefail = '1';
+                            p.querySelectorAll('.fhq-idleframe').forEach(el => { (el as HTMLElement).style.display = 'none'; });
+                            (p.querySelector('.fhq-basebody') as HTMLElement).style.visibility = 'visible';
+                          }}
+                          className="fhq-idleframe absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
+                          style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite, fhq-idle${f} 5.5s linear ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
+                      ))}
                       <img src={rig.action} alt="" draggable={false}
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"

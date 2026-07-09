@@ -102,5 +102,8 @@ Next, in impact order:
 - Battle walk stride tightened 0.55s → 0.42s (heroes, guards, troops)
 - Note: battle-field walk cycles verified working (all 4 frames cycling); the "feet
   don't walk" read was the CARD idle — card bodies sway/hop but legs hold their pose.
-  True card walk frames would need a dedicated idle-leg loop per hero (art order) if
-  it still bothers on review.
+- CARD LEG LOOP — SHIPPED (confirm to close): 2 weight-shift idle frames per hero
+  (Gemini, ref'd off each rig body), alternating every ~0.55s through the idle window
+  on 8 of 9 hero cards. QB excluded on purpose: his generated frames dropped the
+  raised throwing arm, which would leave the in-hand ball floating — his card keeps
+  the windup/throw rig (frames banked in rig/ if we ever re-pose them).
