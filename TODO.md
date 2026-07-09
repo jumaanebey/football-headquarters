@@ -117,6 +117,10 @@ Movement-focus round — no new features, pure motion polish on battle:
   Jumaane — striped practice mini-field on the west grounds with two new
   bleacher stands beside it, stadium scoreboard over the NE rough (new art,
   abstract segments, no text), parking pad + team bus parked in the SE
+- ROUND 5 SHIPPED (f65cb10, confirm to close): "bigger and no black space" —
+  desktop opens punched in at 1.35x, grounds plane doubled and never fades to
+  transparent, backdrop is floodlit dark grass (starfield/space gone), zoom
+  floor raised so the grounds rim can never be pulled into view
 - Motion ideas still on the shelf: victory dance on the winning squad at the
   whistle, defender knock-back on pancake, ambient birds/steam on the home
   board, deploy-zone shimmer while holding a card, tiny practice squad
