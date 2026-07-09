@@ -250,7 +250,7 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // Positioned inboard so it's FULLY in frame on narrow desktop viewports (the old
 // (11.4, 0.8) spot clipped ~114px off the right edge at 1054px wide — audit finding).
 const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, fans }) => {
-  const c = tileToScreen(10.3, 1.7);
+  const c = tileToScreen(10.05, 1.95); // validated fully in-frame w/ margin at 1054px viewport (audit width) — margin only grows on wider screens
   const w = TILE_W * 2.6;
   const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
   return (
