@@ -134,6 +134,16 @@
       @keyframes fhq-lunge-l { 0%,60%,100% { transform: translateX(0) scale(1,1); } 12% { transform: translateX(1.5px) scale(0.96,1.03); } 26% { transform: translateX(-6px) scale(1.06,0.95); } 42% { transform: translateX(-1px) scale(1,1); } }
       /* Structure about to fall: rocks on its foundation (origin set at the base). */
       @keyframes fhq-wobble { 0%,100% { transform: rotate(0deg); } 28% { transform: rotate(-1.5deg); } 72% { transform: rotate(1.6deg); } }
+      /* Practice-squad shuttle drill: run to the far cone (--dx/--dy per runner),
+         catch your breath, run back. Facing flips at the turn (separate keyframe on
+         an inner wrapper so it can't fight the position animation). */
+      @keyframes fhq-drill {
+        0%,6% { transform: translate(0, 0); }
+        46%,54% { transform: translate(var(--dx), var(--dy)); }
+        94%,100% { transform: translate(0, 0); }
+      }
+      @keyframes fhq-drillflip   { 0%,49.9% { transform: scaleX(1); }  50%,100% { transform: scaleX(-1); } }
+      @keyframes fhq-drillflip-r { 0%,49.9% { transform: scaleX(-1); } 50%,100% { transform: scaleX(1); } }
       /* Cloud shade drifting across the campus — two lanes, one wind direction. */
       @keyframes fhq-cloud1 { 0% { transform: translate(-520px, 640px); } 100% { transform: translate(1280px, -170px); } }
       @keyframes fhq-cloud2 { 0% { transform: translate(-640px, 320px); } 100% { transform: translate(1320px, -40px); } }
@@ -285,6 +295,8 @@
         .fhq-basebody { visibility: visible !important; }
         /* cloud shade only exists as a moving thing — parked it's just a dark smudge */
         .fhq-cloud { display: none !important; }
+        /* drill runners frozen mid-sprint with stacked frames read broken — hide them */
+        .fhq-drillsquad { display: none !important; }
       }
     </style>
   </head>

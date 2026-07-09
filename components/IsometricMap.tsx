@@ -211,6 +211,41 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
   );
 };
 
+// 🏃 PRACTICE SQUAD: tiny players shuttle-running drills on the outer practice field.
+// Pure ambience — CSS-driven out-and-back routes (fhq-drill w/ per-runner --dx/--dy),
+// facing flips at the turn, existing unit walk frames do the legs. No game state.
+const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: number; delay: number; rev?: boolean }[] = [
+  { slug: 'offensive-line', gx: -4.7, gy: 3.1, dgy: 5.0, dur: 12.5, delay: 0 },
+  { slug: 'skill-positions', gx: -3.7, gy: 3.3, dgy: 4.6, dur: 9.5, delay: -3.2 },
+  { slug: 'defensive-line', gx: -2.8, gy: 3.0, dgy: 5.2, dur: 13.5, delay: -7.1 },
+  { slug: 'secondary', gx: -4.2, gy: 8.2, dgy: -4.9, dur: 10.5, delay: -1.6, rev: true },
+];
+
+const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, dur, delay, rev }) => {
+  const a = tileToScreen(gx, gy), b = tileToScreen(gx, gy + dgy);
+  const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
+  const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+  return (
+    <div className="fhq-drillsquad absolute pointer-events-none"
+      style={{ left: a.x, top: a.y, zIndex: 2, '--dx': `${b.x - a.x}px`, '--dy': `${b.y - a.y}px`, animation: `fhq-drill ${dur}s linear ${delay}s infinite` } as React.CSSProperties}>
+      {/* anchor wrapper carries the static centering — the flip wrapper's animation
+          would otherwise stomp it (animation transform replaces static transform) */}
+      <div className="absolute" style={{ left: -13, top: -28, width: 26, height: 30 }}>
+        <div className="fhq-unit relative w-full h-full" style={{ animation: `${rev ? 'fhq-drillflip-r' : 'fhq-drillflip'} ${dur}s linear ${delay}s infinite` }}>
+          <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30" style={{ bottom: -2, width: 17, height: 6 }} />
+          <img src={`/assets/units/${slug}-player.png`} alt="" draggable={false}
+            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            className="fhq-flat absolute inset-0 w-full h-full object-contain" />
+          {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
+            <img key={fr} src={`/assets/units/${slug}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff}
+              className="absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite` }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // The grounds AROUND the campus: practice-field bleachers, the scoreboard over the
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
@@ -604,6 +639,9 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           <GroundLayer buildings={buildings} />
           {OUTER_DECOR.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
+          ))}
+          {DRILL_SQUAD.map((r, i) => (
+            <DrillRunner key={`dr${i}`} {...r} />
           ))}
           {DECOR.map((d) => (
             <DecorSprite key={d.slug} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
