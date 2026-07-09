@@ -141,6 +141,13 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
           </radialGradient>
+          {/* Building apron: worn ground under each facility so structures sit IN
+              the turf instead of floating on it like stickers. */}
+          <radialGradient id="apronG" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#3d3423" stopOpacity="0.85" />
+            <stop offset="55%" stopColor="#33351f" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#2a3a20" stopOpacity="0" />
+          </radialGradient>
           {/* Outer grounds: dark grass near the campus, deepening outward — NEVER
               transparent (transparent rim = black space, user hated it). The far
               stop matches the backdrop greens so the rim is invisible. */}
@@ -197,6 +204,20 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
         {/* the mowed campus as ONE pattern-filled polygon */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#turfPat)" />
         {bandShades}
+        {/* GROUND INTEGRATION: worn dirt apron + contact shadow under every facility —
+            grass wears away where a building stands, and the dark contact ring kills
+            the pasted-sticker read. */}
+        {buildings.map(b => {
+          // centered on the sprite anchor (gridX+0.5, gridY+0.5 — matches BuildingSprite)
+          const t = tileToScreen(b.gridX + 0.5, b.gridY - 0.9), r = tileToScreen(b.gridX + 1.9, b.gridY + 0.5), bo = tileToScreen(b.gridX + 0.5, b.gridY + 1.9), l = tileToScreen(b.gridX - 0.9, b.gridY + 0.5);
+          const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
+          return (
+            <g key={`ap${b.id}`}>
+              <polygon points={`${t.x},${t.y} ${r.x},${r.y} ${bo.x},${bo.y} ${l.x},${l.y}`} fill="url(#apronG)" />
+              <ellipse cx={c.x} cy={c.y + TILE_H * 0.55} rx={TILE_W * 1.25} ry={TILE_H * 1.05} fill="rgba(6,10,6,0.38)" />
+            </g>
+          );
+        })}
         {/* boundary: a groundskeeper's line where the mowed campus meets the rough */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth={2.5} />
         {/* soft light pool centered on the Stadium */}
@@ -248,14 +269,17 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 
 // 🟠 LIVE JUMBOTRON: the scoreboard prop promoted to a real scoreboard — the club's
 // trophies and fan count burn on its LED face (HTML overlay skewed to the panel).
-// Positioned inboard so it's FULLY in frame on narrow desktop viewports (the old
-// (11.4, 0.8) spot clipped ~114px off the right edge at 1054px wide — audit finding).
+// VEGAS SIZE per Jumaane: a mega-board towering BEHIND the practice field's north
+// end zone (up-screen = behind in iso), dwarfing everything around it.
 const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, fans }) => {
-  const c = tileToScreen(9.6, 1.95); // scaled up per markup; nudged left to stay fully in-frame at 1054px (re-validated via iframe harness)
-  const w = TILE_W * 3.3;
+  // VEGAS RULES: ~2 screens tall, legs planted at the practice field's back line.
+  // At default camera its lower panel looms past the frame's top-left — pan up to
+  // take the whole thing in (CC-style: the world is bigger than the frame).
+  const c = tileToScreen(-4.0, 1.9);
+  const w = TILE_W * 5.4;
   const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
   return (
-    <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 12 }}>
+    <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 1 }}>
       <div style={{ position: 'absolute', width: w, left: -w / 2, bottom: -TILE_H / 2 }}>
         <img src="/assets/decor/scoreboard.png" alt="" draggable={false}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -306,17 +330,17 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }
   // marked-up box) — seats open down-left toward the campus
   { slug: 'grandstand', gridX: 8.6,  gridY: -3.4, scale: 2.5 },
   { slug: 'grandstand', gridX: 12.6, gridY: -0.6, scale: 2.5 },
-  { slug: 'parking-lot', gridX: 10.9, gridY: 6.9, scale: 1.9 },
-  { slug: 'team-bus',    gridX: 10.7, gridY: 8.8, scale: 1.35 },
+  { slug: 'parking-lot', gridX: 13.0, gridY: 8.2, scale: 3.1 }, // HUGE per Jumaane — a real game-day lot, clear of the campus
+  { slug: 'team-bus',    gridX: 10.9, gridY: 9.4, scale: 1.6 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
   // Floodlight masts — OFF the campus corners (poles speared through the War Room
   // and Training Field per the markup): they light the practice field + parking now
-  { slug: 'floodlight', gridX: -7.1, gridY: 1.3,  scale: 1.35 },
-  { slug: 'floodlight', gridX: -7.1, gridY: 9.5,  scale: 1.35 },
-  { slug: 'floodlight', gridX: 12.4, gridY: 5.6,  scale: 1.35 },
-  { slug: 'floodlight', gridX: -0.9, gridY: 10.9, scale: 1.35 },
+  { slug: 'floodlight', gridX: -7.3, gridY: 1.3,  scale: 2.1 },
+  { slug: 'floodlight', gridX: -7.3, gridY: 9.5,  scale: 2.1 },
+  { slug: 'floodlight', gridX: 13.6, gridY: 5.2,  scale: 2.1 },
+  { slug: 'floodlight', gridX: -0.9, gridY: 11.2, scale: 2.1 },
   // Tree line framing the grounds — scaled up per the markup ("bigger"); the two
   // clusters that stood where the grandstands now live were removed
   { slug: 'tree-cluster', gridX: 2.0,  gridY: -2.6, scale: 1.4 },
@@ -615,7 +639,9 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.28 : 1.35;
   // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
   // not the board's geometric middle — so the base reads centered, especially zoomed in.
-  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ); // stadium center (anchor 4,4 → center tile 5,5)
+  // +80 bias reveals the north grounds (mega-board, grandstands) instead of framing
+  // dead-center on the stadium — the skyline now reads at default camera.
+  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ) + 80; // stadium center (anchor 4,4 → center tile 5,5)
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
     const z = Math.min(3, Math.max(0.85, c.z)); // floor raised: below ~0.85 the grounds rim could peek in
@@ -715,10 +741,12 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           className="absolute"
           style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x}px), calc(-50% + ${cam.y}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
           <GroundLayer buildings={buildings} />
+          {/* Jumbotron paints FIRST: it towers behind the practice field, so the
+              north goalpost and everything south of it must layer in front. */}
+          <Jumbotron trophies={trophies} fans={fans} />
           {OUTER_DECOR.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
-          <Jumbotron trophies={trophies} fans={fans} />
           {DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
           ))}
