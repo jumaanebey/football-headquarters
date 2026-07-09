@@ -108,9 +108,14 @@ Movement-focus round — no new features, pure motion polish on battle:
   on the damage-pop beat, broadcast camera drift toward the live fight
   (desktop), ghost trails on every thrown/kicked football, board walkers lean
   into their travel direction (they already had shadows)
+- ROUND 3 SHIPPED (1bf96af, confirm to close): FLOATING ISLAND KILLED per
+  Jumaane — campus now sits on a wide dark-grounds plane that fades into the
+  night (cliff + soil skirt art removed, boundary line where mowed campus
+  meets the rough); two cloud-shadow lanes drift over the board; stadium
+  crowd does the wave on drive milestones in battle
 - Motion ideas still on the shelf: victory dance on the winning squad at the
-  whistle, defender knock-back on pancake, crowd-strip wave on drive
-  milestones, drifting cloud shadows over the home board
+  whistle, defender knock-back on pancake, ambient birds/steam on the home
+  board, deploy-zone shimmer while holding a card
 
 ## QB card + walk feedback round (shipped 4996980, confirm to close)
 
