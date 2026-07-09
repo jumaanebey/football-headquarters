@@ -118,7 +118,7 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
   const glow = stadium ? tileToScreen(stadium.gridX, stadium.gridY) : tileToScreen(6, 6);
   // Surrounding grounds: the same diamond scaled up ~2x about its center — reads as
   // the dark practice fields beyond the mowed campus, vignetting out to the backdrop.
-  const CX = (T.x + B.x) / 2, CY = (T.y + B.y) / 2, K = 2.1;
+  const CX = (T.x + B.x) / 2, CY = (T.y + B.y) / 2, K = 4.2; // big enough that the plane owns the whole viewport at any legal zoom
   const OP = [T, R, B, L].map(p => `${CX + (p.x - CX) * K},${CY + (p.y - CY) * K}`).join(' ');
 
   return (
@@ -139,12 +139,14 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
           </radialGradient>
-          {/* Outer grounds: dark grass near the campus, dissolving into the night. */}
+          {/* Outer grounds: dark grass near the campus, deepening outward — NEVER
+              transparent (transparent rim = black space, user hated it). The far
+              stop matches the backdrop greens so the rim is invisible. */}
           <radialGradient id="outerGround" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#16351f" stopOpacity="1" />
-            <stop offset="45%" stopColor="#10281a" stopOpacity="0.9" />
-            <stop offset="78%" stopColor="#0a1c13" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#081d17" stopOpacity="0" />
+            <stop offset="30%" stopColor="#122c1d" stopOpacity="1" />
+            <stop offset="65%" stopColor="#0d2316" stopOpacity="1" />
+            <stop offset="100%" stopColor="#081711" stopOpacity="1" />
           </radialGradient>
         </defs>
         {/* the grounds BEYOND the campus — same iso plane, scaled up, vignetted out */}
@@ -495,13 +497,16 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   // Phone home zoom fits the WHOLE campus (fort spans tiles ~1..8 ≈ 944px board units;
   // at 390px that means z ≤ ~1.3 — 1.8 was tuned for the old spread layout and cropped
   // both edge buildings off-screen).
-  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.28 : 1;
+  // Desktop now opens PUNCHED IN (1.35 — the campus owns the frame, "bigger" per
+  // Jumaane); phones keep the 1.28 whole-campus fit. Pan/pinch explores the rest.
+  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.28 : 1.35;
   // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
   // not the board's geometric middle — so the base reads centered, especially zoomed in.
   const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ); // stadium center (anchor 4,4 → center tile 5,5)
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
-    const z = Math.min(3, Math.max(0.55, c.z));
+    const z = Math.min(3, Math.max(0.85, c.z)); // floor raised: below ~0.85 the grounds rim could peek in
+
     const lim = 650 * z;
     return { z, x: Math.min(lim, Math.max(-lim, c.x)), y: Math.min(lim, Math.max(-lim, c.y)) };
   };
@@ -578,13 +583,11 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
 
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ background: 'linear-gradient(180deg, #05070f 0%, #0a1024 30%, #10203a 55%, #0d2b23 80%, #081d17 100%)' }}
+    <div className="absolute inset-0 overflow-hidden" style={{ background: 'radial-gradient(130% 95% at 50% 42%, #143526 0%, #0e2619 45%, #0b1e14 75%, #081711 100%)' }}
       onClick={() => { if (panMovedRef.current) { panMovedRef.current = false; return; } onDeselect?.(); }}>{/* tap empty turf → CC bar closes */}
-      {/* Stadium-night backdrop: starfield, floodlight beams, and a warm field glow. */}
-      <div className="absolute inset-x-0 top-0 h-3/5 pointer-events-none opacity-70" style={{
-        backgroundImage: 'radial-gradient(1px 1px at 22% 28%, rgba(255,255,255,0.8), transparent 100%), radial-gradient(1px 1px at 68% 14%, rgba(255,255,255,0.6), transparent 100%), radial-gradient(1.5px 1.5px at 44% 40%, rgba(255,255,255,0.5), transparent 100%), radial-gradient(1px 1px at 84% 34%, rgba(255,255,255,0.7), transparent 100%), radial-gradient(1px 1px at 8% 12%, rgba(255,255,255,0.5), transparent 100%)',
-        backgroundSize: '260px 220px', maskImage: 'linear-gradient(180deg, #000 40%, transparent 100%)', WebkitMaskImage: 'linear-gradient(180deg, #000 40%, transparent 100%)',
-      }} />
+      {/* Backdrop is GROUNDS, not outer space — every pixel reads as dark grass under
+          floodlit haze, so panning/zooming never exposes black void. (Starfield removed
+          with the floating island; stars over grass read wrong.) */}
       {/* Floodlight beams sweeping in from the top corners */}
       <div className="absolute pointer-events-none" style={{ top: '-12%', left: '-4%', width: '52%', height: '95%', background: 'linear-gradient(160deg, rgba(255,244,210,0.11), rgba(255,244,210,0.03) 45%, transparent 65%)', transform: 'rotate(6deg)', filter: 'blur(4px)' }} />
       <div className="absolute pointer-events-none" style={{ top: '-12%', right: '-4%', width: '52%', height: '95%', background: 'linear-gradient(200deg, rgba(255,244,210,0.11), rgba(255,244,210,0.03) 45%, transparent 65%)', transform: 'rotate(-6deg)', filter: 'blur(4px)' }} />
