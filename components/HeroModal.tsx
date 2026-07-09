@@ -22,9 +22,10 @@ interface Props {
 // Every hero's two-pose rig: clean body (idle sway + wind-up) and an action pose that
 // swaps in on the beat (fhq-qb-body/body2 keyframes — generic despite the name).
 // Missing files degrade: body falls back to the flat card art, action/ball just hide.
-const HERO_RIG: Record<string, { body: string; action: string; ball?: { left: string; top: string; anim?: string } }> = {
-  // QB throws with the viewer-LEFT hand — ball spawns there and flies up-left (mirrored flight).
-  qb:        { body: '/assets/heroes/franchise-rig/body.png', action: '/assets/heroes/franchise-rig/body-followthrough.png', ball: { left: '10%', top: '18%', anim: 'fhq-ball-left' } },
+const HERO_RIG: Record<string, { body: string; action: string; flipX?: boolean; ball?: { left: string; top: string; anim?: string } }> = {
+  // QB reads RIGHT-HANDED: art is flipped so the raised hand is on the viewer's right,
+  // the ball sits IN that hand all cycle, and the throw goes downfield to the right.
+  qb:        { body: '/assets/heroes/franchise-rig/body.png', action: '/assets/heroes/franchise-rig/body-followthrough.png', flipX: true, ball: { left: '58%', top: '16%', anim: 'fhq-ball-inhand' } },
   enforcer:  { body: '/assets/heroes/rig/enforcer-body.png',  action: '/assets/heroes/rig/enforcer-action.png' },
   coach:     { body: '/assets/heroes/rig/coach-body.png',     action: '/assets/heroes/rig/coach-action.png' },
   kicker:    { body: '/assets/heroes/rig/kicker-body.png',    action: '/assets/heroes/rig/kicker-action.png', ball: { left: '44%', top: '48%' } },
@@ -193,6 +194,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                     (() => { /* 5.5s cycle: the action beat lands every ~5s instead of hiding in a 7s idle */
                     const rig = HERO_RIG[def.key]; const dly = `-${(heroIdx * 1.45) % 5.5}s`; return (
                     <div className="relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
+                      <div className="absolute inset-0" style={rig.flipX ? { transform: 'scaleX(-1)' } : undefined}>
                       <img src={rig.body} alt={def.name} draggable={false}
                         onLoad={e => { const med = e.currentTarget.parentElement?.previousElementSibling as HTMLElement | null; if (med) med.style.visibility = 'hidden'; }}
                         onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
@@ -202,11 +204,12 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
                         style={{ animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
+                      </div>
                       {rig.ball && (
                         <img src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false}
                           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           className="absolute pointer-events-none"
-                          style={{ width: '34%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 5.5s ease-in-out ${dly} infinite`, opacity: 0 }} />
+                          style={{ width: '30%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 5.5s ease-in-out ${dly} infinite`, opacity: rig.ball.anim === 'fhq-ball-inhand' ? 1 : 0 }} />
                       )}
                     </div>
                     ); })()
