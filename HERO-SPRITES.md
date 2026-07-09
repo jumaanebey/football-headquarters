@@ -21,7 +21,7 @@ prompts that said "her" invented a woman).
 
 | key | name | role | signature action | notes |
 |---|---|---|---|---|
-| qb | The Franchise | QB | pose-swap throw + ball flies UP-LEFT (his throwing hand is on the viewer's left) | ball uses `fhq-ball-left` |
+| qb | The Franchise | QB | pose-swap throw; card is MIRRORED (`flipX` wrapper) so he reads right-handed and throws to the viewer's RIGHT | ball uses `fhq-ball-inhand` — visible in hand the whole cycle, cocks with the windup, launches on the snap |
 | enforcer | The Enforcer | RB | Truck Stick shoulder charge | |
 | coach | The General | HC | shouting play-call point | older, bearded, tracksuit + cap |
 | kicker | The Specialist | K | kick follow-through | ball spawns at foot, flies up-right (`fhq-qb-ball`) |
@@ -58,7 +58,10 @@ green-dominant pixels. Walk frames face the VIEWER'S LEFT; battle code flips wit
 
 - **Keyframes**: `index.html` — `fhq-qb-body` (pose A: idle sway + wind-up + hide during
   swap), `fhq-qb-body2` (pose B: snap in at 83.5–95% of the cycle), `fhq-qb-ball` /
-  `fhq-ball-left` (projectile flights), `fhq-hero-idle` (fallback whole-body idle),
+  `fhq-ball-left` (appear-at-release projectile flights), `fhq-ball-inhand` (QB card:
+  ball held all cycle → cock back 72–82% → fly right on the snap — pair with a `flipX`
+  wrapper around body+action ONLY; the ball layer stays outside the flip, in screen
+  space), `fhq-hero-idle` (fallback whole-body idle),
   `fhq-aura` (ring spin), `fhq-glow` (glow breathe). Names say "qb" for historical
   reasons — they are generic.
 - **Card rigs**: `components/HeroModal.tsx` → `HERO_RIG` map (body/action paths +
