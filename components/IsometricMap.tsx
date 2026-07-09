@@ -151,21 +151,43 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
         </defs>
         {/* the grounds BEYOND the campus — same iso plane, scaled up, vignetted out */}
         <polygon points={OP} fill="url(#outerGround)" />
-        {/* PRACTICE FIELD on the west grounds: a faint striped mini-field so the
-            surroundings read as more football, not empty lawn */}
+        {/* PRACTICE FIELD on the west grounds: real turf, end zones, yard stripes —
+            a proper second field, not a chalk outline on the rough */}
         {(() => {
+          const fc = (gy1: number, gy2: number) => {
+            const a = tileToScreen(-5.5, gy1), b = tileToScreen(-1.5, gy1), c = tileToScreen(-1.5, gy2), d = tileToScreen(-5.5, gy2);
+            return `${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`;
+          };
           const fT = tileToScreen(-5.5, 2.5), fR = tileToScreen(-1.5, 2.5), fB = tileToScreen(-1.5, 8.5), fL = tileToScreen(-5.5, 8.5);
           const stripes = [];
           for (let i = 1; i < 6; i++) {
             const t = i / 6;
             const ax = fT.x + (fL.x - fT.x) * t, ay = fT.y + (fL.y - fT.y) * t;
             const bx = fR.x + (fB.x - fR.x) * t, by = fR.y + (fB.y - fR.y) * t;
-            stripes.push(<line key={`pf${i}`} x1={ax} y1={ay} x2={bx} y2={by} stroke="rgba(255,255,255,0.09)" strokeWidth={1.5} />);
+            stripes.push(<line key={`pf${i}`} x1={ax} y1={ay} x2={bx} y2={by} stroke="rgba(255,255,255,0.16)" strokeWidth={1.5} />);
           }
           return (
             <g>
-              <polygon points={`${fT.x},${fT.y} ${fR.x},${fR.y} ${fB.x},${fB.y} ${fL.x},${fL.y}`} fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.13)" strokeWidth={1.5} />
+              <polygon points={fc(2.5, 8.5)} fill="#1c4729" />
+              {/* mow bands */}
+              <polygon points={fc(3.5, 4.5)} fill="rgba(255,255,255,0.05)" />
+              <polygon points={fc(5.5, 6.5)} fill="rgba(255,255,255,0.05)" />
+              {/* end zones */}
+              <polygon points={fc(2.5, 3.25)} fill="rgba(249,115,22,0.28)" />
+              <polygon points={fc(7.75, 8.5)} fill="rgba(17,24,39,0.45)" />
               {stripes}
+              <polygon points={fc(2.5, 8.5)} fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth={2} />
+            </g>
+          );
+        })()}
+        {/* ACCESS ROAD: asphalt running from the parking lot east off the grounds */}
+        {(() => {
+          const a = tileToScreen(9.9, 7.0), b = tileToScreen(16.5, 7.0), c = tileToScreen(16.5, 8.3), d = tileToScreen(9.9, 8.3);
+          const m1 = tileToScreen(10.2, 7.65), m2 = tileToScreen(16.5, 7.65);
+          return (
+            <g>
+              <polygon points={`${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`} fill="#20242b" opacity="0.9" />
+              <line x1={m1.x} y1={m1.y} x2={m2.x} y2={m2.y} stroke="#c9a13b" strokeWidth={1.6} strokeDasharray="10 12" opacity="0.7" />
             </g>
           );
         })()}
@@ -255,6 +277,28 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }
   { slug: 'bleachers',   gridX: -1.1, gridY: 6.4, scale: 0.95 },
   { slug: 'parking-lot', gridX: 10.9, gridY: 6.9, scale: 1.5 },
   { slug: 'team-bus',    gridX: 10.7, gridY: 8.7, scale: 1.1 },
+  // Practice-field goalposts (north post paints behind the drill runners, south in front)
+  { slug: 'goalpost', gridX: -3.5, gridY: 2.35, scale: 0.85 },
+  { slug: 'goalpost', gridX: -3.5, gridY: 8.75, scale: 0.85 },
+  // Floodlight masts at the campus corners — the reason the night is lit
+  { slug: 'floodlight', gridX: -0.9, gridY: -0.9, scale: 1.35 },
+  { slug: 'floodlight', gridX: 10.9, gridY: -0.9, scale: 1.35 },
+  { slug: 'floodlight', gridX: 10.9, gridY: 10.9, scale: 1.35 },
+  { slug: 'floodlight', gridX: -0.9, gridY: 10.9, scale: 1.35 },
+  // Tree line framing the grounds — the rough reads as terrain, not empty lawn
+  { slug: 'tree-cluster', gridX: 2.0,  gridY: -2.6, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: 5.2,  gridY: -3.1, scale: 1.05 },
+  { slug: 'tree-cluster', gridX: 8.3,  gridY: -2.4, scale: 1.35 },
+  { slug: 'tree-cluster', gridX: 13.6, gridY: 2.6,  scale: 1.2 },
+  { slug: 'tree-cluster', gridX: 13.2, gridY: 4.8,  scale: 1.0 },
+  { slug: 'tree-cluster', gridX: 13.5, gridY: 9.6,  scale: 1.3 },
+  { slug: 'tree-cluster', gridX: 11.8, gridY: 11.2, scale: 1.05 },
+  { slug: 'tree-cluster', gridX: 7.2,  gridY: 12.3, scale: 1.35 },
+  { slug: 'tree-cluster', gridX: 3.0,  gridY: 11.8, scale: 1.1 },
+  { slug: 'tree-cluster', gridX: -1.5, gridY: 11.0, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: -7.2, gridY: 4.0,  scale: 1.15 },
+  { slug: 'tree-cluster', gridX: -7.0, gridY: 7.5,  scale: 1.3 },
+  { slug: 'tree-cluster', gridX: -4.5, gridY: 0.6,  scale: 1.2 },
 ];
 
 const BuildingSprite: React.FC<{
