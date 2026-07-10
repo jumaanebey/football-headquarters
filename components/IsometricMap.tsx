@@ -304,23 +304,25 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // VEGAS SIZE per Jumaane: a mega-board towering BEHIND the practice field's north
 // end zone (up-screen = behind in iso), dwarfing everything around it.
 const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, fans }) => {
-  // MEGABOARD at (-3,-3) per Jumaane's grid spec — new board-only art (wide panel
-  // on two short blocks, no tower), sized huge. Native aspect, no stretch.
-  const c = tileToScreen(-3, -3);
-  const w = TILE_W * 7;
+  // BOARD diagonal BEHIND THE WAR ROOM (Jumaane): ribbon-board art (wide panel,
+  // short blocks) sloping down-right along the campus's upper-right edge. Width is
+  // the honest max that keeps the panel inside the frame at the default camera —
+  // iso slope means any wide panel is also tall, so the sky budget rules here.
+  const c = tileToScreen(2.0, -0.4);
+  const w = TILE_W * 3.2;
   const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 1 }}>
-      <div style={{ position: 'absolute', width: w, height: w, left: -w / 2, bottom: -TILE_H / 2 }}>
-        <img src="/assets/decor/megaboard.png" alt="" draggable={false}
+      <div style={{ position: 'absolute', width: w, height: w * 1.02, left: -w / 2, bottom: -TILE_H / 2 }}>
+        <img src="/assets/decor/ribbonboard.png" alt="" draggable={false}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
         {/* LED face — rotated onto the panel at the iso angle; values pop on change */}
         {trophies !== undefined && (
           <div className="absolute flex flex-col items-center justify-center gap-[4%]"
-            style={{ left: '37.5%', top: '27%', width: '26%', height: '24%', transform: 'rotate(26.5deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
-            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.034, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
-            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.03, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
+            style={{ left: '33%', top: '25%', width: '32%', height: '26%', transform: 'rotate(26.5deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
+            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.046, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
+            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.04, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
           </div>
         )}
       </div>
@@ -380,10 +382,10 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
   { slug: 'floodlight', gridX: -0.9, gridY: 11.2, scale: 2.1 },
   // Tree line framing the grounds — scaled up per the markup ("bigger"); the two
   // clusters that stood where the grandstands now live were removed
-  { slug: 'tree-cluster', gridX: 2.0,  gridY: -2.6, scale: 1.4 },
+  { slug: 'tree-cluster', gridX: -3.2, gridY: -2.4, scale: 1.4 }, // shifted off the megaboard zone
   { slug: 'tree-cluster', gridX: 14.6, gridY: 6.9,  scale: 1.35 },
   { slug: 'tree-cluster', gridX: -6.8, gridY: -1.6, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: 5.2,  gridY: -3.1, scale: 1.2 },
+  { slug: 'tree-cluster', gridX: 7.6,  gridY: -3.8, scale: 1.2 }, // shifted off the megaboard zone
   { slug: 'tree-cluster', gridX: 16.4, gridY: 6.8,  scale: 1.35 }, // shifted off the relocated lot
   { slug: 'tree-cluster', gridX: 15.6, gridY: 5.9,  scale: 1.15 },
   { slug: 'tree-cluster', gridX: 13.5, gridY: 9.6,  scale: 1.5 },
@@ -676,9 +678,9 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.28 : 1.35;
   // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
   // not the board's geometric middle — so the base reads centered, especially zoomed in.
-  // +80 bias reveals the north grounds (mega-board, grandstands) instead of framing
-  // dead-center on the stadium — the skyline now reads at default camera.
-  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ) + 80; // stadium center (anchor 4,4 → center tile 5,5)
+  // +150 bias reveals the north grounds (megaboard behind the War Room, stands)
+  // instead of framing dead-center on the stadium — the skyline reads at default.
+  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ) + 150; // stadium center (anchor 4,4 → center tile 5,5)
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
     const z = Math.min(3, Math.max(0.85, c.z)); // floor raised: below ~0.85 the grounds rim could peek in
@@ -764,7 +766,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       ...buildings.map(b => ({ object: BUILDING_INFO[b.type].name, col: b.gridX, row: b.gridY, footprint: '2×2' })),
       ...OUTER_DECOR.map(d => ({ object: `decor:${d.slug}${d.flip ? ' (flipped)' : ''}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
       ...DECOR.map(d => ({ object: `decor:${d.slug}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
-      { object: 'megaboard', col: -3, row: -3, footprint: '7t wide (native)' },
+      { object: 'megaboard', col: 1.5, row: -2.8, footprint: '7t wide (native)' },
       ...DRILL_SQUAD.map((r, i) => ({ object: `drill-runner ${i + 1} (${r.slug})`, col: r.gx, row: `${r.gy} → ${r.gy + r.dgy}`, footprint: 'route' })),
     ]);
   }, [buildings]);
