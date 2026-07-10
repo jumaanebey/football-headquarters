@@ -1,5 +1,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+
+// Drops the CC building bar on ANY press outside it — HUD, nav, empty turf, other
+// screens' chrome. Buildings are excluded so pressing one just switches the bar.
+const ClickAwayCloser: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  useEffect(() => {
+    const h = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest('[data-ccbar]') || t.closest('[data-fhq-bldg]'))) return;
+      onClose();
+    };
+    document.addEventListener('pointerdown', h, true);
+    return () => document.removeEventListener('pointerdown', h, true);
+  }, [onClose]);
+  return null;
+};
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
 import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap, buildingTiles, inFootprint, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
@@ -1317,6 +1332,10 @@ function App() {
 
       {/* 🏰 CC-style building bar: tap a building → it stays in view with a spotlight,
           title + upgrade cost over the board, chunky actions below. Info opens the sheet. */}
+      {/* CLICK-AWAY COLLAPSE (Jumaane): any press outside the CC bar and outside a
+          building drops the bar — HUD, nav, empty turf, anywhere. Buildings keep
+          their own click handling (pressing another building just switches the bar). */}
+      {selectedBuilding && !buildingInfoOpen && <ClickAwayCloser onClose={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }} />}
       {selectedBuilding && !buildingInfoOpen && (() => {
         const b = gameState.buildings.find(x => x.id === selectedBuilding.id) ?? selectedBuilding;
         const info = BUILDING_INFO[b.type];
@@ -1334,7 +1353,7 @@ function App() {
           </button>
         );
         return (
-          <div className="fixed left-0 right-0 z-40 flex flex-col items-center gap-1.5 pointer-events-none animate-fade-in" style={{ bottom: 96 }}>
+          <div data-ccbar className="fixed left-0 right-0 z-40 flex flex-col items-center gap-1.5 pointer-events-none animate-fade-in" style={{ bottom: 96 }}>
             <div className="font-display font-black text-white text-xl sm:text-2xl uppercase tracking-tight text-center px-3" style={{ textShadow: '0 2px 6px #000, 0 0 14px rgba(0,0,0,0.8)' }}>
               {info.name} <span className="text-yellow-300">(Level {b.level})</span>
             </div>

@@ -76,10 +76,13 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     // facilities ARE the fort's corner towers. Board is 0..9; 2×2 max anchor is 8.
     anchors: {
       [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 },
-      [BuildingType.TACTICS_ROOM]:   { gridX: 1, gridY: 1 }, // War Room — north corner
-      [BuildingType.YOUTH_ACADEMY]:  { gridX: 7, gridY: 1 }, // Scouting — east corner
-      [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 7 }, // Rehab — west corner
-      [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // Training — south corner
+      // TRUE corner squares (Jumaane, July 2026): facilities own the board's four
+      // extreme corners. (0,0)/(8,8) share the stadium's screen column but sit 4+
+      // tiles of depth away — inside the audit's allowed layering gap.
+      [BuildingType.TACTICS_ROOM]:   { gridX: 0, gridY: 0 }, // War Room — top corner
+      [BuildingType.YOUTH_ACADEMY]:  { gridX: 8, gridY: 0 }, // Scouting — right corner
+      [BuildingType.MEDICAL_CENTER]: { gridX: 0, gridY: 8 }, // Rehab — left corner
+      [BuildingType.TRAINING_PITCH]: { gridX: 8, gridY: 8 }, // Training — bottom corner
     },
     slotPos: {
       D1: { gridX: 4, gridY: 2, covers: 'North pocket' },
@@ -113,10 +116,12 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     // buildings stack on top of each other, scrambling the name tags.
     anchors: {
       [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 },
-      [BuildingType.TACTICS_ROOM]:   { gridX: 2, gridY: 1 }, // War Room — north wall, west end
-      [BuildingType.YOUTH_ACADEMY]:  { gridX: 6, gridY: 1 }, // Scouting — north wall, east end
-      [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 6 }, // Rehab — west wall, south end
-      [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // Training — owns the SE corner
+      // True corner squares (see goalline note) — the wall ring 2..7 stands between
+      // the stadium and the sacrificial corner facilities.
+      [BuildingType.TACTICS_ROOM]:   { gridX: 0, gridY: 0 }, // War Room — top corner
+      [BuildingType.YOUTH_ACADEMY]:  { gridX: 8, gridY: 0 }, // Scouting — right corner
+      [BuildingType.MEDICAL_CENTER]: { gridX: 0, gridY: 8 }, // Rehab — left corner
+      [BuildingType.TRAINING_PITCH]: { gridX: 8, gridY: 8 }, // Training — bottom corner
     },
     slotPos: {
       D1: { gridX: 4, gridY: 3, covers: 'Field ring N' },
@@ -143,10 +148,11 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
     // Same distinct-diagonal shell as Cover 3 (see note there) + the inner keep.
     anchors: {
       [BuildingType.STADIUM]:        { gridX: 4, gridY: 4 },
-      [BuildingType.TACTICS_ROOM]:   { gridX: 2, gridY: 1 },
-      [BuildingType.YOUTH_ACADEMY]:  { gridX: 6, gridY: 1 },
-      [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 6 },
-      [BuildingType.TRAINING_PITCH]: { gridX: 7, gridY: 7 }, // SE corner (matches Cover 3)
+      // True corner squares (matches Cover 3)
+      [BuildingType.TACTICS_ROOM]:   { gridX: 0, gridY: 0 },
+      [BuildingType.YOUTH_ACADEMY]:  { gridX: 8, gridY: 0 },
+      [BuildingType.MEDICAL_CENTER]: { gridX: 0, gridY: 8 },
+      [BuildingType.TRAINING_PITCH]: { gridX: 8, gridY: 8 },
     },
     slotPos: {
       D1: { gridX: 4, gridY: 2, covers: 'North courtyard' },

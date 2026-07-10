@@ -221,9 +221,9 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             </g>
           );
         })}
-        {/* Contact shadows under the big outer props (grandstands, bus) so they sit
-            on the rough instead of hovering */}
-        {([[8.6, -2.6, 2.6], [12.6, 0.2, 2.6], [10.9, 9.55, 1.5]] as const).map(([gx, gy, rr], i) => {
+        {/* Contact shadows under the big outer props (grandstands behind the practice
+            field, the NE mega-board, the bus) so they sit on the rough, not hover */}
+        {([[-5.7, 1.15, 3.4], [-2.5, 1.15, 3.4], [10.6, -1.45, 5.2], [10.9, 9.55, 1.5]] as const).map(([gx, gy, rr], i) => {
           const c = tileToScreen(gx, gy);
           return <ellipse key={`os${i}`} cx={c.x} cy={c.y} rx={TILE_W * rr * 0.62} ry={TILE_H * rr * 0.52} fill="rgba(4,8,5,0.42)" />;
         })}
@@ -281,24 +281,27 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // VEGAS SIZE per Jumaane: a mega-board towering BEHIND the practice field's north
 // end zone (up-screen = behind in iso), dwarfing everything around it.
 const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, fans }) => {
-  // VEGAS RULES: ~2 screens tall, legs planted at the practice field's back line.
-  // At default camera its lower panel looms past the frame's top-left — pan up to
-  // take the whole thing in (CC-style: the world is bigger than the frame).
-  const c = tileToScreen(-4.0, 1.9);
-  const w = TILE_W * 5.4;
+  // 10×5 GREEN SQUARES (Jumaane's spec) on the NE grounds where the grandstands
+  // used to stand — a wide Vegas monolith stretched to exactly 10 tiles across
+  // and 5 tall. The square art stretches 2:1; the panel reads like a real
+  // widescreen jumbotron.
+  const c = tileToScreen(10.6, -1.6);
+  const w = TILE_W * 10;
+  const h = TILE_W * 5;
   const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 1 }}>
-      <div style={{ position: 'absolute', width: w, left: -w / 2, bottom: -TILE_H / 2 }}>
+      <div style={{ position: 'absolute', width: w, height: h, left: -w / 2, bottom: -TILE_H / 2 }}>
         <img src="/assets/decor/scoreboard.png" alt="" draggable={false}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          style={{ width: '100%', height: 'auto', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
-        {/* LED face — aligned + skewed onto the panel art; values pop on change */}
+          style={{ width: '100%', height: '100%', objectFit: 'fill', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
+        {/* LED face — aligned + skewed onto the panel art; values pop on change.
+            The 2:1 stretch flattens the panel's tilt, so the rotation halves. */}
         {trophies !== undefined && (
-          <div className="absolute flex flex-col items-center justify-center gap-[6%]"
-            style={{ left: '39%', top: '27.5%', width: '19%', height: '20%', transform: 'rotate(12.5deg) skewY(2deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
-            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.042, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
-            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.037, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
+          <div className="absolute flex flex-row items-center justify-center gap-[7%]"
+            style={{ left: '39%', top: '27.5%', width: '19%', height: '20%', transform: 'rotate(6.3deg) skewY(1deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
+            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.026, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
+            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.023, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
           </div>
         )}
       </div>
@@ -335,10 +338,10 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
-  // STADIUM STANDS: big covered grandstands filling the NE grounds (Jumaane's
-  // marked-up box) — seats open down-left toward the campus
-  { slug: 'grandstand', gridX: 8.6,  gridY: -3.4, scale: 2.5 },
-  { slug: 'grandstand', gridX: 12.6, gridY: -0.6, scale: 2.5 },
+  // STADIUM STANDS: big covered grandstands BEHIND the practice field (its north
+  // side) — from there the seats genuinely open onto the field. Scaled up hard.
+  { slug: 'grandstand', gridX: -5.7, gridY: 0.5, scale: 3.4 },
+  { slug: 'grandstand', gridX: -2.5, gridY: 0.5, scale: 3.4 },
   { slug: 'parking-lot', gridX: 13.0, gridY: 8.2, scale: 3.1 }, // HUGE per Jumaane — a real game-day lot, clear of the campus
   { slug: 'team-bus',    gridX: 10.9, gridY: 9.4, scale: 1.6 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
@@ -365,7 +368,7 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }
   { slug: 'tree-cluster', gridX: -1.5, gridY: 11.0, scale: 1.4 },
   { slug: 'tree-cluster', gridX: -8.3, gridY: 4.0,  scale: 1.25 },
   { slug: 'tree-cluster', gridX: -8.1, gridY: 7.5,  scale: 1.4 },
-  { slug: 'tree-cluster', gridX: -4.5, gridY: 0.2,  scale: 1.25 },
+  { slug: 'tree-cluster', gridX: -8.6, gridY: 1.0,  scale: 1.25 }, // moved off the grandstand pad
 ];
 
 const BuildingSprite: React.FC<{
@@ -504,7 +507,7 @@ const BuildingSprite: React.FC<{
 
       {/* Tap hitbox — the building's BODY, aligned to the art's true base (the sprite
           bottoms out at the footprint's low vertex, a full tile below center). */}
-      <div className="absolute cursor-pointer" onClick={handleClick}
+      <div data-fhq-bldg className="absolute cursor-pointer" onClick={handleClick}
         style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H, width: SPRITE_W * 0.62, height: TILE_H * 2.3, pointerEvents: 'auto' }} />
 
       {/* Drill status badge */}
@@ -805,20 +808,15 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           })()}
           {sortedBuildings.map((b) => {
             const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
-            // Tag rides the building's own PLINTH. Each art file has different transparent
-            // padding below the pixels, so the baseline is tuned per building type.
-            const TAG_Y: Partial<Record<BuildingType, number>> = {
-              [BuildingType.MEDICAL_CENTER]: 0.22,  // keep-style art sits high in its canvas
-              [BuildingType.STADIUM]: 0.5,
-              [BuildingType.TRAINING_PITCH]: 0.5,   // flat field art
-              [BuildingType.YOUTH_ACADEMY]: 0.35,
-            };
-            // Pin INSIDE the sprite's lower-left corner — any placement outside the art
-            // lands on the neighbor down-screen in iso and reads as their label.
+            // INTEGRATED labels (Jumaane): no more floating black pills — each name is
+            // PAINTED ON THE TURF at the building's feet like groundskeeper stenciling,
+            // skewed onto the iso ground plane (baseline follows the down-right tile
+            // edge, atan(TILE_H/TILE_W) ≈ 26.57° for this 2:1 projection).
             return (
-              <div key={`tag-${b.id}`} className="absolute pointer-events-none" style={{ left: c.x - TILE_W * 0.88, top: c.y - TILE_H * 0.15, zIndex: 46 }}>
-                <span className="text-[10px] font-display font-bold text-white uppercase tracking-tight bg-black/70 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-                  {BUILDING_INFO[b.type].name} <span className="text-yellow-300">L{b.level}</span>
+              <div key={`tag-${b.id}`} className="absolute pointer-events-none" style={{ left: c.x - TILE_W * 0.55, top: c.y + TILE_H * 0.55, zIndex: 46 }}>
+                <span className="font-display font-black uppercase whitespace-nowrap select-none"
+                  style={{ display: 'inline-block', fontSize: 13, letterSpacing: 2.5, color: 'rgba(255,255,255,0.62)', transform: 'skewY(-26.57deg) scaleY(0.9)', transformOrigin: '0 50%', textShadow: '0 1px 0 rgba(0,0,0,0.35)' }}>
+                  {BUILDING_INFO[b.type].name}&nbsp;<span style={{ color: 'rgba(253,186,116,0.95)' }}>{b.level}</span>
                 </span>
               </div>
             );
