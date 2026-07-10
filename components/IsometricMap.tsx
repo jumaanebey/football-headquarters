@@ -331,7 +331,9 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }
   { slug: 'grandstand', gridX: -5.7, gridY: 0.5, scale: 3.4 },
   { slug: 'grandstand', gridX: -2.5, gridY: 0.5, scale: 3.4 },
   { slug: 'parking-lot', gridX: 15.0, gridY: 10.2, scale: 3.1 }, // HUGE, and fully OFF the campus grass — out on the rough at the road's end
-  { slug: 'team-bus',    gridX: 12.3, gridY: 10.8, scale: 1.6 },
+  // Bus parks at the lot's FRONT corner — its old spot was inside the lot's
+  // footprint but behind it in iso depth, so the pad painted over the bus.
+  { slug: 'team-bus',    gridX: 14.2, gridY: 12.9, scale: 1.6 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
