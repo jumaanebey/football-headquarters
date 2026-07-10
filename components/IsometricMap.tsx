@@ -329,11 +329,12 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }[] = [
   // STADIUM STANDS on the practice field's WEST SIDELINE (Jumaane) — mirrored so
   // the seating opens down-right onto the field like real sideline stands.
-  { slug: 'grandstand', gridX: -7.05, gridY: 3.4, scale: 3.0, flip: true },
-  { slug: 'grandstand', gridX: -7.05, gridY: 6.6, scale: 3.0, flip: true },
+  { slug: 'grandstand', gridX: -6.85, gridY: 3.4, scale: 3.0, flip: true },
+  { slug: 'grandstand', gridX: -6.85, gridY: 6.6, scale: 3.0, flip: true },
   { slug: 'parking-lot', gridX: 12.7, gridY: 6.4, scale: 3.1 }, // SW of Scouting with clear grass between — fronts directly onto the road
-  // Bus parks at the lot's FRONT corner (in front in iso depth, never under the pad)
-  { slug: 'team-bus',    gridX: 11.3, gridY: 8.4, scale: 1.6 },
+  // Bus parks ON the lot (front-right pad area, in front in iso depth) — its old
+  // roadside spot read as blocking the roadway (external audit item 4)
+  { slug: 'team-bus',    gridX: 12.9, gridY: 6.05, scale: 1.5 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
@@ -356,8 +357,8 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
   { slug: 'tree-cluster', gridX: 7.2,  gridY: 12.3, scale: 1.5 },
   { slug: 'tree-cluster', gridX: 3.0,  gridY: 11.8, scale: 1.25 },
   { slug: 'tree-cluster', gridX: -1.5, gridY: 11.0, scale: 1.4 },
-  { slug: 'tree-cluster', gridX: -8.3, gridY: 4.0,  scale: 1.25 },
-  { slug: 'tree-cluster', gridX: -8.1, gridY: 7.5,  scale: 1.4 },
+  { slug: 'tree-cluster', gridX: -9.4, gridY: 4.2,  scale: 1.25 }, // clearly BEHIND the sideline stands
+  { slug: 'tree-cluster', gridX: -9.2, gridY: 7.8,  scale: 1.4 },
   { slug: 'tree-cluster', gridX: -8.6, gridY: 1.0,  scale: 1.25 }, // moved off the grandstand pad
 ];
 
