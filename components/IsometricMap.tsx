@@ -317,7 +317,8 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // VEGAS SIZE per Jumaane: a mega-board towering BEHIND the practice field's north
 // end zone (up-screen = behind in iso), dwarfing everything around it.
 // Shipped scoreboard anchor — the editor overrides these via props.
-const BOARD_ANCHOR = { gx: 2.0, gy: -0.4, w: 3.2 };
+// (3.5, -2) per Jumaane's editor layout, July 10 2026.
+const BOARD_ANCHOR = { gx: 3.5, gy: -2, w: 3.2 };
 const Jumbotron: React.FC<{ trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number }> = ({ trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w }) => {
   // BOARD diagonal BEHIND THE WAR ROOM (Jumaane): ribbon-board art (wide panel,
   // short blocks) sloping down-right along the campus's upper-right edge. Width is
@@ -373,47 +374,34 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // The grounds AROUND the campus: practice-field bleachers, the scoreboard over the
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
+// JUMAANE'S LAYOUT (July 10, 2026) — arranged by hand in the ?edit=1 editor on the
+// live site and transplanted verbatim from its export. Future layout rounds should
+// follow the same flow: edit → COPY LAYOUT CODE → paste → transplant.
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
-  // STADIUM STANDS on the practice field's WEST SIDELINE (Jumaane) — mirrored so
-  // the seating opens down-right onto the field like real sideline stands.
-  // Jumaane's grid spec: stands span col -7, rows 2..8 (two 3-row sections)
-  { slug: 'grandstand', gridX: -7, gridY: 3.5, scale: 3.0, flip: true },
-  { slug: 'grandstand', gridX: -7, gridY: 6.5, scale: 3.0, flip: true },
-  // GRID FINDING: the lot PNG's visual pad sits ~3.5 cols / ~2.9 rows up-left of
-  // its anchor (fat transparent margins) — anchor here puts the actual pad surface
-  // at cols ~10.2-13.4 / rows ~2-5.3: off the campus, gap from Scouting, fronting
-  // the road with its base wall.
-  // Audit targets: pad surface cols 10-13.5 / rows 2-5.5, bus in the (10,4)→(12,6)
-  // box. Art now AUTOCROPPED (bottom-anchored square canvases were floating the
-  // pad ~3t above its anchor) — anchor = the pad's bottom corner tile.
-  { slug: 'parking-lot', gridX: 13.7, gridY: 5.7, scale: 3.1 },
-  { slug: 'team-bus',    gridX: 11.5, gridY: 5, scale: 1.5, z: 23 },
-  // Practice-field goalposts (bigger field → posts follow its new center line)
+  { slug: 'grandstand', gridX: -5.5, gridY: 6,  scale: 3, flip: true },
+  { slug: 'grandstand', gridX: -5.5, gridY: 10, scale: 3, flip: true },
+  { slug: 'parking-lot', gridX: 14.5, gridY: 4.5, scale: 3.1 },
+  { slug: 'team-bus',    gridX: 13, gridY: 7, scale: 1.5, flip: true, z: 23 }, // parked on the road, nose west
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
-  // Floodlight masts — OFF the campus corners (poles speared through the War Room
-  // and Training Field per the markup): they light the practice field + parking now
   { slug: 'floodlight', gridX: -7.3, gridY: 1.3,  scale: 2.1 },
-  { slug: 'floodlight', gridX: -7.3, gridY: 9.5,  scale: 2.1 },
-  { slug: 'floodlight', gridX: 13.6, gridY: 5.2,  scale: 2.1 },
+  { slug: 'floodlight', gridX: -6,   gridY: 11.5, scale: 2.1 },
+  { slug: 'floodlight', gridX: -0.7, gridY: 2.1,  scale: 2.1 },
   { slug: 'floodlight', gridX: -0.9, gridY: 11.2, scale: 2.1 },
-  // Tree line framing the grounds — scaled up per the markup ("bigger"); the two
-  // clusters that stood where the grandstands now live were removed
-  { slug: 'tree-cluster', gridX: -3.2, gridY: -2.4, scale: 1.4 }, // shifted off the megaboard zone
-  { slug: 'tree-cluster', gridX: 14.6, gridY: 6.9,  scale: 1.35 },
-  { slug: 'tree-cluster', gridX: -6.8, gridY: -1.6, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: 7.6,  gridY: -3.8, scale: 1.2 }, // shifted off the megaboard zone
-  { slug: 'tree-cluster', gridX: 16.4, gridY: 6.8,  scale: 1.35 }, // shifted off the relocated lot
-  { slug: 'tree-cluster', gridX: 15.6, gridY: 5.9,  scale: 1.15 },
+  { slug: 'tree-cluster', gridX: -4.5, gridY: -0.5, scale: 1.4 },
+  { slug: 'tree-cluster', gridX: 13.5, gridY: 12,   scale: 1.35 },
+  { slug: 'tree-cluster', gridX: -6.5, gridY: 0,    scale: 1.25 },
+  { slug: 'tree-cluster', gridX: 7.5,  gridY: -2.5, scale: 1.2 },
+  { slug: 'tree-cluster', gridX: 9.5,  gridY: 14.5, scale: 1.35 },
+  { slug: 'tree-cluster', gridX: 13.3, gridY: -1,   scale: 1.15 },
   { slug: 'tree-cluster', gridX: 13.5, gridY: 9.6,  scale: 1.5 },
-  { slug: 'tree-cluster', gridX: 11.8, gridY: 11.2, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: 12,   gridY: 13.5, scale: 1.25 },
   { slug: 'tree-cluster', gridX: 7.2,  gridY: 12.3, scale: 1.5 },
-  { slug: 'tree-cluster', gridX: 3.0,  gridY: 11.8, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: -1.5, gridY: 11.0, scale: 1.4 },
-  // Audit rule: no tree in the grandstand footprint (cols -9..-5, rows 2..8)
-  { slug: 'tree-cluster', gridX: -11, gridY: 3,  scale: 1.25 },
-  { slug: 'tree-cluster', gridX: -11, gridY: 8,  scale: 1.4 },
-  { slug: 'tree-cluster', gridX: -8.6, gridY: 1.0,  scale: 1.25 }, // moved off the grandstand pad
+  { slug: 'tree-cluster', gridX: 3,    gridY: 11.8, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: -1.5, gridY: 12.5, scale: 1.4 },
+  { slug: 'tree-cluster', gridX: -4,   gridY: 12.5, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: -7,   gridY: 12,   scale: 1.4 },
+  { slug: 'tree-cluster', gridX: 10.4, gridY: -0.6, scale: 1.25 },
 ];
 
 // ─── 🛠 LAYOUT EDITOR (?edit=1) ────────────────────────────────────────────────
@@ -974,7 +962,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       ...buildings.map(b => ({ object: BUILDING_INFO[b.type].name, col: b.gridX, row: b.gridY, footprint: '2×2' })),
       ...OUTER_DECOR.map(d => ({ object: `decor:${d.slug}${d.flip ? ' (flipped)' : ''}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
       ...DECOR.map(d => ({ object: `decor:${d.slug}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
-      { object: 'ribbonboard (scoreboard)', col: 2.0, row: -0.4, footprint: '3.2t wide (native, cropped)' },
+      { object: 'ribbonboard (scoreboard)', col: BOARD_ANCHOR.gx, row: BOARD_ANCHOR.gy, footprint: `${BOARD_ANCHOR.w}t wide (native, cropped)` },
       ...DRILL_SQUAD.map((r, i) => ({ object: `drill-runner ${i + 1} (${r.slug})`, col: r.gx, row: `${r.gy} → ${r.gy + r.dgy}`, footprint: 'route' })),
     ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
