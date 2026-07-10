@@ -141,13 +141,6 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
           </radialGradient>
-          {/* Building apron: worn ground under each facility so structures sit IN
-              the turf instead of floating on it like stickers. */}
-          <radialGradient id="apronG" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#3d3423" stopOpacity="0.85" />
-            <stop offset="55%" stopColor="#33351f" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#2a3a20" stopOpacity="0" />
-          </radialGradient>
           {/* Outer grounds: dark grass near the campus, deepening outward — NEVER
               transparent (transparent rim = black space, user hated it). The far
               stop matches the backdrop greens so the rim is invisible. */}
@@ -204,34 +197,27 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
         {/* the mowed campus as ONE pattern-filled polygon */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#turfPat)" />
         {bandShades}
-        {/* GROUND INTEGRATION: worn dirt apron + contact shadow under every facility —
-            grass wears away where a building stands, and the dark contact ring kills
-            the pasted-sticker read. */}
-        {buildings.map(b => {
-          // Apron center sits a touch NORTH of the sprite anchor — the art's visual
-          // base reads higher than the tile center (first pass landed the shadows
-          // down-left of every building).
-          const cx = b.gridX + 0.5, cy = b.gridY + 0.15;
-          const t = tileToScreen(cx, cy - 1.4), r = tileToScreen(cx + 1.4, cy), bo = tileToScreen(cx, cy + 1.4), l = tileToScreen(cx - 1.4, cy);
-          const c = tileToScreen(cx, cy);
-          return (
-            <g key={`ap${b.id}`}>
-              <polygon points={`${t.x},${t.y} ${r.x},${r.y} ${bo.x},${bo.y} ${l.x},${l.y}`} fill="url(#apronG)" />
-              <ellipse cx={c.x} cy={c.y} rx={TILE_W * 1.2} ry={TILE_H * 1.0} fill="rgba(6,10,6,0.38)" />
-            </g>
-          );
-        })}
-        {/* Contact shadows under the big outer props (grandstands behind the practice
-            field, the NE mega-board, the bus) so they sit on the rough, not hover */}
-        {([[-5.7, 1.15, 3.4], [-2.5, 1.15, 3.4], [10.6, -1.45, 5.2], [10.9, 9.55, 1.5]] as const).map(([gx, gy, rr], i) => {
-          const c = tileToScreen(gx, gy);
-          return <ellipse key={`os${i}`} cx={c.x} cy={c.y} rx={TILE_W * rr * 0.62} ry={TILE_H * rr * 0.52} fill="rgba(4,8,5,0.42)" />;
-        })}
         {/* boundary: a groundskeeper's line where the mowed campus meets the rough */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth={2.5} />
         {/* soft light pool centered on the Stadium */}
         <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
       </svg>
+      {/* GROUND INTEGRATION v2 (the shadow blobs read as smears — Jumaane): each
+          facility stands on WORN TURF, laid from the same dirt-tile art the walking
+          paths use, so the wear matches the campus's existing tan patches exactly.
+          Footprint tiles wear hardest; entrance and edge tiles fade out. */}
+      {buildings.map(b => {
+        const spots: [number, number, number][] = [
+          [0, 0, 0.9], [1, 0, 0.9], [0, 1, 0.9], [1, 1, 0.9], // the 2×2 footprint
+          [1.7, 0.5, 0.55], [0.5, 1.7, 0.55], [1.6, 1.6, 0.65], // entrance wear, down-screen
+          [-0.6, 0.5, 0.45], [0.5, -0.6, 0.45], // light wear peeking behind
+        ];
+        return spots.map(([dx, dy, op], i) => {
+          const pc = tileToScreen(b.gridX + dx, b.gridY + dy);
+          return <img key={`pad${b.id}-${i}`} src="/assets/ground/dirt-path-tile.png" alt="" draggable={false}
+            style={{ position: 'absolute', left: pc.x - TILE_W / 2, top: pc.y - TILE_H / 2, width: TILE_W, height: TILE_H, maxWidth: 'none', opacity: op, pointerEvents: 'none' }} />;
+        });
+      })}
       {paths}
     </>
   );
@@ -342,8 +328,8 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }
   // side) — from there the seats genuinely open onto the field. Scaled up hard.
   { slug: 'grandstand', gridX: -5.7, gridY: 0.5, scale: 3.4 },
   { slug: 'grandstand', gridX: -2.5, gridY: 0.5, scale: 3.4 },
-  { slug: 'parking-lot', gridX: 13.0, gridY: 8.2, scale: 3.1 }, // HUGE per Jumaane — a real game-day lot, clear of the campus
-  { slug: 'team-bus',    gridX: 10.9, gridY: 9.4, scale: 1.6 },
+  { slug: 'parking-lot', gridX: 15.0, gridY: 10.2, scale: 3.1 }, // HUGE, and fully OFF the campus grass — out on the rough at the road's end
+  { slug: 'team-bus',    gridX: 12.3, gridY: 10.8, scale: 1.6 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
