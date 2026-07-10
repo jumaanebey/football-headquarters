@@ -148,6 +148,16 @@ Movement-focus round — no new features, pure motion polish on battle:
   Edits live in localStorage only; reset returns to the shipped layout.
   Workflow: Jumaane arranges → COPY → paste block to Claude → Claude ships it.
 
+## Jumaane's layout live (shipped 3e9d6bd + 5b44ecd, confirm to close)
+
+- Full grounds arrangement from his editor session transplanted verbatim
+  (stands, lot, bus-on-road, lights, 14 trees, scoreboard at (3.5,-2))
+- Buildings drawn at his spots via HOME_DISPLAY_ANCHORS (home view only —
+  his call). Battle geometry in fixedBase untouched.
+- Accepted trade-off to revisit if it ever bugs him: Test Defense/raids show
+  buildings at their battle anchors, not the home spots. Making them match =
+  redesigning walls/slots of all 3 formations around the new anchors.
+
 ## QB card + walk feedback round (shipped 4996980, confirm to close)
 
 - QB hero card: ball now IN HAND for the whole cycle (cocks back with the windup,
