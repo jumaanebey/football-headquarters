@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
-import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR } from '../constants';
+import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS } from '../constants';
 import { buildingSprite, unitPlayerSprite } from '../assets';
 import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
 
@@ -464,7 +464,8 @@ const genLayoutExport = (l: EditLayout, bldgs: BuildingInstance[]) => {
     `// Scoreboard (ribbonboard): anchor (${f(l.board.gx)}, ${f(l.board.gy)}), width TILE_W * ${f(l.board.w)}`,
     `// Practice field: cols ${f(l.field.x1)} → ${f(l.field.x2)}, rows ${f(l.field.y1)} → ${f(l.field.y2)}`,
     `// Access road: cols ${f(l.road.x1)} → ${f(l.road.x2)}, rows ${f(l.road.y1)} → ${f(l.road.y2)}`,
-    '// Building anchors (fixedBase.ts FORMATIONS):',
+    '// Building display anchors (constants.ts HOME_DISPLAY_ANCHORS — home view only;',
+    '// battle geometry lives in fixedBase.ts FORMATIONS):',
     ...bldgs.map(b => `//   ${b.type}: (${b.gridX}, ${b.gridY})${l.buildings[b.type] ? '  ← MOVED' : ''}`),
   ];
   return lines.join('\n');
@@ -851,16 +852,22 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
 
   const outerList = edit ? edit.outer : OUTER_DECOR;
   const campusList = edit ? edit.campus : DECOR;
+  // Home-board display remap FIRST (Jumaane's layout — battle geometry unaffected),
+  // then any live editor overrides on top of it.
+  const displayBuildings = buildings.map(b => {
+    const o = HOME_DISPLAY_ANCHORS[b.type];
+    return o ? { ...b, gridX: o.gridX, gridY: o.gridY } : b;
+  });
   const shownBuildings = edit
-    ? buildings.map(b => { const o = edit.buildings[b.type]; return o ? { ...b, gridX: o.gx, gridY: o.gy } : b; })
-    : buildings;
+    ? displayBuildings.map(b => { const o = edit.buildings[b.type]; return o ? { ...b, gridX: o.gx, gridY: o.gy } : b; })
+    : displayBuildings;
 
   const selCoords = (l: EditLayout, r: SelRef): { gx: number; gy: number } => {
     switch (r.kind) {
       case 'outer': return { gx: l.outer[r.i].gridX, gy: l.outer[r.i].gridY };
       case 'campus': return { gx: l.campus[r.i].gridX, gy: l.campus[r.i].gridY };
       case 'board': return { gx: l.board.gx, gy: l.board.gy };
-      case 'bldg': { const o = l.buildings[r.t]; if (o) return o; const b = buildings.find(x => x.type === r.t); return { gx: b?.gridX ?? 0, gy: b?.gridY ?? 0 }; }
+      case 'bldg': { const o = l.buildings[r.t]; if (o) return o; const b = displayBuildings.find(x => x.type === r.t); return { gx: b?.gridX ?? 0, gy: b?.gridY ?? 0 }; }
       case 'field': return r.c === 0 ? { gx: l.field.x1, gy: l.field.y1 } : { gx: l.field.x2, gy: l.field.y2 };
       case 'road': return r.c === 0 ? { gx: l.road.x1, gy: l.road.y1 } : { gx: l.road.x2, gy: l.road.y2 };
     }

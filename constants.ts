@@ -187,6 +187,21 @@ export const DECOR: { slug: string; gridX: number; gridY: number; scale: number 
   { slug: 'tailgate-tent',  gridX: 4, gridY: 9, scale: 0.75 },
 ];
 
+// HOME-BOARD DISPLAY ANCHORS (Jumaane's ?edit=1 layout, July 10 2026 — his call:
+// "home board only"): the HOME VIEW draws these buildings here, while fixedBase
+// FORMATIONS keep the tuned battle geometry (walls/slots ring the (4,4) stadium).
+// Applies to the home board's sprites, worn-turf pads, labels, and walker targets —
+// NEVER to defense/battle/replay views or the published layout attackers fight.
+export const HOME_DISPLAY_ANCHORS: Partial<Record<BuildingType, { gridX: number; gridY: number }>> = {
+  [BuildingType.STADIUM]:        { gridX: 6, gridY: 4 },
+  [BuildingType.YOUTH_ACADEMY]:  { gridX: 8, gridY: 1 },
+  [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 8 },
+  [BuildingType.TRAINING_PITCH]: { gridX: 8, gridY: 8 },
+};
+/** A building's home-board display position (falls back to its real anchor). */
+export const displayAnchorOf = (b: { type: BuildingType; gridX: number; gridY: number }) =>
+  HOME_DISPLAY_ANCHORS[b.type] ?? { gridX: b.gridX, gridY: b.gridY };
+
 // Steeper curve so upgrades are a real coin sink: you can't afford every building's
 // next level at once — you choose. L1→2=1400, 2→3≈2380, 3→4≈4046, 4→5≈6879, 5→6≈11695.
 export const UPGRADE_CONFIG = {

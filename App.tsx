@@ -30,7 +30,7 @@ import { ObjectiveBanner } from './components/ObjectiveBanner';
 import { TourPointer } from './components/TourPointer';
 import { GoalId } from './objectives';
 import { computeDefenseRating, defenseTroopBoost } from './defense';
-import { tendencyFromId, TENDENCIES, TendencyKey } from './constants';
+import { tendencyFromId, TENDENCIES, TendencyKey, displayAnchorOf } from './constants';
 import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
@@ -449,8 +449,10 @@ function App() {
         // 3. Player AI — off-duty DEFENSIVE players visibly patrol the stadium (your
         //    defense isn't an abstract stat: the guys you recruited walk the beat).
         const stadiumB = prev.buildings.find(b => b.type === BuildingType.STADIUM);
+        // Patrol the stadium WHERE IT'S DRAWN (home-display anchor), not its battle anchor
+        const stadiumDA = stadiumB ? displayAnchorOf(stadiumB) : null;
         const patrolPoint = () => {
-          const cx = (stadiumB?.gridX ?? 6) * 10 + 5, cy = (stadiumB?.gridY ?? 6) * 10 + 5; // 2×2 footprint center
+          const cx = (stadiumDA?.gridX ?? 6) * 10 + 5, cy = (stadiumDA?.gridY ?? 6) * 10 + 5; // 2×2 footprint center
           const ang = Math.random() * Math.PI * 2, rad = 11 + Math.random() * 6;
           return {
             x: Math.min(94, Math.max(6, cx + Math.cos(ang) * rad)),
@@ -560,8 +562,9 @@ function App() {
     sfx.click();
 
     setGameState(prev => {
-      const pitchTargetX = freePitch.gridX * 10 + 10; // center of the 2×2 practice field
-      const pitchTargetY = freePitch.gridY * 10 + 10;
+      const pitchDA = displayAnchorOf(freePitch); // walk to where the pitch is DRAWN on the home board
+      const pitchTargetX = pitchDA.gridX * 10 + 10; // center of the 2×2 practice field
+      const pitchTargetY = pitchDA.gridY * 10 + 10;
 
       return {
         ...prev,
