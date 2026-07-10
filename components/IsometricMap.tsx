@@ -240,18 +240,52 @@ export const screenToTile = (bx: number, by: number) => {
 };
 export const BOARD_DIMS = { w: BOARD_W, h: BOARD_H };
 
-const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }> = ({ slug, gridX, gridY, scale, flip }) => {
+const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }> = ({ slug, gridX, gridY, scale, flip, z }) => {
   const c = tileToScreen(gridX, gridY);
   const w = TILE_W * 1.35 * scale;
   // Outer-grounds props sit at out-of-grid coords whose row sum can go negative —
   // clamp so they never stack UNDER the ground plane itself. `flip` mirrors the art
   // so directional props (grandstand seating) can face the other iso quadrant.
   return (
-    <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: Math.max(1, Math.round(gridX + gridY)) }}>
+    <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: Math.max(1, Math.round(z ?? gridX + gridY)) }}>
       <img src={`/assets/decor/${slug}.png`} alt="" draggable={false}
         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
     </div>
+  );
+};
+
+// 🔍 DEBUG GRID (?grid=1): iso tile lines + (col,row) labels + compass, so layout
+// requests can be given as exact tile coordinates instead of "top-left-ish".
+// Campus tiles 0..9 draw solid with every label; outer grounds draw dashed with
+// every-2nd labels. Pure overlay — pointer-events none, zIndex above everything.
+const GRID_ON = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('grid');
+const GridOverlay: React.FC = () => {
+  const LO = -10, HI = 18;
+  const lines: JSX.Element[] = [];
+  for (let i = LO; i <= HI; i++) {
+    const a1 = tileToScreen(i - 0.5, LO - 0.5), a2 = tileToScreen(i - 0.5, HI + 0.5);
+    const b1 = tileToScreen(LO - 0.5, i - 0.5), b2 = tileToScreen(HI + 0.5, i - 0.5);
+    const onCampus = i >= 0 && i <= 10;
+    lines.push(<line key={`gx${i}`} x1={a1.x} y1={a1.y} x2={a2.x} y2={a2.y} stroke={onCampus ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.14)'} strokeWidth={1} strokeDasharray={onCampus ? undefined : '4 6'} />);
+    lines.push(<line key={`gy${i}`} x1={b1.x} y1={b1.y} x2={b2.x} y2={b2.y} stroke={onCampus ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.14)'} strokeWidth={1} strokeDasharray={onCampus ? undefined : '4 6'} />);
+  }
+  const labels: JSX.Element[] = [];
+  for (let gx = LO; gx <= HI - 1; gx++) for (let gy = LO; gy <= HI - 1; gy++) {
+    const onCampus = gx >= 0 && gx <= 9 && gy >= 0 && gy <= 9;
+    if (!onCampus && (gx % 2 !== 0 || gy % 2 !== 0)) continue;
+    const c = tileToScreen(gx, gy);
+    labels.push(<text key={`t${gx},${gy}`} x={c.x} y={c.y + 3} textAnchor="middle" fontSize={9} fontFamily="monospace" fill={onCampus ? 'rgba(255,255,150,0.85)' : 'rgba(255,255,255,0.4)'}>{gx},{gy}</text>);
+  }
+  return (
+    <>
+      <svg className="absolute pointer-events-none" style={{ left: 0, top: 0, width: BOARD_W, height: BOARD_H, overflow: 'visible', zIndex: 500 }}>
+        {lines}{labels}
+      </svg>
+      <div className="absolute pointer-events-none font-mono text-[11px] leading-tight text-white bg-black/70 rounded px-2 py-1" style={{ left: 8, top: 8, zIndex: 501 }}>
+        GRID (col,row) · +col ↘ down-right · +row ↙ down-left<br />campus = 0..9 solid · grounds dashed
+      </div>
+    </>
   );
 };
 
@@ -270,13 +304,13 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // VEGAS SIZE per Jumaane: a mega-board towering BEHIND the practice field's north
 // end zone (up-screen = behind in iso), dwarfing everything around it.
 const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, fans }) => {
-  // 10×5 GREEN SQUARES (Jumaane's spec) on the NE grounds where the grandstands
-  // used to stand — a wide Vegas monolith stretched to exactly 10 tiles across
-  // and 5 tall. The square art stretches 2:1; the panel reads like a real
-  // widescreen jumbotron.
-  const c = tileToScreen(10.6, -1.6);
-  const w = TILE_W * 10;
-  const h = TILE_W * 5;
+  // FIELD-END JUMBOTRON (external audit, endorsed): width ≈ the practice field's
+  // playing length, legs behind the north end zone — anchored to the venue, not
+  // floating on background rough. At this size it fits the default camera (the
+  // 10×5 monster could only live off-field; it hid the frame or the field).
+  const c = tileToScreen(-3.95, 1.6);
+  const w = TILE_W * 3.9;
+  const h = w / 2;
   const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 1 }}>
@@ -326,15 +360,18 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // The grounds AROUND the campus: practice-field bleachers, the scoreboard over the
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
-const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }[] = [
+const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
   // STADIUM STANDS on the practice field's WEST SIDELINE (Jumaane) — mirrored so
   // the seating opens down-right onto the field like real sideline stands.
   { slug: 'grandstand', gridX: -6.85, gridY: 3.4, scale: 3.0, flip: true },
   { slug: 'grandstand', gridX: -6.85, gridY: 6.6, scale: 3.0, flip: true },
-  { slug: 'parking-lot', gridX: 12.7, gridY: 6.4, scale: 3.1 }, // SW of Scouting with clear grass between — fronts directly onto the road
-  // Bus parks ON the lot (front-right pad area, in front in iso depth) — its old
-  // roadside spot read as blocking the roadway (external audit item 4)
-  { slug: 'team-bus',    gridX: 12.9, gridY: 6.05, scale: 1.5 },
+  // GRID FINDING: the lot PNG's visual pad sits ~3.5 cols / ~2.9 rows up-left of
+  // its anchor (fat transparent margins) — anchor here puts the actual pad surface
+  // at cols ~10.2-13.4 / rows ~2-5.3: off the campus, gap from Scouting, fronting
+  // the road with its base wall.
+  { slug: 'parking-lot', gridX: 15.3, gridY: 6.6, scale: 3.1 },
+  // Bus ON the pad surface (z override: anchor-sum depth would paint it under)
+  { slug: 'team-bus',    gridX: 13.0, gridY: 3.35, scale: 1.5, z: 23 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
@@ -721,6 +758,19 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   // (Day/night ambient tint removed — the board "dimming itself" read as a bug,
   // not atmosphere. The backdrop is permanently stadium-night with floodlights.)
   const sortedBuildings = [...buildings].sort((a, b) => (a.gridX + a.gridY) - (b.gridX + b.gridY));
+  // ?grid=1 readout: every placed object with its tile coordinate + footprint,
+  // so positions can be read straight off the console next to the visual grid.
+  useEffect(() => {
+    if (!GRID_ON) return;
+    /* eslint-disable no-console */
+    console.table([
+      ...buildings.map(b => ({ object: BUILDING_INFO[b.type].name, col: b.gridX, row: b.gridY, footprint: '2×2' })),
+      ...OUTER_DECOR.map(d => ({ object: `decor:${d.slug}${d.flip ? ' (flipped)' : ''}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
+      ...DECOR.map(d => ({ object: `decor:${d.slug}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
+      { object: 'jumbotron', col: -3.95, row: 1.6, footprint: '3.9t × 2t (2:1 stretch)' },
+      ...DRILL_SQUAD.map((r, i) => ({ object: `drill-runner ${i + 1} (${r.slug})`, col: r.gx, row: `${r.gy} → ${r.gy + r.dgy}`, footprint: 'route' })),
+    ]);
+  }, [buildings]);
   // Only render players who are heading to / at a drill.
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
 
@@ -753,6 +803,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
           ))}
+          {GRID_ON && <GridOverlay />}
           {DECOR.map((d) => (
             <DecorSprite key={d.slug} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
