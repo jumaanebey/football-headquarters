@@ -185,12 +185,17 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             </g>
           );
         })()}
-        {/* ACCESS ROAD: asphalt running from the parking lot east off the grounds */}
+        {/* ACCESS ROAD: asphalt across the SE rough, plus a spur turning north up to
+            the parking lot beside the Scouting Dept */}
         {(() => {
           const a = tileToScreen(9.9, 7.0), b = tileToScreen(16.5, 7.0), c = tileToScreen(16.5, 8.3), d = tileToScreen(9.9, 8.3);
           const m1 = tileToScreen(10.2, 7.65), m2 = tileToScreen(16.5, 7.65);
+          const sa = tileToScreen(12.9, 7.0), sb = tileToScreen(14.1, 7.0), sc = tileToScreen(14.1, 4.3), sd = tileToScreen(12.9, 4.3);
+          const s1 = tileToScreen(13.5, 6.8), s2 = tileToScreen(13.5, 4.4);
           return (
             <g>
+              <polygon points={`${sa.x},${sa.y} ${sb.x},${sb.y} ${sc.x},${sc.y} ${sd.x},${sd.y}`} fill="#20242b" opacity="0.9" />
+              <line x1={s1.x} y1={s1.y} x2={s2.x} y2={s2.y} stroke="#c9a13b" strokeWidth={1.6} strokeDasharray="10 12" opacity="0.7" />
               <polygon points={`${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`} fill="#20242b" opacity="0.9" />
               <line x1={m1.x} y1={m1.y} x2={m2.x} y2={m2.y} stroke="#c9a13b" strokeWidth={1.6} strokeDasharray="10 12" opacity="0.7" />
             </g>
@@ -330,10 +335,9 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }
   // side) — from there the seats genuinely open onto the field. Scaled up hard.
   { slug: 'grandstand', gridX: -5.7, gridY: 0.5, scale: 3.4 },
   { slug: 'grandstand', gridX: -2.5, gridY: 0.5, scale: 3.4 },
-  { slug: 'parking-lot', gridX: 15.0, gridY: 10.2, scale: 3.1 }, // HUGE, and fully OFF the campus grass — out on the rough at the road's end
-  // Bus parks at the lot's FRONT corner — its old spot was inside the lot's
-  // footprint but behind it in iso depth, so the pad painted over the bus.
-  { slug: 'team-bus',    gridX: 14.2, gridY: 12.9, scale: 1.6 },
+  { slug: 'parking-lot', gridX: 13.4, gridY: 2.2, scale: 3.1 }, // HUGE, beside the Scouting Dept on the east grounds (was straddling the street)
+  // Bus parks at the lot's FRONT corner (in front in iso depth, never under the pad)
+  { slug: 'team-bus',    gridX: 12.6, gridY: 4.95, scale: 1.6 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
@@ -349,8 +353,8 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }
   { slug: 'tree-cluster', gridX: 14.6, gridY: 6.9,  scale: 1.35 },
   { slug: 'tree-cluster', gridX: -6.8, gridY: -1.6, scale: 1.25 },
   { slug: 'tree-cluster', gridX: 5.2,  gridY: -3.1, scale: 1.2 },
-  { slug: 'tree-cluster', gridX: 13.6, gridY: 2.6,  scale: 1.35 },
-  { slug: 'tree-cluster', gridX: 13.9, gridY: 4.6,  scale: 1.15 },
+  { slug: 'tree-cluster', gridX: 16.4, gridY: 6.8,  scale: 1.35 }, // shifted off the relocated lot
+  { slug: 'tree-cluster', gridX: 15.6, gridY: 5.9,  scale: 1.15 },
   { slug: 'tree-cluster', gridX: 13.5, gridY: 9.6,  scale: 1.5 },
   { slug: 'tree-cluster', gridX: 11.8, gridY: 11.2, scale: 1.25 },
   { slug: 'tree-cluster', gridX: 7.2,  gridY: 12.3, scale: 1.5 },
