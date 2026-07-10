@@ -185,17 +185,12 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
             </g>
           );
         })()}
-        {/* ACCESS ROAD: asphalt across the SE rough, plus a spur turning north up to
-            the parking lot beside the Scouting Dept */}
+        {/* ACCESS ROAD: asphalt across the SE rough — the parking lot fronts onto it */}
         {(() => {
           const a = tileToScreen(9.9, 7.0), b = tileToScreen(16.5, 7.0), c = tileToScreen(16.5, 8.3), d = tileToScreen(9.9, 8.3);
           const m1 = tileToScreen(10.2, 7.65), m2 = tileToScreen(16.5, 7.65);
-          const sa = tileToScreen(12.9, 7.0), sb = tileToScreen(14.1, 7.0), sc = tileToScreen(14.1, 4.3), sd = tileToScreen(12.9, 4.3);
-          const s1 = tileToScreen(13.5, 6.8), s2 = tileToScreen(13.5, 4.4);
           return (
             <g>
-              <polygon points={`${sa.x},${sa.y} ${sb.x},${sb.y} ${sc.x},${sc.y} ${sd.x},${sd.y}`} fill="#20242b" opacity="0.9" />
-              <line x1={s1.x} y1={s1.y} x2={s2.x} y2={s2.y} stroke="#c9a13b" strokeWidth={1.6} strokeDasharray="10 12" opacity="0.7" />
               <polygon points={`${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`} fill="#20242b" opacity="0.9" />
               <line x1={m1.x} y1={m1.y} x2={m2.x} y2={m2.y} stroke="#c9a13b" strokeWidth={1.6} strokeDasharray="10 12" opacity="0.7" />
             </g>
@@ -334,11 +329,11 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }[] = [
   // STADIUM STANDS on the practice field's WEST SIDELINE (Jumaane) — mirrored so
   // the seating opens down-right onto the field like real sideline stands.
-  { slug: 'grandstand', gridX: -7.7, gridY: 3.4, scale: 3.0, flip: true },
-  { slug: 'grandstand', gridX: -7.7, gridY: 6.6, scale: 3.0, flip: true },
-  { slug: 'parking-lot', gridX: 13.4, gridY: 2.2, scale: 3.1 }, // HUGE, beside the Scouting Dept on the east grounds (was straddling the street)
+  { slug: 'grandstand', gridX: -7.05, gridY: 3.4, scale: 3.0, flip: true },
+  { slug: 'grandstand', gridX: -7.05, gridY: 6.6, scale: 3.0, flip: true },
+  { slug: 'parking-lot', gridX: 12.7, gridY: 6.4, scale: 3.1 }, // SW of Scouting with clear grass between — fronts directly onto the road
   // Bus parks at the lot's FRONT corner (in front in iso depth, never under the pad)
-  { slug: 'team-bus',    gridX: 12.6, gridY: 4.95, scale: 1.6 },
+  { slug: 'team-bus',    gridX: 11.3, gridY: 8.4, scale: 1.6 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
