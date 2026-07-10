@@ -304,27 +304,23 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // VEGAS SIZE per Jumaane: a mega-board towering BEHIND the practice field's north
 // end zone (up-screen = behind in iso), dwarfing everything around it.
 const Jumbotron: React.FC<{ trophies?: number; fans?: number }> = ({ trophies, fans }) => {
-  // FIELD-END JUMBOTRON (external audit, endorsed): width ≈ the practice field's
-  // playing length, legs behind the north end zone — anchored to the venue, not
-  // floating on background rough. At this size it fits the default camera (the
-  // 10×5 monster could only live off-field; it hid the frame or the field).
-  const c = tileToScreen(-3.95, 1.6);
-  const w = TILE_W * 3.9;
-  const h = w / 2;
+  // MEGABOARD at (-3,-3) per Jumaane's grid spec — new board-only art (wide panel
+  // on two short blocks, no tower), sized huge. Native aspect, no stretch.
+  const c = tileToScreen(-3, -3);
+  const w = TILE_W * 7;
   const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 1 }}>
-      <div style={{ position: 'absolute', width: w, height: h, left: -w / 2, bottom: -TILE_H / 2 }}>
-        <img src="/assets/decor/scoreboard.png" alt="" draggable={false}
+      <div style={{ position: 'absolute', width: w, height: w, left: -w / 2, bottom: -TILE_H / 2 }}>
+        <img src="/assets/decor/megaboard.png" alt="" draggable={false}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          style={{ width: '100%', height: '100%', objectFit: 'fill', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
-        {/* LED face — aligned + skewed onto the panel art; values pop on change.
-            The 2:1 stretch flattens the panel's tilt, so the rotation halves. */}
+          style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
+        {/* LED face — rotated onto the panel at the iso angle; values pop on change */}
         {trophies !== undefined && (
-          <div className="absolute flex flex-row items-center justify-center gap-[7%]"
-            style={{ left: '39%', top: '27.5%', width: '19%', height: '20%', transform: 'rotate(6.3deg) skewY(1deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
-            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.026, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
-            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.023, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
+          <div className="absolute flex flex-col items-center justify-center gap-[4%]"
+            style={{ left: '37.5%', top: '27%', width: '26%', height: '24%', transform: 'rotate(26.5deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
+            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.034, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
+            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.03, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
           </div>
         )}
       </div>
@@ -363,15 +359,16 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
   // STADIUM STANDS on the practice field's WEST SIDELINE (Jumaane) — mirrored so
   // the seating opens down-right onto the field like real sideline stands.
-  { slug: 'grandstand', gridX: -6.85, gridY: 3.4, scale: 3.0, flip: true },
-  { slug: 'grandstand', gridX: -6.85, gridY: 6.6, scale: 3.0, flip: true },
+  // Jumaane's grid spec: stands span col -7, rows 2..8 (two 3-row sections)
+  { slug: 'grandstand', gridX: -7, gridY: 3.5, scale: 3.0, flip: true },
+  { slug: 'grandstand', gridX: -7, gridY: 6.5, scale: 3.0, flip: true },
   // GRID FINDING: the lot PNG's visual pad sits ~3.5 cols / ~2.9 rows up-left of
   // its anchor (fat transparent margins) — anchor here puts the actual pad surface
   // at cols ~10.2-13.4 / rows ~2-5.3: off the campus, gap from Scouting, fronting
   // the road with its base wall.
   { slug: 'parking-lot', gridX: 15.3, gridY: 6.6, scale: 3.1 },
-  // Bus ON the pad surface (z override: anchor-sum depth would paint it under)
-  { slug: 'team-bus',    gridX: 13.0, gridY: 3.35, scale: 1.5, z: 23 },
+  // Jumaane's grid spec: bus spans (10,6)→(12,6) — along the lot's front apron
+  { slug: 'team-bus',    gridX: 11, gridY: 6, scale: 1.5, z: 23 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
@@ -450,7 +447,7 @@ const BuildingSprite: React.FC<{
     else onBuildingClick(building, screenPos);
   };
 
-  const SPRITE_W = TILE_W * 1.9; // fills the 2×2 footprint — buildings OWN their 4 tiles
+  const SPRITE_W = TILE_W * 2.3; // renders ~15% past the 2×2 footprint — proportion pass (Jumaane: buildings read small vs field/lot); footprint & anchors unchanged
 
   // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
   // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
@@ -767,7 +764,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       ...buildings.map(b => ({ object: BUILDING_INFO[b.type].name, col: b.gridX, row: b.gridY, footprint: '2×2' })),
       ...OUTER_DECOR.map(d => ({ object: `decor:${d.slug}${d.flip ? ' (flipped)' : ''}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
       ...DECOR.map(d => ({ object: `decor:${d.slug}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
-      { object: 'jumbotron', col: -3.95, row: 1.6, footprint: '3.9t × 2t (2:1 stretch)' },
+      { object: 'megaboard', col: -3, row: -3, footprint: '7t wide (native)' },
       ...DRILL_SQUAD.map((r, i) => ({ object: `drill-runner ${i + 1} (${r.slug})`, col: r.gx, row: `${r.gy} → ${r.gy + r.dgy}`, footprint: 'route' })),
     ]);
   }, [buildings]);
