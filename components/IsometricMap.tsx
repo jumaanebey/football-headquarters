@@ -171,15 +171,17 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[] }> = ({ buildin
           }
           return (
             <g>
-              <polygon points={fc(FY1, FY2)} fill="#1c4729" />
+              {/* brighter than the rough by a clear step — on real screens the old
+                  #1c4729 read as a black void with lines (prod screenshot, Jul 10) */}
+              <polygon points={fc(FY1, FY2)} fill="#265934" />
               {/* mow bands */}
-              <polygon points={fc(3.2, 4.5)} fill="rgba(255,255,255,0.05)" />
-              <polygon points={fc(5.8, 7.1)} fill="rgba(255,255,255,0.05)" />
+              <polygon points={fc(3.2, 4.5)} fill="rgba(255,255,255,0.07)" />
+              <polygon points={fc(5.8, 7.1)} fill="rgba(255,255,255,0.07)" />
               {/* end zones */}
-              <polygon points={fc(FY1, 2.8)} fill="rgba(249,115,22,0.28)" />
-              <polygon points={fc(8.2, FY2)} fill="rgba(17,24,39,0.45)" />
+              <polygon points={fc(FY1, 2.8)} fill="rgba(249,115,22,0.32)" />
+              <polygon points={fc(8.2, FY2)} fill="rgba(17,24,39,0.4)" />
               {stripes}
-              <polygon points={fc(FY1, FY2)} fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth={2} />
+              <polygon points={fc(FY1, FY2)} fill="none" stroke="rgba(255,255,255,0.34)" strokeWidth={2} />
             </g>
           );
         })()}
