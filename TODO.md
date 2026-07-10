@@ -140,6 +140,14 @@ Movement-focus round — no new features, pure motion polish on battle:
   board, deploy-zone shimmer while holding a card, a coach figure watching
   the drills with a whistle beat
 
+## Layout editor (shipped 044ce8d, confirm to close)
+
+- `?edit=1` — drag any board piece (decor, buildings, scoreboard, practice field,
+  road) with grid snapping, flip/scale/z controls, duplicate/delete for decor,
+  and a COPY LAYOUT CODE button that exports paste-ready coordinates.
+  Edits live in localStorage only; reset returns to the shipped layout.
+  Workflow: Jumaane arranges → COPY → paste block to Claude → Claude ships it.
+
 ## QB card + walk feedback round (shipped 4996980, confirm to close)
 
 - QB hero card: ball now IN HAND for the whole cycle (cocks back with the windup,
