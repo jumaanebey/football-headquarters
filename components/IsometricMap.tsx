@@ -245,16 +245,17 @@ export const screenToTile = (bx: number, by: number) => {
 };
 export const BOARD_DIMS = { w: BOARD_W, h: BOARD_H };
 
-const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale: number }> = ({ slug, gridX, gridY, scale }) => {
+const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }> = ({ slug, gridX, gridY, scale, flip }) => {
   const c = tileToScreen(gridX, gridY);
   const w = TILE_W * 1.35 * scale;
   // Outer-grounds props sit at out-of-grid coords whose row sum can go negative —
-  // clamp so they never stack UNDER the ground plane itself.
+  // clamp so they never stack UNDER the ground plane itself. `flip` mirrors the art
+  // so directional props (grandstand seating) can face the other iso quadrant.
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: Math.max(1, Math.round(gridX + gridY)) }}>
       <img src={`/assets/decor/${slug}.png`} alt="" draggable={false}
         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
+        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
     </div>
   );
 };
@@ -330,11 +331,11 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // The grounds AROUND the campus: practice-field bleachers, the scoreboard over the
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
-const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number }[] = [
-  // STADIUM STANDS: big covered grandstands BEHIND the practice field (its north
-  // side) — from there the seats genuinely open onto the field. Scaled up hard.
-  { slug: 'grandstand', gridX: -5.7, gridY: 0.5, scale: 3.4 },
-  { slug: 'grandstand', gridX: -2.5, gridY: 0.5, scale: 3.4 },
+const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }[] = [
+  // STADIUM STANDS on the practice field's WEST SIDELINE (Jumaane) — mirrored so
+  // the seating opens down-right onto the field like real sideline stands.
+  { slug: 'grandstand', gridX: -7.7, gridY: 3.4, scale: 3.0, flip: true },
+  { slug: 'grandstand', gridX: -7.7, gridY: 6.6, scale: 3.0, flip: true },
   { slug: 'parking-lot', gridX: 13.4, gridY: 2.2, scale: 3.1 }, // HUGE, beside the Scouting Dept on the east grounds (was straddling the street)
   // Bus parks at the lot's FRONT corner (in front in iso depth, never under the pad)
   { slug: 'team-bus',    gridX: 12.6, gridY: 4.95, scale: 1.6 },
@@ -751,7 +752,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               north goalpost and everything south of it must layer in front. */}
           <Jumbotron trophies={trophies} fans={fans} />
           {OUTER_DECOR.map((d, i) => (
-            <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
+            <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} />
           ))}
           {DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
