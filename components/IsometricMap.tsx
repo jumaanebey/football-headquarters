@@ -368,9 +368,11 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
   // its anchor (fat transparent margins) — anchor here puts the actual pad surface
   // at cols ~10.2-13.4 / rows ~2-5.3: off the campus, gap from Scouting, fronting
   // the road with its base wall.
-  { slug: 'parking-lot', gridX: 15.3, gridY: 6.6, scale: 3.1 },
-  // Jumaane's grid spec: bus spans (10,6)→(12,6) — along the lot's front apron
-  { slug: 'team-bus',    gridX: 11, gridY: 6, scale: 1.5, z: 23 },
+  // Audit targets: pad surface cols 10-13.5 / rows 2-5.5, bus in the (10,4)→(12,6)
+  // box. Art now AUTOCROPPED (bottom-anchored square canvases were floating the
+  // pad ~3t above its anchor) — anchor = the pad's bottom corner tile.
+  { slug: 'parking-lot', gridX: 13.7, gridY: 5.7, scale: 3.1 },
+  { slug: 'team-bus',    gridX: 11.5, gridY: 5, scale: 1.5, z: 23 },
   // Practice-field goalposts (bigger field → posts follow its new center line)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
@@ -393,8 +395,9 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
   { slug: 'tree-cluster', gridX: 7.2,  gridY: 12.3, scale: 1.5 },
   { slug: 'tree-cluster', gridX: 3.0,  gridY: 11.8, scale: 1.25 },
   { slug: 'tree-cluster', gridX: -1.5, gridY: 11.0, scale: 1.4 },
-  { slug: 'tree-cluster', gridX: -9.4, gridY: 4.2,  scale: 1.25 }, // clearly BEHIND the sideline stands
-  { slug: 'tree-cluster', gridX: -9.2, gridY: 7.8,  scale: 1.4 },
+  // Audit rule: no tree in the grandstand footprint (cols -9..-5, rows 2..8)
+  { slug: 'tree-cluster', gridX: -11, gridY: 3,  scale: 1.25 },
+  { slug: 'tree-cluster', gridX: -11, gridY: 8,  scale: 1.4 },
   { slug: 'tree-cluster', gridX: -8.6, gridY: 1.0,  scale: 1.25 }, // moved off the grandstand pad
 ];
 
@@ -759,6 +762,9 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const sortedBuildings = [...buildings].sort((a, b) => (a.gridX + a.gridY) - (b.gridX + b.gridY));
   // ?grid=1 readout: every placed object with its tile coordinate + footprint,
   // so positions can be read straight off the console next to the visual grid.
+  // Keyed on serialized placements — `buildings` is a fresh array every render,
+  // which made this table spam the console on every animation tick.
+  const gridReadoutKey = GRID_ON ? buildings.map(b => `${b.type}@${b.gridX},${b.gridY}`).join('|') : '';
   useEffect(() => {
     if (!GRID_ON) return;
     /* eslint-disable no-console */
@@ -766,10 +772,11 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       ...buildings.map(b => ({ object: BUILDING_INFO[b.type].name, col: b.gridX, row: b.gridY, footprint: '2×2' })),
       ...OUTER_DECOR.map(d => ({ object: `decor:${d.slug}${d.flip ? ' (flipped)' : ''}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
       ...DECOR.map(d => ({ object: `decor:${d.slug}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
-      { object: 'megaboard', col: 1.5, row: -2.8, footprint: '7t wide (native)' },
+      { object: 'ribbonboard (scoreboard)', col: 2.0, row: -0.4, footprint: '3.2t wide (native, cropped)' },
       ...DRILL_SQUAD.map((r, i) => ({ object: `drill-runner ${i + 1} (${r.slug})`, col: r.gx, row: `${r.gy} → ${r.gy + r.dgy}`, footprint: 'route' })),
     ]);
-  }, [buildings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridReadoutKey]);
   // Only render players who are heading to / at a drill.
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
 
@@ -797,7 +804,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               north goalpost and everything south of it must layer in front. */}
           <Jumbotron trophies={trophies} fans={fans} />
           {OUTER_DECOR.map((d, i) => (
-            <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} />
+            <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
           ))}
           {DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
