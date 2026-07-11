@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
-import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS } from '../constants';
+import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS, GROWTH_TIERS } from '../constants';
 import { buildingSprite, unitPlayerSprite } from '../assets';
 import { sfx } from '../sound';
 import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
@@ -28,6 +28,7 @@ interface Props {
   clubName?: string;
   trophies?: number;
   fans?: number;
+  onOpenStats?: () => void;            // tap the jumbotron → Club Dashboard
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollectResource?: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -348,28 +349,30 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // grows — vendors appear first, a fan camp pitches beside the stadium, then a full
 // tailgate city with parked cars. Purely visual, driven by the live fan count;
 // each stage keeps everything from the stages before it. New clubs see an empty
-// campus — the city IS the reward for growing your fans.
-const GROWTH_STAGES: { minFans: number; name: string; props: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }[] }[] = [
-  { minFans: 250, name: 'game-day vendors', props: [
+// campus — the city IS the reward for growing your fans. Thresholds + names come
+// from GROWTH_TIERS (shared with the Club Dashboard); placements live here.
+const GROWTH_PROPS: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }[][] = [
+  [ // tier 1 — game-day vendors
     { slug: 'food-truck',  gridX: 11.3, gridY: 6.35, scale: 1.0 },  // road shoulder by the lot
     { slug: 'merch-stand', gridX: 3,    gridY: 9.7,  scale: 0.7 },  // walk-up stand on the south apron
-  ]},
-  { minFans: 1200, name: 'fan camp', props: [
+  ],
+  [ // tier 2 — fan camp
     { slug: 'fan-tents',  gridX: 6,   gridY: 9.9,  scale: 1.15 },   // camp pitches on the apron
     { slug: 'food-truck', gridX: 7.8, gridY: 10.5, scale: 0.95, flip: true },
-  ]},
-  { minFans: 5000, name: 'tailgate row', props: [
+  ],
+  [ // tier 3 — tailgate row
     { slug: 'fan-tents',  gridX: 3.9,  gridY: 11.5, scale: 1.2 },   // spaced off the Rehab base (review: cluster crowded it)
     { slug: 'car-orange', gridX: 11.7,  gridY: 6.55, scale: 0.58 }, // parked along the shoulder
     { slug: 'car-black',  gridX: 12.35, gridY: 6.68, scale: 0.6 },
-  ]},
-  { minFans: 12000, name: 'tailgate city', props: [
+  ],
+  [ // tier 4 — tailgate city
     { slug: 'tailgate-tent', gridX: 6.6,  gridY: 11.4, scale: 0.8 },
     { slug: 'fan-tents',     gridX: -2.5, gridY: 9.6,  scale: 1.1 }, // camp spills toward the bowl (pan reveals)
     { slug: 'food-truck',    gridX: 13.9, gridY: 8.5,  scale: 0.95 },
     { slug: 'fan-tents',     gridX: 12.6, gridY: 9.3,  scale: 1.05 },
-  ]},
+  ],
 ];
+const GROWTH_STAGES = GROWTH_TIERS.map((t, i) => ({ minFans: t.fans, name: t.name, props: GROWTH_PROPS[i] ?? [] }));
 
 // 🚗 SIMCITY TRAFFIC (Jumaane: "pull features from SimCity"): team-colored cars
 // roll the access road end to end, fading in at the campus gate and out at the
@@ -403,7 +406,7 @@ const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, sc
 // Shipped scoreboard anchor — the editor overrides these via props.
 // (3.5, -2) per Jumaane's editor layout, July 10 2026.
 const BOARD_ANCHOR = { gx: 3.5, gy: -2, w: 3.2 };
-const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number }> = ({ clubName, trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w }) => {
+const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number; onOpenStats?: () => void }> = ({ clubName, trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w, onOpenStats }) => {
   // BOARD diagonal BEHIND THE WAR ROOM (Jumaane): ribbon-board art (wide panel,
   // short blocks) sloping down-right along the campus's upper-right edge. Width is
   // the honest max that keeps the panel inside the frame at the default camera —
@@ -438,6 +441,13 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
               <span key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.05, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(fans ?? 0)}</span>
             </div>
           </div>
+        )}
+        {/* Tap the board → CLUB DASHBOARD (SimCity city-hall stats). Hitbox covers
+            the panel face only — the pylons below stay click-through for panning. */}
+        {onOpenStats && (
+          <div className="cursor-pointer" title="Club Dashboard"
+            onClick={e => { e.stopPropagation(); onOpenStats(); }}
+            style={{ position: 'absolute', left: '10%', top: '6%', width: '80%', height: '52%', pointerEvents: 'auto' }} />
         )}
       </div>
     </div>
@@ -852,7 +862,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, selectedId, celebrationId, onDeselect, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -1141,7 +1151,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           <GroundLayer buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
-          <Jumbotron clubName={clubName} trophies={trophies} fans={fans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} />
+          <Jumbotron clubName={clubName} trophies={trophies} fans={fans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} />
           {outerList.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
           ))}

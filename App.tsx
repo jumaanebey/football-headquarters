@@ -25,6 +25,7 @@ import { SquadModal } from './components/SquadModal';
 import { ActionModal } from './components/ActionModal';
 import { ScoutingModal } from './components/ScoutingModal';
 import { StandingsModal } from './components/StandingsModal';
+import { ClubDashboard } from './components/ClubDashboard';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { ObjectiveBanner } from './components/ObjectiveBanner';
 import { TourPointer } from './components/TourPointer';
@@ -252,6 +253,7 @@ function App() {
   const [attackSelectOpen, setAttackSelectOpen] = useState(false);
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
+  const [dashboardOpen, setDashboardOpen] = useState(false); // 🏙 Club Dashboard (tap the jumbotron)
   // CC-style tap: the action bar shows first; Info opens the full sheet.
   const [buildingInfoOpen, setBuildingInfoOpen] = useState(false);
   // 🎉 Upgrade-complete celebration: building id → burst timestamp (IsometricMap renders it)
@@ -1287,6 +1289,7 @@ function App() {
         selectedId={selectedBuilding?.id ?? null}
         celebrationId={celebration?.id ?? null}
         onDeselect={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }}
+        onOpenStats={() => { sfx.click(); setDashboardOpen(true); }}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
           else { setSelectedBuilding(b); setBuildingInfoOpen(false); sfx.click(); }
@@ -1384,6 +1387,9 @@ function App() {
           onPlay={() => { setIsStandingsOpen(false); setStandingsTab(undefined); openRaid(); }}
         />
       )}
+
+      {/* 🏙 Club Dashboard — SimCity advisor panel, opened from the jumbotron */}
+      {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} />}
 
       {/* Attack: Season campaign ladder or a live Raid */}
       {attackSelectOpen && (

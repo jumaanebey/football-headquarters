@@ -204,6 +204,17 @@ export const HOME_DISPLAY_ANCHORS: Partial<Record<BuildingType, { gridX: number;
 export const displayAnchorOf = (b: { type: BuildingType; gridX: number; gridY: number }) =>
   HOME_DISPLAY_ANCHORS[b.type] ?? { gridX: b.gridX, gridY: b.gridY };
 
+// 🏙 CAMPUS GROWTH TIERS (SimCity): the grounds urbanize as the fan base grows.
+// Thresholds + names live here so the board (props/celebration) and the Club
+// Dashboard (progress readout) can never disagree; the prop placements are the
+// board's business (IsometricMap GROWTH_STAGES).
+export const GROWTH_TIERS: { fans: number; name: string }[] = [
+  { fans: 250, name: 'Game-day vendors' },
+  { fans: 1200, name: 'Fan camp' },
+  { fans: 5000, name: 'Tailgate row' },
+  { fans: 12000, name: 'Tailgate city' },
+];
+
 // Steeper curve so upgrades are a real coin sink: you can't afford every building's
 // next level at once — you choose. L1→2=1400, 2→3≈2380, 3→4≈4046, 4→5≈6879, 5→6≈11695.
 export const UPGRADE_CONFIG = {
