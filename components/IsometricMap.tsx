@@ -81,9 +81,10 @@ const BIG_STADIUM = !!URL_PARAMS?.has('bigstadium');
 // corners live, so they're props with the shipped geometry as defaults.
 type GroundRect = { x1: number; y1: number; x2: number; y2: number };
 const FIELD_RECT: GroundRect = { x1: -6.6, y1: 1.9, x2: -1.3, y2: 9.1 };
-// 🏟 SIZE-SWAP PREVIEW: the practice field shrunk to a training patch (the stadium
-// takes over as the big landmark). Same center-ish spot, ~1/4 the area.
-const FIELD_RECT_SMALL: GroundRect = { x1: -4.9, y1: 3.8, x2: -2.4, y2: 7.2 };
+// 🏟 SIZE-SWAP (Jumaane): stadium and practice field TRADE PLACES — the landmark
+// stadium backs the board from the old field zone on the west grounds, and the
+// practice field shrinks to a campus training patch on the stadium's old squares.
+const FIELD_RECT_SMALL: GroundRect = { x1: 5.8, y1: 3.3, x2: 8.2, y2: 6.7 };
 const ROAD_RECT: GroundRect = { x1: 9.9, y1: 7.0, x2: 16.5, y2: 8.3 };
 const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = BIG_STADIUM ? FIELD_RECT_SMALL : FIELD_RECT, road = ROAD_RECT }) => {
   const tilePts = (gx: number, gy: number, s = 1) => {
@@ -103,19 +104,27 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
     }
   }
 
-  // Worn dirt paths: each building walks a manhattan route home to the Stadium.
+  // Worn dirt paths: each building walks a manhattan route home to the campus HUB —
+  // normally the Stadium; in size-swap mode the stadium backdrop lives OFF-campus,
+  // so paths (and the light pool) re-center on the campus practice patch instead
+  // (dirt trails onto the dark rough are exactly the border Jumaane rejected).
   const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
+  const hub = BIG_STADIUM && stadium
+    ? { ...stadium, gridX: Math.round((field.x1 + field.x2) / 2) - 1, gridY: Math.round((field.y1 + field.y2) / 2) - 1 }
+    : stadium;
   const paths: JSX.Element[] = [];
-  if (stadium) {
+  if (hub) {
     const seen = new Set<string>();
-    buildings.filter(b => b.id !== stadium.id).forEach(b => {
+    buildings.filter(b => b.id !== hub.id).forEach(b => {
       let x = b.gridX, y = b.gridY;
       let guard = 0;
-      while ((x !== stadium.gridX || y !== stadium.gridY) && guard++ < 24) {
-        if (x !== stadium.gridX) x += x < stadium.gridX ? 1 : -1;
-        else y += y < stadium.gridY ? 1 : -1;
+      while ((x !== hub.gridX || y !== hub.gridY) && guard++ < 24) {
+        if (x !== hub.gridX) x += x < hub.gridX ? 1 : -1;
+        else y += y < hub.gridY ? 1 : -1;
         const k = `${x},${y}`;
-        if (seen.has(k) || (x === stadium.gridX && y === stadium.gridY)) continue;
+        if (seen.has(k) || (x === hub.gridX && y === hub.gridY)) continue;
+        // don't lay dirt ON the practice patch — trails stop at its chalk line
+        if (BIG_STADIUM && x >= field.x1 - 0.5 && x <= field.x2 + 0.5 && y >= field.y1 - 0.5 && y <= field.y2 + 0.5) continue;
         seen.add(k);
         const pc = tileToScreen(x, y);
         // HTML <img> (GPU-composited) — NOT an SVG <image>; those rasterize per frame.
@@ -139,7 +148,7 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
   const cT = tileToScreen(0, 0), cR = tileToScreen(GRID, 0), cB = tileToScreen(GRID, GRID), cL = tileToScreen(0, GRID);
   const T = { x: cT.x, y: cT.y - TILE_H / 2 };
   const L = { x: cL.x - TILE_W / 2, y: cL.y }, B = { x: cB.x, y: cB.y + TILE_H / 2 }, R = { x: cR.x + TILE_W / 2, y: cR.y };
-  const glow = stadium ? tileToScreen(stadium.gridX, stadium.gridY) : tileToScreen(6, 6);
+  const glow = hub ? tileToScreen(hub.gridX, hub.gridY) : tileToScreen(6, 6);
   // Surrounding grounds: the same diamond scaled up ~2x about its center — reads as
   // the dark practice fields beyond the mowed campus, vignetting out to the backdrop.
   const CX = (T.x + B.x) / 2, CY = (T.y + B.y) / 2, K = 4.2; // big enough that the plane owns the whole viewport at any legal zoom
@@ -175,8 +184,24 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
         </defs>
         {/* the grounds BEYOND the campus — same iso plane, scaled up, vignetted out */}
         <polygon points={OP} fill="url(#outerGround)" />
-        {/* PRACTICE FIELD on the west grounds: full-size second field (bigger per
-            Jumaane's markup), real turf, end zones, yard stripes */}
+        {/* ACCESS ROAD: asphalt across the SE rough — the parking lot fronts onto it */}
+        {(() => {
+          const a = tileToScreen(road.x1, road.y1), b = tileToScreen(road.x2, road.y1), c = tileToScreen(road.x2, road.y2), d = tileToScreen(road.x1, road.y2);
+          const my = (road.y1 + road.y2) / 2;
+          const m1 = tileToScreen(road.x1 + 0.3, my), m2 = tileToScreen(road.x2, my);
+          return (
+            <g>
+              <polygon points={`${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`} fill="#20242b" opacity="0.9" />
+              <line x1={m1.x} y1={m1.y} x2={m2.x} y2={m2.y} stroke="#c9a13b" strokeWidth={1.6} strokeDasharray="10 12" opacity="0.7" />
+            </g>
+          );
+        })()}
+        {/* the mowed campus as ONE pattern-filled polygon */}
+        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#turfPat)" />
+        {bandShades}
+        {/* PRACTICE FIELD — real turf, end zones, yard stripes. Paints AFTER the
+            campus turf so it reads on the mowed grass too (size-swap mode parks the
+            small patch ON campus; the classic big field sits on the west rough). */}
         {(() => {
           const FX1 = field.x1, FX2 = field.x2, FY1 = field.y1, FY2 = field.y2;
           // end zones / mow bands as FRACTIONS of the field length, so the rect can
@@ -194,37 +219,26 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
             const bx = fR.x + (fB.x - fR.x) * t, by = fR.y + (fB.y - fR.y) * t;
             stripes.push(<line key={`pf${i}`} x1={ax} y1={ay} x2={bx} y2={by} stroke="rgba(255,255,255,0.16)" strokeWidth={1.5} />);
           }
+          // On the dark rough the field needs its own bright turf; ON CAMPUS
+          // (size-swap mode) it reads as chalk lines painted on the existing lawn —
+          // the dark fill there just looked like a stain.
+          const onCampus = FX1 >= -0.5;
           return (
             <g>
               {/* brighter than the rough by a clear step — on real screens the old
                   #1c4729 read as a black void with lines (prod screenshot, Jul 10) */}
-              <polygon points={fc(FY1, FY2)} fill="#265934" />
+              <polygon points={fc(FY1, FY2)} fill={onCampus ? 'rgba(255,255,255,0.05)' : '#265934'} />
               {/* mow bands */}
               <polygon points={fc(fy(0.18), fy(0.36))} fill="rgba(255,255,255,0.07)" />
               <polygon points={fc(fy(0.54), fy(0.72))} fill="rgba(255,255,255,0.07)" />
               {/* end zones */}
               <polygon points={fc(FY1, fy(0.125))} fill="rgba(249,115,22,0.32)" />
-              <polygon points={fc(fy(0.875), FY2)} fill="rgba(17,24,39,0.4)" />
-              {stripes}
-              <polygon points={fc(FY1, FY2)} fill="none" stroke="rgba(255,255,255,0.34)" strokeWidth={2} />
+              <polygon points={fc(fy(0.875), FY2)} fill={onCampus ? 'rgba(17,24,39,0.55)' : 'rgba(17,24,39,0.4)'} />
+              {stripes.map((s, i) => onCampus ? React.cloneElement(s, { stroke: 'rgba(255,255,255,0.35)' }) : s)}
+              <polygon points={fc(FY1, FY2)} fill="none" stroke={onCampus ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.34)'} strokeWidth={2} />
             </g>
           );
         })()}
-        {/* ACCESS ROAD: asphalt across the SE rough — the parking lot fronts onto it */}
-        {(() => {
-          const a = tileToScreen(road.x1, road.y1), b = tileToScreen(road.x2, road.y1), c = tileToScreen(road.x2, road.y2), d = tileToScreen(road.x1, road.y2);
-          const my = (road.y1 + road.y2) / 2;
-          const m1 = tileToScreen(road.x1 + 0.3, my), m2 = tileToScreen(road.x2, my);
-          return (
-            <g>
-              <polygon points={`${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`} fill="#20242b" opacity="0.9" />
-              <line x1={m1.x} y1={m1.y} x2={m2.x} y2={m2.y} stroke="#c9a13b" strokeWidth={1.6} strokeDasharray="10 12" opacity="0.7" />
-            </g>
-          );
-        })()}
-        {/* the mowed campus as ONE pattern-filled polygon */}
-        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#turfPat)" />
-        {bandShades}
         {/* boundary: a groundskeeper's line where the mowed campus meets the rough */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth={2.5} />
         {/* soft light pool centered on the Stadium */}
@@ -313,9 +327,9 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
   { slug: 'defensive-line', gx: -3.2, gy: 2.6, dgy: 6.0, dur: 14.5, delay: -7.1 },
   { slug: 'secondary', gx: -4.9, gy: 8.6, dgy: -5.7, dur: 11, delay: -1.6, rev: true },
 ];
-// ?bigstadium=1: shuttle routes squeeze into the small field
+// ?bigstadium=1: shuttle routes squeeze onto the campus practice patch
 const DRILL_SQUAD_VIEW: typeof DRILL_SQUAD = BIG_STADIUM
-  ? DRILL_SQUAD.map((r, i) => ({ ...r, gx: -4.4 + (i % 3) * 0.55, gy: r.rev ? 6.9 : 4.1, dgy: r.rev ? -2.6 : 2.6 }))
+  ? DRILL_SQUAD.map((r, i) => ({ ...r, gx: 6.35 + (i % 3) * 0.55, gy: r.rev ? 6.3 : 3.7, dgy: r.rev ? -2.5 : 2.5 }))
   : DRILL_SQUAD;
 
 // 🟠 LIVE JUMBOTRON: the scoreboard prop promoted to a real scoreboard — the club's
@@ -410,15 +424,15 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
   { slug: 'tree-cluster', gridX: 10.4, gridY: -0.6, scale: 1.25 },
 ];
 
-// 🏟 ?bigstadium=1: the small practice field seats ONE stand and pulls its
-// goalposts in; everything else keeps Jumaane's layout.
+// 🏟 ?bigstadium=1 SIZE-SWAP: goalposts follow the practice patch onto the campus;
+// the grandstands retire (the stadium IS the stands, and it now owns their zone).
+// Everything else keeps Jumaane's layout.
 const OUTER_DECOR_VIEW: typeof OUTER_DECOR = BIG_STADIUM
   ? (() => {
-      let stands = 0;
       const out: typeof OUTER_DECOR = [];
       for (const d of OUTER_DECOR) {
-        if (d.slug === 'goalpost') { out.push({ ...d, gridX: -3.65, gridY: d.gridY < 5 ? 3.45 : 7.55, scale: 0.6 }); continue; }
-        if (d.slug === 'grandstand') { if (stands++ === 0) out.push({ ...d, gridX: -6.1, gridY: 6.3, scale: 2.0 }); continue; }
+        if (d.slug === 'goalpost') { out.push({ ...d, gridX: 7, gridY: d.gridY < 5 ? 2.95 : 7.05, scale: 0.6 }); continue; }
+        if (d.slug === 'grandstand') continue;
         out.push(d);
       }
       return out;
@@ -561,7 +575,7 @@ const BuildingSprite: React.FC<{
   // Proportion pass: art renders ~15% past the 2×2 footprint (Jumaane: buildings read
   // small vs field/lot). ?bigstadium=1 preview: the STADIUM blows up to landmark scale
   // — "this game deserves the actual stadium to be that large". Footprint unchanged.
-  const SPRITE_W = TILE_W * (BIG_STADIUM && building.type === BuildingType.STADIUM ? 4.4 : 2.3);
+  const SPRITE_W = TILE_W * (BIG_STADIUM && building.type === BuildingType.STADIUM ? 4.2 : 2.3);
 
   // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
   // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
@@ -578,7 +592,7 @@ const BuildingSprite: React.FC<{
   // and those invisible corners were stealing taps from neighbors' labels/bubbles.
   // Only the explicit hitbox (building body) and the badge buttons take pointers.
   return (
-    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.gridX + building.gridY + 6, transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting */}
+    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: BIG_STADIUM && building.type === BuildingType.STADIUM ? 1 : Math.round(building.gridX + building.gridY + 6), transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting; size-swap mode paints the backdrop stadium BEHIND everything */}
       {/* 🔦 CC spotlight under the selected building */}
       {selected && (
         <div className="absolute -translate-x-1/2 rounded-[50%] pointer-events-none animate-pulse"
@@ -875,14 +889,15 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   useEffect(() => { if (edit) saveEditLayout(edit); }, [edit]);
 
   const outerList = edit ? edit.outer : OUTER_DECOR_VIEW;
-  // ?bigstadium=1: the legends statue slides out from behind the big bowl
-  const campusList = edit ? edit.campus : (BIG_STADIUM ? DECOR.map(d => d.slug === 'statue-legends' ? { ...d, gridX: 0, gridY: 5 } : d) : DECOR);
+  const campusList = edit ? edit.campus : DECOR;
   // Home-board display remap FIRST (Jumaane's layout — battle geometry unaffected),
   // then any live editor overrides on top of it.
-  // ?bigstadium=1: the landmark stadium swallows the War Room's spot up-screen of
-  // it, so the preview slides the War Room west to read as skyline beside the bowl.
+  // ?bigstadium=1 SIZE-SWAP (Jumaane): stadium and practice field trade places —
+  // the bowl backs the whole board from the old field zone on the west grounds
+  // ("the stadium should sit behind everything else"); every other building keeps
+  // his exact layout spots.
   const BIG_STADIUM_ANCHORS: Partial<Record<BuildingType, { gridX: number; gridY: number }>> =
-    BIG_STADIUM ? { [BuildingType.TACTICS_ROOM]: { gridX: 0, gridY: 3 } } : {};
+    BIG_STADIUM ? { [BuildingType.STADIUM]: { gridX: -3.5, gridY: 5 } } : {};
   const displayBuildings = buildings.map(b => {
     const o = BIG_STADIUM_ANCHORS[b.type] ?? HOME_DISPLAY_ANCHORS[b.type];
     return o ? { ...b, gridX: o.gridX, gridY: o.gridY } : b;
@@ -1073,7 +1088,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             if (!st) return null;
             const c = tileToScreen(st.gridX + 0.5, st.gridY + 0.5);
             return (
-              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * (BIG_STADIUM ? 8.6 : 3.9), zIndex: 47 }}>{/* big stadium: pennant rides above the tall bowl */}
+              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * (BIG_STADIUM ? 5.2 : 3.9), zIndex: 47 }}>{/* big stadium: pennant rides on the bowl's visible face (its crown clips the frame) */}
                 <span className="text-[10px] font-display font-black uppercase tracking-wide text-sky-200 bg-sky-950/80 border border-sky-700/60 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
                   📋 {formationName}
                 </span>
