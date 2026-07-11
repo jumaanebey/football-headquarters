@@ -158,9 +158,10 @@ Movement-focus round — no new features, pure motion polish on battle:
       place-your-own decor (buy + place trees/banners with coins, editor tech) ·
       campus growth stages (grounds urbanize as fans grow: food stands → fan
       village → tailgate city)
-- [ ] ?bigstadium=1 size-swap preview awaiting verdict to become the DEFAULT look
-      (stadium backdrop on west grounds behind everything, chalk practice patch
-      dead center, War Room/statue at Jumaane's spots, grandstands retired)
+- [x] Size-swap look SHIPPED AS DEFAULT (5078e2a) per Jumaane's "make it live" —
+      backdrop stadium (-3.5,5), chalk patch center, Rehab (1,10) + Training
+      (10,10) on the apron per his final editor round; ?bigstadium flag retired.
+      Still owed: his phone-framing pass on the new default (Safari cache ritual)
 
 ## Jumaane's layout live (shipped 3e9d6bd + 5b44ecd, confirm to close)
 
