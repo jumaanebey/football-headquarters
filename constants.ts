@@ -187,16 +187,18 @@ export const DECOR: { slug: string; gridX: number; gridY: number; scale: number 
   { slug: 'tailgate-tent',  gridX: 4, gridY: 9, scale: 0.75 },
 ];
 
-// HOME-BOARD DISPLAY ANCHORS (Jumaane's ?edit=1 layout, July 10 2026 — his call:
-// "home board only"): the HOME VIEW draws these buildings here, while fixedBase
-// FORMATIONS keep the tuned battle geometry (walls/slots ring the (4,4) stadium).
-// Applies to the home board's sprites, worn-turf pads, labels, and walker targets —
+// HOME-BOARD DISPLAY ANCHORS (Jumaane's ?edit=1 layouts, July 10–11 2026 — his
+// call: "home board only"): the HOME VIEW draws these buildings here, while
+// fixedBase FORMATIONS keep the tuned battle geometry (walls/slots ring the (4,4)
+// stadium). Applies to the home board's sprites, labels, and walker targets —
 // NEVER to defense/battle/replay views or the published layout attackers fight.
+// The STADIUM is the off-campus BACKDROP landmark (fractional anchor is fine —
+// display only); facilities may sit on the apron beyond the buildable grid.
 export const HOME_DISPLAY_ANCHORS: Partial<Record<BuildingType, { gridX: number; gridY: number }>> = {
-  [BuildingType.STADIUM]:        { gridX: 6, gridY: 4 },
+  [BuildingType.STADIUM]:        { gridX: -3.5, gridY: 5 },
   [BuildingType.YOUTH_ACADEMY]:  { gridX: 8, gridY: 1 },
-  [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 8 },
-  [BuildingType.TRAINING_PITCH]: { gridX: 8, gridY: 8 },
+  [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 10 },
+  [BuildingType.TRAINING_PITCH]: { gridX: 10, gridY: 10 },
 };
 /** A building's home-board display position (falls back to its real anchor). */
 export const displayAnchorOf = (b: { type: BuildingType; gridX: number; gridY: number }) =>

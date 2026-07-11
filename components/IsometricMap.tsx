@@ -67,12 +67,12 @@ const useBoardScale = () => {
   return scale;
 };
 
-// URL flags: ?grid=1 debug grid · ?edit=1 layout editor (implies grid) ·
-// ?bigstadium=1 size-swap preview (stadium huge, practice field small).
+// URL flags: ?grid=1 debug grid · ?edit=1 layout editor (implies grid).
+// (The ?bigstadium size-swap preview SHIPPED as the default look, July 11 2026 —
+// backdrop stadium on the west grounds, chalk practice patch dead center.)
 const URL_PARAMS = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 const EDIT_ON = !!URL_PARAMS?.has('edit');
 const GRID_ON = !!URL_PARAMS?.has('grid') || EDIT_ON;
-const BIG_STADIUM = !!URL_PARAMS?.has('bigstadium');
 
 // The ground is a floating turf island (Clash-style): mowed-lawn bands instead of a
 // checkerboard, a thick soil skirt for depth, worn paths to the Stadium, and a soft
@@ -80,14 +80,11 @@ const BIG_STADIUM = !!URL_PARAMS?.has('bigstadium');
 // Painted grounds features as CORNER RECTS — the layout editor (?edit=1) drags these
 // corners live, so they're props with the shipped geometry as defaults.
 type GroundRect = { x1: number; y1: number; x2: number; y2: number };
-const FIELD_RECT: GroundRect = { x1: -6.6, y1: 1.9, x2: -1.3, y2: 9.1 };
-// 🏟 SIZE-SWAP (Jumaane): stadium and practice field TRADE PLACES — the landmark
-// stadium backs the board from the old field zone on the west grounds, and the
-// practice field shrinks to a campus training patch DEAD CENTER (the stadium's
-// original home squares — also the default camera's focus tile).
-const FIELD_RECT_SMALL: GroundRect = { x1: 3.8, y1: 3.3, x2: 6.2, y2: 6.7 };
+// The practice patch sits DEAD CENTER on the stadium's original home squares —
+// also the default camera's focus tile (Jumaane's size-swap layout).
+const FIELD_RECT: GroundRect = { x1: 3.8, y1: 3.3, x2: 6.2, y2: 6.7 };
 const ROAD_RECT: GroundRect = { x1: 9.9, y1: 7.0, x2: 16.5, y2: 8.3 };
-const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = BIG_STADIUM ? FIELD_RECT_SMALL : FIELD_RECT, road = ROAD_RECT }) => {
+const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = FIELD_RECT, road = ROAD_RECT }) => {
   const tilePts = (gx: number, gy: number, s = 1) => {
     const c = tileToScreen(gx, gy);
     return `${c.x},${c.y - (TILE_H / 2) * s} ${c.x + (TILE_W / 2) * s},${c.y} ${c.x},${c.y + (TILE_H / 2) * s} ${c.x - (TILE_W / 2) * s},${c.y}`;
@@ -106,11 +103,10 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
   }
 
   // Worn dirt paths: each building walks a manhattan route home to the campus HUB —
-  // normally the Stadium; in size-swap mode the stadium backdrop lives OFF-campus,
-  // so paths (and the light pool) re-center on the campus practice patch instead
-  // (dirt trails onto the dark rough are exactly the border Jumaane rejected).
+  // the central practice patch (the stadium backdrop lives OFF-campus, and dirt
+  // trails onto the dark rough are exactly the border Jumaane rejected).
   const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
-  const hub = BIG_STADIUM && stadium
+  const hub = stadium
     ? { ...stadium, gridX: Math.round((field.x1 + field.x2) / 2) - 1, gridY: Math.round((field.y1 + field.y2) / 2) - 1 }
     : stadium;
   const paths: JSX.Element[] = [];
@@ -125,7 +121,7 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
         const k = `${x},${y}`;
         if (seen.has(k) || (x === hub.gridX && y === hub.gridY)) continue;
         // don't lay dirt ON the practice patch — trails stop at its chalk line
-        if (BIG_STADIUM && x >= field.x1 - 0.5 && x <= field.x2 + 0.5 && y >= field.y1 - 0.5 && y <= field.y2 + 0.5) continue;
+        if (x >= field.x1 - 0.5 && x <= field.x2 + 0.5 && y >= field.y1 - 0.5 && y <= field.y2 + 0.5) continue;
         seen.add(k);
         const pc = tileToScreen(x, y);
         // HTML <img> (GPU-composited) — NOT an SVG <image>; those rasterize per frame.
@@ -289,7 +285,7 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
 // requests can be given as exact tile coordinates instead of "top-left-ish".
 // Campus tiles 0..9 draw solid with every label; outer grounds draw dashed with
 // every-2nd labels. Pure overlay — pointer-events none, zIndex above everything.
-// (URL flags — EDIT_ON/GRID_ON/BIG_STADIUM — are defined above GroundLayer.)
+// (URL flags — EDIT_ON/GRID_ON — are defined above GroundLayer.)
 const GridOverlay: React.FC = () => {
   const LO = -10, HI = 18;
   const lines: JSX.Element[] = [];
@@ -322,16 +318,13 @@ const GridOverlay: React.FC = () => {
 // 🏃 PRACTICE SQUAD: tiny players shuttle-running drills on the outer practice field.
 // Pure ambience — CSS-driven out-and-back routes (fhq-drill w/ per-runner --dx/--dy),
 // facing flips at the turn, existing unit walk frames do the legs. No game state.
+// Routes fit the central practice patch (FIELD_RECT) — refit these if it moves.
 const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: number; delay: number; rev?: boolean }[] = [
-  { slug: 'offensive-line', gx: -5.6, gy: 2.7, dgy: 5.8, dur: 13.5, delay: 0 },
-  { slug: 'skill-positions', gx: -4.4, gy: 2.9, dgy: 5.4, dur: 10, delay: -3.2 },
-  { slug: 'defensive-line', gx: -3.2, gy: 2.6, dgy: 6.0, dur: 14.5, delay: -7.1 },
-  { slug: 'secondary', gx: -4.9, gy: 8.6, dgy: -5.7, dur: 11, delay: -1.6, rev: true },
+  { slug: 'offensive-line', gx: 4.35, gy: 3.7, dgy: 2.5, dur: 13.5, delay: 0 },
+  { slug: 'skill-positions', gx: 4.9, gy: 3.7, dgy: 2.5, dur: 10, delay: -3.2 },
+  { slug: 'defensive-line', gx: 5.45, gy: 3.7, dgy: 2.5, dur: 14.5, delay: -7.1 },
+  { slug: 'secondary', gx: 4.35, gy: 6.3, dgy: -2.5, dur: 11, delay: -1.6, rev: true },
 ];
-// ?bigstadium=1: shuttle routes squeeze onto the campus practice patch
-const DRILL_SQUAD_VIEW: typeof DRILL_SQUAD = BIG_STADIUM
-  ? DRILL_SQUAD.map((r, i) => ({ ...r, gx: 4.35 + (i % 3) * 0.55, gy: r.rev ? 6.3 : 3.7, dgy: r.rev ? -2.5 : 2.5 }))
-  : DRILL_SQUAD;
 
 // 🚗 SIMCITY TRAFFIC (Jumaane: "pull features from SimCity"): team-colored cars
 // roll the access road end to end, fading in at the campus gate and out at the
@@ -420,16 +413,15 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // The grounds AROUND the campus: practice-field bleachers, the scoreboard over the
 // north-east rough, and the team bus at its parking pad. Pure set dressing — outside
 // the buildable grid, missing art self-hides (DecorSprite onError).
-// JUMAANE'S LAYOUT (July 10, 2026) — arranged by hand in the ?edit=1 editor on the
-// live site and transplanted verbatim from its export. Future layout rounds should
-// follow the same flow: edit → COPY LAYOUT CODE → paste → transplant.
+// JUMAANE'S LAYOUT (July 11, 2026) — arranged by hand in the ?edit=1&bigstadium=1
+// editor on the live site and transplanted verbatim from its export. Grandstands
+// retired (the backdrop stadium IS the stands); goalposts flank the central patch.
+// Future layout rounds: edit → COPY LAYOUT CODE → paste → transplant.
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
-  { slug: 'grandstand', gridX: -5.5, gridY: 6,  scale: 3, flip: true },
-  { slug: 'grandstand', gridX: -5.5, gridY: 10, scale: 3, flip: true },
   { slug: 'parking-lot', gridX: 14.5, gridY: 4.5, scale: 3.1 },
-  { slug: 'team-bus',    gridX: 13, gridY: 7, scale: 1.5, flip: true }, // parked on the road, nose east (z override retired with the pad — natural depth lets traffic pass in front)
-  { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
-  { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
+  { slug: 'team-bus',    gridX: 13, gridY: 7, scale: 1.5, flip: true }, // parked on the road, nose east — natural depth lets traffic pass in front
+  { slug: 'goalpost', gridX: 5, gridY: 2.95, scale: 0.6 },
+  { slug: 'goalpost', gridX: 5, gridY: 7,    scale: 0.6 },
   { slug: 'floodlight', gridX: -7.3, gridY: 1.3,  scale: 2.1 },
   { slug: 'floodlight', gridX: -6,   gridY: 11.5, scale: 2.1 },
   { slug: 'floodlight', gridX: -0.7, gridY: 2.1,  scale: 2.1 },
@@ -449,21 +441,6 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
   { slug: 'tree-cluster', gridX: -7,   gridY: 12,   scale: 1.4 },
   { slug: 'tree-cluster', gridX: 10.4, gridY: -0.6, scale: 1.25 },
 ];
-
-// 🏟 ?bigstadium=1 SIZE-SWAP: goalposts follow the practice patch onto the campus;
-// the grandstands retire (the stadium IS the stands, and it now owns their zone).
-// Everything else keeps Jumaane's layout.
-const OUTER_DECOR_VIEW: typeof OUTER_DECOR = BIG_STADIUM
-  ? (() => {
-      const out: typeof OUTER_DECOR = [];
-      for (const d of OUTER_DECOR) {
-        if (d.slug === 'goalpost') { out.push({ ...d, gridX: 5, gridY: d.gridY < 5 ? 2.95 : 7.05, scale: 0.6 }); continue; }
-        if (d.slug === 'grandstand') continue;
-        out.push(d);
-      }
-      return out;
-    })()
-  : OUTER_DECOR;
 
 // ─── 🛠 LAYOUT EDITOR (?edit=1) ────────────────────────────────────────────────
 // Every piece gets a drag handle that SNAPS to the tile grid; a panel exports the
@@ -487,18 +464,16 @@ type SelRef =
   | { kind: 'field'; c: 0 | 1 }
   | { kind: 'road'; c: 0 | 1 };
 
-// Per-look storage: an edit session on the size-swap board must not collide with
-// (or get hijacked by) a saved classic-layout session in the same browser.
-const EDIT_LS_KEY = BIG_STADIUM ? 'fhq_layout_edit_big_v1' : 'fhq_layout_edit_v1';
+// 'big' key kept after the size-swap became the default — it holds the user's
+// last session; the retired classic key ('fhq_layout_edit_v1') is stale.
+const EDIT_LS_KEY = 'fhq_layout_edit_big_v1';
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const freshEditLayout = (): EditLayout => ({
   v: 1,
-  // Baseline = what's ON SCREEN in the current mode (size-swap remaps included),
-  // so the editor always moves the pieces the user is actually looking at.
-  outer: OUTER_DECOR_VIEW.map(d => ({ ...d })),
+  outer: OUTER_DECOR.map(d => ({ ...d })),
   campus: DECOR.map(d => ({ ...d })),
   board: { ...BOARD_ANCHOR },
-  field: BIG_STADIUM ? { ...FIELD_RECT_SMALL } : { ...FIELD_RECT },
+  field: { ...FIELD_RECT },
   road: { ...ROAD_RECT },
   buildings: {},
 });
@@ -603,9 +578,9 @@ const BuildingSprite: React.FC<{
   };
 
   // Proportion pass: art renders ~15% past the 2×2 footprint (Jumaane: buildings read
-  // small vs field/lot). ?bigstadium=1 preview: the STADIUM blows up to landmark scale
-  // — "this game deserves the actual stadium to be that large". Footprint unchanged.
-  const SPRITE_W = TILE_W * (BIG_STADIUM && building.type === BuildingType.STADIUM ? 4.2 : 2.3);
+  // small vs field/lot). The STADIUM is the landmark at 4.2t — "this game deserves
+  // the actual stadium to be that large". Footprints unchanged.
+  const SPRITE_W = TILE_W * (building.type === BuildingType.STADIUM ? 4.2 : 2.3);
 
   // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
   // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
@@ -622,7 +597,7 @@ const BuildingSprite: React.FC<{
   // and those invisible corners were stealing taps from neighbors' labels/bubbles.
   // Only the explicit hitbox (building body) and the badge buttons take pointers.
   return (
-    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: BIG_STADIUM && building.type === BuildingType.STADIUM ? 1 : Math.round(building.gridX + building.gridY + 6), transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting; size-swap mode paints the backdrop stadium BEHIND everything */}
+    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.type === BuildingType.STADIUM ? 1 : Math.round(building.gridX + building.gridY + 6), transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting; the backdrop stadium paints BEHIND everything */}
       {/* 🔦 CC spotlight under the selected building */}
       {selected && (
         <div className="absolute -translate-x-1/2 rounded-[50%] pointer-events-none animate-pulse"
@@ -918,18 +893,12 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const [copied, setCopied] = useState(false);
   useEffect(() => { if (edit) saveEditLayout(edit); }, [edit]);
 
-  const outerList = edit ? edit.outer : OUTER_DECOR_VIEW;
+  const outerList = edit ? edit.outer : OUTER_DECOR;
   const campusList = edit ? edit.campus : DECOR;
   // Home-board display remap FIRST (Jumaane's layout — battle geometry unaffected),
   // then any live editor overrides on top of it.
-  // ?bigstadium=1 SIZE-SWAP (Jumaane): stadium and practice field trade places —
-  // the bowl backs the whole board from the old field zone on the west grounds
-  // ("the stadium should sit behind everything else"); every other building keeps
-  // his exact layout spots.
-  const BIG_STADIUM_ANCHORS: Partial<Record<BuildingType, { gridX: number; gridY: number }>> =
-    BIG_STADIUM ? { [BuildingType.STADIUM]: { gridX: -3.5, gridY: 5 } } : {};
   const displayBuildings = buildings.map(b => {
-    const o = BIG_STADIUM_ANCHORS[b.type] ?? HOME_DISPLAY_ANCHORS[b.type];
+    const o = HOME_DISPLAY_ANCHORS[b.type];
     return o ? { ...b, gridX: o.gridX, gridY: o.gridY } : b;
   });
   const shownBuildings = edit
@@ -955,8 +924,8 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
         // These are DISPLAY anchors (battle geometry lives in fixedBase), so
         // buildings may sit ANYWHERE on the grounds — campus, apron, or rough
         // (Jumaane: Training to (10,10), Rehab to (0,10) — no campus clamp).
-        // Facilities snap to whole tiles; the size-swap backdrop stadium is free.
-        if (BIG_STADIUM && r.t === BuildingType.STADIUM) return { ...l, buildings: { ...l.buildings, [r.t]: { gx, gy } } };
+        // Facilities snap to whole tiles; the backdrop stadium drags free.
+        if (r.t === BuildingType.STADIUM) return { ...l, buildings: { ...l.buildings, [r.t]: { gx, gy } } };
         return { ...l, buildings: { ...l.buildings, [r.t]: { gx: Math.round(gx), gy: Math.round(gy) } } };
       }
       case 'field': return { ...l, field: r.c === 0 ? { ...l.field, x1: gx, y1: gy } : { ...l.field, x2: gx, y2: gy } };
@@ -983,7 +952,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     const bdx = (e.clientX - d.sx) / k, bdy = (e.clientY - d.sy) / k;
     const dgx = (bdx / (TILE_W / 2) + bdy / (TILE_H / 2)) / 2;
     const dgy = (bdy / (TILE_H / 2) - bdx / (TILE_W / 2)) / 2;
-    const freeStadium = BIG_STADIUM && d.ref.kind === 'bldg' && d.ref.t === BuildingType.STADIUM;
+    const freeStadium = d.ref.kind === 'bldg' && d.ref.t === BuildingType.STADIUM;
     const step = d.ref.kind === 'bldg' && !freeStadium ? 1 : snapStep;
     setEdit(l => l ? withCoords(l, d.ref, snapTo(d.ogx + dgx, step), snapTo(d.ogy + dgy, step)) : l);
   };
@@ -1018,7 +987,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     if (!EDIT_ON) return;
     const onKey = (e: KeyboardEvent) => {
       if (!sel || !edit) return;
-      const step = sel.kind === 'bldg' && !(BIG_STADIUM && sel.t === BuildingType.STADIUM) ? 1 : snapStep;
+      const step = sel.kind === 'bldg' && sel.t !== BuildingType.STADIUM ? 1 : snapStep;
       const move = (dx: number, dy: number) => { e.preventDefault(); const c = selCoords(edit, sel); setEdit(withCoords(edit, sel, r2(c.gx + dx), r2(c.gy + dy))); };
       if (e.key === 'ArrowRight') move(step, 0);
       else if (e.key === 'ArrowLeft') move(-step, 0);
@@ -1085,7 +1054,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {TRAFFIC.map((t, i) => (
             <TrafficCar key={`tc${i}`} {...t} />
           ))}
-          {DRILL_SQUAD_VIEW.map((r, i) => (
+          {DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
           ))}
           {GRID_ON && <GridOverlay />}
@@ -1126,7 +1095,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             if (!st) return null;
             const c = tileToScreen(st.gridX + 0.5, st.gridY + 0.5);
             return (
-              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * (BIG_STADIUM ? 5.2 : 3.9), zIndex: 47 }}>{/* big stadium: pennant rides on the bowl's visible face (its crown clips the frame) */}
+              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * 5.2, zIndex: 47 }}>{/* pennant rides on the bowl's visible face (its crown clips the frame) */}
                 <span className="text-[10px] font-display font-black uppercase tracking-wide text-sky-200 bg-sky-950/80 border border-sky-700/60 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
                   📋 {formationName}
                 </span>

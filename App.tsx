@@ -448,11 +448,11 @@ function App() {
 
         // 3. Player AI — off-duty DEFENSIVE players visibly patrol the stadium (your
         //    defense isn't an abstract stat: the guys you recruited walk the beat).
-        const stadiumB = prev.buildings.find(b => b.type === BuildingType.STADIUM);
-        // Patrol the stadium WHERE IT'S DRAWN (home-display anchor), not its battle anchor
-        const stadiumDA = stadiumB ? displayAnchorOf(stadiumB) : null;
+        // Patrol the CENTRAL PRACTICE PATCH — the campus hub. (The stadium is now
+        // an off-campus backdrop; patrolling its display anchor would clamp the
+        // walkers into a huddle at the board's west edge.)
         const patrolPoint = () => {
-          const cx = (stadiumDA?.gridX ?? 6) * 10 + 5, cy = (stadiumDA?.gridY ?? 6) * 10 + 5; // 2×2 footprint center
+          const cx = 55, cy = 55; // practice patch center, world units (tile 5,5)
           const ang = Math.random() * Math.PI * 2, rad = 11 + Math.random() * 6;
           return {
             x: Math.min(94, Math.max(6, cx + Math.cos(ang) * rad)),
