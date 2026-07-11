@@ -21,6 +21,24 @@ never delete incomplete tasks.
       calls; pre-raid scouting chips on Game Day target rows. (BattleScreen.tsx:190-206,
       1210-1223; shipped 46c840b/e2ed3e4, re-verified 2026-07-07.)
 
+## Launch track (July 2026 — Kickoff Club HQ + app + monetization)
+
+Order agreed as recommendation (soft-launch free first, monetize after retention proof):
+- [ ] 1. Remove vega300 (required BEFORE cloud saves — cheat would sync forever)
+- [ ] 2. Profiles: Supabase Auth (Apple/Google/email), anonymous-first with a
+      "Save your club" prompt after investment; cloud saves table, newest-wins +
+      local backup; account deletion path (Apple requirement). E2E locally first.
+- [ ] 3. fhq.kickoffclubhq.com subdomain → this Vercel project + game landing
+      card on Kickoff Club HQ (cross-promo funnel)
+- [ ] 4. Soft launch free → watch D1/D7 retention before building monetization
+- [ ] 5. Web gem shop via Stripe (keeps ~97% vs Apple 15-30%) — needs parent-co
+      Stripe entity + REAL privacy/terms (placeholders can't take money)
+- [ ] 6. Capacitor iOS app (HomeIQ recipe: server.url = live site; icon/splash/
+      screenshots from art backlog; Apple review)
+- [ ] 7. Season Ticket battle pass (recurring; football-native framing)
+- [ ] Notes: place-your-own decor doubles as a monetization feature (decor shop);
+      rewarded ads for non-payers; $4.99 starter pack = classic best converter
+
 ## Standing / pre-launch
 
 - [ ] ⚠️ Remove the `vega300` owner boost (URL param + Settings redeem path) before wide launch
