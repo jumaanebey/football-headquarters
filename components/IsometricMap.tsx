@@ -952,11 +952,12 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       case 'campus': return { ...l, campus: l.campus.map((d, i) => i === r.i ? { ...d, gridX: gx, gridY: gy } : d) };
       case 'board': return { ...l, board: { ...l.board, gx, gy } };
       case 'bldg': {
-        // 2×2 footprints stay on the campus — EXCEPT the size-swap backdrop
-        // stadium, which lives on the open grounds and drags freely.
+        // These are DISPLAY anchors (battle geometry lives in fixedBase), so
+        // buildings may sit ANYWHERE on the grounds — campus, apron, or rough
+        // (Jumaane: Training to (10,10), Rehab to (0,10) — no campus clamp).
+        // Facilities snap to whole tiles; the size-swap backdrop stadium is free.
         if (BIG_STADIUM && r.t === BuildingType.STADIUM) return { ...l, buildings: { ...l.buildings, [r.t]: { gx, gy } } };
-        const cx = Math.max(0, Math.min(GRID - 2, Math.round(gx))), cy = Math.max(0, Math.min(GRID - 2, Math.round(gy)));
-        return { ...l, buildings: { ...l.buildings, [r.t]: { gx: cx, gy: cy } } };
+        return { ...l, buildings: { ...l.buildings, [r.t]: { gx: Math.round(gx), gy: Math.round(gy) } } };
       }
       case 'field': return { ...l, field: r.c === 0 ? { ...l.field, x1: gx, y1: gy } : { ...l.field, x2: gx, y2: gy } };
       case 'road': return { ...l, road: r.c === 0 ? { ...l.road, x1: gx, y1: gy } : { ...l.road, x2: gx, y2: gy } };
