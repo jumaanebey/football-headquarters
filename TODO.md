@@ -153,11 +153,15 @@ Movement-focus round — no new features, pure motion polish on battle:
 - [x-ish] Living traffic v1 — SHIPPED 0d475f8 (confirm to close): two team-colored
       cars (Gemini, bus-style-ref'd) drive the access road on staggered loops,
       fade in/out at the ends; runs on live board + bigstadium preview
-- [ ] SimCity menu still open (asked, then "go" green-lit traffic first):
-      city-stats dashboard (fan population/morale/revenue advisor panel) ·
-      place-your-own decor (buy + place trees/banners with coins, editor tech) ·
-      campus growth stages (grounds urbanize as fans grow: food stands → fan
-      village → tailgate city)
+- [x-ish] Campus growth stages — SHIPPED eb2ebae (confirm to close): grounds
+      urbanize with the live fan count — 250 vendors / 1.2k fan camp / 5k
+      tailgate row / 12k tailgate city; new food-truck + fan-tents art;
+      new clubs start with an empty campus (the city is the reward)
+- [ ] SimCity menu remaining: city-stats dashboard (fan population/morale/
+      revenue advisor panel) · place-your-own decor (buy + place trees/
+      banners with coins, editor tech)
+- [ ] Growth stage-up moment: no celebration when a threshold crosses yet
+      (toast/fanfare/camera nudge to the new props would sell it)
 - [x] Size-swap look SHIPPED AS DEFAULT (5078e2a) per Jumaane's "make it live" —
       backdrop stadium (-3.5,5), chalk patch center, Rehab (1,10) + Training
       (10,10) on the apron per his final editor round; ?bigstadium flag retired.
