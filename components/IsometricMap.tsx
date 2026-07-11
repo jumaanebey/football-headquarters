@@ -1216,16 +1216,23 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           })()}
           {sortedBuildings.map((b) => {
             const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
-            // INTEGRATED labels (Jumaane): no more floating black pills — each name is
-            // PAINTED ON THE TURF at the building's feet like groundskeeper stenciling,
-            // skewed onto the iso ground plane (baseline follows the down-right tile
-            // edge, atan(TILE_H/TILE_W) ≈ 26.57° for this 2:1 projection).
+            // SIGNAGE PLATES (July 11, "we really need to fix the names"): the turf
+            // stencils assumed clear grass down-left of every building — after the
+            // layout rounds they were writing across rooftops and the fan camp. Each
+            // name is now a slim entrance-sign bar pinned at the art's BASE VERTEX
+            // (the one spot a sprite never covers), readable on any ground and immune
+            // to future layout moves. Not the old floating pills: foot-anchored,
+            // glassy, one line, level integrated.
+            // The backdrop stadium's base vertex is Rehab's block — its sign shifts
+            // onto the bowl's own right skirt so it can't read as Rehab's rooftop.
+            const nudge = b.type === BuildingType.STADIUM ? { dx: TILE_W * 0.55, dy: -TILE_H * 0.45 } : { dx: 0, dy: 0 };
             return (
-              <div key={`tag-${b.id}`} className="absolute pointer-events-none" style={{ left: c.x - TILE_W * 0.55, top: c.y + TILE_H * 0.55, zIndex: 46 }}>
-                <span className="font-display font-black uppercase whitespace-nowrap select-none"
-                  style={{ display: 'inline-block', fontSize: 13, letterSpacing: 2.5, color: 'rgba(255,255,255,0.62)', transform: 'skewY(-26.57deg) scaleY(0.9)', transformOrigin: '0 50%', textShadow: '0 1px 0 rgba(0,0,0,0.35)' }}>
-                  {BUILDING_INFO[b.type].name}&nbsp;<span style={{ color: 'rgba(253,186,116,0.95)' }}>{b.level}</span>
-                </span>
+              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x + nudge.dx, top: c.y + TILE_H / 2 + 5 + nudge.dy, zIndex: 46 }}>
+                <div className="flex items-baseline gap-1.5 px-2 py-[3px] rounded-[5px] whitespace-nowrap select-none"
+                  style={{ background: 'rgba(5,10,18,0.72)', border: '1px solid rgba(249,115,22,0.4)', boxShadow: '0 1px 4px rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}>
+                  <span className="font-display font-bold uppercase" style={{ fontSize: 10.5, letterSpacing: 1.5, color: 'rgba(255,255,255,0.92)' }}>{BUILDING_INFO[b.type].name}</span>
+                  <span className="font-display font-black" style={{ fontSize: 10.5, color: '#fdba74' }}>{b.level}</span>
+                </div>
               </div>
             );
           })}
