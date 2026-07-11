@@ -326,6 +326,33 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
   { slug: 'secondary', gx: 4.35, gy: 6.3, dgy: -2.5, dur: 11, delay: -1.6, rev: true },
 ];
 
+// 🏙 CAMPUS GROWTH STAGES (SimCity, Jumaane): the grounds URBANIZE as the fan base
+// grows — vendors appear first, a fan camp pitches beside the stadium, then a full
+// tailgate city with parked cars. Purely visual, driven by the live fan count;
+// each stage keeps everything from the stages before it. New clubs see an empty
+// campus — the city IS the reward for growing your fans.
+const GROWTH_STAGES: { minFans: number; name: string; props: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }[] }[] = [
+  { minFans: 250, name: 'game-day vendors', props: [
+    { slug: 'food-truck',  gridX: 11.3, gridY: 6.35, scale: 1.0 },  // road shoulder by the lot
+    { slug: 'merch-stand', gridX: 3,    gridY: 9.7,  scale: 0.7 },  // walk-up stand on the south apron
+  ]},
+  { minFans: 1200, name: 'fan camp', props: [
+    { slug: 'fan-tents',  gridX: 6,   gridY: 9.9,  scale: 1.15 },   // camp pitches on the apron
+    { slug: 'food-truck', gridX: 7.8, gridY: 10.5, scale: 0.95, flip: true },
+  ]},
+  { minFans: 5000, name: 'tailgate row', props: [
+    { slug: 'fan-tents',  gridX: 3.2,  gridY: 10.6, scale: 1.2 },
+    { slug: 'car-orange', gridX: 11.7,  gridY: 6.55, scale: 0.58 }, // parked along the shoulder
+    { slug: 'car-black',  gridX: 12.35, gridY: 6.68, scale: 0.6 },
+  ]},
+  { minFans: 12000, name: 'tailgate city', props: [
+    { slug: 'tailgate-tent', gridX: 4.8,  gridY: 11.1, scale: 0.8 },
+    { slug: 'fan-tents',     gridX: -2.5, gridY: 9.6,  scale: 1.1 }, // camp spills toward the bowl (pan reveals)
+    { slug: 'food-truck',    gridX: 13.9, gridY: 8.5,  scale: 0.95 },
+    { slug: 'fan-tents',     gridX: 12.6, gridY: 9.3,  scale: 1.05 },
+  ]},
+];
+
 // 🚗 SIMCITY TRAFFIC (Jumaane: "pull features from SimCity"): team-colored cars
 // roll the access road end to end, fading in at the campus gate and out at the
 // tree line. The car art faces lower-left like the bus, so scaleX(-1) noses them
@@ -1018,6 +1045,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       ...OUTER_DECOR.map(d => ({ object: `decor:${d.slug}${d.flip ? ' (flipped)' : ''}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
       ...DECOR.map(d => ({ object: `decor:${d.slug}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
       { object: 'ribbonboard (scoreboard)', col: BOARD_ANCHOR.gx, row: BOARD_ANCHOR.gy, footprint: `${BOARD_ANCHOR.w}t wide (native, cropped)` },
+      ...GROWTH_STAGES.flatMap(s => s.props.map(d => ({ object: `growth:${d.slug} (${s.name} @${s.minFans} fans)`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` }))),
       ...DRILL_SQUAD.map((r, i) => ({ object: `drill-runner ${i + 1} (${r.slug})`, col: r.gx, row: `${r.gy} → ${r.gy + r.dgy}`, footprint: 'route' })),
     ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1054,6 +1082,12 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {TRAFFIC.map((t, i) => (
             <TrafficCar key={`tc${i}`} {...t} />
           ))}
+          {/* 🏙 growth props render after OUTER_DECOR so depth ties break in their favor */}
+          {GROWTH_STAGES.filter(s => (fans ?? 0) >= s.minFans).map((s, si) =>
+            s.props.map((d, i) => (
+              <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} />
+            ))
+          )}
           {DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
           ))}

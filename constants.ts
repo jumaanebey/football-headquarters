@@ -195,7 +195,7 @@ export const DECOR: { slug: string; gridX: number; gridY: number; scale: number 
 // The STADIUM is the off-campus BACKDROP landmark (fractional anchor is fine —
 // display only); facilities may sit on the apron beyond the buildable grid.
 export const HOME_DISPLAY_ANCHORS: Partial<Record<BuildingType, { gridX: number; gridY: number }>> = {
-  [BuildingType.STADIUM]:        { gridX: -3.5, gridY: 5 },
+  [BuildingType.STADIUM]:        { gridX: -1, gridY: 6.5 }, // pulled in July 11 round 3 — full bowl in frame at default cam
   [BuildingType.YOUTH_ACADEMY]:  { gridX: 8, gridY: 1 },
   [BuildingType.MEDICAL_CENTER]: { gridX: 1, gridY: 10 },
   [BuildingType.TRAINING_PITCH]: { gridX: 10, gridY: 10 },
