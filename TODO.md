@@ -148,6 +148,20 @@ Movement-focus round — no new features, pure motion polish on battle:
   Edits live in localStorage only; reset returns to the shipped layout.
   Workflow: Jumaane arranges → COPY → paste block to Claude → Claude ships it.
 
+## SimCity direction (July 11 — active)
+
+- [x-ish] Living traffic v1 — SHIPPED 0d475f8 (confirm to close): two team-colored
+      cars (Gemini, bus-style-ref'd) drive the access road on staggered loops,
+      fade in/out at the ends; runs on live board + bigstadium preview
+- [ ] SimCity menu still open (asked, then "go" green-lit traffic first):
+      city-stats dashboard (fan population/morale/revenue advisor panel) ·
+      place-your-own decor (buy + place trees/banners with coins, editor tech) ·
+      campus growth stages (grounds urbanize as fans grow: food stands → fan
+      village → tailgate city)
+- [ ] ?bigstadium=1 size-swap preview awaiting verdict to become the DEFAULT look
+      (stadium backdrop on west grounds behind everything, chalk practice patch
+      dead center, War Room/statue at Jumaane's spots, grandstands retired)
+
 ## Jumaane's layout live (shipped 3e9d6bd + 5b44ecd, confirm to close)
 
 - Full grounds arrangement from his editor session transplanted verbatim
