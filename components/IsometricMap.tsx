@@ -67,6 +67,13 @@ const useBoardScale = () => {
   return scale;
 };
 
+// URL flags: ?grid=1 debug grid · ?edit=1 layout editor (implies grid) ·
+// ?bigstadium=1 size-swap preview (stadium huge, practice field small).
+const URL_PARAMS = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+const EDIT_ON = !!URL_PARAMS?.has('edit');
+const GRID_ON = !!URL_PARAMS?.has('grid') || EDIT_ON;
+const BIG_STADIUM = !!URL_PARAMS?.has('bigstadium');
+
 // The ground is a floating turf island (Clash-style): mowed-lawn bands instead of a
 // checkerboard, a thick soil skirt for depth, worn paths to the Stadium, and a soft
 // light pool at the center.
@@ -74,8 +81,11 @@ const useBoardScale = () => {
 // corners live, so they're props with the shipped geometry as defaults.
 type GroundRect = { x1: number; y1: number; x2: number; y2: number };
 const FIELD_RECT: GroundRect = { x1: -6.6, y1: 1.9, x2: -1.3, y2: 9.1 };
+// 🏟 SIZE-SWAP PREVIEW: the practice field shrunk to a training patch (the stadium
+// takes over as the big landmark). Same center-ish spot, ~1/4 the area.
+const FIELD_RECT_SMALL: GroundRect = { x1: -4.9, y1: 3.8, x2: -2.4, y2: 7.2 };
 const ROAD_RECT: GroundRect = { x1: 9.9, y1: 7.0, x2: 16.5, y2: 8.3 };
-const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = FIELD_RECT, road = ROAD_RECT }) => {
+const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = BIG_STADIUM ? FIELD_RECT_SMALL : FIELD_RECT, road = ROAD_RECT }) => {
   const tilePts = (gx: number, gy: number, s = 1) => {
     const c = tileToScreen(gx, gy);
     return `${c.x},${c.y - (TILE_H / 2) * s} ${c.x + (TILE_W / 2) * s},${c.y} ${c.x},${c.y + (TILE_H / 2) * s} ${c.x - (TILE_W / 2) * s},${c.y}`;
@@ -264,10 +274,7 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
 // requests can be given as exact tile coordinates instead of "top-left-ish".
 // Campus tiles 0..9 draw solid with every label; outer grounds draw dashed with
 // every-2nd labels. Pure overlay — pointer-events none, zIndex above everything.
-const URL_PARAMS = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-// 🛠 ?edit=1 → the LAYOUT EDITOR (drag handles + export panel); it implies the grid.
-const EDIT_ON = !!URL_PARAMS?.has('edit');
-const GRID_ON = !!URL_PARAMS?.has('grid') || EDIT_ON;
+// (URL flags — EDIT_ON/GRID_ON/BIG_STADIUM — are defined above GroundLayer.)
 const GridOverlay: React.FC = () => {
   const LO = -10, HI = 18;
   const lines: JSX.Element[] = [];
@@ -306,6 +313,10 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
   { slug: 'defensive-line', gx: -3.2, gy: 2.6, dgy: 6.0, dur: 14.5, delay: -7.1 },
   { slug: 'secondary', gx: -4.9, gy: 8.6, dgy: -5.7, dur: 11, delay: -1.6, rev: true },
 ];
+// ?bigstadium=1: shuttle routes squeeze into the small field
+const DRILL_SQUAD_VIEW: typeof DRILL_SQUAD = BIG_STADIUM
+  ? DRILL_SQUAD.map((r, i) => ({ ...r, gx: -4.4 + (i % 3) * 0.55, gy: r.rev ? 6.9 : 4.1, dgy: r.rev ? -2.6 : 2.6 }))
+  : DRILL_SQUAD;
 
 // 🟠 LIVE JUMBOTRON: the scoreboard prop promoted to a real scoreboard — the club's
 // trophies and fan count burn on its LED face (HTML overlay skewed to the panel).
@@ -398,6 +409,21 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
   { slug: 'tree-cluster', gridX: -7,   gridY: 12,   scale: 1.4 },
   { slug: 'tree-cluster', gridX: 10.4, gridY: -0.6, scale: 1.25 },
 ];
+
+// 🏟 ?bigstadium=1: the small practice field seats ONE stand and pulls its
+// goalposts in; everything else keeps Jumaane's layout.
+const OUTER_DECOR_VIEW: typeof OUTER_DECOR = BIG_STADIUM
+  ? (() => {
+      let stands = 0;
+      const out: typeof OUTER_DECOR = [];
+      for (const d of OUTER_DECOR) {
+        if (d.slug === 'goalpost') { out.push({ ...d, gridX: -3.65, gridY: d.gridY < 5 ? 3.45 : 7.55, scale: 0.6 }); continue; }
+        if (d.slug === 'grandstand') { if (stands++ === 0) out.push({ ...d, gridX: -6.1, gridY: 6.3, scale: 2.0 }); continue; }
+        out.push(d);
+      }
+      return out;
+    })()
+  : OUTER_DECOR;
 
 // ─── 🛠 LAYOUT EDITOR (?edit=1) ────────────────────────────────────────────────
 // Every piece gets a drag handle that SNAPS to the tile grid; a panel exports the
@@ -532,7 +558,10 @@ const BuildingSprite: React.FC<{
     else onBuildingClick(building, screenPos);
   };
 
-  const SPRITE_W = TILE_W * 2.3; // renders ~15% past the 2×2 footprint — proportion pass (Jumaane: buildings read small vs field/lot); footprint & anchors unchanged
+  // Proportion pass: art renders ~15% past the 2×2 footprint (Jumaane: buildings read
+  // small vs field/lot). ?bigstadium=1 preview: the STADIUM blows up to landmark scale
+  // — "this game deserves the actual stadium to be that large". Footprint unchanged.
+  const SPRITE_W = TILE_W * (BIG_STADIUM && building.type === BuildingType.STADIUM ? 4.4 : 2.3);
 
   // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
   // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
@@ -618,7 +647,7 @@ const BuildingSprite: React.FC<{
       {/* Tap hitbox — the building's BODY, aligned to the art's true base (the sprite
           bottoms out at the footprint's low vertex, a full tile below center). */}
       <div data-fhq-bldg className="absolute cursor-pointer" onClick={handleClick}
-        style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H, width: SPRITE_W * 0.62, height: TILE_H * 2.3, pointerEvents: 'auto' }} />
+        style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H, width: SPRITE_W * 0.62, height: SPRITE_W > TILE_W * 3 ? SPRITE_W * 0.8 : TILE_H * 2.3, pointerEvents: 'auto' }} />
 
       {/* Drill status badge */}
       {(isActive || isCompleted) && (
@@ -845,12 +874,17 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
   const [copied, setCopied] = useState(false);
   useEffect(() => { if (edit) saveEditLayout(edit); }, [edit]);
 
-  const outerList = edit ? edit.outer : OUTER_DECOR;
-  const campusList = edit ? edit.campus : DECOR;
+  const outerList = edit ? edit.outer : OUTER_DECOR_VIEW;
+  // ?bigstadium=1: the legends statue slides out from behind the big bowl
+  const campusList = edit ? edit.campus : (BIG_STADIUM ? DECOR.map(d => d.slug === 'statue-legends' ? { ...d, gridX: 0, gridY: 5 } : d) : DECOR);
   // Home-board display remap FIRST (Jumaane's layout — battle geometry unaffected),
   // then any live editor overrides on top of it.
+  // ?bigstadium=1: the landmark stadium swallows the War Room's spot up-screen of
+  // it, so the preview slides the War Room west to read as skyline beside the bowl.
+  const BIG_STADIUM_ANCHORS: Partial<Record<BuildingType, { gridX: number; gridY: number }>> =
+    BIG_STADIUM ? { [BuildingType.TACTICS_ROOM]: { gridX: 0, gridY: 3 } } : {};
   const displayBuildings = buildings.map(b => {
-    const o = HOME_DISPLAY_ANCHORS[b.type];
+    const o = BIG_STADIUM_ANCHORS[b.type] ?? HOME_DISPLAY_ANCHORS[b.type];
     return o ? { ...b, gridX: o.gridX, gridY: o.gridY } : b;
   });
   const shownBuildings = edit
@@ -998,7 +1032,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {outerList.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
           ))}
-          {DRILL_SQUAD.map((r, i) => (
+          {DRILL_SQUAD_VIEW.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
           ))}
           {GRID_ON && <GridOverlay />}
@@ -1039,7 +1073,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             if (!st) return null;
             const c = tileToScreen(st.gridX + 0.5, st.gridY + 0.5);
             return (
-              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * 3.9, zIndex: 47 }}>
+              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * (BIG_STADIUM ? 8.6 : 3.9), zIndex: 47 }}>{/* big stadium: pennant rides above the tall bowl */}
                 <span className="text-[10px] font-display font-black uppercase tracking-wide text-sky-200 bg-sky-950/80 border border-sky-700/60 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
                   📋 {formationName}
                 </span>
