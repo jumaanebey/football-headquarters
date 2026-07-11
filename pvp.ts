@@ -161,6 +161,115 @@ export const fetchLeaderboard = async (limit = 20): Promise<LeaderRow[]> => {
   } catch { return []; }
 };
 
+// ── PROFILES & CLOUD SAVES ─────────────────────────────────────────────────────
+// The anonymous device identity UPGRADES to a real account (same auth uid — the
+// published base, raid history, and pid all carry over), and the save syncs to
+// fhq_saves so the club plays from any device. Same graceful-no-op philosophy:
+// every call fails quietly when offline or unconfigured.
+
+export interface ProfileInfo {
+  uid: string;
+  email: string | null;        // ACTIVE (confirmed) account email — null while guest/pending
+  pendingEmail: string | null; // email awaiting its confirmation link (cloud sync already works;
+                               // only signing in from ANOTHER device needs the confirm)
+  confirmed: boolean;
+}
+
+/** Who am I? email+pendingEmail both null → still a guest (anonymous identity). */
+export const getProfile = async (): Promise<ProfileInfo | null> => {
+  if (!pvpEnabled()) return null;
+  try {
+    const h = await authedHeaders();
+    if (!h) return null;
+    const res = await fetch(`${URL_}/auth/v1/user`, { headers: h });
+    if (!res.ok) return null;
+    const u = await res.json();
+    const confirmed = !!u.email_confirmed_at;
+    return {
+      uid: u.id,
+      email: confirmed ? (u.email || null) : null,
+      pendingEmail: u.new_email || (!confirmed && u.email ? u.email : null),
+      confirmed,
+    };
+  } catch { return null; }
+};
+
+/** Guest → account: attaches email+password to the CURRENT anonymous user. */
+export const linkAccount = async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+  if (!pvpEnabled()) return { ok: false, error: 'Cloud saves are not configured in this build.' };
+  try {
+    const h = await authedHeaders();
+    if (!h) return { ok: false, error: 'No connection — try again in a moment.' };
+    const res = await fetch(`${URL_}/auth/v1/user`, { method: 'PUT', headers: h, body: JSON.stringify({ email, password }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: j?.msg || j?.error_description || 'Could not create the account.' };
+    return { ok: true };
+  } catch { return { ok: false, error: 'No connection — try again in a moment.' }; }
+};
+
+/** Sign in on another device — the session (and pid) becomes the account's uid. */
+export const signInWithPassword = async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+  if (!pvpEnabled()) return { ok: false, error: 'Cloud saves are not configured in this build.' };
+  try {
+    const res = await fetch(`${URL_}/auth/v1/token?grant_type=password`, {
+      method: 'POST', headers: { apikey: ANON!, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: j?.error_description || j?.msg || 'Sign-in failed.' };
+    const s = toSession(j);
+    saveSession(s);
+    return { ok: !!s };
+  } catch { return { ok: false, error: 'No connection — try again in a moment.' }; }
+};
+
+/** Back to a fresh guest identity on this device (the local club stays). */
+export const signOutToGuest = (): void => {
+  saveSession(null);
+  try { localStorage.removeItem('fhq_pid'); } catch { /* ignore */ }
+};
+
+export interface CloudSave { save: unknown; club_name: string | null; updated_at: string }
+
+export const fetchCloudSave = async (): Promise<CloudSave | null> => {
+  if (!pvpEnabled()) return null;
+  try {
+    const h = await authedHeaders();
+    if (!h) return null;
+    const s = loadSession()!;
+    const res = await fetch(`${URL_}/rest/v1/fhq_saves?pid=eq.${s.uid}&select=save,club_name,updated_at&limit=1`, { headers: h });
+    const rows: CloudSave[] = res.ok ? await res.json() : [];
+    return rows[0] ?? null;
+  } catch { return null; }
+};
+
+export const pushCloudSave = async (save: unknown, clubName: string, clubPower: number): Promise<boolean> => {
+  if (!pvpEnabled()) return false;
+  try {
+    const h = await authedHeaders();
+    if (!h) return false;
+    const s = loadSession()!;
+    const res = await fetch(`${URL_}/rest/v1/fhq_saves?on_conflict=pid`, {
+      method: 'POST', headers: { ...h, Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify([{ pid: s.uid, save, club_name: clubName.slice(0, 40), club_power: Math.round(clubPower), updated_at: new Date().toISOString() }]),
+    });
+    return res.ok;
+  } catch { return false; }
+};
+
+/** Wipe my cloud footprint (save + published base). Local play is untouched. */
+export const deleteCloudData = async (): Promise<boolean> => {
+  if (!pvpEnabled()) return false;
+  try {
+    const h = await authedHeaders();
+    if (!h) return false;
+    const s = loadSession()!;
+    const del = (table: string) => fetch(`${URL_}/rest/v1/${table}?pid=eq.${s.uid}`, { method: 'DELETE', headers: h });
+    const [a, b] = await Promise.all([del('fhq_saves'), del('fhq_bases')]);
+    return a.ok && b.ok;
+  } catch { return false; }
+};
+
 /** Attacks on MY base since the last sync (applied to the defense log on load). */
 export const fetchAttacksOnMe = async (sinceIso: string): Promise<LiveAttack[]> => {
   if (!pvpEnabled()) return [];

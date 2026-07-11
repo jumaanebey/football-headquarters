@@ -33,11 +33,11 @@ import { GoalId } from './objectives';
 import { computeDefenseRating, defenseTroopBoost } from './defense';
 import { tendencyFromId, TENDENCIES, TendencyKey, displayAnchorOf } from './constants';
 import { generateRaidTargets, EnemyBase } from './battle';
-import { rankFor, trophiesForRaid, trophiesLostOnDefense } from './ranks';
+import { rankFor, trophiesForRaid, trophiesLostOnDefense, clubPower } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
 import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, crestForTeam } from './campaign';
 import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
-import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase } from './pvp';
+import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, ProfileInfo } from './pvp';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
 import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor, masteryLevel, masteryDefMult, nextMasteryAt, MASTERY_THRESHOLDS } from './fixedBase';
@@ -368,27 +368,59 @@ function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
 
-  // 💰 OWNER BOOST (temporary, pre-launch): /?boost=vega300 maxes the CURRENT save
-  // in place — identity, name, trophies, and PvP session untouched. Strip before wide launch.
-  const applyOwnerBoost = () => {
-    setGameState(prev => ({
-      ...prev,
-      resources: { ...prev.resources, [ResourceType.COINS]: 300000, [ResourceType.GEMS]: 3000, [ResourceType.ENERGY]: 100, [ResourceType.FANS]: 15000 },
-      buildings: prev.buildings.map(b => ({ ...b, level: 12 })),
-      defenseSlots: { D1: 10, D2: 10, D3: 10, D4: 10, D5: 10, D6: 10, C1: 10, C2: 10, C3: 10 },
-      bonusDefSlots: 3,
-      parkingLot: 3,
-      builders: MAX_BUILDERS,
-      heroes: prev.heroes.map(h => ({ ...h, unlocked: true, level: 17, stars: 5 })),
-    }));
-    setTimeout(() => spawnText('Front office FUNDED — everything maxed 💰', window.innerWidth / 2, window.innerHeight / 2, '#fde047'), 400);
+  // (The vega300 owner boost — URL param + redeem code — was REMOVED for launch,
+  // July 11 2026: cheats must not exist once cloud saves can sync them forever.)
+
+  // ── ☁️ PROFILES & CLOUD SAVES ────────────────────────────────────────────────
+  // Anonymous-first: everyone plays instantly on the device identity; linking an
+  // email upgrades that SAME identity (uid/pid keep, base + raid history carry).
+  // Sync rule: newest wins, and the losing local save is backed up first.
+  const [profile, setProfile] = useState<ProfileInfo | null>(null);
+  const [cloudMsg, setCloudMsg] = useState<string | null>(null);
+  const profileRef = useRef<ProfileInfo | null>(null);
+  profileRef.current = profile;
+  const lastCloudPushRef = useRef(0);
+
+  const pushSaveToCloud = async (): Promise<boolean> => {
+    const ok = await pushCloudSave(stateRef.current, stateRef.current.teamName || 'Club', clubPower(stateRef.current));
+    if (ok) lastCloudPushRef.current = Date.now();
+    return ok;
   };
+
+  /** Pull the cloud save; apply it (backup + reload) if it's meaningfully newer,
+   *  otherwise push the local club up. force=true always applies cloud (fresh
+   *  device sign-in). */
+  const syncWithCloud = async (force = false): Promise<'applied' | 'pushed' | 'none'> => {
+    const cloud = await fetchCloudSave();
+    if (!cloud || !cloud.save) {
+      const pushed = await pushSaveToCloud();
+      return pushed ? 'pushed' : 'none';
+    }
+    const cloudTime = Date.parse(cloud.updated_at);
+    const localTime = stateRef.current.lastTick ?? 0;
+    if (force || cloudTime > localTime + 90000) { // 90s skew guard — ties keep local
+      try { localStorage.setItem('fhq_backup_precloud', localStorage.getItem(SAVE_KEY) ?? ''); } catch { /* best effort */ }
+      localStorage.setItem(SAVE_KEY, JSON.stringify(cloud.save));
+      sessionStorage.setItem('fhq_cloud_applied', '1'); // reload-loop guard
+      window.location.reload();
+      return 'applied';
+    }
+    const pushed = await pushSaveToCloud();
+    return pushed ? 'pushed' : 'none';
+  };
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('boost') !== 'vega300') return;
-    window.history.replaceState({}, '', window.location.pathname);
-    applyOwnerBoost();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!pvpEnabled()) return;
+    const justApplied = sessionStorage.getItem('fhq_cloud_applied');
+    if (justApplied) sessionStorage.removeItem('fhq_cloud_applied');
+    getProfile().then(async p => {
+      setProfile(p);
+      // Linked accounts sync on boot (skip the pull right after applying a
+      // cloud save — that reload IS the sync); guests stay local-only.
+      if ((p?.email || p?.pendingEmail) && !justApplied) await syncWithCloud();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const lastUpdateRef = useRef(Date.now());
 
@@ -403,6 +435,12 @@ function App() {
         localStorage.setItem(SAVE_KEY, JSON.stringify(stateRef.current));
       } catch (e) {
         console.warn('Save failed:', e);
+      }
+      // ☁️ linked clubs (active OR pending-confirm — same uid either way) trickle
+      // up to the cloud once a minute, quietly
+      if ((profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
+        lastCloudPushRef.current = Date.now(); // set BEFORE the await — no double-fire
+        pushCloudSave(stateRef.current, stateRef.current.teamName || 'Club', clubPower(stateRef.current)).catch(() => { /* offline — next tick */ });
       }
     };
     const saveLoop = setInterval(persist, 2000);
@@ -1811,14 +1849,68 @@ function App() {
                   </div>
                 )}
               </div>
-              <div className="pt-2 border-t border-slate-800">
-                <div className="text-sm text-slate-300 mb-1.5">Redeem a code</div>
-                <div className="flex gap-2">
-                  <input id="fhq-redeem" type="text" placeholder="Enter code" className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600" style={{ fontSize: 16 }} />
-                  <button onClick={() => { const el = document.getElementById('fhq-redeem') as HTMLInputElement | null; const code = (el?.value ?? '').trim().toLowerCase(); if (code === 'vega300') { applyOwnerBoost(); setSettingsOpen(false); } else { sfx.error(); spawnText('Unknown code', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); } }}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Redeem</button>
+              {/* ☁️ PROFILE & CLOUD SAVE — anonymous-first: linking an email upgrades
+                  this device's identity in place (club, base, and raid history keep) */}
+              {pvpEnabled() && (
+                <div className="pt-2 border-t border-slate-800">
+                  <div className="text-sm text-slate-300 mb-0.5">Profile & cloud save</div>
+                  {profile?.email || profile?.pendingEmail ? (
+                    <>
+                      <div className="text-[11px] text-slate-500 mb-2">
+                        {profile.email
+                          ? <>Signed in as <span className="text-slate-300 font-bold">{profile.email}</span>. Your club syncs automatically.</>
+                          : <>Almost done — we sent a confirmation link to <span className="text-yellow-300 font-bold">{profile.pendingEmail}</span>. Your club already syncs from THIS device; click the link to unlock sign-in from other devices, then tap Sync now.</>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={async () => { setCloudMsg('Syncing…'); const r = await syncWithCloud(); setCloudMsg(r === 'pushed' ? 'Club saved to the cloud ✓' : r === 'none' ? 'Could not reach the cloud — will retry' : null); }}
+                          className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors active:scale-95">☁️ Sync now</button>
+                        <button onClick={() => { signOutToGuest(); setProfile(null); setCloudMsg('Signed out — this device plays as a new guest.'); }}
+                          className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Sign out</button>
+                      </div>
+                      <button onClick={async () => {
+                        if (cloudMsg !== 'Delete cloud data? Tap again to confirm.') { setCloudMsg('Delete cloud data? Tap again to confirm.'); return; }
+                        const ok = await deleteCloudData();
+                        setCloudMsg(ok ? 'Cloud save and published base deleted. Local club untouched.' : 'Delete failed — try again.');
+                      }} className="mt-2 w-full py-1.5 rounded-lg border border-red-900 text-red-400 hover:bg-red-950/50 text-[12px] font-bold transition-colors">Delete my cloud data…</button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[11px] text-slate-500 mb-2">Create a free account to play this club on any device. Everything carries over — base, trophies, raid history.</div>
+                      <input id="fhq-auth-email" type="email" placeholder="Email" autoComplete="email"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600 mb-2" style={{ fontSize: 16 }} />
+                      <input id="fhq-auth-pass" type="password" placeholder="Password (8+ characters)" autoComplete="new-password"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600 mb-2" style={{ fontSize: 16 }} />
+                      <div className="flex gap-2">
+                        <button onClick={async () => {
+                          const email = (document.getElementById('fhq-auth-email') as HTMLInputElement | null)?.value.trim() ?? '';
+                          const pass = (document.getElementById('fhq-auth-pass') as HTMLInputElement | null)?.value ?? '';
+                          if (!email.includes('@') || pass.length < 8) { setCloudMsg('Enter a valid email and an 8+ character password.'); return; }
+                          setCloudMsg('Creating your account…');
+                          const r = await linkAccount(email, pass);
+                          if (!r.ok) { setCloudMsg(r.error ?? 'Could not create the account.'); return; }
+                          const p = await getProfile(); setProfile(p);
+                          const pushed = await pushSaveToCloud();
+                          setCloudMsg(p?.email
+                            ? (pushed ? 'Account created — club saved to the cloud ✓' : 'Account created ✓ — cloud sync will start on the next connection.')
+                            : `Account created — confirm via the link we emailed to ${p?.pendingEmail ?? email} to enable sign-in on other devices.`);
+                        }} className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors active:scale-95">Create account</button>
+                        <button onClick={async () => {
+                          const email = (document.getElementById('fhq-auth-email') as HTMLInputElement | null)?.value.trim() ?? '';
+                          const pass = (document.getElementById('fhq-auth-pass') as HTMLInputElement | null)?.value ?? '';
+                          if (!email.includes('@') || !pass) { setCloudMsg('Enter your email and password.'); return; }
+                          setCloudMsg('Signing in…');
+                          const r = await signInWithPassword(email, pass);
+                          if (!r.ok) { setCloudMsg(r.error ?? 'Sign-in failed.'); return; }
+                          const p = await getProfile(); setProfile(p);
+                          setCloudMsg('Signed in — loading your club…');
+                          await syncWithCloud(true); // fresh device: the cloud club wins (local backed up first)
+                        }} className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Sign in</button>
+                      </div>
+                    </>
+                  )}
+                  {cloudMsg && <div className="mt-2 text-[11px] text-slate-400">{cloudMsg}</div>}
                 </div>
-              </div>
+              )}
               <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
                 <div className="text-sm text-slate-400">Start a brand-new franchise</div>
                 {/* build-stamp sits with reset — see note below the button */}
