@@ -24,10 +24,14 @@ never delete incomplete tasks.
 ## Launch track (July 2026 — Kickoff Club HQ + app + monetization)
 
 Order agreed as recommendation (soft-launch free first, monetize after retention proof):
-- [ ] 1. Remove vega300 (required BEFORE cloud saves — cheat would sync forever)
-- [ ] 2. Profiles: Supabase Auth (Apple/Google/email), anonymous-first with a
-      "Save your club" prompt after investment; cloud saves table, newest-wins +
-      local backup; account deletion path (Apple requirement). E2E locally first.
+- [x] 1. vega300 REMOVED (bd4efda) — param + redeem section gone
+- [x-ish] 2. Profiles + cloud saves LIVE (bd4efda + fhq_saves migration applied
+      via Supabase MCP, confirm to close): anonymous-first email/password
+      accounts (same uid — base/raids carry over), newest-wins sync w/ local
+      backup, round-trip + RLS-privacy verified live. Still open inside step 2:
+      "Save your club" prompt after investment (accounts exist only in Settings
+      today) · Apple/Google OAuth buttons · full auth-account deletion edge
+      function (Apple req before the iOS app; delete-cloud-DATA button exists)
 - [ ] 3. fhq.kickoffclubhq.com subdomain → this Vercel project + game landing
       card on Kickoff Club HQ (cross-promo funnel)
 - [ ] 4. Soft launch free → watch D1/D7 retention before building monetization
