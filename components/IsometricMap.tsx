@@ -83,8 +83,9 @@ type GroundRect = { x1: number; y1: number; x2: number; y2: number };
 const FIELD_RECT: GroundRect = { x1: -6.6, y1: 1.9, x2: -1.3, y2: 9.1 };
 // 🏟 SIZE-SWAP (Jumaane): stadium and practice field TRADE PLACES — the landmark
 // stadium backs the board from the old field zone on the west grounds, and the
-// practice field shrinks to a campus training patch on the stadium's old squares.
-const FIELD_RECT_SMALL: GroundRect = { x1: 5.8, y1: 3.3, x2: 8.2, y2: 6.7 };
+// practice field shrinks to a campus training patch DEAD CENTER (the stadium's
+// original home squares — also the default camera's focus tile).
+const FIELD_RECT_SMALL: GroundRect = { x1: 3.8, y1: 3.3, x2: 6.2, y2: 6.7 };
 const ROAD_RECT: GroundRect = { x1: 9.9, y1: 7.0, x2: 16.5, y2: 8.3 };
 const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = BIG_STADIUM ? FIELD_RECT_SMALL : FIELD_RECT, road = ROAD_RECT }) => {
   const tilePts = (gx: number, gy: number, s = 1) => {
@@ -329,7 +330,7 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 ];
 // ?bigstadium=1: shuttle routes squeeze onto the campus practice patch
 const DRILL_SQUAD_VIEW: typeof DRILL_SQUAD = BIG_STADIUM
-  ? DRILL_SQUAD.map((r, i) => ({ ...r, gx: 6.35 + (i % 3) * 0.55, gy: r.rev ? 6.3 : 3.7, dgy: r.rev ? -2.5 : 2.5 }))
+  ? DRILL_SQUAD.map((r, i) => ({ ...r, gx: 4.35 + (i % 3) * 0.55, gy: r.rev ? 6.3 : 3.7, dgy: r.rev ? -2.5 : 2.5 }))
   : DRILL_SQUAD;
 
 // 🟠 LIVE JUMBOTRON: the scoreboard prop promoted to a real scoreboard — the club's
@@ -431,7 +432,7 @@ const OUTER_DECOR_VIEW: typeof OUTER_DECOR = BIG_STADIUM
   ? (() => {
       const out: typeof OUTER_DECOR = [];
       for (const d of OUTER_DECOR) {
-        if (d.slug === 'goalpost') { out.push({ ...d, gridX: 7, gridY: d.gridY < 5 ? 2.95 : 7.05, scale: 0.6 }); continue; }
+        if (d.slug === 'goalpost') { out.push({ ...d, gridX: 5, gridY: d.gridY < 5 ? 2.95 : 7.05, scale: 0.6 }); continue; }
         if (d.slug === 'grandstand') continue;
         out.push(d);
       }
