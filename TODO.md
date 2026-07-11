@@ -157,8 +157,11 @@ Movement-focus round — no new features, pure motion polish on battle:
       urbanize with the live fan count — 250 vendors / 1.2k fan camp / 5k
       tailgate row / 12k tailgate city; new food-truck + fan-tents art;
       new clubs start with an empty campus (the city is the reward)
-- [ ] SimCity menu remaining: city-stats dashboard (fan population/morale/
-      revenue advisor panel) · place-your-own decor (buy + place trees/
+- [x-ish] Club Dashboard — SHIPPED e360ff6 (confirm to close): tap the
+      jumbotron → advisor sheet (fan base + campus tier progress, Club Power
+      breakdown, competition standing, operations incl. raid defense record).
+      GROWTH_TIERS moved to constants, shared by board + dashboard.
+- [ ] SimCity menu remaining: place-your-own decor (buy + place trees/
       banners with coins, editor tech)
 - [x-ish] Growth stage-up celebration — SHIPPED 780fd75 (confirm to close):
       'CAMPUS GROWING!' banner + stage name, new props bounce in with bursts
