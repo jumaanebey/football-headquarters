@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
 import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS } from '../constants';
 import { buildingSprite, unitPlayerSprite } from '../assets';
+import { sfx } from '../sound';
 import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
 
 // ─── BUILD VIEW ────────────────────────────────────────────────────────────────
@@ -266,17 +267,33 @@ export const screenToTile = (bx: number, by: number) => {
 };
 export const BOARD_DIMS = { w: BOARD_W, h: BOARD_H };
 
-const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }> = ({ slug, gridX, gridY, scale, flip, z }) => {
+const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number; reveal?: number }> = ({ slug, gridX, gridY, scale, flip, z, reveal }) => {
   const c = tileToScreen(gridX, gridY);
   const w = TILE_W * 1.35 * scale;
   // Outer-grounds props sit at out-of-grid coords whose row sum can go negative —
   // clamp so they never stack UNDER the ground plane itself. `flip` mirrors the art
   // so directional props (grandstand seating) can face the other iso quadrant.
+  // `reveal` (stage-up celebration): the prop bounces IN after that many seconds —
+  // the animation lives on ITS OWN wrapper so it can't stomp the img's static flip
+  // transform (an animation's transform REPLACES the element's own).
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: Math.max(1, Math.round(z ?? gridX + gridY)) }}>
-      <img src={`/assets/decor/${slug}.png`} alt="" draggable={false}
-        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
+      <div style={reveal !== undefined ? { animation: `fhq-reveal-in 0.6s cubic-bezier(0.34,1.56,0.64,1) ${reveal}s both` } : undefined}>
+        <img src={`/assets/decor/${slug}.png`} alt="" draggable={false}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
+      </div>
+      {reveal !== undefined && (
+        <>
+          <div className="absolute -translate-x-1/2 rounded-full border-4 border-orange-300" style={{ width: 20, height: 20, left: 0, top: -TILE_H / 2 - 10, opacity: 0, animation: `fhq-reveal-burst 0.8s ease-out ${reveal + 0.15}s both` }} />
+          {[0, 1].map(i => (
+            <img key={i} src="/assets/fx/spark-star.png" alt="" draggable={false} className="absolute select-none" style={{
+              width: 16, left: -22 + i * 30, top: -TILE_H / 2 - 26 + (i % 2) * 14, opacity: 0,
+              animation: `fhq-twinkle 0.9s ease-in-out ${reveal + 0.2 + i * 0.25}s 2`,
+            }} />
+          ))}
+        </>
+      )}
     </div>
   );
 };
@@ -1029,6 +1046,40 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, snapStep, edit]);
 
+  // 🏙 STAGE-UP CELEBRATION: when the fan count crosses a growth threshold, the
+  // new props bounce in with bursts, a banner stamps over the board, and the
+  // crowd roars. Last-seen stage persists per browser, so growth earned while
+  // away still gets its moment on the next open — and never repeats.
+  const growthStageIdx = GROWTH_STAGES.filter(s => (fans ?? 0) >= s.minFans).length;
+  const [growthCeleb, setGrowthCeleb] = useState<number | null>(null);
+  // Timers live in a ref and are cleared ONLY on unmount — returning them as
+  // effect cleanup let a dep-change/double-run cancel the hide timer, which left
+  // the faded banner mounted forever (and on dev the show raced image loading).
+  const celebTimersRef = React.useRef<number[]>([]);
+  useEffect(() => () => celebTimersRef.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    if (fans === undefined) return;
+    let seen = 0;
+    try { seen = parseInt(localStorage.getItem('fhq_growth_stage_seen_v1') || '0', 10) || 0; } catch { /* unreadable — treat as new */ }
+    if (growthStageIdx > seen) {
+      try { localStorage.setItem('fhq_growth_stage_seen_v1', String(growthStageIdx)); } catch { /* non-fatal */ }
+      // The show must not race image streaming on a fresh page (dev server or a
+      // cold phone cache): wait for the browser's load event, THEN a short beat.
+      const show = () => {
+        celebTimersRef.current.push(
+          window.setTimeout(() => { setGrowthCeleb(growthStageIdx); sfx.crowdRoar(); sfx.sign(); }, 700),
+          window.setTimeout(() => setGrowthCeleb(null), 700 + 4300),
+        );
+      };
+      if (document.readyState === 'complete') show();
+      else window.addEventListener('load', show, { once: true });
+    } else if (growthStageIdx < seen) {
+      // save reset / different club on this browser — resync quietly, no fanfare
+      try { localStorage.setItem('fhq_growth_stage_seen_v1', String(growthStageIdx)); } catch { /* non-fatal */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [growthStageIdx, fans === undefined]);
+
   // (Day/night ambient tint removed — the board "dimming itself" read as a bug,
   // not atmosphere. The backdrop is permanently stadium-night with floodlights.)
   const sortedBuildings = [...shownBuildings].sort((a, b) => (a.gridX + a.gridY) - (b.gridX + b.gridY));
@@ -1082,10 +1133,12 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           {TRAFFIC.map((t, i) => (
             <TrafficCar key={`tc${i}`} {...t} />
           ))}
-          {/* 🏙 growth props render after OUTER_DECOR so depth ties break in their favor */}
+          {/* 🏙 growth props render after OUTER_DECOR so depth ties break in their favor;
+              the freshly-unlocked stage's props bounce in staggered during a stage-up */}
           {GROWTH_STAGES.filter(s => (fans ?? 0) >= s.minFans).map((s, si) =>
             s.props.map((d, i) => (
-              <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} />
+              <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip}
+                reveal={growthCeleb !== null && si === growthCeleb - 1 ? 0.5 + i * 0.35 : undefined} />
             ))
           )}
           {DRILL_SQUAD.map((r, i) => (
@@ -1196,6 +1249,14 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           className="absolute bottom-24 left-3 z-40 bg-[#111827]/95 border border-slate-700 hover:border-orange-400 text-slate-200 p-2.5 rounded-2xl shadow-xl transition-colors">
           <span className="block text-[12px] font-bold leading-none">⌖</span>
         </button>
+      )}
+
+      {/* 🏙 stage-up banner — one keyframe owns bounce/hold/fade; unmounts at 4.2s */}
+      {growthCeleb !== null && (
+        <div className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center" style={{ top: '16%', animation: 'fhq-growstamp 4.2s ease-out both' }}>
+          <div className="font-display font-black uppercase text-orange-300" style={{ fontSize: 30, letterSpacing: 1, textShadow: '0 0 18px rgba(249,115,22,0.8), 0 2px 4px #000' }}>🏙 Campus growing!</div>
+          <div className="font-display font-bold uppercase tracking-[0.3em] text-white/90 mt-1" style={{ fontSize: 14, textShadow: '0 1px 3px #000' }}>{GROWTH_STAGES[growthCeleb - 1]?.name}</div>
+        </div>
       )}
 
       {/* 🛠 EDITOR PANEL — fixed to the viewport, never pans with the board */}
