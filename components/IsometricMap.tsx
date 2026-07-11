@@ -85,8 +85,8 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
   // <image> elements rasterize per frame and dropped the page to 2fps. Bands are cheap
   // flat overlays. (The light turf variant came back speckle-damaged; unused.)
   const bandShades = [];
-  for (let gx = 0; gx < GRID; gx++) {
-    for (let gy = 0; gy < GRID; gy++) {
+  for (let gx = 0; gx <= GRID; gx++) {     // <= GRID: mow bands cover the apron tiles too
+    for (let gy = 0; gy <= GRID; gy++) {
       if (Math.floor((gx + gy) / 2) % 2 === 0) {
         bandShades.push(<polygon key={`b${gx}-${gy}`} points={tilePts(gx, gy)} fill="rgba(255,255,255,0.06)" />);
       }
@@ -119,7 +119,14 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
 
   // NO MORE FLOATING ISLAND: the campus sits on a wide grounds plane that fades into
   // the night instead of dropping off a cliff into space (user call, July 2026).
-  const cT = tileToScreen(0, 0), cR = tileToScreen(GRID - 1, 0), cB = tileToScreen(GRID - 1, GRID - 1), cL = tileToScreen(0, GRID - 1);
+  // MOWED APRON (Jumaane, July 11 — "I don't like how it sits off the bottom of the
+  // map"): his layout parks Rehab (1,8) and Training (8,8) on the buildable edge,
+  // which dangled their worn-turf wear and stencil labels onto the dark rough. The
+  // mowed campus now extends ONE extra tile past the two south-facing edges (corner
+  // tiles GRID instead of GRID-1) so edge buildings stand on grass with margin.
+  // North/west edges are unchanged — the practice field and scoreboard tuck against
+  // those. Buildable grid, battle geometry, and ?grid=1 labels untouched: pure paint.
+  const cT = tileToScreen(0, 0), cR = tileToScreen(GRID, 0), cB = tileToScreen(GRID, GRID), cL = tileToScreen(0, GRID);
   const T = { x: cT.x, y: cT.y - TILE_H / 2 };
   const L = { x: cL.x - TILE_W / 2, y: cL.y }, B = { x: cB.x, y: cB.y + TILE_H / 2 }, R = { x: cR.x + TILE_W / 2, y: cR.y };
   const glow = stadium ? tileToScreen(stadium.gridX, stadium.gridY) : tileToScreen(6, 6);
