@@ -333,6 +333,31 @@ const DRILL_SQUAD_VIEW: typeof DRILL_SQUAD = BIG_STADIUM
   ? DRILL_SQUAD.map((r, i) => ({ ...r, gx: 4.35 + (i % 3) * 0.55, gy: r.rev ? 6.3 : 3.7, dgy: r.rev ? -2.5 : 2.5 }))
   : DRILL_SQUAD;
 
+// 🚗 SIMCITY TRAFFIC (Jumaane: "pull features from SimCity"): team-colored cars
+// roll the access road end to end, fading in at the campus gate and out at the
+// tree line. The car art faces lower-left like the bus, so scaleX(-1) noses them
+// down-right = the road's travel direction; the loop reads as departing traffic.
+// Route starts past the mowed apron (col 10.7) so cars never drive on grass.
+const TRAFFIC: { slug: string; gy: number; dur: number; delay: number; scale: number }[] = [
+  { slug: 'car-orange', gy: 7.75, dur: 13, delay: 0,    scale: 0.62 },
+  { slug: 'car-black',  gy: 8.12, dur: 16, delay: -8.5, scale: 0.66 },
+];
+const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, scale }) => {
+  const a = tileToScreen(10.7, gy), b = tileToScreen(15.8, gy);
+  const w = TILE_W * 1.35 * scale;
+  // z 22: in front of the parked bus/lot/floodlight it passes below, behind the
+  // south tree line — one static z can't be exact across the whole route, so ties
+  // break by DOM order (traffic renders after OUTER_DECOR).
+  return (
+    <div className="fhq-traffic absolute pointer-events-none"
+      style={{ left: a.x, top: a.y, zIndex: 22, '--dx': `${b.x - a.x}px`, '--dy': `${b.y - a.y}px`, animation: `fhq-drive ${dur}s linear ${delay}s infinite` } as React.CSSProperties}>
+      <img src={`/assets/decor/${slug}.png`} alt="" draggable={false}
+        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: 'scaleX(-1)', filter: 'drop-shadow(0 6px 5px rgba(0,0,0,0.35))' }} />
+    </div>
+  );
+};
+
 // 🟠 LIVE JUMBOTRON: the scoreboard prop promoted to a real scoreboard — the club's
 // trophies and fan count burn on its LED face (HTML overlay skewed to the panel).
 // VEGAS SIZE per Jumaane: a mega-board towering BEHIND the practice field's north
@@ -402,7 +427,7 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
   { slug: 'grandstand', gridX: -5.5, gridY: 6,  scale: 3, flip: true },
   { slug: 'grandstand', gridX: -5.5, gridY: 10, scale: 3, flip: true },
   { slug: 'parking-lot', gridX: 14.5, gridY: 4.5, scale: 3.1 },
-  { slug: 'team-bus',    gridX: 13, gridY: 7, scale: 1.5, flip: true, z: 23 }, // parked on the road, nose west
+  { slug: 'team-bus',    gridX: 13, gridY: 7, scale: 1.5, flip: true }, // parked on the road, nose east (z override retired with the pad — natural depth lets traffic pass in front)
   { slug: 'goalpost', gridX: -3.95, gridY: 1.7, scale: 0.95 },
   { slug: 'goalpost', gridX: -3.95, gridY: 9.35, scale: 0.95 },
   { slug: 'floodlight', gridX: -7.3, gridY: 1.3,  scale: 2.1 },
@@ -1047,6 +1072,9 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           <Jumbotron trophies={trophies} fans={fans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} />
           {outerList.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
+          ))}
+          {TRAFFIC.map((t, i) => (
+            <TrafficCar key={`tc${i}`} {...t} />
           ))}
           {DRILL_SQUAD_VIEW.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
