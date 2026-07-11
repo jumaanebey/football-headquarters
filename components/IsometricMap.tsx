@@ -25,6 +25,7 @@ interface Props {
   celebrationId?: string | null;       // 🎉 upgrade just finished here — burst + LEVEL UP!
   onDeselect?: () => void;             // tap empty turf → clear the selection
   rankName?: string;
+  clubName?: string;
   trophies?: number;
   fans?: number;
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -358,12 +359,12 @@ const GROWTH_STAGES: { minFans: number; name: string; props: { slug: string; gri
     { slug: 'food-truck', gridX: 7.8, gridY: 10.5, scale: 0.95, flip: true },
   ]},
   { minFans: 5000, name: 'tailgate row', props: [
-    { slug: 'fan-tents',  gridX: 3.2,  gridY: 10.6, scale: 1.2 },
+    { slug: 'fan-tents',  gridX: 3.9,  gridY: 11.5, scale: 1.2 },   // spaced off the Rehab base (review: cluster crowded it)
     { slug: 'car-orange', gridX: 11.7,  gridY: 6.55, scale: 0.58 }, // parked along the shoulder
     { slug: 'car-black',  gridX: 12.35, gridY: 6.68, scale: 0.6 },
   ]},
   { minFans: 12000, name: 'tailgate city', props: [
-    { slug: 'tailgate-tent', gridX: 4.8,  gridY: 11.1, scale: 0.8 },
+    { slug: 'tailgate-tent', gridX: 6.6,  gridY: 11.4, scale: 0.8 },
     { slug: 'fan-tents',     gridX: -2.5, gridY: 9.6,  scale: 1.1 }, // camp spills toward the bowl (pan reveals)
     { slug: 'food-truck',    gridX: 13.9, gridY: 8.5,  scale: 0.95 },
     { slug: 'fan-tents',     gridX: 12.6, gridY: 9.3,  scale: 1.05 },
@@ -402,7 +403,7 @@ const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, sc
 // Shipped scoreboard anchor — the editor overrides these via props.
 // (3.5, -2) per Jumaane's editor layout, July 10 2026.
 const BOARD_ANCHOR = { gx: 3.5, gy: -2, w: 3.2 };
-const Jumbotron: React.FC<{ trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number }> = ({ trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w }) => {
+const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number }> = ({ clubName, trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w }) => {
   // BOARD diagonal BEHIND THE WAR ROOM (Jumaane): ribbon-board art (wide panel,
   // short blocks) sloping down-right along the campus's upper-right edge. Width is
   // the honest max that keeps the panel inside the frame at the default camera —
@@ -416,12 +417,26 @@ const Jumbotron: React.FC<{ trophies?: number; fans?: number; gx?: number; gy?: 
         <img src="/assets/decor/ribbonboard.png" alt="" draggable={false}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
-        {/* LED face — rotated onto the panel at the iso angle; values pop on change */}
+        {/* THE SCREEN — a real display, not values floating over the art's baked
+            dot pattern (external review): a dark scanlined surface covers the
+            filler, with the club name and LABELED readouts in LED type spanning
+            the panel width, all rotated onto the panel at the iso angle. */}
         {trophies !== undefined && (
-          <div className="absolute flex flex-col items-center justify-center gap-[4%]"
-            style={{ left: '33%', top: '25%', width: '32%', height: '26%', transform: 'rotate(26.5deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
-            <div key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.046, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9), 0 0 14px rgba(249,115,22,0.5)', animation: 'fhq-counter-pop 0.55s ease-out' }}>🏆{fmt(trophies)}</div>
-            <div key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.04, color: '#fed7aa', textShadow: '0 0 5px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>👥{fmt(fans ?? 0)}</div>
+          <div className="absolute flex flex-col items-center justify-center"
+            style={{ left: '18.5%', top: '18%', width: '58%', height: '30%', transform: 'rotate(25deg)', transformOrigin: '0 0',
+              background: 'repeating-linear-gradient(0deg, rgba(4,8,14,0.92) 0px, rgba(4,8,14,0.92) 3px, rgba(20,26,34,0.92) 4px)',
+              border: '2px solid rgba(0,0,0,0.85)', borderRadius: 4, boxShadow: 'inset 0 0 18px rgba(249,115,22,0.18), 0 0 10px rgba(0,0,0,0.5)',
+              animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
+            <div className="font-mono font-black leading-none uppercase whitespace-nowrap overflow-hidden" style={{ fontSize: w * 0.062, maxWidth: '94%', letterSpacing: 2, color: '#fb923c', textShadow: '0 0 8px rgba(249,115,22,0.9), 0 0 20px rgba(249,115,22,0.45)' }}>
+              {clubName || 'FOOTBALL HQ'}
+            </div>
+            <div className="flex items-baseline justify-center whitespace-nowrap" style={{ gap: w * 0.03, marginTop: w * 0.018 }}>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.026, color: 'rgba(254,215,170,0.75)', letterSpacing: 1 }}>🏆</span>
+              <span key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.05, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(trophies)}</span>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.026, color: 'rgba(254,215,170,0.55)', letterSpacing: 1 }}>·</span>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.026, color: 'rgba(254,215,170,0.75)', letterSpacing: 1 }}>👥</span>
+              <span key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.05, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(fans ?? 0)}</span>
+            </div>
           </div>
         )}
       </div>
@@ -837,7 +852,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, trophies, fans, selectedId, celebrationId, onDeselect, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, selectedId, celebrationId, onDeselect, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -1126,7 +1141,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           <GroundLayer buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
-          <Jumbotron trophies={trophies} fans={fans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} />
+          <Jumbotron clubName={clubName} trophies={trophies} fans={fans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} />
           {outerList.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
           ))}

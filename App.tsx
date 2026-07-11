@@ -1281,6 +1281,7 @@ function App() {
         formationName={formationDef(gameState.formation).name}
         rankColor={rankFor(gameState.trophies).rank.color}
         rankName={rankFor(gameState.trophies).rank.name}
+        clubName={gameState.teamName}
         trophies={gameState.trophies}
         fans={Math.floor(gameState.resources[ResourceType.FANS] ?? 0)}
         selectedId={selectedBuilding?.id ?? null}
