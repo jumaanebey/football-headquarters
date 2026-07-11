@@ -220,22 +220,10 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
         {/* soft light pool centered on the Stadium */}
         <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
       </svg>
-      {/* GROUND INTEGRATION v2 (the shadow blobs read as smears — Jumaane): each
-          facility stands on WORN TURF, laid from the same dirt-tile art the walking
-          paths use, so the wear matches the campus's existing tan patches exactly.
-          Footprint tiles wear hardest; entrance and edge tiles fade out. */}
-      {buildings.map(b => {
-        const spots: [number, number, number][] = [
-          [0, 0, 0.9], [1, 0, 0.9], [0, 1, 0.9], [1, 1, 0.9], // the 2×2 footprint
-          [1.7, 0.5, 0.55], [0.5, 1.7, 0.55], [1.6, 1.6, 0.65], // entrance wear, down-screen
-          [-0.6, 0.5, 0.45], [0.5, -0.6, 0.45], // light wear peeking behind
-        ];
-        return spots.map(([dx, dy, op], i) => {
-          const pc = tileToScreen(b.gridX + dx, b.gridY + dy);
-          return <img key={`pad${b.id}-${i}`} src="/assets/ground/dirt-path-tile.png" alt="" draggable={false}
-            style={{ position: 'absolute', left: pc.x - TILE_W / 2, top: pc.y - TILE_H / 2, width: TILE_W, height: TILE_H, maxWidth: 'none', opacity: op, pointerEvents: 'none' }} />;
-        });
-      })}
+      {/* Worn-turf pads under buildings REMOVED (Jumaane, July 11: the tan wear
+          trailing off each building's base read as a bad "border"). Buildings
+          ground via their art's baked shadows, same as the outer props; the thin
+          walking paths to the Stadium stay. */}
       {paths}
     </>
   );
