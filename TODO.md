@@ -160,8 +160,10 @@ Movement-focus round — no new features, pure motion polish on battle:
 - [ ] SimCity menu remaining: city-stats dashboard (fan population/morale/
       revenue advisor panel) · place-your-own decor (buy + place trees/
       banners with coins, editor tech)
-- [ ] Growth stage-up moment: no celebration when a threshold crosses yet
-      (toast/fanfare/camera nudge to the new props would sell it)
+- [x-ish] Growth stage-up celebration — SHIPPED 780fd75 (confirm to close):
+      'CAMPUS GROWING!' banner + stage name, new props bounce in with bursts
+      and sparks, crowd roar + fanfare; fires once per stage (persists), and
+      waits for page load so it never plays before the board has painted
 - [x] Size-swap look SHIPPED AS DEFAULT (5078e2a) per Jumaane's "make it live" —
       backdrop stadium (-3.5,5), chalk patch center, Rehab (1,10) + Training
       (10,10) on the apron per his final editor round; ?bigstadium flag retired.
