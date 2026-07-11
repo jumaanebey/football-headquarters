@@ -487,14 +487,18 @@ type SelRef =
   | { kind: 'field'; c: 0 | 1 }
   | { kind: 'road'; c: 0 | 1 };
 
-const EDIT_LS_KEY = 'fhq_layout_edit_v1';
+// Per-look storage: an edit session on the size-swap board must not collide with
+// (or get hijacked by) a saved classic-layout session in the same browser.
+const EDIT_LS_KEY = BIG_STADIUM ? 'fhq_layout_edit_big_v1' : 'fhq_layout_edit_v1';
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const freshEditLayout = (): EditLayout => ({
   v: 1,
-  outer: OUTER_DECOR.map(d => ({ ...d })),
+  // Baseline = what's ON SCREEN in the current mode (size-swap remaps included),
+  // so the editor always moves the pieces the user is actually looking at.
+  outer: OUTER_DECOR_VIEW.map(d => ({ ...d })),
   campus: DECOR.map(d => ({ ...d })),
   board: { ...BOARD_ANCHOR },
-  field: { ...FIELD_RECT },
+  field: BIG_STADIUM ? { ...FIELD_RECT_SMALL } : { ...FIELD_RECT },
   road: { ...ROAD_RECT },
   buildings: {},
 });
@@ -947,7 +951,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
       case 'outer': return { ...l, outer: l.outer.map((d, i) => i === r.i ? { ...d, gridX: gx, gridY: gy } : d) };
       case 'campus': return { ...l, campus: l.campus.map((d, i) => i === r.i ? { ...d, gridX: gx, gridY: gy } : d) };
       case 'board': return { ...l, board: { ...l.board, gx, gy } };
-      case 'bldg': { // 2×2 footprint must stay on the campus
+      case 'bldg': {
+        // 2×2 footprints stay on the campus — EXCEPT the size-swap backdrop
+        // stadium, which lives on the open grounds and drags freely.
+        if (BIG_STADIUM && r.t === BuildingType.STADIUM) return { ...l, buildings: { ...l.buildings, [r.t]: { gx, gy } } };
         const cx = Math.max(0, Math.min(GRID - 2, Math.round(gx))), cy = Math.max(0, Math.min(GRID - 2, Math.round(gy)));
         return { ...l, buildings: { ...l.buildings, [r.t]: { gx: cx, gy: cy } } };
       }
@@ -975,7 +982,8 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     const bdx = (e.clientX - d.sx) / k, bdy = (e.clientY - d.sy) / k;
     const dgx = (bdx / (TILE_W / 2) + bdy / (TILE_H / 2)) / 2;
     const dgy = (bdy / (TILE_H / 2) - bdx / (TILE_W / 2)) / 2;
-    const step = d.ref.kind === 'bldg' ? 1 : snapStep;
+    const freeStadium = BIG_STADIUM && d.ref.kind === 'bldg' && d.ref.t === BuildingType.STADIUM;
+    const step = d.ref.kind === 'bldg' && !freeStadium ? 1 : snapStep;
     setEdit(l => l ? withCoords(l, d.ref, snapTo(d.ogx + dgx, step), snapTo(d.ogy + dgy, step)) : l);
   };
   const markerUp = (e: React.PointerEvent) => { e.stopPropagation(); dragRef.current = null; };
@@ -1009,7 +1017,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     if (!EDIT_ON) return;
     const onKey = (e: KeyboardEvent) => {
       if (!sel || !edit) return;
-      const step = sel.kind === 'bldg' ? 1 : snapStep;
+      const step = sel.kind === 'bldg' && !(BIG_STADIUM && sel.t === BuildingType.STADIUM) ? 1 : snapStep;
       const move = (dx: number, dy: number) => { e.preventDefault(); const c = selCoords(edit, sel); setEdit(withCoords(edit, sel, r2(c.gx + dx), r2(c.gy + dy))); };
       if (e.key === 'ArrowRight') move(step, 0);
       else if (e.key === 'ArrowLeft') move(-step, 0);
