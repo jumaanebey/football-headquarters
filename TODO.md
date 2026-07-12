@@ -53,8 +53,11 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
       Verified: full Night 1 clear end-to-end incl. rewards + persistence.
 - [ ] Balance: night difficulty curve (0.5 + 0.13·tier, +18%/wave) is a
       first pass — watch where real bases stall vs their stadium level
-- [ ] Aesthetics next (his directive: execution > features): battle deploy
-      bar CC-chunky restyle · attack-side matchup card art · sfx samples
+- [ ] SHIPPED: deploy bar CC-card restyle (22d0972) — full-bleed unit/hero/
+      special art on beveled gradient cards, gold glow selection, cooldown
+      overlays, chunky badges; handlers untouched (verified live)
+- [ ] Aesthetics next (his directive: execution > features): attack-side
+      matchup card art · sfx samples · phone-width card fit check
 
 ## Defense depth round (July 12, 5cde06c — confirm to close)
 
