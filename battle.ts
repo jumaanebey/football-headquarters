@@ -667,7 +667,7 @@ export const mulberry32 = (seed: number) => {
   };
 };
 
-export interface ReplayAction { tick: number; k: 't' | 'h' | 's' | 'p' | 'a'; u?: UnitGroup; key?: string; x?: number; y?: number; }
+export interface ReplayAction { tick: number; k: 't' | 'h' | 's' | 'p' | 'a' | 'e'; u?: UnitGroup; key?: string; x?: number; y?: number; } // 'e' = the attacker's whistle
 export interface ReplayData {
   v: 1;
   seed: number;
@@ -677,6 +677,9 @@ export interface ReplayData {
   specials: SpecialDef[];             // mascot / fan-mob kit
   layout: BattleBuildingDef[];        // the DEFENDER's base as it was attacked
   script: ReplayAction[];             // every deploy / play / ability, by tick
+  /** The attacker's roster as fielded — replays deploy the SAME named players with the
+   *  same ROLE_COMBAT stats. Absent on old recordings → base-stat troops (pre-fix look). */
+  squad?: { id: string; name: string; role: string; unit: UnitGroup }[];
 }
 
 // Dev-only test hook: lets browser-console tests drive the pathfinder directly.

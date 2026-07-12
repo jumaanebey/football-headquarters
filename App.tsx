@@ -124,6 +124,10 @@ const loadState = (): GameState => {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
+      // Boot backup BEFORE migrations touch anything: if a migration bug ever throws,
+      // the catch below falls back to a fresh club and the autosave overwrites the
+      // save — this key preserves the last good raw save for recovery.
+      try { localStorage.setItem('fhq_save_backup_boot', raw); } catch { /* best effort */ }
       const saved = JSON.parse(raw) as GameState;
       const now = Date.now();
       // Credit passive collectors for time spent away (capped per collector config).
@@ -335,13 +339,14 @@ function App() {
   const applyImport = () => {
     if (!importPending) return;
     const KEYS = ['fhq_save_v1', 'fhq_pid', 'fhq_session_v1', 'fhq_pvp_since', 'fhq_tutorial_done_v1', 'fhq_chalk_intro_v1'];
-    // The autosave's beforeunload persist would clobber the imported save — write LAST.
-    window.addEventListener('beforeunload', () => {
-      for (const k of KEYS) {
-        const v = (importPending as Record<string, string | null>)[k];
-        if (v != null) localStorage.setItem(k, v); // absent keys KEEP current values — a save-only bundle must not wipe your PvP identity
-      }
-    });
+    // Suppress the autosave AND write the bundle immediately — the old listener-order
+    // trick relied on beforeunload, which iOS Safari doesn't fire reliably (the
+    // import would silently no-op on the platform we actually ship on).
+    suppressPersistRef.current = true;
+    for (const k of KEYS) {
+      const v = (importPending as Record<string, string | null>)[k];
+      if (v != null) try { localStorage.setItem(k, v); } catch { /* quota */ } // absent keys KEEP current values — a save-only bundle must not wipe your PvP identity
+    }
     location.reload();
   };
 
@@ -362,6 +367,7 @@ function App() {
       else if (confirmingReset) setConfirmingReset(false);
       else if (isDailyOpen) setIsDailyOpen(false);
       else if (defenseLogOpen) setDefenseLogOpen(false);
+      else if (dashboardOpen) setDashboardOpen(false);
       else if (isHeroOpen) setIsHeroOpen(false);
       else if (isStandingsOpen) setIsStandingsOpen(false);
       else if (isScoutingOpen) setIsScoutingOpen(false);
@@ -372,7 +378,7 @@ function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
+  }, [importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, dashboardOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
 
   // (The vega300 owner boost — URL param + redeem code — was REMOVED for launch,
   // July 11 2026: cheats must not exist once cloud saves can sync them forever.)
@@ -393,20 +399,32 @@ function App() {
     return ok;
   };
 
+  // The device's TRUE last-played stamp, captured BEFORE this session's autosave
+  // starts refreshing it. The old comparison used lastTick — which loadState resets
+  // to Date.now() on every boot — so a laptop untouched for a week still looked
+  // "newer" than the cloud and silently overwrote a week of phone progress.
+  const [bootSavedAt] = useState(() => { try { return Number(localStorage.getItem('fhq_saved_at') ?? 0); } catch { return 0; } });
+  // While a cloud save is being applied, the autosave (interval/beforeunload/pagehide)
+  // must NOT write the old state back over it during the reload.
+  const suppressPersistRef = useRef(false);
+
   /** Pull the cloud save; apply it (backup + reload) if it's meaningfully newer,
    *  otherwise push the local club up. force=true always applies cloud (fresh
-   *  device sign-in). */
-  const syncWithCloud = async (force = false): Promise<'applied' | 'pushed' | 'none'> => {
+   *  device sign-in). localRecency = when this device last recorded progress
+   *  (boot passes the pre-session stamp; an actively-played session is "now"). */
+  const syncWithCloud = async (force = false, localRecency?: number): Promise<'applied' | 'pushed' | 'none'> => {
     const cloud = await fetchCloudSave();
     if (!cloud || !cloud.save) {
       const pushed = await pushSaveToCloud();
       return pushed ? 'pushed' : 'none';
     }
     const cloudTime = Date.parse(cloud.updated_at);
-    const localTime = stateRef.current.lastTick ?? 0;
+    const localTime = localRecency ?? Date.now();
     if (force || cloudTime > localTime + 90000) { // 90s skew guard — ties keep local
+      suppressPersistRef.current = true; // the unload flush must not resurrect the old save
       try { localStorage.setItem('fhq_backup_precloud', localStorage.getItem(SAVE_KEY) ?? ''); } catch { /* best effort */ }
       localStorage.setItem(SAVE_KEY, JSON.stringify(cloud.save));
+      try { localStorage.setItem('fhq_saved_at', String(cloudTime || Date.now())); } catch { /* best effort */ }
       sessionStorage.setItem('fhq_cloud_applied', '1'); // reload-loop guard
       window.location.reload();
       return 'applied';
@@ -423,7 +441,8 @@ function App() {
       setProfile(p);
       // Linked accounts sync on boot (skip the pull right after applying a
       // cloud save — that reload IS the sync); guests stay local-only.
-      if ((p?.email || p?.pendingEmail) && !justApplied) await syncWithCloud();
+      // Recency = the stamp from BEFORE this session started (see bootSavedAt).
+      if ((p?.email || p?.pendingEmail) && !justApplied) await syncWithCloud(false, bootSavedAt);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -437,8 +456,10 @@ function App() {
   // --- AUTOSAVE ---
   useEffect(() => {
     const persist = () => {
+      if (suppressPersistRef.current) return; // a cloud save is being applied — don't resurrect the old state
       try {
         localStorage.setItem(SAVE_KEY, JSON.stringify(stateRef.current));
+        localStorage.setItem('fhq_saved_at', String(Date.now())); // true last-played stamp (cloud sync recency)
       } catch (e) {
         console.warn('Save failed:', e);
       }
@@ -451,9 +472,11 @@ function App() {
     };
     const saveLoop = setInterval(persist, 2000);
     window.addEventListener('beforeunload', persist);
+    window.addEventListener('pagehide', persist); // iOS Safari: beforeunload is unreliable — pagehide is the real unload event
     return () => {
       clearInterval(saveLoop);
       window.removeEventListener('beforeunload', persist);
+      window.removeEventListener('pagehide', persist);
       persist();
     };
   }, []);
@@ -548,9 +571,11 @@ function App() {
         const medCenter = prev.buildings.find(b => b.type === 'MEDICAL_CENTER');
         const interval = energyIntervalMs(medCenter ? medCenter.level : 1);
 
-        const newEnergy = (prev.lastTick % interval > now % interval && prev.resources.ENERGY < 100)
-            ? Math.min(100, prev.resources.ENERGY + 1)
-            : prev.resources.ENERGY;
+        // Interval-boundary COUNT since the last tick — a phone backgrounded for 30
+        // minutes banks every missed regen on resume (the old boundary check granted
+        // at most +1 no matter how long the gap was).
+        const regenTicks = Math.max(0, Math.floor(now / interval) - Math.floor(prev.lastTick / interval));
+        const newEnergy = regenTicks > 0 ? Math.min(100, prev.resources.ENERGY + regenTicks) : prev.resources.ENERGY;
 
         // Complete any timed upgrades whose timer elapsed (frees the builder).
         let finalBuildings = updatedBuildings;
@@ -578,6 +603,7 @@ function App() {
           upgrades: finalUpgrades,
           resources: { ...prev.resources, [ResourceType.ENERGY]: newEnergy },
           dailies: prev.dailies.date !== todayKey() ? freshDailies() : prev.dailies, // midnight rollover
+          gauntlet: prev.gauntlet.date !== todayKey() ? { ...prev.gauntlet, attempts: 3, date: todayKey() } : prev.gauntlet, // Gauntlet nights refill at the same rollover
           timeOfDay: newTime,
           lastTick: now
         };
@@ -641,8 +667,6 @@ function App() {
      if (!building.activeDrillId) return;
      const drill = DRILLS[building.activeDrillId];
 
-     // XP Bonus from the Training Field level (real, wired effect).
-     const xpGained = Math.floor(drill.rewardXp * trainingXpMult(building.level));
 
      setGameState(prev => {
        // War Room (Tactics) sharpens the game plan → more readiness per drill.
@@ -672,7 +696,7 @@ function App() {
 
      spawnText(`+${drill.rewardCoins} Coins`, screenPos.x, screenPos.y, '#fbbf24');
      spawnCoinArc(screenPos, drill.rewardCoins);
-     spawnText(`+${xpGained} XP`, screenPos.x, screenPos.y - 30, '#3b82f6');
+     spawnText('Squad +1 LVL', screenPos.x, screenPos.y - 30, '#3b82f6'); // the REAL reward — the old float advertised XP that no system ever recorded
      sfx.collect();
      bumpDaily('drills');
   };
@@ -698,7 +722,14 @@ function App() {
     const toLevel = building.level + 1;
     const now = Date.now();
     const job: UpgradeJob = { id: newJobId(), kind: 'building', key: buildingId, toLevel, startTime: now, finishTime: now + upgradeDurationSecs(toLevel) * 1000 };
-    setGameState(prev => ({ ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, upgrades: [...prev.upgrades, job] }));
+    setGameState(prev => {
+      // re-check EVERY guard against prev — a double-tap raced the closure checks
+      // above and could queue two jobs / charge twice for one level
+      if (prev.upgrades.length >= prev.builders) return prev;
+      if (prev.upgrades.some(u => u.kind === 'building' && u.key === buildingId)) return prev;
+      if (prev.resources.COINS < cost) return prev;
+      return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, upgrades: [...prev.upgrades, job] };
+    });
     setSelectedBuilding(null);
     sfx.click();
     spawnText('Under construction…', window.innerWidth / 2, window.innerHeight / 2, '#60a5fa');
@@ -783,11 +814,14 @@ function App() {
       return;
     }
     const secs = recruitSeconds(candidate);
-    setGameState(prev => ({
-      ...prev,
-      resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost },
-      recruitSlot: { candidate, cost, finishTime: Date.now() + secs * 1000 }
-    }));
+    setGameState(prev => {
+      if (prev.recruitSlot || prev.resources.COINS < cost) return prev; // double-tap: one job, one charge
+      return {
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost },
+        recruitSlot: { candidate, cost, finishTime: Date.now() + secs * 1000 },
+      };
+    });
     spawnText('Scouting…', window.innerWidth/2, window.innerHeight/2, '#3b82f6');
     sfx.scout();
   };
@@ -855,7 +889,11 @@ function App() {
   };
 
   // Take REVENGE on a rival who raided you — storm their (scaled) base for extra loot.
+  const revengeInFlightRef = useRef(false);
   const handleRevenge = async (entry: DefenseLogEntry) => {
+    if (revengeInFlightRef.current) return; // double-tap during the base fetch launched (and charged) twice
+    revengeInFlightRef.current = true;
+    setTimeout(() => { revengeInFlightRef.current = false; }, 4000);
     // LIVE rival? Revenge storms their REAL published base — not a lookalike.
     let buildings = null as import('./battle').BattleBuildingDef[] | null;
     let pvpTarget: string | undefined;
@@ -904,13 +942,13 @@ function App() {
       sfx.error();
       return false;
     }
-    setGameState(prev => ({ ...prev, resources: { ...prev.resources, [ResourceType.ENERGY]: Math.max(0, prev.resources.ENERGY - RAID_ENERGY) } }));
+    setGameState(prev => prev.resources.ENERGY < RAID_ENERGY ? prev // double-fire must not double-charge
+      : { ...prev, resources: { ...prev.resources, [ResourceType.ENERGY]: prev.resources.ENERGY - RAID_ENERGY } });
     setBattleConfig({ ...config, attackerName: gameState.teamName, squad: gameState.roster }); // your club + your INDIVIDUALS
     return true;
   };
 
   const startDefense = () => {
-    const coinsAtRisk = Math.min(gameState.resources.COINS, Math.round(gameState.resources.COINS * 0.15) + 120);
     const stadiumLvl = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
     // ⭐ HERO GATES: each gate post is held by its ASSIGNED hero (Front Office), or
     // auto-fills with your strongest available. (75% strength: surprised, not suited up.)
@@ -934,16 +972,22 @@ function App() {
       fans: gameState.resources.FANS,              // the crowd stalls enemy drives
       parkingLot: gameState.parkingLot,            // visible apron (layout pre-compressed)
       masteryTier: masteryLevel(gameState.formationMastery[gameState.formation] ?? 0), // ★ tiers = extra defense-play charges
-      loot: { coins: coinsAtRisk, fans: 0 },
+      loot: { coins: 0, fans: 0 }, // a SCRIMMAGE — Test Defense must never cost real coins (it was deducting up to 15%+120 even on a hold)
     });
   };
 
   // 🛡 THE GAUNTLET — preseason challengers storm your house in 5 escalating waves.
   // The mode where the defense you built earns its keep, every day.
   const handleStartGauntlet = () => {
-    if (gameState.gauntlet.attempts <= 0) { sfx.error(); spawnText('No Gauntlet attempts left today', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); return; }
+    if (gameState.gauntlet.attempts <= 0 && gameState.gauntlet.date === todayKey()) { sfx.error(); spawnText('No Gauntlet attempts left today', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); return; }
     const tier = Math.min(GAUNTLET_MAX_TIER, gameState.gauntlet.best + 1);
-    setGameState(prev => ({ ...prev, gauntlet: { ...prev.gauntlet, attempts: prev.gauntlet.attempts - 1, date: todayKey() } }));
+    setGameState(prev => {
+      // Day rolled over mid-session? Refill FIRST, then consume — stamping today on a
+      // carried-over attempt used to eat the whole new day's refill. Floor at 0.
+      const fresh = prev.gauntlet.date !== todayKey();
+      const attempts = Math.max(0, (fresh ? 3 : prev.gauntlet.attempts) - 1);
+      return { ...prev, gauntlet: { ...prev.gauntlet, attempts, date: todayKey() } };
+    });
     const posts = gatePostsFor(gameState.formation);
     const pool = heroesForBattle(gameState.heroes).sort((a, b) => b.hp + b.dps * 10 - (a.hp + a.dps * 10));
     const taken = new Set<string>();
@@ -980,6 +1024,7 @@ function App() {
       heroes: rep.heroes,
       specials: rep.specials,
       playerArmy: { [UnitGroup.OFFENSE_LINE]: 99, [UnitGroup.OFFENSE_SKILL]: 99, [UnitGroup.DEFENSE_LINE]: 99, [UnitGroup.DEFENSE_SECONDARY]: 99 }, // spectator: never end early on "out of players"
+      squad: rep.squad as import('./types').Player[] | undefined, // same named players, same ROLE stats as the live attack
       loot: { coins: 0, fans: 0 },
       replay: { seed: rep.seed, script: rep.script, planKey: rep.plan },
     });
@@ -1013,7 +1058,7 @@ function App() {
             ? prev.heroes.map(h => h.key === stageDef!.firstClear.shardHero ? { ...h, shards: h.shards + stageDef!.firstClear.shards } : h)
             : prev.heroes,
           campaign,
-          matchHistory: [{ week: prev.currentMatch, opponent: r.title.replace('Attacking ', ''), ourScore: r.stars, theirScore: 0, won: r.won, reward: r.coins }, ...prev.matchHistory],
+          matchHistory: [{ week: prev.currentMatch, opponent: r.title.replace('Attacking ', ''), ourScore: r.stars, theirScore: 0, won: r.won, reward: r.coins }, ...prev.matchHistory].slice(0, 50), // capped — this list grew forever and bloated every save + cloud push
           currentMatch: prev.currentMatch + 1,
           trophies: Math.max(0, prev.trophies + trophyDelta),
           teamReadiness: Math.max(0, prev.teamReadiness - 20), // fatigue after taking the field
@@ -1156,7 +1201,11 @@ function App() {
         // Every HELD live attack (0 game balls) builds mastery in the scheme you were running
         const holds = fresh.filter(a => a.stars === 0).length;
         const fm = holds > 0 ? { ...prev.formationMastery, [prev.formation]: (prev.formationMastery[prev.formation] ?? 0) + holds } : prev.formationMastery;
-        return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: coins }, trophies, formationMastery: fm, defenseLog: [...entries.reverse(), ...prev.defenseLog].slice(0, 20) };
+        const log = [...entries.reverse(), ...prev.defenseLog].slice(0, 20)
+          // replay blobs run up to 75KB each — keep film on the newest 5 raids only,
+          // or the save (and every 60s cloud push) balloons past the 500KB cloud cap
+          .map((en, i) => (i < 5 || !en.replay) ? en : { ...en, replay: undefined });
+        return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: coins }, trophies, formationMastery: fm, defenseLog: log };
       });
     });
   }, []);
@@ -1172,13 +1221,16 @@ function App() {
   const handleRollHero = () => {
     if (gameState.resources.GEMS < ROLL_COST_GEMS) { sfx.error(); return; }
     const res = rollHero(gameState.heroes);
-    setGameState(prev => ({
-      ...prev,
-      resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - ROLL_COST_GEMS },
-      heroes: prev.heroes.map(h => h.key === res.key
-        ? (res.isNew ? { ...h, unlocked: true } : { ...h, shards: h.shards + res.shards })
-        : h),
-    }));
+    setGameState(prev => {
+      if (prev.resources.GEMS < ROLL_COST_GEMS) return prev; // double-tap must never drive gems negative
+      return {
+        ...prev,
+        resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - ROLL_COST_GEMS },
+        heroes: prev.heroes.map(h => h.key === res.key
+          ? (res.isNew ? { ...h, unlocked: true } : { ...h, shards: h.shards + res.shards })
+          : h),
+      };
+    });
     setLastRoll(res);
     bumpDaily('scout');
     if (res.isNew) sfx.victory(); else sfx.sign();
@@ -1345,6 +1397,9 @@ function App() {
   };
 
   const handleResetGame = () => {
+      // Last-chance local backup — for a linked club the 60s trickle would otherwise
+      // push the empty franchise over the cloud copy with nothing to recover from.
+      try { const cur = localStorage.getItem(SAVE_KEY); if (cur) localStorage.setItem('fhq_backup_prereset', cur); } catch { /* best effort */ }
       try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(TUTORIAL_KEY); } catch (e) { /* ignore */ }
       setGameState({ ...INITIAL_STATE, lastTick: Date.now() });
       lastUpdateRef.current = Date.now();
@@ -1492,7 +1547,7 @@ function App() {
             {/* Mode tabs */}
             <div className="flex gap-2 mb-2">
               <button onClick={() => setAttackTab('season')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'season' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-                🏆 Season {gameState.campaign.unlocked > CAMPAIGN_STAGES.length ? '✓' : `${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length}`}
+                🏆 Season {(gameState.campaign.stars[CAMPAIGN_STAGES.length] ?? 0) > 0 ? '✓' : `${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length}`}
               </button>
               <button onClick={() => setAttackTab('raid')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'raid' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                 ⚔️ Raid
@@ -1539,7 +1594,7 @@ function App() {
               <HowTo id="gameday" lines={[
                 'SEASON: beat 12 rival coaches for the ring — earn up to 3 game balls per matchup.',
                 'RAID: hit rival bases for Coins and Fans. ⚡ Live Rivals are real coaches — beating them takes trophies.',
-                'Every game costs ⚡12 Energy. In battle: drop players near a lane, then direct the drive with plays and hero abilities.',
+                `Every game costs ⚡${RAID_ENERGY} Energy. In battle: drop players near a lane, then direct the drive with plays and hero abilities.`,
                 'DEFENSE LOG shows who raided you while you were away — watch the film and take revenge.',
                 'THE GAUNTLET: 5 escalating waves attack YOUR base — free to run, 3 tries a night. Hold the house to clear the night and unlock the next. Your emplacement levels, mastery plays, and mascot do the fighting.',
               ]} />

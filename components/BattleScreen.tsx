@@ -216,6 +216,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const armyRef = useRef(army); useEffect(() => { armyRef.current = army; }, [army]);
   const selectedRef = useRef(selected); useEffect(() => { selectedRef.current = selected; }, [selected]);
   const deployedHeroesRef = useRef<Set<string>>(new Set());
+  useEffect(() => { deployedHeroesRef.current = new Set(deployedHeroes); }, [deployedHeroes]);
+  const specialChargesRef = useRef(specialCharges); useEffect(() => { specialChargesRef.current = specialCharges; }, [specialCharges]);
   const [pendingHero, setPendingHero] = useState<RaidHero | null>(null);
   const [castMode, setCastMode] = useState<PlayDef | null>(null);
   const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense || isReplay ? 'fighting' : 'deploy');
@@ -339,6 +341,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   };
   const [, forceTick] = useState(0);
   const [result, setResult] = useState<BattleResult | null>(null);
+  const collectedRef = useRef(false); // double-tap on Collect must never pay twice
   // 🎺 MARCHING BAND WIN MOMENT: on a road win the band parades across the silenced
   // field (fight song, confetti, CROWD SILENCED stamp) BEFORE the verdict card.
   // Timers live in a ref — cleared only on unmount or skip (the celebration-timer law).
@@ -352,7 +355,6 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     sfx.victory();
   };
 
-  const total = config.buildings.filter(b => b.kind !== 'wall').length; // walls don't count toward %
 
   // Kickoff: referee whistle + crowd stir the moment play starts; the crowd BED hums
   // underneath the whole battle and dies with the final whistle.
@@ -372,11 +374,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     if (sim.current.ended) return;
     sim.current.ended = true;
     const s = sim.current;
-    const destroyed = s.buildings.filter(b => b.dead && b.kind !== 'wall').length;
-    const pct = Math.round((destroyed / total) * 100);
+    record({ k: 'e' }); // the whistle is part of the recording — replays end where the attack ended
+    // DAMAGE-WEIGHTED house-taken % — the SAME formula the live HUD shows (TASK-4).
+    // The old destroyed-count % here meant the bar could read 62% and the verdict 38%.
+    const nwB = s.buildings.filter(b => b.kind !== 'wall');
+    const pct = nwB.length ? Math.round(nwB.reduce((sum, b) => sum + (1 - Math.max(0, b.hp) / (b.maxHp || 1)), 0) / nwB.length * 100) : 0;
     const hqDead = s.buildings.find(b => b.kind === 'hq')?.dead ?? false;
     const stars = (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0);
-    const frac = destroyed / total;
+    const frac = pct / 100;
     // Drive summary: who was your MVP, what did the defense cost you, what did you take.
     if (!isDefense) {
       const best = [...s.troops].sort((a, b) => (b.dmg ?? 0) - (a.dmg ?? 0))[0];
@@ -391,6 +396,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       v: 1, seed: seedRef.current, plan: planRef.current.key,
       power: config.power, heroes, specials, layout: config.buildings,
       script: recRef.current,
+      // roster snapshot — the replay fields the same named players with the same ROLE stats
+      squad: (config.squad ?? []).map(p => ({ id: p.id, name: p.name, role: p.role, unit: p.unit })),
     } : undefined;
     // Road win → the band takes their field first (skipped under reduced motion).
     const roadWin = !isDefense && !isReplay && stars > 0;
@@ -400,12 +407,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       celebTimers.current.push(window.setTimeout(() => sfx.crowdRoar(), 2950)); // your new fans find their voice
       celebTimers.current.push(window.setTimeout(endCeleb, 4600));
     }
-    // Gauntlet bookkeeping: held house = every arrived wave survived; breach forfeits the current one.
+    // Gauntlet bookkeeping. Full-night credit requires a NATURAL end — the final
+    // whistle or the last wave beaten. An early manual whistle only counts waves
+    // already fully down (killing the tap-X-when-wave-5-appears full-purse exploit).
     const held = pct < 50;
+    const anyAttackerAlive = s.troops.some(t => !t.dead);
+    const naturalEnd = s.time <= 0.05 || !anyAttackerAlive;
     const gauntletBits = config.gauntlet ? {
       gauntletTier: config.gauntlet.tier,
-      wavesHeld: held ? s.nextWave : Math.max(0, s.nextWave - 1),
-      gauntletCleared: held && s.nextWave >= config.gauntlet.waves.length,
+      wavesHeld: !held ? Math.max(0, s.nextWave - 1) : naturalEnd ? s.nextWave : Math.max(0, s.nextWave - 1),
+      gauntletCleared: held && naturalEnd && s.nextWave >= config.gauntlet.waves.length,
     } : {};
     setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac) + s.bonus, fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget, isReplay: isReplay || undefined, replay, ...gauntletBits });
     setPhase('result');
@@ -431,6 +442,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           else if (a.k === 's') doDeploySpecial(a.key!, a.x!, a.y!);
           else if (a.k === 'p') doCastPlay(a.key!, a.x!, a.y!);
           else if (a.k === 'a') useAbility(a.key!);
+          else if (a.k === 'e') { endBattle(); return; } // the attacker blew the whistle here
         }
       }
       s.ticks++;
@@ -855,13 +867,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       s.time -= DT;
       const allDead = s.buildings.filter(b => b.kind !== 'wall').every(b => b.dead);
       const anyTroopAlive = s.troops.some(t => !t.dead);
-      const anyToDeploy = UNIT_ORDER.some(u => army[u] > 0) || heroes.some(h => !deployedHeroes.has(h.key)) || specials.some(sp => (specialCharges[sp.key] ?? 0) > 0);
+      // Read deploy inventory via REFS: state deps here would tear down and rebuild the
+      // interval on every deploy, discarding accumulated sub-step time (clock stalls
+      // during hold-drag pours — up to ~2 game-seconds eaten across a 20-troop pour).
+      const anyToDeploy = UNIT_ORDER.some(u => armyRef.current[u] > 0) || heroes.some(h => !deployedHeroesRef.current.has(h.key)) || specials.some(sp => (specialChargesRef.current[sp.key] ?? 0) > 0);
       // Gauntlet: a quiet field between waves is suspense, not the end — and a
       // breach (half the house taken) ends the night on the spot.
       const wavesPending = !!config.gauntlet && s.nextWave < config.gauntlet.waves.length;
       if (config.gauntlet) {
+        // breach = damage-weighted 50%, the SAME measure as `held` in endBattle
         const nonWallB = s.buildings.filter(b => b.kind !== 'wall');
-        if (nonWallB.filter(b => b.dead).length / nonWallB.length >= 0.5) { endBattle(); return; }
+        const dmgFrac = nonWallB.length ? nonWallB.reduce((sum, b) => sum + (1 - Math.max(0, b.hp) / (b.maxHp || 1)), 0) / nonWallB.length : 0;
+        if (dmgFrac >= 0.5) { endBattle(); return; }
       }
       if (allDead || s.time <= 0 || (!wavesPending && s.troops.length > 0 && !anyTroopAlive && !anyToDeploy)) endBattle();
     };
@@ -875,7 +892,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       if (n > 0) forceTick(x => x + 1);
     }, TICK_MS);
     return () => clearInterval(iv);
-  }, [phase, army, deployedHeroes, specialCharges]);
+    // deploy inventory is read via refs inside stepSim — state deps would churn the
+    // interval on every deploy and eat accumulated sim time (see anyToDeploy note)
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⚡ ABILITY FLASH: the screen edges pulse in the caster's color when an ability fires.
   const [abilityFlash, setAbilityFlash] = useState<{ color: string; key: number } | null>(null);
@@ -986,12 +1005,15 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const now = performance.now();
     if (now - pourRef.current.lastT < 170) return;
     const rect = fieldRef.current!.getBoundingClientRect();
+    // touch pointers get implicit capture — a finger dragged OFF the field would keep
+    // pouring at clamped edge coords; deploy only while actually over the field
+    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
     const { x: wx, y: wy } = unproject(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100);
     if (deployTroopAt(wx, wy)) { pourRef.current.lastT = now; pourRef.current.poured = true; }
   };
 
   const handleFieldClick = (e: React.MouseEvent) => {
-    if (isDefense || phase === 'result') return;
+    if (isDefense || isReplay || phase === 'result') return; // spectators can't inject troops into a replay
     if (pourRef.current.poured) { pourRef.current.poured = false; return; } // this click is a pour's tail
     const rect = fieldRef.current!.getBoundingClientRect();
     const { x: wx, y: wy } = unproject(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100);
@@ -1259,10 +1281,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 props.push(img('/assets/decor/merch-stand.png', -14, 78, 8, 'ms2'));
               }
               return (
-                <>
-                  {props}
-                  {pl > 0 && <span className="absolute font-black text-white/25" style={{ left: `${px(-10, 108)}%`, top: `${py(-10, 108)}%`, fontSize: '2.2vmin' }}>🅿️ L{pl}</span>}
-                </>
+                <>{props}</>
               );
             })()}
           </div>
@@ -1336,7 +1355,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           {/* 🥤 Gatorade puddles — glossy orange zones ON the turf (under everything) */}
           {s.puddles.map((p, i) => (
             <div key={`pud${i}`} className="absolute rounded-[50%] pointer-events-none"
-              style={{ left: `${px(p.x, p.y) - p.r * ISO_KX * 2}%`, top: `${py(p.x, p.y) - p.r * ISO_KY * 2}%`, width: `${p.r * ISO_KX * 4}%`, height: `${p.r * ISO_KY * 4}%`, zIndex: 2,
+              style={{ left: `${px(p.x, p.y) - p.r * ISO_KX * 1.414}%`, top: `${py(p.x, p.y) - p.r * ISO_KY * 1.414}%`, width: `${p.r * ISO_KX * 2.828}%`, height: `${p.r * ISO_KY * 2.828}%`, zIndex: 2,
                 background: 'radial-gradient(ellipse at 45% 40%, rgba(255,166,77,0.7) 0%, rgba(249,115,22,0.5) 55%, rgba(194,65,12,0.35) 78%, transparent 92%)',
                 boxShadow: 'inset 0 0 8px rgba(255,220,180,0.5)', opacity: Math.min(0.8, (p.life / p.maxLife) * 1.4) }} />
           ))}
@@ -1344,12 +1363,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           {/* Range rings — iso ellipses on the ground plane */}
           {s.buildings.filter(b => b.kind === 'defense' && !b.dead && b.range).map(b => (
             <div key={`r-${b.id}`} className="absolute rounded-[50%] border border-red-400/20 bg-red-500/5 pointer-events-none"
-              style={{ left: `${px(b.x, b.y) - b.range! * ISO_KX * 2}%`, top: `${py(b.x, b.y) - b.range! * ISO_KY * 2}%`, width: `${b.range! * ISO_KX * 4}%`, height: `${b.range! * ISO_KY * 4}%` }} />
+              style={{ left: `${px(b.x, b.y) - b.range! * ISO_KX * 1.414}%`, top: `${py(b.x, b.y) - b.range! * ISO_KY * 1.414}%`, width: `${b.range! * ISO_KX * 2.828}%`, height: `${b.range! * ISO_KY * 2.828}%` /* √2-correct projected extent — rings now show TRUE range */ }} />
           ))}
 
           {/* Play/ability pulses — flattened to the ground plane */}
           {s.pulses.map((p, i) => (
-            <div key={i} className="absolute rounded-[50%] border-2 pointer-events-none" style={{ left: `${px(p.x, p.y) - p.r * ISO_KX * 2}%`, top: `${py(p.x, p.y) - p.r * ISO_KY * 2}%`, width: `${p.r * ISO_KX * 4}%`, height: `${p.r * ISO_KY * 4}%`, borderColor: p.color, backgroundColor: `${p.color}22`, opacity: p.life / p.maxLife }} />
+            <div key={i} className="absolute rounded-[50%] border-2 pointer-events-none" style={{ left: `${px(p.x, p.y) - p.r * ISO_KX * 1.414}%`, top: `${py(p.x, p.y) - p.r * ISO_KY * 1.414}%`, width: `${p.r * ISO_KX * 2.828}%`, height: `${p.r * ISO_KY * 2.828}%`, borderColor: p.color, backgroundColor: `${p.color}22`, opacity: p.life / p.maxLife }} />
           ))}
 
           {/* Defense "shots" arc through the air — footballs, penalty flags, or t-shirts. Never bullets. */}
@@ -1501,7 +1520,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const gBaseFilter = isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)';
             return (
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${px(g.x, g.y)}%`, top: `${py(g.x, g.y)}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, zIndex: Math.round((g.x + g.y) / 2) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                style={{ left: `${px(g.x, g.y)}%`, top: `${py(g.x, g.y)}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, zIndex: Math.round((g.x + g.y) / 2) + 1 /* unified iso depth: units occlude BEHIND buildings, not float over them */, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {g.hp < g.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
                 <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : g.attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : 'fhq-stepbob 0.21s ease-in-out infinite', rotate: g.attacking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
                   <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
@@ -1570,7 +1589,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const shadow = <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />;
             return (
               <div key={t.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round((t.x + t.y) / 2) + 100, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round((t.x + t.y) / 2) + 1, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
                 {t.hp < t.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
                 {specialDef ? (
@@ -1894,7 +1913,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Gate revenue lost' : 'Gate haul'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
               )}
               {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">Fans poached</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
-              <button onClick={() => onFinish(result)} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
+              <button onClick={() => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result); }} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
                 {isReplay ? 'Close Replay' : isDefense ? 'Back to Base' : 'Collect Rewards'}
               </button>
             </div>
