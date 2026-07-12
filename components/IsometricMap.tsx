@@ -408,8 +408,11 @@ const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, sc
 // VEGAS SIZE per Jumaane: a mega-board towering BEHIND the practice field's north
 // end zone (up-screen = behind in iso), dwarfing everything around it.
 // Shipped scoreboard anchor — the editor overrides these via props.
-// (3.5, -2) per Jumaane's editor layout, July 10 2026.
-const BOARD_ANCHOR = { gx: 3.5, gy: -2, w: 3.2 };
+// (3.5, -2) per Jumaane's editor layout, July 10 2026. Art: DUAL-DECK board
+// (his pick, July 12) — main screen + ribbon strip on an A-frame, both BLANK
+// in the art so the game renders live stats onto real screen space.
+const BOARD_ANCHOR = { gx: 3.5, gy: -1, w: 1.65 }; // tall art: slimmer + one row lower keeps the crown in frame at the default camera
+const BOARD_ASPECT = 1.946; // cropped scoreboard-dualdeck.png h/w
 const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number; onOpenStats?: () => void }> = ({ clubName, trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w, onOpenStats }) => {
   // BOARD diagonal BEHIND THE WAR ROOM (Jumaane): ribbon-board art (wide panel,
   // short blocks) sloping down-right along the campus's upper-right edge. Width is
@@ -420,38 +423,37 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
   const fmt = (n: number) => n >= 10000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 1 }}>
-      <div style={{ position: 'absolute', width: w, height: w * 1.02, left: -w / 2, bottom: -TILE_H / 2 }}>
-        <img src="/assets/decor/ribbonboard.png" alt="" draggable={false}
+      <div style={{ position: 'absolute', width: w, height: w * BOARD_ASPECT, left: -w / 2, bottom: -TILE_H / 2 }}>
+        <img src="/assets/decor/scoreboard-dualdeck.png" alt="" draggable={false}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
-        {/* THE SCREEN — a real display, not values floating over the art's baked
-            dot pattern (external review): a dark scanlined surface covers the
-            filler, with the club name and LABELED readouts in LED type spanning
-            the panel width, all rotated onto the panel at the iso angle. */}
+        {/* TWO LIVE DECKS on the art's blank LED surfaces (no fake backing needed —
+            the screens ARE dark in the art): club name on the MAIN deck, labeled
+            readouts on the RIBBON strip, both rotated onto the panel's lean. */}
         {trophies !== undefined && (
-          <div className="absolute flex flex-col items-center justify-center"
-            style={{ left: '18.5%', top: '18%', width: '58%', height: '30%', transform: 'rotate(25deg)', transformOrigin: '0 0',
-              background: 'repeating-linear-gradient(0deg, rgba(4,8,14,0.92) 0px, rgba(4,8,14,0.92) 3px, rgba(20,26,34,0.92) 4px)',
-              border: '2px solid rgba(0,0,0,0.85)', borderRadius: 4, boxShadow: 'inset 0 0 18px rgba(249,115,22,0.18), 0 0 10px rgba(0,0,0,0.5)',
-              animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
-            <div className="font-mono font-black leading-none uppercase whitespace-nowrap overflow-hidden" style={{ fontSize: w * 0.062, maxWidth: '94%', letterSpacing: 2, color: '#fb923c', textShadow: '0 0 8px rgba(249,115,22,0.9), 0 0 20px rgba(249,115,22,0.45)' }}>
-              {clubName || 'FOOTBALL HQ'}
+          <>
+            <div className="absolute flex items-center justify-center"
+              style={{ left: '15%', top: '13.5%', width: '64%', height: '22%', transform: 'rotate(13deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
+              <div className="font-mono font-black leading-tight uppercase text-center" style={{ fontSize: w * 0.105, maxWidth: '96%', letterSpacing: 2, color: '#fb923c', textShadow: '0 0 10px rgba(249,115,22,0.9), 0 0 24px rgba(249,115,22,0.45)', overflowWrap: 'break-word' }}>
+                {clubName || 'FOOTBALL HQ'}
+              </div>
             </div>
-            <div className="flex items-baseline justify-center whitespace-nowrap" style={{ gap: w * 0.03, marginTop: w * 0.018 }}>
-              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.026, color: 'rgba(254,215,170,0.75)', letterSpacing: 1 }}>🏆</span>
-              <span key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.05, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(trophies)}</span>
-              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.026, color: 'rgba(254,215,170,0.55)', letterSpacing: 1 }}>·</span>
-              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.026, color: 'rgba(254,215,170,0.75)', letterSpacing: 1 }}>👥</span>
-              <span key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.05, color: '#fdba74', textShadow: '0 0 6px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(fans ?? 0)}</span>
+            <div className="absolute flex items-baseline justify-center whitespace-nowrap"
+              style={{ left: '16%', top: '42.5%', width: '62%', height: '8%', gap: w * 0.045, transform: 'rotate(13deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out -1.2s infinite' }}>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.045, color: 'rgba(254,215,170,0.8)' }}>🏆</span>
+              <span key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.075, color: '#fdba74', textShadow: '0 0 8px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(trophies)}</span>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.045, color: 'rgba(254,215,170,0.55)' }}>·</span>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.045, color: 'rgba(254,215,170,0.8)' }}>👥</span>
+              <span key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.075, color: '#fdba74', textShadow: '0 0 8px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(fans ?? 0)}</span>
             </div>
-          </div>
+          </>
         )}
-        {/* Tap the board → CLUB DASHBOARD (SimCity city-hall stats). Hitbox covers
-            the panel face only — the pylons below stay click-through for panning. */}
+        {/* Tap the board → CLUB DASHBOARD. Hitbox covers the decks only — the
+            A-frame legs stay click-through for panning. */}
         {onOpenStats && (
           <div className="cursor-pointer" title="Club Dashboard"
             onClick={e => { e.stopPropagation(); onOpenStats(); }}
-            style={{ position: 'absolute', left: '10%', top: '6%', width: '80%', height: '52%', pointerEvents: 'auto' }} />
+            style={{ position: 'absolute', left: '10%', top: '5%', width: '80%', height: '50%', pointerEvents: 'auto' }} />
         )}
       </div>
     </div>
@@ -562,6 +564,9 @@ const loadEditLayout = (): EditLayout => {
       if (p && p.v === 1 && Array.isArray(p.outer) && Array.isArray(p.campus) && p.board && p.field && p.road && p.buildings) {
         // sessions saved before growth props became editable get today's placements
         if (!Array.isArray(p.growth)) p.growth = freshEditLayout().growth;
+        // the old ribbonboard default width (3.2) renders the TALL dual-deck art
+        // gigantic — migrate stale sessions to the new default
+        if (p.board && p.board.w > 2.2) p.board.w = BOARD_ANCHOR.w;
         return p;
       }
     }
