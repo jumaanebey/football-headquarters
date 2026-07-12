@@ -44,6 +44,19 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
 - [ ] Notes: place-your-own decor doubles as a monetization feature (decor shop);
       rewarded ads for non-payers; $4.99 starter pack = classic best converter
 
+## Raids — THE SILENCING pass (July 12, e1e9c77 — confirm to close)
+
+- [ ] SHIPPED: stands = the scoreboard (full rival-color crowd at kickoff ->
+      seats flip to your orange as house taken, wave slows, crowd bed dies to a
+      murmur) · Enemy Mascot mini-boss at stadium <70% (frenzy pulses, +50 when
+      flattened) · milestone announcer + crowd-aww at 25/50/75% · airhorn on TD
+      + road wins · +YDS floating numbers · 'House taken' labels · t-shirt
+      cannon comedic slow · bowl crowd-strip empties. Verified live in 2 raids,
+      console clean.
+- [ ] Raid ideas still open (his call): marching-band win moment, Trainer
+      water-bottle sprint visual, victory dance at the whistle, pancake
+      knock-back, kicked-ball trail on Onside Bomb
+
 ## Asset refresh round (July 11-12 — buildings chapter COMPLETE, confirm to close)
 
 - [x] Stadium tier 5 — packed crowd, blazing lights, bright field (00ee455)
