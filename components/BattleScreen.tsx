@@ -108,6 +108,42 @@ const makeHeroTroop = (h: RaidHero, x: number, y: number): BTroop => ({
   targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, isHero: true, heroKey: h.key, ability: h.ability, abilityCd: 0,
 });
 
+// 🃏 DEPLOY CARD — the Castle-Clash-grade unit card for the battle bar: full-bleed
+// character art in a chunky beveled frame, gold gradient + glow when selected/ready,
+// count badge riding the corner. Pure presentation — every handler passes through.
+const DeployCard: React.FC<{
+  onClick: () => void; disabled?: boolean; selected?: boolean; ready?: boolean;
+  art?: string; emoji: string; label: string; sub?: React.ReactNode; subSub?: React.ReactNode;
+  count?: number | string; countBg?: string; overlay?: React.ReactNode; title?: string;
+}> = ({ onClick, disabled, selected, ready, art, emoji, label, sub, subSub, count, countBg = '#f97316', overlay, title }) => (
+  <button onClick={onClick} disabled={disabled} title={title}
+    className={`relative shrink-0 rounded-2xl p-[2px] text-left transition-all active:scale-95 ${selected ? 'scale-105' : ''} ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${ready && !disabled ? 'animate-pulse' : ''}`}
+    style={{
+      background: disabled ? '#1e293b'
+        : selected || ready ? 'linear-gradient(155deg, #fde047 0%, #f97316 45%, #7c2d12 100%)'
+        : 'linear-gradient(160deg, #64748b 0%, #1e293b 55%, #0f172a 100%)',
+      boxShadow: (selected || ready) && !disabled ? '0 0 14px rgba(249,115,22,0.5), 0 4px 10px rgba(0,0,0,0.5)' : '0 3px 8px rgba(0,0,0,0.45)',
+    }}>
+    <span className="flex w-[60px] flex-col overflow-hidden rounded-[14px]" style={{ background: 'linear-gradient(180deg, #232f47 0%, #131b2b 55%, #0c1120 100%)' }}>
+      {/* portrait zone — real art over a warm radial, emoji shows until it loads */}
+      <span className="relative flex h-[46px] items-center justify-center" style={{ background: 'radial-gradient(ellipse at 50% 70%, rgba(249,115,22,0.16), transparent 75%)' }}>
+        <span className="text-xl" aria-hidden>{emoji}</span>
+        {art && <img src={art} alt="" draggable={false}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          onLoad={e => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; }}
+          className="absolute inset-0 h-full w-full object-contain p-0.5" style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))' }} />}
+        {overlay}
+      </span>
+      <span className="block bg-black/45 px-0.5 py-0.5 text-center text-[8px] font-black uppercase leading-tight text-white truncate">{label}</span>
+      {sub !== undefined && <span className="block px-0.5 pb-0.5 text-center text-[8px] font-bold leading-tight text-orange-300 truncate">{sub}</span>}
+      {subSub !== undefined && <span className="block px-0.5 pb-1 text-center text-[7px] font-bold leading-tight text-slate-400 truncate">{subSub}</span>}
+    </span>
+    {count !== undefined && (
+      <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-slate-950 px-1 text-[11px] font-black text-white" style={{ background: countBg, boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{count}</span>
+    )}
+  </button>
+);
+
 // Mascot / Fan-Mob support units. `unit` is a filler group (never used for special rendering).
 const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
   id: `sp_${def.key}_${++troopUid}`, unit: UnitGroup.OFFENSE_SKILL, x, y, hp: def.hp, maxHp: def.hp, dps: def.dps, speed: def.speed, range: def.range,
@@ -1629,7 +1665,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         </div>
       )}
       {phase !== 'result' && !isReplay && (
-        <div className="shrink-0 bg-slate-900 border-t border-slate-800 px-3 py-2">
+        <div className="shrink-0 px-3 py-2" style={{ background: 'linear-gradient(180deg, #131c2e 0%, #0b111f 100%)', borderTop: '1px solid rgba(249,115,22,0.28)', boxShadow: '0 -6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
           {isDefense ? (
             <div className="py-1">
               <div className="text-center text-xs text-orange-200 font-bold flex items-center justify-center gap-2 mb-2">
@@ -1675,7 +1711,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     return (
                       <button key={gp.key} onClick={() => setPlan(gp)}
                         className={`relative flex flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
-                          ${active ? 'border-orange-400 bg-orange-900/40' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
+                          ${active ? 'border-yellow-400 bg-orange-900/50' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}
+                        style={active ? { boxShadow: '0 0 10px rgba(249,115,22,0.4)' } : undefined}>
                         <span className={`text-[10px] font-bold uppercase leading-tight ${active ? 'text-orange-200' : 'text-white'}`}>{gp.emoji} {gp.name}</span>
                         <span className="text-[8px] text-slate-400 leading-tight">{gp.blurb}</span>
                         {cm > 1 && <span className="absolute -top-2 -right-1 text-[8px] font-black uppercase bg-green-500 text-black px-1 rounded">they're soft vs this</span>}
@@ -1692,24 +1729,23 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 {phase === 'fighting' && <span className="inline-block mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle">{plan.emoji} {plan.name}</span>}
                 {instruction}
               </div>
-              <div className="flex items-center justify-center gap-2 flex-wrap">
-                {/* Troops */}
+              <div className="flex items-start justify-center gap-2 flex-wrap">
+                {/* Troops — real player art on the cards */}
                 {UNIT_ORDER.map(u => {
                   const st = TROOP_STATS[u]; const count = army[u]; const active = selected === u && !pendingHero && !castMode && !pendingSpecial;
+                  const next = squadQueues.current[u]?.[0];
                   return (
-                    <button key={u} onClick={() => { setSelected(u); setPendingHero(null); setCastMode(null); setPendingSpecial(null); }} disabled={count <= 0} title={`${st.label} — ${st.hint}`}
-                      className={`relative flex flex-col items-center px-2.5 py-1.5 rounded-xl border-2 transition-all active:scale-95
-                        ${count <= 0 ? 'opacity-30 border-slate-800 cursor-not-allowed' : active ? 'border-orange-400 bg-slate-800 scale-105' : 'border-slate-700 bg-slate-800/50'}`}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: st.color }}>{st.emoji}</div>
-                      <span className="text-[9px] font-bold text-white uppercase">{st.label}</span>
-                      <span className="text-[8px] font-bold text-orange-300">⚡×{(config.power?.[u] ?? 1).toFixed(1)}</span>
-                        {squadQueues.current[u]?.[0] && <span className="text-[7px] font-bold text-slate-300 leading-none max-w-[64px] truncate">{squadQueues.current[u][0].name} · {squadQueues.current[u][0].role}</span>}
-                      <span className="absolute -top-2 -right-1 min-w-5 h-5 px-1 rounded-full bg-orange-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center">{count}</span>
-                    </button>
+                    <DeployCard key={u}
+                      onClick={() => { setSelected(u); setPendingHero(null); setCastMode(null); setPendingSpecial(null); }}
+                      disabled={count <= 0} selected={active && count > 0}
+                      art={unitPlayerSprite(u)} emoji={st.emoji} label={st.label}
+                      sub={`⚡×${(config.power?.[u] ?? 1).toFixed(1)}`}
+                      subSub={next ? `${next.name.split(' ').pop()} · ${next.role}` : undefined}
+                      count={count} title={`${st.label} — ${st.hint}`} />
                   );
                 })}
 
-                {/* Heroes */}
+                {/* Heroes — portrait cards; on the field the card becomes the ability button */}
                 {heroes.map(h => {
                   const onField = deployedHeroes.has(h.key);
                   const troop = onField ? s.troops.find(t => t.heroKey === h.key) : null;
@@ -1718,22 +1754,24 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   const pendingThis = pendingHero?.key === h.key;
                   if (!onField) {
                     return (
-                      <button key={h.key} onClick={() => { setPendingHero(h); setCastMode(null); setPendingSpecial(null); }}
-                        className={`relative flex flex-col items-center px-2.5 py-1.5 rounded-xl border-2 transition-all active:scale-95 ${pendingThis ? 'border-orange-300 bg-orange-900/40 scale-105' : 'border-orange-600/70 bg-orange-900/20'}`}>
-                        <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center" style={{ background: `radial-gradient(circle,${h.color}99,#0f172a)`, border: '2px solid #fdba74' }}><span className="absolute inset-0 flex items-center justify-center text-lg">{h.emoji}</span><img src={h.art} alt="" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-contain scale-125" /></div>
-                        <span className="text-[9px] font-bold text-orange-200 uppercase">{h.name.split(' ')[1] || h.name}</span>
-                        <span className="text-[8px] font-bold text-orange-400">HERO Lv{h.level ?? 1}</span>
-                      </button>
+                      <DeployCard key={h.key}
+                        onClick={() => { setPendingHero(h); setCastMode(null); setPendingSpecial(null); }}
+                        selected={pendingThis}
+                        art={h.art} emoji={h.emoji} label={h.name.split(' ')[1] || h.name}
+                        sub={`HERO LV${h.level ?? 1}`} count="★" countBg="#eab308"
+                        title={`${h.name} — tap, then tap the sideline`} />
                     );
                   }
                   return (
-                    <button key={h.key} onClick={() => useAbility(h.key)} disabled={!alive || cd > 0}
-                      className={`relative flex flex-col items-center px-2.5 py-1.5 rounded-xl border-2 transition-all active:scale-95 overflow-hidden
-                        ${!alive ? 'opacity-30 border-slate-800' : cd > 0 ? 'border-slate-700 bg-slate-800' : 'border-yellow-300 bg-yellow-600/30 animate-pulse'}`}>
-                      <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center" style={{ background: `radial-gradient(circle,${h.color}99,#0f172a)` }}><span className="absolute inset-0 flex items-center justify-center text-lg">{h.emoji}</span><img src={h.art} alt="" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-contain scale-125" /></div>
-                      <span className="text-[9px] font-bold text-yellow-100 uppercase leading-none mt-0.5">{h.abilityName}</span>
-                      <span className="text-[8px] font-bold text-slate-300">{!alive ? 'K.O.' : cd > 0 ? `${Math.ceil(cd)}s` : 'READY'}</span>
-                    </button>
+                    <DeployCard key={h.key}
+                      onClick={() => useAbility(h.key)}
+                      disabled={!alive || cd > 0} ready={!!alive && cd <= 0}
+                      art={h.art} emoji={h.emoji} label={h.abilityName}
+                      sub={!alive ? 'K.O.' : cd > 0 ? 'CHARGING' : 'READY!'}
+                      overlay={alive && cd > 0 ? (
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/60 font-display text-lg font-black text-white">{Math.ceil(cd)}</span>
+                      ) : undefined}
+                      title={`${h.name} — ${h.abilityName}`} />
                   );
                 })}
 
@@ -1741,15 +1779,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 {specials.map(sp => {
                   const left = specialCharges[sp.key] ?? 0; const pendingThis = pendingSpecial?.key === sp.key;
                   return (
-                    <button key={sp.key} onClick={() => { setPendingSpecial(pendingThis ? null : sp); setPendingHero(null); setCastMode(null); }} disabled={left <= 0}
-                      className={`relative flex flex-col items-center px-2.5 py-1.5 rounded-xl border-2 transition-all active:scale-95
-                        ${left <= 0 ? 'opacity-30 border-slate-800 cursor-not-allowed' : pendingThis ? 'border-orange-300 scale-105' : 'border-slate-700 bg-slate-800/50'}`}
-                      style={pendingThis ? { backgroundColor: `${sp.color}44` } : {}}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: sp.color }}>{sp.emoji}</div>
-                      <span className="text-[9px] font-bold text-white uppercase leading-none mt-0.5">{sp.name}</span>
-                      <span className="text-[8px] font-bold text-slate-300">{sp.key === 'mascot' ? 'HYPE' : 'SWARM'}</span>
-                      <span className="absolute -top-2 -right-1 min-w-5 h-5 px-1 rounded-full bg-orange-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center">{left}</span>
-                    </button>
+                    <DeployCard key={sp.key}
+                      onClick={() => { setPendingSpecial(pendingThis ? null : sp); setPendingHero(null); setCastMode(null); }}
+                      disabled={left <= 0} selected={pendingThis}
+                      art={sp.art} emoji={sp.emoji} label={sp.name}
+                      sub={sp.key === 'mascot' ? 'HYPE AURA' : 'SWARM'}
+                      count={left} title={sp.desc} />
                   );
                 })}
 
@@ -1757,20 +1792,20 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 {PLAYBOOK.map(p => {
                   const left = plays[p.key] ?? 0; const active = castMode?.key === p.key;
                   return (
-                    <button key={p.key} onClick={() => { setCastMode(active ? null : p); setPendingHero(null); setPendingSpecial(null); }} disabled={left <= 0}
-                      className={`relative flex flex-col items-center px-2.5 py-1.5 rounded-xl border-2 transition-all active:scale-95
-                        ${left <= 0 ? 'opacity-30 border-slate-800 cursor-not-allowed' : active ? 'border-white scale-105' : 'border-slate-700 bg-slate-800/50'}`}
-                      style={active ? { backgroundColor: `${p.color}44` } : {}}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: p.color }}>{p.emoji}</div>
-                      <span className="text-[9px] font-bold text-white uppercase">{p.name}</span>
-                      <span className="text-[8px] font-bold text-slate-300">PLAY</span>
-                      <span className="absolute -top-2 -right-1 min-w-5 h-5 px-1 rounded-full bg-slate-700 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center">{left}</span>
-                    </button>
+                    <DeployCard key={p.key}
+                      onClick={() => { setCastMode(active ? null : p); setPendingHero(null); setPendingSpecial(null); }}
+                      disabled={left <= 0} selected={active}
+                      emoji={p.emoji} label={p.name} sub="PLAY"
+                      count={left} countBg={p.color} title={`${p.name} — tap the field to call it`} />
                   );
                 })}
 
-                <button onClick={endBattle} className="flex flex-col items-center px-2.5 py-1.5 rounded-xl border-2 border-red-800 bg-red-900/40 hover:bg-red-900/70 text-red-200 transition-colors active:scale-95">
-                  <Flag size={18} /><span className="text-[9px] font-bold uppercase">End</span>
+                <button onClick={endBattle} title="Blow the whistle — see the result"
+                  className="relative shrink-0 self-stretch rounded-2xl p-[2px] transition-all active:scale-95"
+                  style={{ background: 'linear-gradient(160deg, #b91c1c, #450a0a)', boxShadow: '0 3px 8px rgba(0,0,0,0.45)' }}>
+                  <span className="flex h-full w-[46px] flex-col items-center justify-center gap-1 rounded-[14px] bg-[#1a0b0b] text-red-300">
+                    <Flag size={17} /><span className="text-[8px] font-black uppercase">End</span>
+                  </span>
                 </button>
               </div>
             </>
