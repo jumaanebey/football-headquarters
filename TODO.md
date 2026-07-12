@@ -44,6 +44,21 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
 - [ ] Notes: place-your-own decor doubles as a monetization feature (decor shop);
       rewarded ads for non-payers; $4.99 starter pack = classic best converter
 
+## Raids — ISOMETRIC + defense roads + story photos (July 12, a4460f3 — confirm to close)
+
+- [ ] SHIPPED: battle view converted to Clash-style ISO diamond (sim/replays
+      untouched — pure projection): iso SVG field w/ yard lines + end zones,
+      moat + drawbridges, crowd rings the diamond rim, tailgate props at
+      projected spots, ground-plane range/pulse ellipses, x+y depth sort
+- [ ] SHIPPED: defense ROAD TO LEVELS — 8 new sprites (tier-2 L4 / tier-3 L8
+      for JUGS, sled, ref tower, t-shirt cannon); emplacement art levels up
+      in every battle view; Front Office rows show current art + L1>L4>L8 road
+- [ ] SHIPPED: Scouting Dept progression photos — Draft Board story strip
+      (The Easel -> Draft Command) in the Scouting sheet; ActionModal road now
+      unique-tiers-only with era names for all facilities
+- [ ] WATCH: iso conversion is presentation-only but broad — phone pass should
+      hit deploy taps, pinch/pan, moat view, replays of PRE-iso attacks
+
 ## Raids — THE SILENCING pass (July 12, e1e9c77 — confirm to close)
 
 - [ ] SHIPPED: stands = the scoreboard (full rival-color crowd at kickoff ->
