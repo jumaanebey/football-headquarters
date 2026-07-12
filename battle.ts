@@ -514,6 +514,47 @@ export const defenseAiTroops = (): { unit: UnitGroup; x: number; y: number }[] =
   return out;
 };
 
+// ── 🛡 THE GAUNTLET ──────────────────────────────────────────────────────────
+// Preseason challengers storm YOUR house in escalating waves — the mode where
+// every coin you put into defense earns its keep. One night = 5 waves; hold the
+// house (< 50% taken) to clear the night and unlock the next tier.
+export interface GauntletWave {
+  at: number;      // elapsed seconds into the battle when this wave arrives
+  label: string;
+  mult: number;    // attacker strength multiplier
+  troops: { unit: UnitGroup; x: number; y: number }[];
+}
+export const GAUNTLET_MAX_TIER = 20;
+export const gauntletWaves = (tier: number): GauntletWave[] => {
+  const OL = UnitGroup.OFFENSE_LINE, SK = UnitGroup.OFFENSE_SKILL, DL = UnitGroup.DEFENSE_LINE, DS = UnitGroup.DEFENSE_SECONDARY;
+  const edge = (i: number, n: number, seed: number) => {
+    const ang = ((i + seed * 0.37) / n) * Math.PI * 2;
+    const cx0 = Math.cos(ang), cy0 = Math.sin(ang);
+    const m = Math.max(Math.abs(cx0), Math.abs(cy0));
+    return { x: 50 + (cx0 / m) * 47, y: 50 + (cy0 / m) * 47 };
+  };
+  const mixes: UnitGroup[][] = [
+    [OL, OL, OL, SK],
+    [OL, OL, SK, SK, DL],
+    [OL, SK, SK, DL, DS, DS],
+    [OL, OL, SK, SK, DL, DL, DS, DS],
+    [OL, OL, OL, SK, SK, SK, DL, DL, DS, DS],
+  ];
+  const labels = ['The Walk-Ons', 'The Rival JV', 'The Blitz Package', 'The First String', 'THE ALL-STARS'];
+  return mixes.map((mix, w) => ({
+    at: [2, 14, 26, 38, 50][w],
+    label: labels[w],
+    // Tier ramps the whole night; each wave inside a night hits harder than the last.
+    mult: Math.round((0.5 + 0.13 * Math.min(GAUNTLET_MAX_TIER, tier)) * (1 + w * 0.18) * 100) / 100,
+    troops: mix.map((u, i) => ({ unit: u, ...edge(i, mix.length, w + tier) })),
+  }));
+};
+/** Night payout: scales with tier and how deep you held; clearing pays half again. */
+export const gauntletReward = (tier: number, wavesHeld: number, cleared: boolean) => ({
+  coins: Math.round(120 * tier * wavesHeld * (cleared ? 1.5 : 1)),
+  fans: Math.round(4 * tier * wavesHeld),
+});
+
 // Attacker strength multiplier for a raid on the player's base. Tuned (see __tune data)
 // so a maintained base (wall ring + upgrades) holds, while a neglected base falls.
 // Defense HP/damage already scale with building level, so this stays gentle on level.

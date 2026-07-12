@@ -4,7 +4,7 @@ import {
   BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER, UNIT_PREF,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS, planPath, losClear,
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
-  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef, HomeGuardDef, mulberry32, ReplayAction, ReplayData,
+  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef, HomeGuardDef, mulberry32, ReplayAction, ReplayData, GauntletWave, gauntletReward,
   ROLE_COMBAT, POCKET_RADIUS, RECEIVER_BONUS, POCKET_FACTOR } from '../battle';
 import { RivalCoach } from '../campaign';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
@@ -33,6 +33,7 @@ export interface BattleConfig {
   fans?: number;          // defense mode: your fanbase — the crowd erupts and stalls drives
   parkingLot?: number;    // defense mode: apron level (visual; the layout is pre-compressed)
   masteryTier?: number;   // defense mode: formation mastery ★ tier (0-3) — the DEFENSE PLAYS LADDER
+  gauntlet?: { tier: number; waves: GauntletWave[] }; // 🛡 THE GAUNTLET: escalating waves storm your house
   replay?: { seed: number; script: ReplayAction[]; planKey: string }; // spectate a recorded attack
 }
 
@@ -48,6 +49,9 @@ export interface BattleResult {
   pvpTarget?: string;
   isReplay?: boolean;    // spectated replays award nothing
   replay?: ReplayData;   // recorded on live-rival attacks so the defender can watch
+  gauntletTier?: number; // set when this was a Gauntlet night
+  wavesHeld?: number;    // waves survived before the whistle (or the breach)
+  gauntletCleared?: boolean;
 }
 
 interface Props {
@@ -141,7 +145,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
     return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
   };
-  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; puddles: { x: number; y: number; r: number; life: number; maxLife: number }[]; shakeT: number; punchT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number; mascotOut: boolean; mascotT: number }>({
+  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; puddles: { x: number; y: number; r: number; life: number; maxLife: number }[]; shakeT: number; punchT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number; mascotOut: boolean; mascotT: number; nextWave: number; banner: { label: string; until: number; key: number } | null }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
     guards: (() => {
@@ -158,7 +162,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [], pulses: [], fx: [], puddles: [], shakeT: 0, punchT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
-    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0, mascotOut: false, mascotT: 0,
+    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0, mascotOut: false, mascotT: 0, nextWave: 0, banner: null,
   });
   const [driveStats, setDriveStats] = useState<{ mvp: string; mvpDmg: number; pancakes: number; lost: number; bonus: number } | null>(null);
 
@@ -360,7 +364,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       celebTimers.current.push(window.setTimeout(() => sfx.crowdRoar(), 2950)); // your new fans find their voice
       celebTimers.current.push(window.setTimeout(endCeleb, 4600));
     }
-    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac) + s.bonus, fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget, isReplay: isReplay || undefined, replay });
+    // Gauntlet bookkeeping: held house = every arrived wave survived; breach forfeits the current one.
+    const held = pct < 50;
+    const gauntletBits = config.gauntlet ? {
+      gauntletTier: config.gauntlet.tier,
+      wavesHeld: held ? s.nextWave : Math.max(0, s.nextWave - 1),
+      gauntletCleared: held && s.nextWave >= config.gauntlet.waves.length,
+    } : {};
+    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac) + s.bonus, fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget, isReplay: isReplay || undefined, replay, ...gauntletBits });
     setPhase('result');
   };
 
@@ -394,6 +405,19 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       for (const b of s.buildings) {
         const bf = b as BBuilding & { hitFlash?: number };
         if (bf.hitFlash && bf.hitFlash > 0) bf.hitFlash = Math.max(0, bf.hitFlash - DT);
+      }
+
+      // 🛡 GAUNTLET WAVES: challengers arrive on the clock — whistle, banner, storm.
+      if (config.gauntlet && s.nextWave < config.gauntlet.waves.length) {
+        const w = config.gauntlet.waves[s.nextWave];
+        if (BATTLE_SECONDS - s.time >= w.at) {
+          for (const t of w.troops) s.troops.push(makeTroop(t.unit, t.x, t.y, w.mult, rand));
+          s.nextWave++;
+          s.banner = { label: `WAVE ${s.nextWave} — ${w.label}`, until: s.time - 2.8, key: s.nextWave };
+          say(`🛡 WAVE ${s.nextWave}: ${w.label} storm the gates!`);
+          sfx.kickoff();
+          s.shakeT = 0.2;
+        }
       }
 
       for (const t of s.troops) {
@@ -796,7 +820,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       const allDead = s.buildings.filter(b => b.kind !== 'wall').every(b => b.dead);
       const anyTroopAlive = s.troops.some(t => !t.dead);
       const anyToDeploy = UNIT_ORDER.some(u => army[u] > 0) || heroes.some(h => !deployedHeroes.has(h.key)) || specials.some(sp => (specialCharges[sp.key] ?? 0) > 0);
-      if (allDead || s.time <= 0 || (s.troops.length > 0 && !anyTroopAlive && !anyToDeploy)) endBattle();
+      // Gauntlet: a quiet field between waves is suspense, not the end — and a
+      // breach (half the house taken) ends the night on the spot.
+      const wavesPending = !!config.gauntlet && s.nextWave < config.gauntlet.waves.length;
+      if (config.gauntlet) {
+        const nonWallB = s.buildings.filter(b => b.kind !== 'wall');
+        if (nonWallB.filter(b => b.dead).length / nonWallB.length >= 0.5) { endBattle(); return; }
+      }
+      if (allDead || s.time <= 0 || (!wavesPending && s.troops.length > 0 && !anyTroopAlive && !anyToDeploy)) endBattle();
     };
     const iv = setInterval(() => {
       const now = performance.now();
@@ -1239,6 +1270,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <div key={s.commentary.text + s.commentary.t} className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: 8, zIndex: 220, maxWidth: '92%' }}>
               <div className="bg-black/75 border border-white/10 rounded-full px-4 py-1.5 text-[11px] sm:text-xs font-bold italic text-amber-100 whitespace-nowrap overflow-hidden text-ellipsis shadow-lg">
                 📣 {s.commentary.text}
+              </div>
+            </div>
+          )}
+
+          {/* 🛡 GAUNTLET WAVE BANNER — a broadcast lower-third sweeps across the field
+              on every whistle: slanted team-color plate, big italic display type. */}
+          {s.banner && s.time > s.banner.until && (
+            <div key={s.banner.key} className="absolute inset-x-0 pointer-events-none flex justify-center" style={{ top: '19%', zIndex: 240 }}>
+              <div style={{ animation: 'fhq-wavebanner 2.7s cubic-bezier(0.22, 0.9, 0.3, 1) both' }}>
+                <div className="relative px-7 py-2" style={{ transform: 'skewX(-11deg)', background: 'linear-gradient(100deg, #7c2d12 0%, #ea580c 30%, #f97316 70%, #7c2d12 100%)', border: '2px solid rgba(255,255,255,0.85)', borderLeftWidth: 6, borderLeftColor: '#fde047', boxShadow: '0 6px 22px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.35)' }}>
+                  <div className="font-display font-black italic uppercase text-white whitespace-nowrap" style={{ transform: 'skewX(11deg)', fontSize: 'min(4.6vw, 26px)', letterSpacing: '0.04em', textShadow: '0 2px 0 rgba(0,0,0,0.45), 0 0 14px rgba(253,224,71,0.35)' }}>{s.banner.label}</div>
+                </div>
               </div>
             </div>
           )}
@@ -1766,13 +1809,26 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <div className={`py-6 text-center ${result.won ? 'bg-gradient-to-b from-green-700 to-green-900' : 'bg-gradient-to-b from-red-800 to-red-950'}`}>
               <div className="text-3xl font-display font-black text-white uppercase mb-3">
                 {result.campaignStage === 12 && result.won ? '💍 League Champions!'
+                  : result.gauntletTier !== undefined ? (result.gauntletCleared ? `🛡 Night ${result.gauntletTier} Survived!` : 'The House Fell')
                   : isReplay ? (result.won ? 'They Scored On You' : 'Your Defense Held!')
                   : isDefense ? (result.won ? 'Goal-Line Stand!' : 'They Scored!') : (result.won ? 'Crowd Silenced!' : 'Shut Out')}
               </div>
-              <div className="flex justify-center gap-3 text-4xl">
-                {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < result.stars ? 1 : 0.25, filter: i < result.stars ? 'none' : 'grayscale(1)', display: 'inline-block', animation: i < result.stars ? `fhq-reveal-in 0.45s cubic-bezier(0.34,1.56,0.64,1) ${0.35 + i * 0.28}s both` : undefined }}>🏈</span>)}
-              </div>
-              <div className="text-[11px] uppercase tracking-widest text-white/60 font-bold mt-2">Game Balls</div>
+              {result.gauntletTier !== undefined && (
+                <div className="flex justify-center gap-1.5 mb-1">
+                  {[0, 1, 2, 3, 4].map(i => (
+                    <span key={i} className="text-xl" style={{ opacity: i < (result.wavesHeld ?? 0) ? 1 : 0.25, filter: i < (result.wavesHeld ?? 0) ? 'none' : 'grayscale(1)', display: 'inline-block', animation: i < (result.wavesHeld ?? 0) ? `fhq-reveal-in 0.4s cubic-bezier(0.34,1.56,0.64,1) ${0.3 + i * 0.16}s both` : undefined }}>🛡</span>
+                  ))}
+                </div>
+              )}
+              {result.gauntletTier === undefined && (
+                <>
+                  <div className="flex justify-center gap-3 text-4xl">
+                    {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < result.stars ? 1 : 0.25, filter: i < result.stars ? 'none' : 'grayscale(1)', display: 'inline-block', animation: i < result.stars ? `fhq-reveal-in 0.45s cubic-bezier(0.34,1.56,0.64,1) ${0.35 + i * 0.28}s both` : undefined }}>🏈</span>)}
+                  </div>
+                  <div className="text-[11px] uppercase tracking-widest text-white/60 font-bold mt-2">Game Balls</div>
+                </>
+              )}
+              {result.gauntletTier !== undefined && <div className="text-[11px] uppercase tracking-widest text-white/60 font-bold mt-1">Waves held — {result.wavesHeld}/5</div>}
               {!isDefense && config.rival && (
                 <div className="mx-6 mt-3 flex items-center justify-center gap-2 text-left">
                   <span className="relative shrink-0 w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>
@@ -1792,7 +1848,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Players stuffed</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
                 </>
               )}
+              {result.gauntletTier !== undefined ? (() => { const pay = gauntletReward(result.gauntletTier, result.wavesHeld ?? 0, !!result.gauntletCleared); return (
+                <>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">💰 Night purse</span><span className="font-mono font-bold text-yellow-400">+{pay.coins.toLocaleString()}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">New fans won over</span><span className="font-mono font-bold text-rose-400">+{pay.fans}</span></div>
+                </>
+              ); })() : (
               <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Gate revenue lost' : 'Gate haul'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
+              )}
               {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">Fans poached</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
               <button onClick={() => onFinish(result)} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
                 {isReplay ? 'Close Replay' : isDefense ? 'Back to Base' : 'Collect Rewards'}

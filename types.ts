@@ -200,6 +200,8 @@ export interface GameState {
   /** Formation mastery: HOLDS (defenses where the attacker scored 0 game balls)
    *  per formation key. Tiers at 3/8/15 → +3% defense each while running it. */
   formationMastery: Record<string, number>;
+  /** 🛡 THE GAUNTLET: highest night cleared, attempts left today, and the day stamp. */
+  gauntlet: { best: number; attempts: number; date: string };
 }
 
 // Pieces you own but currently have OFF the board (Design-mode inventory).

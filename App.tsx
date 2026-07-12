@@ -47,7 +47,7 @@ const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Expr
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
 import { BattleScreen, BattleResult, BattleConfig } from './components/BattleScreen';
 import { Sheet, Btn, HowTo } from './components/ui';
-import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase, homeDefenders } from './battle';
+import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase, homeDefenders, gauntletWaves, gauntletReward, GAUNTLET_MAX_TIER } from './battle';
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
@@ -92,7 +92,8 @@ const INITIAL_STATE: GameState = {
   defenseSlots: { D1: 1 }, // starter JUGS machine lives in its fixed slot
   formation: 'goalline',   // starter scheme; Cover 3 @ Stadium L3, Max Protect @ L5
   heroGates: {},           // gate posts auto-fill with your strongest heroes until assigned
-  formationMastery: {}     // holds per formation — tiers at 3/8/15 (+3% defense each)
+  formationMastery: {},    // holds per formation — tiers at 3/8/15 (+3% defense each)
+  gauntlet: { best: 0, attempts: 3, date: '' }, // 🛡 attempts refill daily on load
 };
 
 const SAVE_KEY = 'fhq_save_v1';
@@ -237,7 +238,11 @@ const loadState = (): GameState => {
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
       const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, heroGates: saved.heroGates ?? {}, formationMastery, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
+      // Gauntlet attempts refill with the calendar day (best tier persists).
+      const gauntlet = (saved.gauntlet && saved.gauntlet.date === todayKey())
+        ? saved.gauntlet
+        : { best: saved.gauntlet?.best ?? 0, attempts: 3, date: todayKey() };
+      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, heroGates: saved.heroGates ?? {}, formationMastery, gauntlet, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
     }
   } catch (e) {
     console.warn('Save load failed, starting fresh:', e);
@@ -933,6 +938,35 @@ function App() {
     });
   };
 
+  // 🛡 THE GAUNTLET — preseason challengers storm your house in 5 escalating waves.
+  // The mode where the defense you built earns its keep, every day.
+  const handleStartGauntlet = () => {
+    if (gameState.gauntlet.attempts <= 0) { sfx.error(); spawnText('No Gauntlet attempts left today', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); return; }
+    const tier = Math.min(GAUNTLET_MAX_TIER, gameState.gauntlet.best + 1);
+    setGameState(prev => ({ ...prev, gauntlet: { ...prev.gauntlet, attempts: prev.gauntlet.attempts - 1, date: todayKey() } }));
+    const posts = gatePostsFor(gameState.formation);
+    const pool = heroesForBattle(gameState.heroes).sort((a, b) => b.hp + b.dps * 10 - (a.hp + a.dps * 10));
+    const taken = new Set<string>();
+    const heroGuards = posts.map(post => {
+      const assigned = pool.find(h => h.key === gameState.heroGates[post.id] && !taken.has(h.key));
+      const h = assigned ?? pool.find(hh => !taken.has(hh.key));
+      if (!h) return null;
+      taken.add(h.key);
+      return { jersey: 0, hp: Math.round(h.hp * 0.75), dps: Math.round(h.dps * 0.75 * 10) / 10, name: h.name, art: h.art, unit: h.unit, x: post.gridX * 10 + 5, y: post.gridY * 10 + 5 };
+    }).filter(Boolean) as import('./battle').HomeGuardDef[];
+    setBattleConfig({
+      mode: 'defense',
+      title: `The Gauntlet — Night ${tier}`,
+      buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0),
+      homeGuards: [...homeDefenders(gameState.roster, gameState.parkingLot), ...heroGuards],
+      fans: gameState.resources.FANS,
+      parkingLot: gameState.parkingLot,
+      masteryTier: masteryLevel(gameState.formationMastery[gameState.formation] ?? 0),
+      gauntlet: { tier, waves: gauntletWaves(tier) },
+      loot: { coins: 0, fans: 0 }, // the night pays per wave held, on the whistle
+    });
+  };
+
   // ▶ Watch the ACTUAL attack a live rival ran on your base — every deploy is theirs.
   const handleWatchReplay = (entry: DefenseLogEntry) => {
     const rep = entry.replay as import('./battle').ReplayData | undefined;
@@ -1003,6 +1037,22 @@ function App() {
       // LIVE rival raided → their defense log hears about it (with the full replay); republish my base.
       if (r.pvpTarget) reportAttack(r.pvpTarget, gameState.teamName, r.stars, r.pct, r.coins, r.replay);
       setTimeout(publishMyBase, 500);
+    } else if (r.gauntletTier !== undefined) {
+      // 🛡 Gauntlet night: pay per wave held; clearing a NEW night banks gems + raises the tier.
+      const pay = gauntletReward(r.gauntletTier, r.wavesHeld ?? 0, !!r.gauntletCleared);
+      const newBest = !!r.gauntletCleared && r.gauntletTier > gameState.gauntlet.best;
+      setGameState(prev => ({
+        ...prev,
+        resources: {
+          ...prev.resources,
+          [ResourceType.COINS]: prev.resources.COINS + pay.coins,
+          [ResourceType.FANS]: prev.resources.FANS + pay.fans,
+          [ResourceType.GEMS]: prev.resources.GEMS + (r.gauntletCleared && r.gauntletTier! > prev.gauntlet.best ? 5 : 0),
+        },
+        gauntlet: { ...prev.gauntlet, best: r.gauntletCleared ? Math.max(prev.gauntlet.best, r.gauntletTier!) : prev.gauntlet.best },
+      }));
+      if (pay.coins > 0) spawnText(`Gauntlet purse +${pay.coins} 🪙 +${pay.fans} fans`, window.innerWidth / 2, window.innerHeight / 2, '#fbbf24');
+      if (newBest) spawnText(`🛡 NIGHT ${r.gauntletTier} CLEARED — +5 👑`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
     } else {
       setGameState(prev => ({
         ...prev,
@@ -1460,12 +1510,38 @@ function App() {
                 🧪 Test Defense
               </button>
             </div>
+            {/* 🛡 THE GAUNTLET — the nightly defense event; your gear earns its keep */}
+            {(() => {
+              const g = gameState.gauntlet;
+              const night = Math.min(GAUNTLET_MAX_TIER, g.best + 1);
+              const preview = gauntletReward(night, 5, true);
+              return (
+                <button onClick={() => { if (g.attempts <= 0) { sfx.error(); return; } setAttackSelectOpen(false); handleStartGauntlet(); }}
+                  className={`relative w-full mb-3 rounded-2xl p-[2px] text-left transition-all active:scale-[0.98] ${g.attempts > 0 ? '' : 'opacity-60'}`}
+                  style={{ background: 'linear-gradient(115deg, #7c2d12, #f97316 45%, #fde047 55%, #f97316 65%, #7c2d12)' }}>
+                  <span className="flex items-center gap-3 rounded-[14px] bg-[#131b2b] px-4 py-3">
+                    <span className="text-3xl drop-shadow" aria-hidden>🛡</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-display font-black uppercase tracking-wide text-white text-[15px] leading-tight">The Gauntlet <span className="text-orange-300">— Night {night}</span></span>
+                      <span className="block text-[11px] text-slate-400 leading-snug mt-0.5">5 waves storm YOUR house. Call the defense. Hold the line.</span>
+                      <span className="block text-[10px] font-bold text-yellow-300/90 mt-1">Clear pays ~{preview.coins.toLocaleString()}🪙 · +{preview.fans} fans{g.best < night ? ' · first clear +5👑' : ''}</span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className={`block text-[17px] font-black leading-none ${g.attempts > 0 ? 'text-green-400' : 'text-slate-500'}`}>{g.attempts}/3</span>
+                      <span className="block text-[9px] uppercase font-bold text-slate-500 mt-0.5">tonight</span>
+                      {g.best > 0 && <span className="block text-[9px] font-bold text-orange-300 mt-1">best: Night {g.best}</span>}
+                    </span>
+                  </span>
+                </button>
+              );
+            })()}
             <div className="mb-3">
               <HowTo id="gameday" lines={[
                 'SEASON: beat 12 rival coaches for the ring — earn up to 3 game balls per matchup.',
                 'RAID: hit rival bases for Coins and Fans. ⚡ Live Rivals are real coaches — beating them takes trophies.',
                 'Every game costs ⚡12 Energy. In battle: drop players near a lane, then direct the drive with plays and hero abilities.',
                 'DEFENSE LOG shows who raided you while you were away — watch the film and take revenge.',
+                'THE GAUNTLET: 5 escalating waves attack YOUR base — free to run, 3 tries a night. Hold the house to clear the night and unlock the next. Your emplacement levels, mastery plays, and mascot do the fighting.',
               ]} />
             </div>
 
