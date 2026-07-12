@@ -994,9 +994,14 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     const o = HOME_DISPLAY_ANCHORS[b.type];
     return o ? { ...b, gridX: o.gridX, gridY: o.gridY } : b;
   });
+  // The editor previews the ENDGAME look ("show it at full fan capacity"):
+  // max-level building art + a packed jumbotron, whatever this save's progress —
+  // layout decisions should be judged against the board players are building toward.
   const shownBuildings = edit
-    ? displayBuildings.map(b => { const o = edit.buildings[b.type]; return o ? { ...b, gridX: o.gx, gridY: o.gy } : b; })
+    ? displayBuildings.map(b => { const o = edit.buildings[b.type]; return { ...b, level: 12, ...(o ? { gridX: o.gx, gridY: o.gy } : {}) }; })
     : displayBuildings;
+  const showFans = edit ? 15200 : fans;
+  const showTrophies = edit ? 3000 : trophies;
 
   const selCoords = (l: EditLayout, r: SelRef): { gx: number; gy: number } => {
     switch (r.kind) {
@@ -1188,7 +1193,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           <GroundLayer buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
-          <Jumbotron clubName={clubName} trophies={trophies} fans={fans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} />
+          <Jumbotron clubName={clubName} trophies={showTrophies} fans={showFans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} />
           {outerList.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
           ))}
