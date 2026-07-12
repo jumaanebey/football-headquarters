@@ -270,6 +270,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   };
   const [, forceTick] = useState(0);
   const [result, setResult] = useState<BattleResult | null>(null);
+  // 🎺 MARCHING BAND WIN MOMENT: on a road win the band parades across the silenced
+  // field (fight song, confetti, CROWD SILENCED stamp) BEFORE the verdict card.
+  // Timers live in a ref — cleared only on unmount or skip (the celebration-timer law).
+  const [celeb, setCeleb] = useState(false);
+  const celebRef = useRef(false);
+  const celebTimers = useRef<number[]>([]);
+  useEffect(() => () => celebTimers.current.forEach(clearTimeout), []);
+  const endCeleb = () => {
+    celebTimers.current.forEach(clearTimeout); celebTimers.current = [];
+    celebRef.current = false; setCeleb(false);
+    sfx.victory();
+  };
 
   const total = config.buildings.filter(b => b.kind !== 'wall').length; // walls don't count toward %
 
@@ -277,7 +289,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // underneath the whole battle and dies with the final whistle.
   useEffect(() => {
     if (phase === 'fighting') { sfx.kickoff(); say(config.homeGuards?.length ? `KICKOFF! Your ${config.homeGuards.length} defenders take the field!` : `KICKOFF! ${config.title.toUpperCase()}!`); crowdBedStart(); crowdBedIntensity(1); /* the house opens DEAFENING — silencing it is the win */ }
-    if (phase === 'result') { crowdBedStop(); if (result) { if (result.won && !povDefense) sfx.airhorn(); (result.won ? sfx.victory : sfx.defeat)(); } }
+    if (phase === 'result') {
+      crowdBedStop(); // dead silence — their crowd is gone
+      if (result) {
+        if (celebRef.current) { sfx.airhorn(); sfx.fightSong(); } // the band takes the field; victory sting lands with the card
+        else { if (result.won && !povDefense) sfx.airhorn(); (result.won ? sfx.victory : sfx.defeat)(); }
+      }
+    }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => crowdBedStop(), []); // never leak the loop on exit
 
@@ -305,6 +323,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       power: config.power, heroes, specials, layout: config.buildings,
       script: recRef.current,
     } : undefined;
+    // Road win → the band takes their field first (skipped under reduced motion).
+    const roadWin = !isDefense && !isReplay && stars > 0;
+    const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (roadWin && !reduced) {
+      celebRef.current = true; setCeleb(true);
+      celebTimers.current.push(window.setTimeout(() => sfx.crowdRoar(), 2950)); // your new fans find their voice
+      celebTimers.current.push(window.setTimeout(endCeleb, 4600));
+    }
     setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac) + s.bonus, fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget, isReplay: isReplay || undefined, replay });
     setPhase('result');
   };
@@ -1418,6 +1444,24 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               </div>
             );
           })}
+
+          {/* 🎺 THE BAND TAKES THEIR FIELD — road-win parade: drum major leads the line
+              across the silenced stadium, two-frame march, proud bounce. Marches inside
+              the field so it scales with the broadcast camera. */}
+          {celeb && (['major', 'brass', 'drum', 'brass', 'drum', 'brass'] as const).map((m, i) => (
+            <div key={`band${i}`} className="absolute pointer-events-none" style={{ left: '-16%', top: m === 'major' ? '44%' : '46.5%', width: m === 'major' ? '9.5%' : '7.5%', zIndex: 230, animation: `fhq-bandmarch 3.2s linear ${(i * 0.24).toFixed(2)}s both`, ['--fhq-march' as string]: m === 'major' ? '1350%' : '1710%' }}>
+              <div className="relative w-full" style={{ aspectRatio: '1', animation: 'fhq-bandbob 0.44s ease-in-out infinite' }}>
+                <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '3vmin', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }}>{m === 'drum' ? '🥁' : m === 'major' ? '✨' : '🎺'}</span>
+                {(['A', 'B'] as const).map(fr => (
+                  <img key={fr} src={`/assets/battle/band/band-${m}-${fr}.png`} alt="" draggable={false}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    onLoad={e => { const sp = e.currentTarget.parentElement?.querySelector('span'); if (sp) (sp as HTMLElement).style.display = 'none'; }}
+                    className="absolute inset-0 w-full h-full object-contain"
+                    style={{ animation: `fhq-step${fr} 0.44s linear infinite`, filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.5))' }} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -1566,8 +1610,28 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         </div>
       )}
 
+      {/* 🎺 Road-win celebration — CROWD SILENCED stamp + confetti rain over the live
+          field while the band marches. No dark backdrop: the point is SEEING the stands
+          you just turned orange, in silence. Tap anywhere to skip to the card. */}
+      {phase === 'result' && result && celeb && (
+        <div className="absolute inset-0 z-10 overflow-hidden cursor-pointer" onClick={endCeleb}>
+          {Array.from({ length: 50 }).map((_, i) => (
+            <div key={i} className="absolute top-0 pointer-events-none" style={{ left: `${(i * 137) % 100}%`, width: 7, height: 12, background: ['#f97316', '#fde047', '#f8fafc', '#38bdf8', '#22c55e'][i % 5], borderRadius: 2, animation: `fhq-confetti ${1.7 + (i % 5) * 0.3}s linear ${(i % 9) * 0.12}s infinite` }} />
+          ))}
+          {/* positioning wrapper is animation-free — the reveal-in transform would
+              otherwise REPLACE a centering translate (the recurring CSS law) */}
+          <div className="absolute inset-x-0 text-center px-4" style={{ top: '13%' }}>
+            <div style={{ animation: 'fhq-reveal-in 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+              <div className="font-display font-black italic uppercase text-yellow-300 leading-none" style={{ fontSize: 'min(9vw, 46px)', textShadow: '0 0 18px rgba(250,204,21,0.6), 0 4px 8px #000' }}>🏆 Crowd Silenced!</div>
+              <div className="mt-2 text-[12px] font-bold uppercase tracking-widest text-white/90" style={{ textShadow: '0 2px 4px #000' }}>The band takes THEIR field</div>
+            </div>
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-widest text-white/60 font-bold animate-pulse">tap to skip</div>
+        </div>
+      )}
+
       {/* Result overlay */}
-      {phase === 'result' && result && (
+      {phase === 'result' && result && !celeb && (
         <div className="absolute inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-10 animate-fade-in overflow-hidden">
           {/* Confetti on a win */}
           {result.won && Array.from({ length: 40 }).map((_, i) => (

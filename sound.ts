@@ -209,6 +209,37 @@ const horn = (dur = 0.75, peak = 0.16) => {
   }
 };
 
+/** A single snare-drum crack scheduled `at` seconds from now. */
+const snare = (at: number, peak = 0.09) => {
+  const a = ac();
+  if (!a) return;
+  const t0 = a.currentTime + at;
+  const len = Math.floor(a.sampleRate * 0.09);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 1.5;
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1800;
+  const g = a.createGain(); g.gain.value = peak;
+  src.connect(f).connect(g).connect(a.destination);
+  src.start(t0);
+};
+
+/** THE FIGHT SONG — a ~2.8s original brass riff + snare cadence for road wins.
+    Melody on sawtooth "brass", harmony an octave down, marching snare underneath. */
+const fightSong = () => {
+  if (muted) return;
+  const melody: Array<[number, number, number]> = [
+    [659, 0.00, 0.14], [659, 0.16, 0.14], [698, 0.32, 0.14], [784, 0.48, 0.30],
+    [659, 0.82, 0.14], [784, 0.98, 0.14], [880, 1.14, 0.14], [1047, 1.30, 0.55],
+    [784, 1.92, 0.12], [880, 2.06, 0.12], [1047, 2.20, 0.55],
+  ];
+  seq(melody, 'sawtooth', 0.11);
+  seq(melody.map(([f2, at, d]) => [f2 / 2, at, d] as [number, number, number]), 'triangle', 0.10);
+  for (const at of [0, 0.32, 0.64, 0.98, 1.30, 1.62, 1.92, 2.20]) snare(at);
+  snare(2.5, 0.12);
+};
+
 export const sfx = {
   thud:    () => impact(60, 0.26, 0.26),                              // boots hit the turf
   boom:    () => { impact(45, 0.5, 0.4); roar(0.8, 0.1); },           // facility sacked
@@ -220,6 +251,7 @@ export const sfx = {
   crowdRoar: () => { roar(); seq([[659, 0.12, 0.12], [880, 0.26, 0.22]], 'triangle', 0.1); }, // roar + cheer sparkle
   aww:     () => { deflate(); seq([[349, 0.05, 0.3], [294, 0.28, 0.45]], 'triangle', 0.05); }, // home crowd deflates
   airhorn: () => horn(),                                              // the away section goes NUTS
+  fightSong: () => fightSong(),                                       // the band takes the field
   kickoff:  () => { seq([[2100, 0, 0.14], [1800, 0.12, 0.1]], 'square', 0.14); roar(0.9, 0.12); }, // whistle + crowd stir
   collect: () => seq([[880, 0, 0.09], [1320, 0.05, 0.12]]),          // coin ding
   upgrade: () => seq([[523, 0, 0.1], [659, 0.08, 0.1], [784, 0.16, 0.18]]), // C-E-G rise

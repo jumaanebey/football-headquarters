@@ -294,6 +294,11 @@
       .fhq-shine::after { content: ''; position: absolute; top: -30%; bottom: -30%; width: 34%; left: -45%; background: linear-gradient(105deg, transparent, rgba(255,255,255,0.75), transparent); transform: skewX(-20deg); pointer-events: none; }
       .fhq-shine:hover::after { animation: fhq-sweep 0.6s ease-out; }
       @keyframes fhq-confetti { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(85vh) rotate(720deg); opacity: 0; } }
+      /* Marching band victory parade — members cross the taken field left to right.
+         Transform-based (compositor) with a per-member --fhq-march distance in % of
+         the member's own width, so the whole field is crossed at any sprite size. */
+      @keyframes fhq-bandmarch { 0% { transform: translateX(0); } 100% { transform: translateX(var(--fhq-march, 1700%)); } }
+      @keyframes fhq-bandbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7%); } }
       @keyframes fade-in   { from { opacity: 0; } to { opacity: 1; } }
 
       /* --- MOBILE: kill double-tap zoom (iOS ignores user-scalable=no); inputs stay ≥16px
