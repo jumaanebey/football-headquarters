@@ -1,6 +1,6 @@
 import { UnitGroup, Player, BuildingInstance, BuildingType } from './types';
 import { WALL_HP, TENDENCIES, TendencyKey, DEFENSE_TYPES, PARKING_LOT } from './constants';
-import { buildingSprite, defenseSprite } from './assets';
+import { buildingSprite, defenseSprite, wallSprite } from './assets';
 
 // ---------------------------------------------------------------------------
 // Real-time attack model (Clash-of-Clans-style). World is a 100x100 square.
@@ -416,8 +416,11 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
       return { id: b.id, kind: 'defense', x, y, hp: Math.round(210 * (1 + 0.35 * (lvl - 1)) * defBoost), size: 6, damage: Math.round((12 + lvl * 3) * defBoost), range: 24, art };
     return { id: b.id, kind: 'building', x, y, hp: Math.round(150 * (1 + 0.3 * (lvl - 1)) * defBoost), size: 6, art };
   });
+  // Walls wear the era matching the Stadium: sawhorse pads → pro sled → championship barrier.
+  const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
+  const wallArt = wallSprite(stadiumLvl);
   const ws: BattleBuildingDef[] = walls.map((w, i) => ({
-    id: `wall-${i}`, kind: 'wall', x: cx(Math.min(90, Math.max(10, w.gridX * 10))), y: cx(Math.min(90, Math.max(10, w.gridY * 10))), hp: Math.round(wallHp * defBoost), size: 4,
+    id: `wall-${i}`, kind: 'wall', x: cx(Math.min(90, Math.max(10, w.gridX * 10))), y: cx(Math.min(90, Math.max(10, w.gridY * 10))), hp: Math.round(wallHp * defBoost), size: 4, art: wallArt,
   }));
   const ds: BattleBuildingDef[] = defenses.map(d => {
     const t = DEFENSE_TYPES.find(x => x.kind === d.kind) ?? DEFENSE_TYPES[0];
@@ -435,7 +438,7 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
   const busB: BattleBuildingDef[] = bus ? [{
     id: 'team-bus', kind: 'wall',
     x: cx(Math.min(90, Math.max(10, bus.gridX * 10))), y: cx(Math.min(90, Math.max(10, bus.gridY * 10))),
-    hp: Math.round(wallHp * 2.2 * defBoost), size: 6,
+    hp: Math.round(wallHp * 2.2 * defBoost), size: 6, art: wallArt, // the big blocker wears the same era
   }] : [];
   return [...bs, ...ws, ...ds, ...busB];
 };

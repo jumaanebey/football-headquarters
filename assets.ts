@@ -68,6 +68,13 @@ const DEFENSE_FLAVOR_SPRITE: Record<string, string> = {
   jugs: 'jugs-machine', sled: 'tackling-sled', ref: 'ref-tower', tshirt: 'tshirt-cannon', cooler: 'gatorade-station',
 };
 
+// Walls (Blocking Sleds) wear era art by STADIUM level: backyard sawhorse pads →
+// hazard-striped pro sled → championship barrier. One tier per base (walls are uniform).
+export const wallSprite = (stadiumLevel: number): string =>
+  stadiumLevel >= 9 ? '/assets/battle/blocking-sled-3.png'
+  : stadiumLevel >= 5 ? '/assets/battle/blocking-sled.png'
+  : '/assets/battle/blocking-sled-1.png';
+
 // Defense emplacements LEVEL UP visibly: tier 1 (L1-3) → tier 2 pro rig (L4-7) →
 // tier 3 flagship (L8+). Art tiers exist for all four kinds in /assets/battle/.
 export const DEFENSE_ART_GATES = [1, 4, 8] as const;
