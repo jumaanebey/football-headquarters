@@ -55,6 +55,9 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
       Jumaane ("level one needs to be level one quality")
 - [ ] Local review page (uncommitted): localhost:3000/asset-review.html —
       all 5 upgrade paths w/ stat ladders + signatures
+- [ ] SHIPPED: wall art tiers (7267812) — sawhorse pads (SL1-4) → pro sled
+      (SL5-8) → championship barrier (SL9+); Team Bus wears the same era;
+      published layouts + replays carry it
 - [ ] Balance watch: signatures buff maxed defenses — keep the 60-75%
       attacker-win target in view once ladder data arrives
 
