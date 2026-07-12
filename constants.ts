@@ -138,7 +138,7 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
 export const BUILDING_INFO = {
   [BuildingType.TRAINING_PITCH]: { name: 'Training Field', color: '#10b981', description: 'Increases XP gained from drills.' },
   [BuildingType.YOUTH_ACADEMY]: { name: 'Scouting Dept', color: '#3b82f6', description: 'Raises your roster cap so you can sign more players.' },
-  [BuildingType.TACTICS_ROOM]: { name: 'War Room', color: '#9333ea', description: 'Sharper game plan — boosts team readiness gained from drills.' },
+  [BuildingType.TACTICS_ROOM]: { name: 'Film Room', color: '#9333ea', description: 'Break down the film, sharpen the game plan — boosts team readiness gained from drills.' },
   [BuildingType.MEDICAL_CENTER]: { name: 'Rehab Center', color: '#ef4444', description: 'Increases Energy Regen rate.' },
   [BuildingType.STADIUM]: { name: 'Stadium', color: '#e2e8f0', description: 'Earns ticket revenue (Coins) over time. Upgrade to raise income and storage.' },
 };
