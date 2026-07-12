@@ -44,6 +44,18 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
 - [ ] Notes: place-your-own decor doubles as a monetization feature (decor shop);
       rewarded ads for non-payers; $4.99 starter pack = classic best converter
 
+## THE GAUNTLET (July 12, dc3362f — confirm to close)
+
+- [ ] SHIPPED: nightly siege mode — 5 escalating waves attack YOUR base
+      (Game Day card); 3 free attempts/day, nights ladder to 20, purse per
+      wave held, first clear +5👑, breach ends the night. Broadcast wave
+      banners; Gauntlet-native verdict (shields, waves held, night purse).
+      Verified: full Night 1 clear end-to-end incl. rewards + persistence.
+- [ ] Balance: night difficulty curve (0.5 + 0.13·tier, +18%/wave) is a
+      first pass — watch where real bases stall vs their stadium level
+- [ ] Aesthetics next (his directive: execution > features): battle deploy
+      bar CC-chunky restyle · attack-side matchup card art · sfx samples
+
 ## Defense depth round (July 12, 5cde06c — confirm to close)
 
 - [ ] SHIPPED: Gatorade Station — 5th defense piece (slot D7, Stadium L5):
