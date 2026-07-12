@@ -32,6 +32,7 @@ export interface BattleConfig {
   homeGuards?: HomeGuardDef[]; // defense mode: YOUR roster's defenders start on the field
   fans?: number;          // defense mode: your fanbase — the crowd erupts and stalls drives
   parkingLot?: number;    // defense mode: apron level (visual; the layout is pre-compressed)
+  masteryTier?: number;   // defense mode: formation mastery ★ tier (0-3) — the DEFENSE PLAYS LADDER
   replay?: { seed: number; script: ReplayAction[]; planKey: string }; // spectate a recorded attack
 }
 
@@ -179,7 +180,21 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const [castMode, setCastMode] = useState<PlayDef | null>(null);
   const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense || isReplay ? 'fighting' : 'deploy');
   // DEFENSE AGENCY: when YOUR stadium is under attack you call plays, not just watch.
-  const [defPlays, setDefPlays] = useState({ noise: 2, pkg: 1 });
+  // 🪜 THE DEFENSE PLAYS LADDER — formation mastery ★ tiers earn extra charges:
+  //   📣 Crowd Noise 2 → +1 per ★ (max 5) · 🛡 Goal-Line +1 at ★★ and ★★★ · 🧊 TIMEOUT unlocks at ★★★
+  const masteryTier = Math.min(3, Math.max(0, config.masteryTier ?? 0));
+  const [defPlays, setDefPlays] = useState({ noise: 2 + masteryTier, pkg: 1 + (masteryTier >= 2 ? 1 : 0) + (masteryTier >= 3 ? 1 : 0), timeout: masteryTier >= 3 ? 1 : 0 });
+  const callTimeout = () => {
+    if (defPlays.timeout <= 0 || phase !== 'fighting') return;
+    setDefPlays(p => ({ ...p, timeout: p.timeout - 1 }));
+    const s = sim.current;
+    s.troops.forEach(t => { if (!t.dead) t.slowT = Math.max(t.slowT ?? 0, 3.5); });
+    say('🧊 TIMEOUT — you ICE their whole drive!');
+    sfx.whistle();
+    sfx.crowdRoar();
+    s.shakeT = 0.25;
+    s.pulses.push({ x: 50, y: 50, r: 46, life: 0.7, maxLife: 0.7, color: '#38bdf8' });
+  };
   const callCrowdNoise = () => {
     if (defPlays.noise <= 0 || phase !== 'fighting') return;
     setDefPlays(p => ({ ...p, noise: p.noise - 1 }));
@@ -1576,6 +1591,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <div className="py-1">
               <div className="text-center text-xs text-orange-200 font-bold flex items-center justify-center gap-2 mb-2">
                 <Shield size={14} className="text-orange-400" /> Rival offense is driving on your stadium — call your defense!
+                {masteryTier > 0 && <span className="text-[9px] font-black bg-yellow-500/20 border border-yellow-500/50 text-yellow-300 px-1.5 py-0.5 rounded" title="Formation mastery adds defense-play charges">{'★'.repeat(masteryTier)} MASTERY</span>}
               </div>
               <div className="flex items-center justify-center gap-2">
                 <button onClick={callCrowdNoise} disabled={defPlays.noise <= 0}
@@ -1592,6 +1608,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   <span className="text-[8px] font-bold text-slate-300">+2 DEFENDERS</span>
                   <span className="absolute -top-2 -right-1 min-w-5 h-5 px-1 rounded-full bg-blue-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center">{defPlays.pkg}</span>
                 </button>
+                {/* 🧊 TIMEOUT — the ★★★ mastery reward: ice the entire drive once */}
+                {masteryTier >= 3 && (
+                  <button onClick={callTimeout} disabled={defPlays.timeout <= 0}
+                    className={`relative flex flex-col items-center px-4 py-1.5 rounded-xl border-2 transition-all active:scale-95 ${defPlays.timeout <= 0 ? 'opacity-30 border-slate-800 cursor-not-allowed' : 'border-sky-300 bg-sky-900/30 hover:bg-sky-900/50'}`}>
+                    <span className="text-lg leading-none">🧊</span>
+                    <span className="text-[9px] font-bold text-white uppercase mt-0.5">Timeout</span>
+                    <span className="text-[8px] font-bold text-slate-300">ICE THE DRIVE</span>
+                    <span className="absolute -top-2 -right-1 min-w-5 h-5 px-1 rounded-full bg-sky-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center">{defPlays.timeout}</span>
+                  </button>
+                )}
               </div>
             </div>
           ) : (

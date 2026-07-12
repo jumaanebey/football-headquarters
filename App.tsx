@@ -928,6 +928,7 @@ function App() {
       homeGuards: [...homeDefenders(gameState.roster, gameState.parkingLot), ...heroGuards], // defenders + heroes, on the field
       fans: gameState.resources.FANS,              // the crowd stalls enemy drives
       parkingLot: gameState.parkingLot,            // visible apron (layout pre-compressed)
+      masteryTier: masteryLevel(gameState.formationMastery[gameState.formation] ?? 0), // ★ tiers = extra defense-play charges
       loot: { coins: coinsAtRisk, fans: 0 },
     });
   };
@@ -1221,10 +1222,12 @@ function App() {
   const FormationPreview = ({ f }: { f: FormationKey }) => {
     return (
       <div className="mt-2 flex justify-center w-full">
-        <img 
-          src={`/assets/formations/${f}.png`} 
-          alt={f} 
-          className="w-[70px] h-[70px] object-contain drop-shadow-md" 
+        <img
+          src={`/assets/formations/${f}.png`}
+          alt={f}
+          draggable={false}
+          onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+          className="w-[70px] h-[70px] object-contain drop-shadow-md"
         />
       </div>
     );
@@ -1648,6 +1651,7 @@ function App() {
                 'Install and level emplacements with Coins. Higher Stadium levels unlock more slots.',
                 'Walls and the Team Bus are automatic — they grow with your Stadium. No placing anything.',
                 'Tap 🧪 Test Defense to watch your setup fight off a raid.',
+                'Mastery ★s pay off LIVE: each ★ adds a 📣 Crowd Noise charge, ★★ adds a 🛡 Goal-Line charge, ★★★ unlocks 🧊 TIMEOUT.',
               ]} />
               {/* 📋 FORMATION — call your defensive scheme. Free to switch; emplacement
                   levels carry over, only the geometry changes. Rivals see your scheme. */}
@@ -1664,9 +1668,10 @@ function App() {
                         className={`rounded-xl border-2 p-2.5 text-left transition-all active:scale-95 ${active ? 'border-sky-400 bg-sky-950/40' : unlocked ? 'border-slate-700 bg-slate-800/50 hover:border-slate-500' : 'border-slate-800 bg-slate-900/40 opacity-55 cursor-not-allowed'}`}>
                         <div className="text-[12px] font-display font-bold uppercase text-white leading-tight">{fdef.name}{active && <span className="ml-1 text-[9px] text-sky-300 align-middle">ACTIVE</span>}</div>
                         {(() => { const holds = gameState.formationMastery[key] ?? 0; const lvl = masteryLevel(holds); const next = nextMasteryAt(holds); return (
-                          <div className="text-[10px] leading-none mt-1" title={`Formation mastery — hold your stadium (0 game balls allowed) while running this scheme. +3% defense per ★`}>
+                          <div className="text-[10px] leading-none mt-1" title={`Formation mastery — hold your stadium (0 game balls allowed) while running this scheme. Each ★: +3% defense AND +1 📣 Crowd Noise. ★★ adds a 🛡 Goal-Line charge. ★★★ unlocks 🧊 TIMEOUT (ice the whole drive).`}>
                             {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < lvl ? 1 : 0.25, filter: i < lvl ? 'none' : 'grayscale(1)' }}>⭐</span>)}
                             {lvl > 0 && <span className="ml-1 text-green-400 font-bold">+{lvl * 3}%</span>}
+                            {lvl > 0 && <span className="ml-1 text-orange-300 font-bold">+{lvl}📣{lvl >= 2 ? ` +${lvl - 1}🛡` : ''}{lvl >= 3 ? ' 🧊' : ''}</span>}
                             {next !== null && <span className="ml-1 text-slate-500 font-mono">{holds}/{next}</span>}
                           </div>
                         ); })()}
