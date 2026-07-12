@@ -10,3 +10,6 @@ supabase/.temp
 build.log
 shot.log
 *.log
+__pycache__/
+public/asset-review.html
+public/assets/formations/
