@@ -140,7 +140,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
     return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
   };
-  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; punchT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number; mascotOut: boolean; mascotT: number }>({
+  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; puddles: { x: number; y: number; r: number; life: number; maxLife: number }[]; shakeT: number; punchT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number; mascotOut: boolean; mascotT: number }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
     guards: (() => {
@@ -156,7 +156,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       });
     })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
-    shots: [], pulses: [], fx: [], shakeT: 0, punchT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
+    shots: [], pulses: [], fx: [], puddles: [], shakeT: 0, punchT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
     momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0, mascotOut: false, mascotT: 0,
   });
   const [driveStats, setDriveStats] = useState<{ mvp: string; mvpDmg: number; pancakes: number; lost: number; bonus: number } | null>(null);
@@ -664,12 +664,69 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       };
       for (const b of s.buildings) {
         if (b.dead || b.kind !== 'defense' || !b.damage || !b.range) continue;
+        // ⭐ L10 SIGNATURE PLAYS — maxed gear runs a special on its own clock. The
+        // slot's level rides the layout, so raiders face signatures on real L10 bases
+        // (and replays re-fire them identically — all state lives in the sim).
+        if ((b.level ?? 0) >= 10) {
+          const bb = b as BBuilding & { sigT?: number };
+          if (bb.sigT === undefined) { let hh = 0; for (let i = 0; i < b.id.length; i++) hh = (hh * 31 + b.id.charCodeAt(i)) >>> 0; bb.sigT = 2.5 + (hh % 40) / 10; }
+          bb.sigT -= DT;
+          if (bb.sigT <= 0) {
+            const sp = nearestTroop(b.x, b.y, s.troops, b.range * 1.25);
+            if (!sp) bb.sigT = 0.6; // nobody in the neighborhood — re-check soon
+            else if (b.flavor === 'sled') {
+              // PANCAKE BLOCK: launches the nearest runner backward, flat on the turf.
+              const dd = Math.max(0.01, dist(b.x, b.y, sp.x, sp.y));
+              if (dd <= 9) {
+                sp.x = Math.min(98, Math.max(2, sp.x + ((sp.x - b.x) / dd) * 11));
+                sp.y = Math.min(98, Math.max(2, sp.y + ((sp.y - b.y) / dd) * 11));
+                sp.slowT = Math.max(sp.slowT ?? 0, 1.8);
+                hitTroop(sp, b.damage * 1.4);
+                s.fx.push({ type: 'boom', x: sp.x, y: sp.y, life: 0.5, maxLife: 0.5 });
+                if (rand() < 0.5) say('💥 PANCAKE BLOCK — he gets sent FLYING!');
+                bb.sigT = 8;
+              } else bb.sigT = 0.6; // wait for someone to get close
+            } else if (b.flavor === 'ref') {
+              // BOOTH REVIEW: flags EVERY attacker in range — the whole drive holds.
+              for (const t of s.troops) { if (!t.dead && dist(b.x, b.y, t.x, t.y) <= b.range) { t.slowT = Math.max(t.slowT ?? 0, 2.2); hitTroop(t, b.damage * 0.6); } }
+              s.pulses.push({ x: b.x, y: b.y, r: Math.min(18, b.range * 0.6), life: 0.5, maxLife: 0.5, color: '#fde047' });
+              if (rand() < 0.5) say('🚩 BOOTH REVIEW — everybody HOLDS!');
+              bb.sigT = 11;
+            } else if (b.flavor === 'tshirt') {
+              // T-SHIRT STORM: a double-wide volley buries the whole cluster.
+              for (const t of s.troops) { if (!t.dead && dist(t.x, t.y, sp.x, sp.y) <= 12) { hitTroop(t, b.damage * 0.9); t.slowT = Math.max(t.slowT ?? 0, 2); } }
+              s.pulses.push({ x: sp.x, y: sp.y, r: 12, life: 0.5, maxLife: 0.5, color: '#f472b6' });
+              for (let si = 0; si < 3; si++) s.shots.push({ sx: b.x, sy: b.y, tx: sp.x + (rand() * 8 - 4), ty: sp.y + (rand() * 8 - 4), t: -si * 0.08, dur: 0.34, rot: rand() * 360, flavor: 'tshirt' });
+              if (rand() < 0.5) say('👕 T-SHIRT STORM!');
+              bb.sigT = 10;
+            } else if (b.flavor === 'cooler') {
+              // FLOOD ZONE: one giant puddle — the whole lane turns to orange soup.
+              s.puddles.push({ x: sp.x, y: sp.y, r: 13, life: 5, maxLife: 5 });
+              s.pulses.push({ x: sp.x, y: sp.y, r: 13, life: 0.5, maxLife: 0.5, color: '#f97316' });
+              s.shots.push({ sx: b.x, sy: b.y, tx: sp.x, ty: sp.y, t: 0, dur: 0.4, rot: rand() * 360, flavor: 'cooler' });
+              if (rand() < 0.5) say('🌊 FLOOD ZONE — the turf turns to orange soup!');
+              bb.sigT = 10;
+            } else {
+              // JUGS OVERDRIVE: the hopper unloads — a full volley on one runner.
+              hitTroop(sp, b.damage * 2.2);
+              for (let si = 0; si < 3; si++) s.shots.push({ sx: b.x, sy: b.y, tx: sp.x, ty: sp.y, t: -si * 0.09, dur: 0.3, rot: rand() * 360 });
+              if (rand() < 0.5) say('🔥 JUGS OVERDRIVE — the whole hopper unloads!');
+              bb.sigT = 9;
+            }
+          }
+        }
         b.cooldown -= DT;
         if (b.cooldown > 0) continue;
         const prey = nearestTroop(b.x, b.y, s.troops, b.range);
         if (!prey) { b.cooldown = 0.1; continue; }
         const fl = b.flavor;
-        if (fl === 'tshirt') {
+        if (fl === 'cooler') {
+          // Gatorade Station: lobs a cooler — light hit, but leaves a PUDDLE ZONE
+          // that slows every attacker wading through it (area denial).
+          hitTroop(prey, b.damage);
+          s.puddles.push({ x: prey.x, y: prey.y, r: 7, life: 3.5, maxLife: 3.5 });
+          b.cooldown = 2.6;
+        } else if (fl === 'tshirt') {
           // T-Shirt Cannon: splash — everyone bunched near the target eats it AND gets
           // tangled up in free t-shirts (comedic slow, Design Bible §6)
           for (const t of s.troops) { if (!t.dead && dist(t.x, t.y, prey.x, prey.y) <= 7) { hitTroop(t, b.damage * 0.7); t.slowT = Math.max(t.slowT ?? 0, 1.5); } }
@@ -693,6 +750,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       }
 
       if (s.shots.length) s.shots = s.shots.filter(sh => (sh.t += DT) < sh.dur);
+      // 🥤 Gatorade puddles: drain over time; anyone standing in one runs in mud.
+      if (s.puddles.length) {
+        s.puddles = s.puddles.filter(p => (p.life -= DT) > 0);
+        for (const p of s.puddles) for (const t of s.troops) {
+          if (!t.dead && dist(t.x, t.y, p.x, p.y) <= p.r) t.slowT = Math.max(t.slowT ?? 0, 0.3);
+        }
+      }
       if (s.pulses.length) s.pulses = s.pulses.filter(p => (p.life -= DT) > 0);
       if (s.fx.length) {
         for (const f of s.fx) {
@@ -1175,6 +1239,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
           )}
 
+          {/* 🥤 Gatorade puddles — glossy orange zones ON the turf (under everything) */}
+          {s.puddles.map((p, i) => (
+            <div key={`pud${i}`} className="absolute rounded-[50%] pointer-events-none"
+              style={{ left: `${px(p.x, p.y) - p.r * ISO_KX * 2}%`, top: `${py(p.x, p.y) - p.r * ISO_KY * 2}%`, width: `${p.r * ISO_KX * 4}%`, height: `${p.r * ISO_KY * 4}%`, zIndex: 2,
+                background: 'radial-gradient(ellipse at 45% 40%, rgba(255,166,77,0.7) 0%, rgba(249,115,22,0.5) 55%, rgba(194,65,12,0.35) 78%, transparent 92%)',
+                boxShadow: 'inset 0 0 8px rgba(255,220,180,0.5)', opacity: Math.min(0.8, (p.life / p.maxLife) * 1.4) }} />
+          ))}
+
           {/* Range rings — iso ellipses on the ground plane */}
           {s.buildings.filter(b => b.kind === 'defense' && !b.dead && b.range).map(b => (
             <div key={`r-${b.id}`} className="absolute rounded-[50%] border border-red-400/20 bg-red-500/5 pointer-events-none"
@@ -1188,13 +1260,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
           {/* Defense "shots" arc through the air — footballs, penalty flags, or t-shirts. Never bullets. */}
           {s.shots.map((sh, i) => {
-            const u = sh.t / sh.dur;
+            const u = Math.max(0, sh.t / sh.dur); // volleys stagger via negative t — hold at the muzzle until their turn
             // travel in WORLD space, arc in SCREEN space (lob height is a screen illusion)
             const wx0 = sh.sx + (sh.tx - sh.sx) * u;
             const wy0 = sh.sy + (sh.ty - sh.sy) * u;
             const x = px(wx0, wy0);
             const y = py(wx0, wy0) - Math.sin(Math.PI * u) * 7;
-            const proj = sh.flavor === 'ref' ? '🚩' : sh.flavor === 'tshirt' ? '👕' : '🏈';
+            const proj = sh.flavor === 'ref' ? '🚩' : sh.flavor === 'tshirt' ? '👕' : sh.flavor === 'cooler' ? '🥤' : '🏈';
             const ang = Math.atan2(py(sh.tx, sh.ty) - py(sh.sx, sh.sy), px(sh.tx, sh.ty) - px(sh.sx, sh.sy)) * 180 / Math.PI;
             return (
               <React.Fragment key={i}>

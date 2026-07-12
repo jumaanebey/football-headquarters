@@ -31,6 +31,7 @@ const SLOT_IDS: { id: string; kind: string; stadiumReq?: number; crownIndex?: nu
   { id: 'D2', kind: 'sled',   stadiumReq: 3 }, // first MID piece
   { id: 'D4', kind: 'tshirt', stadiumReq: 4 }, // second perimeter
   { id: 'D5', kind: 'jugs',   stadiumReq: 6 }, // flex second
+  { id: 'D7', kind: 'cooler', stadiumReq: 5 }, // area denial — the Gatorade Station
   { id: 'D6', kind: 'sled',   stadiumReq: 8 }, // second mid
   { id: 'C1', kind: 'ref',    crownIndex: 0 },
   { id: 'C2', kind: 'tshirt', crownIndex: 1 },
@@ -91,6 +92,7 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
       D3: { gridX: 2, gridY: 4, covers: 'West pocket (long range)' },
       D4: { gridX: 4, gridY: 7, covers: 'South approach splash' },
       D5: { gridX: 2, gridY: 5, covers: 'West pocket second' },
+      D7: { gridX: 6, gridY: 2, covers: 'NE approach — soak the lane' },
       D6: { gridX: 5, gridY: 2, covers: 'North gate second' },
       C1: { gridX: 7, gridY: 5, covers: 'East flank second' },
       C2: { gridX: 6, gridY: 7, covers: 'South flank splash' },
@@ -130,6 +132,7 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
       D3: { gridX: 1, gridY: 4, covers: 'West perimeter (long range)' },
       D4: { gridX: 4, gridY: 8, covers: 'South perimeter splash' },
       D5: { gridX: 3, gridY: 5, covers: 'Field ring SW' },
+      D7: { gridX: 3, gridY: 6, covers: 'SW lane — soak the approach' },
       D6: { gridX: 5, gridY: 3, covers: 'Field ring NE' },
       C1: { gridX: 8, gridY: 4, covers: 'East perimeter (long range)' },
       C2: { gridX: 5, gridY: 1, covers: 'North perimeter splash' },
@@ -161,6 +164,7 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
       D3: { gridX: 2, gridY: 4, covers: 'W courtyard (long range)' },
       D4: { gridX: 5, gridY: 7, covers: 'S courtyard splash' },
       D5: { gridX: 7, gridY: 5, covers: 'E courtyard' },
+      D7: { gridX: 3, gridY: 4, covers: 'Keep west gate — soak the breach' },
       D6: { gridX: 5, gridY: 3, covers: 'Keep north gate' },
       C1: { gridX: 2, gridY: 5, covers: 'SW courtyard' },
       C2: { gridX: 7, gridY: 4, covers: 'E corner overwatch' },

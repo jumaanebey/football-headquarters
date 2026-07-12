@@ -17,15 +17,15 @@ describe('formation geometry', () => {
       it('has no overlaps, off-board tiles, or iso-stacked facilities', () => {
         expect(auditFormation(f)).toEqual([]);
       });
-      it('has all 9 slots with positions', () => {
+      it('has all 10 slots with positions', () => {
         const slots = slotsFor(f);
-        expect(slots).toHaveLength(9);
+        expect(slots).toHaveLength(10);
         for (const s of slots) {
           expect(s.gridX).toBeGreaterThanOrEqual(0);
           expect(s.gridY).toBeGreaterThanOrEqual(0);
           expect(s.covers).toBeTruthy();
         }
-        expect(new Set(slots.map(s => s.id)).size).toBe(9);
+        expect(new Set(slots.map(s => s.id)).size).toBe(10);
       });
       it('walls never touch the island edge rows/cols beyond ring bounds (bullseye rule: landing ground exists)', () => {
         // At max stadium level, at least the 4 corners of the board must be open

@@ -17,7 +17,10 @@ export interface BattleBuildingDef {
   size: number;      // footprint radius-ish in world units
   damage?: number;   // dps (defense only)
   range?: number;    // world units (defense only)
-  flavor?: 'jugs' | 'sled' | 'ref' | 'tshirt'; // HOW this turret fights (defaults to jugs behavior)
+  flavor?: 'jugs' | 'sled' | 'ref' | 'tshirt' | 'cooler'; // HOW this turret fights (defaults to jugs behavior)
+  /** Emplacement slot level (1-10). L10 unlocks the piece's SIGNATURE play in battle.
+   *  Rides published layouts + replays; absent on old bases/bots → no signature. */
+  level?: number;
   /** Sprite path of the REAL building (type + level art) so the defense view shows
    *  the same base you built — not a hash-picked stand-in. Absent on old published
    *  bases and bot bases → renderer falls back to the pool art. */
@@ -375,7 +378,7 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
     const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage, formation: b.kind === 'hq' ? botFormation : undefined }));
     const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 30], [50, 70], [38, 64]];
     const extras = Math.min(6, 1 + Math.floor(tier / 1.1)); // every bot fields real turret coverage — empty bases read as no game
-    const flavors: BattleBuildingDef['flavor'][] = ['tshirt', 'ref', 'sled', 'tshirt', 'ref']; // varied looks at higher tiers
+    const flavors: BattleBuildingDef['flavor'][] = ['tshirt', 'ref', 'sled', 'cooler', 'ref']; // varied looks at higher tiers
     for (let e = 0; e < extras; e++) {
       const [x, y] = extraSpots[e];
       buildings.push({ id: `xd${e}`, kind: 'defense', flavor: flavors[e], x, y, hp: Math.round(220 * tier), size: 5, damage: tDmg, range: 23 });
@@ -424,6 +427,7 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
       x: cx(Math.min(88, Math.max(12, d.gridX * 10))), y: cx(Math.min(88, Math.max(12, d.gridY * 10))),
       hp: Math.round(t.hp * defBoost * (1 + 0.12 * (lvl - 1))), size: 5, damage: Math.round(t.damage * defBoost * (1 + 0.10 * (lvl - 1))), range: t.range,
       art: defenseSprite(t.kind, lvl), // emplacement art LEVELS UP with the slot (published layouts carry it)
+      level: lvl,                      // L10 = signature play unlocked
     };
   });
   // The Team Bus: one BIG wall-tier blocker — parks the south gate shut (pathfinding

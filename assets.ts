@@ -65,7 +65,7 @@ export const RESOURCE_ICON = {
 const BATTLE_BUILDING_POOL = ['headquarters-1', 'film-room-1', 'weight-room-1', 'practice-field-1'];
 const RIVAL_POOL = ['rival-headquarters', 'rival-film-room', 'rival-weight-room', 'rival-practice-field'];
 const DEFENSE_FLAVOR_SPRITE: Record<string, string> = {
-  jugs: 'jugs-machine', sled: 'tackling-sled', ref: 'ref-tower', tshirt: 'tshirt-cannon',
+  jugs: 'jugs-machine', sled: 'tackling-sled', ref: 'ref-tower', tshirt: 'tshirt-cannon', cooler: 'gatorade-station',
 };
 
 // Defense emplacements LEVEL UP visibly: tier 1 (L1-3) → tier 2 pro rig (L4-7) →
