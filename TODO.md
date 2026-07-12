@@ -53,9 +53,13 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
       + road wins · +YDS floating numbers · 'House taken' labels · t-shirt
       cannon comedic slow · bowl crowd-strip empties. Verified live in 2 raids,
       console clean.
-- [ ] Raid ideas still open (his call): marching-band win moment, Trainer
-      water-bottle sprint visual, victory dance at the whistle, pancake
-      knock-back, kicked-ball trail on Onside Bomb
+- [ ] SHIPPED: marching-band win moment (070f8f3) — road win plays airhorn +
+      synth fight song, CROWD SILENCED stamp, confetti, 6-piece band parade
+      (drum major + brass + drums, new Gemini sprites) across the silenced
+      field before the verdict card; tap to skip; reduced-motion skips it
+- [ ] Raid ideas still open (his call): Trainer water-bottle sprint visual,
+      victory dance at the whistle, pancake knock-back, kicked-ball trail on
+      Onside Bomb
 
 ## Asset refresh round (July 11-12 — buildings chapter COMPLETE, confirm to close)
 
