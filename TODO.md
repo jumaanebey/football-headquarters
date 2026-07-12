@@ -44,6 +44,20 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
 - [ ] Notes: place-your-own decor doubles as a monetization feature (decor shop);
       rewarded ads for non-payers; $4.99 starter pack = classic best converter
 
+## Defense depth round (July 12, 5cde06c — confirm to close)
+
+- [ ] SHIPPED: Gatorade Station — 5th defense piece (slot D7, Stadium L5):
+      puddle-zone area denial; 3-tier art arc; bot bases can field it
+- [ ] SHIPPED: L10 SIGNATURE PLAYS — JUGS Overdrive volley / sled Pancake
+      Block knockback / ref Booth Review all-flag / T-Shirt Storm wide splash /
+      cooler Flood Zone. Level rides published layouts + replays.
+- [ ] SHIPPED: tier-1 defense art regenerated as HUMBLE backyard gear per
+      Jumaane ("level one needs to be level one quality")
+- [ ] Local review page (uncommitted): localhost:3000/asset-review.html —
+      all 5 upgrade paths w/ stat ladders + signatures
+- [ ] Balance watch: signatures buff maxed defenses — keep the 60-75%
+      attacker-win target in view once ladder data arrives
+
 ## Raids — ISOMETRIC + defense roads + story photos (July 12, a4460f3 — confirm to close)
 
 - [ ] SHIPPED: battle view converted to Clash-style ISO diamond (sim/replays
