@@ -432,19 +432,22 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
             readouts on the RIBBON strip, both rotated onto the panel's lean. */}
         {trophies !== undefined && (
           <>
+            {/* Font sizes ride the PHYSICAL screen: the tall art's decks are narrow,
+                so the name wraps to two lines at max size — small type here read
+                as switched-off screens ("isn't working", Jumaane). */}
             <div className="absolute flex items-center justify-center"
-              style={{ left: '15%', top: '13.5%', width: '64%', height: '22%', transform: 'rotate(13deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
-              <div className="font-mono font-black leading-tight uppercase text-center" style={{ fontSize: w * 0.105, maxWidth: '96%', letterSpacing: 2, color: '#fb923c', textShadow: '0 0 10px rgba(249,115,22,0.9), 0 0 24px rgba(249,115,22,0.45)', overflowWrap: 'break-word' }}>
+              style={{ left: '14%', top: '12.5%', width: '66%', height: '24%', transform: 'rotate(13deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out infinite' }}>
+              <div className="font-mono font-black uppercase text-center" style={{ fontSize: w * (String(clubName || 'FOOTBALL HQ').length > 9 ? 0.115 : 0.15), lineHeight: 1.05, maxWidth: '98%', letterSpacing: 1, color: '#ffa94d', textShadow: '0 0 6px rgba(255,150,40,1), 0 0 16px rgba(249,115,22,0.85), 0 0 30px rgba(249,115,22,0.4)', overflowWrap: 'break-word' }}>
                 {clubName || 'FOOTBALL HQ'}
               </div>
             </div>
             <div className="absolute flex items-baseline justify-center whitespace-nowrap"
-              style={{ left: '16%', top: '42.5%', width: '62%', height: '8%', gap: w * 0.045, transform: 'rotate(13deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out -1.2s infinite' }}>
-              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.045, color: 'rgba(254,215,170,0.8)' }}>🏆</span>
-              <span key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.075, color: '#fdba74', textShadow: '0 0 8px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(trophies)}</span>
-              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.045, color: 'rgba(254,215,170,0.55)' }}>·</span>
-              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.045, color: 'rgba(254,215,170,0.8)' }}>👥</span>
-              <span key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.075, color: '#fdba74', textShadow: '0 0 8px rgba(249,115,22,0.9)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(fans ?? 0)}</span>
+              style={{ left: '15%', top: '41.5%', width: '64%', height: '9%', gap: w * 0.05, transform: 'rotate(13deg)', transformOrigin: '0 0', animation: 'fhq-ledflicker 3.4s ease-in-out -1.2s infinite' }}>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.06, color: 'rgba(255,190,120,0.9)' }}>🏆</span>
+              <span key={`t${trophies}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.1, color: '#ffb361', textShadow: '0 0 6px rgba(255,150,40,1), 0 0 14px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(trophies)}</span>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.06, color: 'rgba(255,190,120,0.5)' }}>·</span>
+              <span className="font-mono font-bold leading-none" style={{ fontSize: w * 0.06, color: 'rgba(255,190,120,0.9)' }}>👥</span>
+              <span key={`f${fans}`} className="font-mono font-black leading-none" style={{ fontSize: w * 0.1, color: '#ffb361', textShadow: '0 0 6px rgba(255,150,40,1), 0 0 14px rgba(249,115,22,0.8)', animation: 'fhq-counter-pop 0.55s ease-out' }}>{fmt(fans ?? 0)}</span>
             </div>
           </>
         )}
