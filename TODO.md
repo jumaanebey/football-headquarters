@@ -44,8 +44,8 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
       movie-palace breakdown theater (b336699 + 0e0ed74 architecture fix)
 - [x] Rehab Center ×3 — the ice bath never leaves (b862931)
 - [x] Training Field ×5 — sandlot to pro facility, rusty-sled lineage (3c853aa)
-- [ ] Stadium tiers 1-4 NOT yet refreshed (only tier 5 was) — do the story
-      arc for the bowl's lower tiers when Jumaane wants it
+- [x] Stadium tiers 1-4 — full five-era arc, generated in reverse from the
+      shipped tier-5 cathedral (5b89279). ALL 21 building sprites refreshed.
 - [ ] Optional next asset targets per his pick: decor/vehicles · heroes ·
       rank crests (still emoji per art backlog) · fx
 - [ ] PNG weight: new tiers run 1.3-1.9MB vs old ~0.9MB — consider pngquant
