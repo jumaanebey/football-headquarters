@@ -520,10 +520,12 @@ const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; 
 // whole layout as paste-ready code. Edits live in localStorage (this browser only)
 // and never touch game state — arrange, hit COPY, hand the block to Claude to ship.
 type OuterItem = { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number };
+type GrowthEditItem = OuterItem & { tier: number }; // 1-based campus-growth stage
 type EditLayout = {
   v: number;
   outer: OuterItem[];
   campus: { slug: string; gridX: number; gridY: number; scale: number }[];
+  growth: GrowthEditItem[]; // ALL tiers editable at once ("full fans" view)
   board: { gx: number; gy: number; w: number };
   field: GroundRect;
   road: GroundRect;
@@ -532,6 +534,7 @@ type EditLayout = {
 type SelRef =
   | { kind: 'outer'; i: number }
   | { kind: 'campus'; i: number }
+  | { kind: 'growth'; i: number }
   | { kind: 'board' }
   | { kind: 'bldg'; t: BuildingType }
   | { kind: 'field'; c: 0 | 1 }
@@ -545,6 +548,7 @@ const freshEditLayout = (): EditLayout => ({
   v: 1,
   outer: OUTER_DECOR.map(d => ({ ...d })),
   campus: DECOR.map(d => ({ ...d })),
+  growth: GROWTH_PROPS.flatMap((props, i) => props.map(d => ({ ...d, tier: i + 1 }))),
   board: { ...BOARD_ANCHOR },
   field: { ...FIELD_RECT },
   road: { ...ROAD_RECT },
@@ -553,7 +557,14 @@ const freshEditLayout = (): EditLayout => ({
 const loadEditLayout = (): EditLayout => {
   try {
     const raw = localStorage.getItem(EDIT_LS_KEY);
-    if (raw) { const p = JSON.parse(raw); if (p && p.v === 1 && Array.isArray(p.outer) && Array.isArray(p.campus) && p.board && p.field && p.road && p.buildings) return p; }
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && p.v === 1 && Array.isArray(p.outer) && Array.isArray(p.campus) && p.board && p.field && p.road && p.buildings) {
+        // sessions saved before growth props became editable get today's placements
+        if (!Array.isArray(p.growth)) p.growth = freshEditLayout().growth;
+        return p;
+      }
+    }
   } catch { /* fall through to fresh */ }
   return freshEditLayout();
 };
@@ -572,6 +583,15 @@ const genLayoutExport = (l: EditLayout, bldgs: BuildingInstance[]) => {
     '// constants.ts → DECOR (campus):',
     'const DECOR = [',
     ...l.campus.map(d => `  { slug: '${d.slug}', gridX: ${f(d.gridX)}, gridY: ${f(d.gridY)}, scale: ${f(d.scale)} },`),
+    '];',
+    '',
+    '// components/IsometricMap.tsx → GROWTH_PROPS (campus growth, by tier):',
+    'const GROWTH_PROPS = [',
+    ...GROWTH_TIERS.flatMap((t, ti) => [
+      `  [ // tier ${ti + 1} — ${t.name} (${t.fans}+ fans)`,
+      ...(l.growth ?? []).filter(g => g.tier === ti + 1).map(d => `    { slug: '${d.slug}', gridX: ${f(d.gridX)}, gridY: ${f(d.gridY)}, scale: ${f(d.scale)}${d.flip ? ', flip: true' : ''}${d.z !== undefined ? `, z: ${d.z}` : ''} },`),
+      '  ],',
+    ]),
     '];',
     '',
     `// Scoreboard (ribbonboard): anchor (${f(l.board.gx)}, ${f(l.board.gy)}), width TILE_W * ${f(l.board.w)}`,
@@ -982,6 +1002,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     switch (r.kind) {
       case 'outer': return { gx: l.outer[r.i].gridX, gy: l.outer[r.i].gridY };
       case 'campus': return { gx: l.campus[r.i].gridX, gy: l.campus[r.i].gridY };
+      case 'growth': return { gx: l.growth[r.i].gridX, gy: l.growth[r.i].gridY };
       case 'board': return { gx: l.board.gx, gy: l.board.gy };
       case 'bldg': { const o = l.buildings[r.t]; if (o) return o; const b = displayBuildings.find(x => x.type === r.t); return { gx: b?.gridX ?? 0, gy: b?.gridY ?? 0 }; }
       case 'field': return r.c === 0 ? { gx: l.field.x1, gy: l.field.y1 } : { gx: l.field.x2, gy: l.field.y2 };
@@ -992,6 +1013,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     switch (r.kind) {
       case 'outer': return { ...l, outer: l.outer.map((d, i) => i === r.i ? { ...d, gridX: gx, gridY: gy } : d) };
       case 'campus': return { ...l, campus: l.campus.map((d, i) => i === r.i ? { ...d, gridX: gx, gridY: gy } : d) };
+      case 'growth': return { ...l, growth: l.growth.map((d, i) => i === r.i ? { ...d, gridX: gx, gridY: gy } : d) };
       case 'board': return { ...l, board: { ...l.board, gx, gy } };
       case 'bldg': {
         // These are DISPLAY anchors (battle geometry lives in fixedBase), so
@@ -1035,19 +1057,30 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
     if (!edit || !sel) return;
     if (sel.kind === 'outer') setEdit({ ...edit, outer: edit.outer.map((it, i) => i === sel.i ? { ...it, scale: r2(Math.max(0.2, it.scale + d)) } : it) });
     else if (sel.kind === 'campus') setEdit({ ...edit, campus: edit.campus.map((it, i) => i === sel.i ? { ...it, scale: r2(Math.max(0.2, it.scale + d)) } : it) });
+    else if (sel.kind === 'growth') setEdit({ ...edit, growth: edit.growth.map((it, i) => i === sel.i ? { ...it, scale: r2(Math.max(0.2, it.scale + d)) } : it) });
     else if (sel.kind === 'board') setEdit({ ...edit, board: { ...edit.board, w: r2(Math.max(1, edit.board.w + d)) } });
   };
-  const flipSel = () => { if (edit && sel?.kind === 'outer') setEdit({ ...edit, outer: edit.outer.map((it, i) => i === sel.i ? { ...it, flip: !it.flip } : it) }); };
-  const bumpZ = (d: number) => { if (edit && sel?.kind === 'outer') setEdit({ ...edit, outer: edit.outer.map((it, i) => i === sel.i ? { ...it, z: (it.z ?? Math.max(1, Math.round(it.gridX + it.gridY))) + d } : it) }); };
+  const flipSel = () => {
+    if (!edit || !sel) return;
+    if (sel.kind === 'outer') setEdit({ ...edit, outer: edit.outer.map((it, i) => i === sel.i ? { ...it, flip: !it.flip } : it) });
+    else if (sel.kind === 'growth') setEdit({ ...edit, growth: edit.growth.map((it, i) => i === sel.i ? { ...it, flip: !it.flip } : it) });
+  };
+  const bumpZ = (d: number) => {
+    if (!edit || !sel) return;
+    if (sel.kind === 'outer') setEdit({ ...edit, outer: edit.outer.map((it, i) => i === sel.i ? { ...it, z: (it.z ?? Math.max(1, Math.round(it.gridX + it.gridY))) + d } : it) });
+    else if (sel.kind === 'growth') setEdit({ ...edit, growth: edit.growth.map((it, i) => i === sel.i ? { ...it, z: (it.z ?? Math.max(1, Math.round(it.gridX + it.gridY))) + d } : it) });
+  };
   const dupSel = () => {
     if (!edit || !sel) return;
     if (sel.kind === 'outer') { const src = edit.outer[sel.i]; const outer = [...edit.outer, { ...src, gridX: r2(src.gridX + 1), gridY: r2(src.gridY + 1) }]; setEdit({ ...edit, outer }); setSel({ kind: 'outer', i: outer.length - 1 }); }
     else if (sel.kind === 'campus') { const src = edit.campus[sel.i]; const campus = [...edit.campus, { ...src, gridX: r2(src.gridX + 1), gridY: r2(src.gridY + 1) }]; setEdit({ ...edit, campus }); setSel({ kind: 'campus', i: campus.length - 1 }); }
+    else if (sel.kind === 'growth') { const src = edit.growth[sel.i]; const growth = [...edit.growth, { ...src, gridX: r2(src.gridX + 1), gridY: r2(src.gridY + 1) }]; setEdit({ ...edit, growth }); setSel({ kind: 'growth', i: growth.length - 1 }); }
   };
   const delSel = () => {
     if (!edit || !sel) return;
     if (sel.kind === 'outer') { setEdit({ ...edit, outer: edit.outer.filter((_, i) => i !== sel.i) }); setSel(null); }
     else if (sel.kind === 'campus') { setEdit({ ...edit, campus: edit.campus.filter((_, i) => i !== sel.i) }); setSel(null); }
+    else if (sel.kind === 'growth') { setEdit({ ...edit, growth: edit.growth.filter((_, i) => i !== sel.i) }); setSel(null); }
   };
   const copyLayout = () => {
     if (!edit) return;
@@ -1163,13 +1196,18 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             <TrafficCar key={`tc${i}`} {...t} />
           ))}
           {/* 🏙 growth props render after OUTER_DECOR so depth ties break in their favor;
-              the freshly-unlocked stage's props bounce in staggered during a stage-up */}
-          {GROWTH_STAGES.filter(s => (fans ?? 0) >= s.minFans).map((s, si) =>
-            s.props.map((d, i) => (
-              <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z}
-                reveal={growthCeleb !== null && si === growthCeleb - 1 ? 0.5 + i * 0.35 : undefined} />
-            ))
-          )}
+              the freshly-unlocked stage's props bounce in staggered during a stage-up.
+              EDIT MODE shows every tier ("full fans") so all of them can be arranged. */}
+          {edit
+            ? edit.growth.map((d, i) => (
+                <DecorSprite key={`gre${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
+              ))
+            : GROWTH_STAGES.filter(s => (fans ?? 0) >= s.minFans).map((s, si) =>
+                s.props.map((d, i) => (
+                  <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z}
+                    reveal={growthCeleb !== null && si === growthCeleb - 1 ? 0.5 + i * 0.35 : undefined} />
+                ))
+              )}
           {DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
           ))}
@@ -1258,6 +1296,10 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
                 <EditMarker key={`m-c${i}`} gx={d.gridX} gy={d.gridY} color="#eab308" label={`${d.slug} (${d.gridX}, ${d.gridY})`}
                   sel={sel?.kind === 'campus' && sel.i === i} onDown={markerDown({ kind: 'campus', i })} onMove={markerMove} onUp={markerUp} />
               ))}
+              {edit.growth.map((d, i) => (
+                <EditMarker key={`m-g${i}`} gx={d.gridX} gy={d.gridY} color="#4ade80" label={`${d.slug} · tier ${d.tier} (${d.gridX}, ${d.gridY})`}
+                  sel={sel?.kind === 'growth' && sel.i === i} onDown={markerDown({ kind: 'growth', i })} onMove={markerMove} onUp={markerUp} />
+              ))}
               <EditMarker gx={edit.board.gx} gy={edit.board.gy} color="#a855f7" label={`scoreboard (${edit.board.gx}, ${edit.board.gy})`}
                 sel={sel?.kind === 'board'} onDown={markerDown({ kind: 'board' })} onMove={markerMove} onUp={markerUp} />
               {shownBuildings.map(b => (
@@ -1303,7 +1345,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           <div className="text-slate-400 mb-2">
             drag a dot — it snaps to the grid<br />
             arrows nudge · R flip · D duplicate · ⌫ delete<br />
-            <span style={{ color: '#f97316' }}>●</span> grounds <span style={{ color: '#eab308' }}>●</span> campus <span style={{ color: '#ef4444' }}>●</span> buildings <span style={{ color: '#a855f7' }}>●</span> board <span style={{ color: '#22d3ee' }}>●</span> field <span style={{ color: '#94a3b8' }}>●</span> road
+            <span style={{ color: '#f97316' }}>●</span> grounds <span style={{ color: '#eab308' }}>●</span> campus <span style={{ color: '#4ade80' }}>●</span> growth <span style={{ color: '#ef4444' }}>●</span> buildings <span style={{ color: '#a855f7' }}>●</span> board <span style={{ color: '#22d3ee' }}>●</span> field <span style={{ color: '#94a3b8' }}>●</span> road
           </div>
           <div className="flex items-center gap-1 mb-2">
             <span className="text-slate-400 mr-1">snap</span>
@@ -1317,6 +1359,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             const c = selCoords(edit, sel);
             const name = sel.kind === 'outer' ? edit.outer[sel.i]?.slug
               : sel.kind === 'campus' ? edit.campus[sel.i]?.slug
+              : sel.kind === 'growth' ? (edit.growth[sel.i] ? `${edit.growth[sel.i].slug} · growth tier ${edit.growth[sel.i].tier}` : undefined)
               : sel.kind === 'board' ? 'scoreboard'
               : sel.kind === 'bldg' ? BUILDING_INFO[sel.t].name
               : sel.kind === 'field' ? `practice field · ${sel.c ? 'bottom' : 'top'} corner`
@@ -1324,18 +1367,22 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
             if (name === undefined) return null; // selection outlived a delete
             const scaleVal = sel.kind === 'outer' ? edit.outer[sel.i].scale
               : sel.kind === 'campus' ? edit.campus[sel.i].scale
+              : sel.kind === 'growth' ? edit.growth[sel.i].scale
               : sel.kind === 'board' ? edit.board.w : null;
             return (
               <div className="border-t border-slate-700 pt-2 mb-2">
                 <div className="font-bold text-white truncate">{name}</div>
-                <div className="text-orange-300">col {c.gx} · row {c.gy}{sel.kind === 'outer' && edit.outer[sel.i].flip ? ' · flipped' : ''}{sel.kind === 'outer' && edit.outer[sel.i].z !== undefined ? ` · layer ${edit.outer[sel.i].z}` : ''}</div>
+                <div className="text-orange-300">col {c.gx} · row {c.gy}
+                  {(sel.kind === 'outer' && edit.outer[sel.i].flip) || (sel.kind === 'growth' && edit.growth[sel.i].flip) ? ' · flipped' : ''}
+                  {sel.kind === 'outer' && edit.outer[sel.i].z !== undefined ? ` · layer ${edit.outer[sel.i].z}` : ''}
+                  {sel.kind === 'growth' && edit.growth[sel.i].z !== undefined ? ` · layer ${edit.growth[sel.i].z}` : ''}</div>
                 {scaleVal !== null && (
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     <span className="text-slate-400">{sel.kind === 'board' ? 'width' : 'scale'}</span>
                     <button onClick={() => bumpScale(-0.1)} className="px-1.5 rounded border border-slate-600 hover:border-orange-400">−</button>
                     <span className="min-w-[26px] text-center">{scaleVal}</span>
                     <button onClick={() => bumpScale(0.1)} className="px-1.5 rounded border border-slate-600 hover:border-orange-400">+</button>
-                    {sel.kind === 'outer' && (
+                    {(sel.kind === 'outer' || sel.kind === 'growth') && (
                       <>
                         <button onClick={flipSel} className="ml-1 px-1.5 rounded border border-slate-600 hover:border-orange-400">flip</button>
                         <button onClick={() => bumpZ(-1)} title="paint further behind" className="px-1.5 rounded border border-slate-600 hover:border-orange-400">z−</button>
@@ -1344,7 +1391,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
                     )}
                   </div>
                 )}
-                {(sel.kind === 'outer' || sel.kind === 'campus') && (
+                {(sel.kind === 'outer' || sel.kind === 'campus' || sel.kind === 'growth') && (
                   <div className="flex gap-1 mt-1.5">
                     <button onClick={dupSel} className="px-1.5 py-0.5 rounded border border-slate-600 hover:border-orange-400">duplicate</button>
                     <button onClick={delSel} className="px-1.5 py-0.5 rounded border border-red-800 text-red-300 hover:border-red-500">delete</button>
