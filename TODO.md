@@ -58,6 +58,10 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
 - [ ] SHIPPED: wall art tiers (7267812) — sawhorse pads (SL1-4) → pro sled
       (SL5-8) → championship barrier (SL9+); Team Bus wears the same era;
       published layouts + replays carry it
+- [ ] SHIPPED: defense plays LADDER (7d68cb8) — mastery ★s pay off live:
+      +1 📣/★ (2→5), 🛡 +1 at ★★ and ★★★, 🧊 TIMEOUT (ice the drive) at ★★★;
+      chip in battle bar, ladder on FO cards + HowTo. Also FIXED prod 404 on
+      formation clipboard previews (art restored w/ onError fallback).
 - [ ] Balance watch: signatures buff maxed defenses — keep the 60-75%
       attacker-win target in view once ladder data arrives
 
