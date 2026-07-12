@@ -351,25 +351,29 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // each stage keeps everything from the stages before it. New clubs see an empty
 // campus — the city IS the reward for growing your fans. Thresholds + names come
 // from GROWTH_TIERS (shared with the Club Dashboard); placements live here.
-const GROWTH_PROPS: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean }[][] = [
+// Placement rules (learned the hard way, July 11): NOTHING near the parked bus
+// at (13,7) or the traffic lanes (rows 7.75-8.15, cols 10.7-15.8) — vehicles
+// bunch into a pile-up; keep clear of the Training island (10,10) whose art
+// reaches up-left; fans' CARS park inside the lot (z>19 to paint on its pad).
+const GROWTH_PROPS: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[][] = [
   [ // tier 1 — game-day vendors
-    { slug: 'food-truck',  gridX: 11.3, gridY: 6.35, scale: 1.0 },  // road shoulder by the lot
+    { slug: 'food-truck',  gridX: 11.3, gridY: 6.35, scale: 1.0 },  // road shoulder at the lot entrance
     { slug: 'merch-stand', gridX: 3,    gridY: 9.7,  scale: 0.7 },  // walk-up stand on the south apron
   ],
   [ // tier 2 — fan camp
     { slug: 'fan-tents',  gridX: 6,   gridY: 9.9,  scale: 1.15 },   // camp pitches on the apron
-    { slug: 'food-truck', gridX: 7.8, gridY: 10.5, scale: 0.95, flip: true },
+    { slug: 'food-truck', gridX: 5.6, gridY: 12.4, scale: 0.95, flip: true }, // south lawn, clear of the Training island
   ],
   [ // tier 3 — tailgate row
-    { slug: 'fan-tents',  gridX: 3.9,  gridY: 11.5, scale: 1.2 },   // spaced off the Rehab base (review: cluster crowded it)
-    { slug: 'car-orange', gridX: 11.7,  gridY: 6.55, scale: 0.58 }, // parked along the shoulder
-    { slug: 'car-black',  gridX: 12.35, gridY: 6.68, scale: 0.6 },
+    { slug: 'fan-tents',  gridX: 3.9,  gridY: 11.5, scale: 1.2 },
+    { slug: 'car-orange', gridX: 11.4, gridY: 1.9, scale: 0.55, z: 20 }, // fans' cars fill YOUR lot as the base grows
+    { slug: 'car-black',  gridX: 12.3, gridY: 2.15, scale: 0.57, z: 20 },
   ],
   [ // tier 4 — tailgate city
     { slug: 'tailgate-tent', gridX: 6.6,  gridY: 11.4, scale: 0.8 },
-    { slug: 'fan-tents',     gridX: -2.5, gridY: 9.6,  scale: 1.1 }, // camp spills toward the bowl (pan reveals)
-    { slug: 'food-truck',    gridX: 13.9, gridY: 8.5,  scale: 0.95 },
-    { slug: 'fan-tents',     gridX: 12.6, gridY: 9.3,  scale: 1.05 },
+    { slug: 'fan-tents',     gridX: -3.4, gridY: 11.3, scale: 1.1 },  // southwest lawn pocket below the bowl
+    { slug: 'food-truck',    gridX: 15.2, gridY: 9.1,  scale: 0.95 }, // east end, past the bus, serving the lot
+    { slug: 'fan-tents',     gridX: 14.8, gridY: 10.4, scale: 1.05 }, // southeast rough, clear of the road
   ],
 ];
 const GROWTH_STAGES = GROWTH_TIERS.map((t, i) => ({ minFans: t.fans, name: t.name, props: GROWTH_PROPS[i] ?? [] }));
@@ -1162,7 +1166,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               the freshly-unlocked stage's props bounce in staggered during a stage-up */}
           {GROWTH_STAGES.filter(s => (fans ?? 0) >= s.minFans).map((s, si) =>
             s.props.map((d, i) => (
-              <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip}
+              <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z}
                 reveal={growthCeleb !== null && si === growthCeleb - 1 ? 0.5 + i * 0.35 : undefined} />
             ))
           )}
