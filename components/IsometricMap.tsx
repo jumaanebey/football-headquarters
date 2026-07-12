@@ -357,23 +357,23 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
 // reaches up-left; fans' CARS park inside the lot (z>19 to paint on its pad).
 const GROWTH_PROPS: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[][] = [
   [ // tier 1 — game-day vendors
-    { slug: 'food-truck',  gridX: 11.3, gridY: 6.35, scale: 1.0 },  // road shoulder at the lot entrance
-    { slug: 'merch-stand', gridX: 3,    gridY: 9.7,  scale: 0.7 },  // walk-up stand on the south apron
+    { slug: 'food-truck',  gridX: 8, gridY: 12.5, scale: 1.0, flip: true }, // south lawn
+    { slug: 'merch-stand', gridX: 3, gridY: 9.7,  scale: 0.7 },             // walk-up stand on the south apron
   ],
   [ // tier 2 — fan camp
-    { slug: 'fan-tents',  gridX: 6,   gridY: 9.9,  scale: 1.15 },   // camp pitches on the apron
-    { slug: 'food-truck', gridX: 5.6, gridY: 12.4, scale: 0.95, flip: true }, // south lawn, clear of the Training island
+    { slug: 'fan-tents',  gridX: 6, gridY: 9.9, scale: 1.15 },              // camp pitches on the apron
+    { slug: 'food-truck', gridX: 5, gridY: 12,  scale: 0.95, flip: true },
   ],
   [ // tier 3 — tailgate row
-    { slug: 'fan-tents',  gridX: 3.9,  gridY: 11.5, scale: 1.2 },
-    { slug: 'car-orange', gridX: 11.4, gridY: 1.9, scale: 0.55, z: 20 }, // fans' cars fill YOUR lot as the base grows
-    { slug: 'car-black',  gridX: 12.3, gridY: 2.15, scale: 0.57, z: 20 },
+    { slug: 'fan-tents',  gridX: 4.5,  gridY: 2,   scale: 1.2 },            // north campus, beside the patch
+    { slug: 'car-orange', gridX: 11.5, gridY: 3.5, scale: 0.55, flip: true, z: 20 }, // fans' cars fill YOUR lot
+    { slug: 'car-black',  gridX: 13.5, gridY: 3.5, scale: 0.57, flip: true, z: 20 },
   ],
-  [ // tier 4 — tailgate city
-    { slug: 'tailgate-tent', gridX: 6.6,  gridY: 11.4, scale: 0.8 },
-    { slug: 'fan-tents',     gridX: -3.4, gridY: 11.3, scale: 1.1 },  // southwest lawn pocket below the bowl
-    { slug: 'food-truck',    gridX: 15.2, gridY: 9.1,  scale: 0.95 }, // east end, past the bus, serving the lot
-    { slug: 'fan-tents',     gridX: 14.8, gridY: 10.4, scale: 1.05 }, // southeast rough, clear of the road
+  [ // tier 4 — tailgate city (wraps the stadium bowl)
+    { slug: 'tailgate-tent', gridX: 2.5, gridY: 3.5, scale: 0.8 },
+    { slug: 'fan-tents',     gridX: 1,   gridY: 13,  scale: 1.1 },
+    { slug: 'food-truck',    gridX: 0,   gridY: 5,   scale: 0.95 },
+    { slug: 'fan-tents',     gridX: 1.5, gridY: 6,   scale: 1.05 },
   ],
 ];
 const GROWTH_STAGES = GROWTH_TIERS.map((t, i) => ({ minFans: t.fans, name: t.name, props: GROWTH_PROPS[i] ?? [] }));
@@ -492,22 +492,22 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // Future layout rounds: edit → COPY LAYOUT CODE → paste → transplant.
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
   { slug: 'parking-lot', gridX: 14.5, gridY: 4.5, scale: 3.1 },
-  { slug: 'team-bus',    gridX: 13, gridY: 7, scale: 1.5, flip: true }, // parked on the road, nose east — natural depth lets traffic pass in front
+  { slug: 'team-bus',    gridX: 14.5, gridY: 7, scale: 1.5, flip: true }, // parked at the road's east end, nose east
   { slug: 'goalpost', gridX: 5, gridY: 2.95, scale: 0.6 },
   { slug: 'goalpost', gridX: 5, gridY: 7,    scale: 0.6 },
-  { slug: 'floodlight', gridX: -7.3, gridY: 1.3,  scale: 2.1 },
-  { slug: 'floodlight', gridX: -6,   gridY: 11.5, scale: 2.1 },
+  { slug: 'floodlight', gridX: -6,   gridY: 2,    scale: 2.1 },
+  { slug: 'floodlight', gridX: -5,   gridY: 8.5,  scale: 2.1 },
   { slug: 'floodlight', gridX: -0.7, gridY: 2.1,  scale: 2.1 },
   { slug: 'floodlight', gridX: -0.9, gridY: 11.2, scale: 2.1 },
   { slug: 'tree-cluster', gridX: -4.5, gridY: -0.5, scale: 1.4 },
   { slug: 'tree-cluster', gridX: 13.5, gridY: 12,   scale: 1.35 },
   { slug: 'tree-cluster', gridX: -6.5, gridY: 0,    scale: 1.25 },
   { slug: 'tree-cluster', gridX: 7.5,  gridY: -2.5, scale: 1.2 },
-  { slug: 'tree-cluster', gridX: 9.5,  gridY: 14.5, scale: 1.35 },
+  { slug: 'tree-cluster', gridX: 9,    gridY: 15,   scale: 1.35 },
   { slug: 'tree-cluster', gridX: 13.3, gridY: -1,   scale: 1.15 },
-  { slug: 'tree-cluster', gridX: 13.5, gridY: 9.6,  scale: 1.5 },
-  { slug: 'tree-cluster', gridX: 12,   gridY: 13.5, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: 7.2,  gridY: 12.3, scale: 1.5 },
+  { slug: 'tree-cluster', gridX: 15,   gridY: 11,   scale: 1.5 },
+  { slug: 'tree-cluster', gridX: 11,   gridY: 13.5, scale: 1.25 },
+  { slug: 'tree-cluster', gridX: 6.5,  gridY: 15,   scale: 1.5 },
   { slug: 'tree-cluster', gridX: 3,    gridY: 11.8, scale: 1.25 },
   { slug: 'tree-cluster', gridX: -1.5, gridY: 12.5, scale: 1.4 },
   { slug: 'tree-cluster', gridX: -4,   gridY: 12.5, scale: 1.25 },

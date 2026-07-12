@@ -184,7 +184,7 @@ export const DECOR: { slug: string; gridX: number; gridY: number; scale: number 
   { slug: 'statue-legends', gridX: 4, gridY: 0, scale: 0.75 },
   { slug: 'merch-stand',    gridX: 9, gridY: 4, scale: 0.7 },
   { slug: 'club-fountain',  gridX: 1, gridY: 4, scale: 0.6 }, // west lawn — clear of every formation's facility blocks
-  { slug: 'tailgate-tent',  gridX: 4, gridY: 9, scale: 0.75 },
+  { slug: 'tailgate-tent',  gridX: 8, gridY: 5.5, scale: 0.75 }, // east lawn beside the patch (Jumaane, July 11)
 ];
 
 // HOME-BOARD DISPLAY ANCHORS (Jumaane's ?edit=1 layouts, July 10–11 2026 — his
