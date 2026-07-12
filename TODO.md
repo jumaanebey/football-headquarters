@@ -33,7 +33,23 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
       today) · Apple/Google OAuth buttons · full auth-account deletion edge
       function (Apple req before the iOS app; delete-cloud-DATA button exists)
 - [ ] 3. fhq.kickoffclubhq.com subdomain → this Vercel project + game landing
-      card on Kickoff Club HQ (cross-promo funnel)
+      card on Kickoff Club HQ (cross-promo funnel) — QUEUED per Jumaane
+      (July 11: asset-refresh round runs first)
+
+## Asset refresh round (July 11-12 — buildings chapter COMPLETE, confirm to close)
+
+- [x] Stadium tier 5 — packed crowd, blazing lights, bright field (00ee455)
+- [x] Scouting Dept ×5 — THE DRAFT BOARD story (104c4e5)
+- [x] Film Room (RENAMED from War Room) ×3 — chalk talk → film room →
+      movie-palace breakdown theater (b336699 + 0e0ed74 architecture fix)
+- [x] Rehab Center ×3 — the ice bath never leaves (b862931)
+- [x] Training Field ×5 — sandlot to pro facility, rusty-sled lineage (3c853aa)
+- [ ] Stadium tiers 1-4 NOT yet refreshed (only tier 5 was) — do the story
+      arc for the bowl's lower tiers when Jumaane wants it
+- [ ] Optional next asset targets per his pick: decor/vehicles · heroes ·
+      rank crests (still emoji per art backlog) · fx
+- [ ] PNG weight: new tiers run 1.3-1.9MB vs old ~0.9MB — consider pngquant
+      pass before wide launch
 - [ ] 4. Soft launch free → watch D1/D7 retention before building monetization
 - [ ] 5. Web gem shop via Stripe (keeps ~97% vs Apple 15-30%) — needs parent-co
       Stripe entity + REAL privacy/terms (placeholders can't take money)
