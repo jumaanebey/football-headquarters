@@ -1729,7 +1729,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 {phase === 'fighting' && <span className="inline-block mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle">{plan.emoji} {plan.name}</span>}
                 {instruction}
               </div>
-              <div className="flex items-start justify-center gap-2 flex-wrap">
+              {/* Phones: ONE scrollable card tray (CC-style) — wrapping 18 cards into
+                  4 rows would swallow the field. Desktop: wrap and center. */}
+              <div className="flex items-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {/* Troops — real player art on the cards */}
                 {UNIT_ORDER.map(u => {
                   const st = TROOP_STATS[u]; const count = army[u]; const active = selected === u && !pendingHero && !castMode && !pendingSpecial;
