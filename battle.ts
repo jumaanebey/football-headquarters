@@ -1,6 +1,6 @@
 import { UnitGroup, Player, BuildingInstance, BuildingType } from './types';
 import { WALL_HP, TENDENCIES, TendencyKey, DEFENSE_TYPES, PARKING_LOT } from './constants';
-import { buildingSprite } from './assets';
+import { buildingSprite, defenseSprite } from './assets';
 
 // ---------------------------------------------------------------------------
 // Real-time attack model (Clash-of-Clans-style). World is a 100x100 square.
@@ -423,6 +423,7 @@ export const defenseLayoutFromBase = (buildings: BuildingInstance[], walls: { gr
       id: d.id, kind: 'defense' as const, flavor: t.kind as BattleBuildingDef['flavor'],
       x: cx(Math.min(88, Math.max(12, d.gridX * 10))), y: cx(Math.min(88, Math.max(12, d.gridY * 10))),
       hp: Math.round(t.hp * defBoost * (1 + 0.12 * (lvl - 1))), size: 5, damage: Math.round(t.damage * defBoost * (1 + 0.10 * (lvl - 1))), range: t.range,
+      art: defenseSprite(t.kind, lvl), // emplacement art LEVELS UP with the slot (published layouts carry it)
     };
   });
   // The Team Bus: one BIG wall-tier blocker — parks the south gate shut (pathfinding

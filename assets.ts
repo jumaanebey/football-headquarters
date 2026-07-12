@@ -10,6 +10,19 @@ const BUILDING_ART: Record<BuildingType, { slug: string; levels: number[] }> = {
   [BuildingType.MEDICAL_CENTER]: { slug: 'weight-room',    levels: [1, 3, 5] },
 };
 
+/** The art level-gates that exist for a building type — powers the progression-photo "road" UI. */
+export const BUILDING_ART_LEVELS = (type: BuildingType): number[] => BUILDING_ART[type].levels;
+
+// Each facility's approved STORY ARC — era names for the progression photos, in the
+// same order as BUILDING_ART levels. (Scouting = the Draft Board story, etc.)
+export const BUILDING_ERAS: Record<BuildingType, string[]> = {
+  [BuildingType.STADIUM]:        ['Roped Field', 'Bleachers', 'The Horseshoe', 'The Bowl', 'The Cathedral'],
+  [BuildingType.TRAINING_PITCH]: ['Sandlot', 'First Sled', 'Real Turf', 'Team Facility', 'The Pro Cage'],
+  [BuildingType.YOUTH_ACADEMY]:  ['The Easel', 'The Shed', 'The Office', 'The Ops Hub', 'Draft Command'],
+  [BuildingType.TACTICS_ROOM]:   ['Chalk Talk', 'The Film Room', 'The Theater'],
+  [BuildingType.MEDICAL_CENTER]: ['The Ice Tank', 'The Deck', 'The Spa'],
+};
+
 /** Returns the sprite URL for a building, snapping to the highest art level <= the building's level. */
 export const buildingSprite = (type: BuildingType, level: number): string => {
   const art = BUILDING_ART[type];
@@ -53,6 +66,15 @@ const BATTLE_BUILDING_POOL = ['headquarters-1', 'film-room-1', 'weight-room-1', 
 const RIVAL_POOL = ['rival-headquarters', 'rival-film-room', 'rival-weight-room', 'rival-practice-field'];
 const DEFENSE_FLAVOR_SPRITE: Record<string, string> = {
   jugs: 'jugs-machine', sled: 'tackling-sled', ref: 'ref-tower', tshirt: 'tshirt-cannon',
+};
+
+// Defense emplacements LEVEL UP visibly: tier 1 (L1-3) → tier 2 pro rig (L4-7) →
+// tier 3 flagship (L8+). Art tiers exist for all four kinds in /assets/battle/.
+export const DEFENSE_ART_GATES = [1, 4, 8] as const;
+export const defenseSprite = (kind: string, level = 1): string => {
+  const slug = DEFENSE_FLAVOR_SPRITE[kind] ?? 'jugs-machine';
+  const tier = level >= 8 ? 3 : level >= 4 ? 2 : 1;
+  return `/assets/battle/${slug}${tier > 1 ? `-${tier}` : ''}.png`;
 };
 export const battleBuildingSprite = (kind: string, id: string, rival = false, flavor?: string): string => {
   if (kind === 'hq') return rival ? '/assets/buildings/rival-stadium.png' : '/assets/buildings/stadium-3.png';

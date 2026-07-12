@@ -67,6 +67,20 @@ const TICK_MS = 50;
 const DT = TICK_MS / 1000;
 let troopUid = 0;
 
+// 🔷 ISO PROJECTION — the sim runs on a flat 0-100 square (pathing, ranges, replays all
+// unchanged); the SCREEN renders that square as a Clash-style diamond. px/py map world →
+// screen %, unproject maps taps back to world. ky 0.29 ≈ the Castle Clash camera pitch.
+const ISO_KX = 0.5, ISO_KY = 0.29, ISO_OY = 21;
+const px = (x: number, y: number) => 50 + (x - y) * ISO_KX;
+const py = (x: number, y: number) => ISO_OY + (x + y) * ISO_KY;
+const unproject = (sx: number, sy: number): { x: number; y: number } => {
+  const sum = (sy - ISO_OY) / ISO_KY, diff = (sx - 50) / ISO_KX;
+  return { x: Math.min(98, Math.max(2, (sum + diff) / 2)), y: Math.min(98, Math.max(2, (sum - diff) / 2)) };
+};
+/** SVG polygon points for a world-square outline (projected). */
+const isoRect = (x1: number, y1: number, x2: number, y2: number) =>
+  `${px(x1, y1)},${py(x1, y1)} ${px(x2, y1)},${py(x2, y1)} ${px(x2, y2)},${py(x2, y2)} ${px(x1, y2)},${py(x1, y2)}`;
+
 const emptyArmy = (): Record<UnitGroup, number> => ({
   [UnitGroup.OFFENSE_LINE]: 0, [UnitGroup.OFFENSE_SKILL]: 0,
   [UnitGroup.DEFENSE_LINE]: 0, [UnitGroup.DEFENSE_SECONDARY]: 0,
@@ -826,8 +840,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const now = performance.now();
     if (now - pourRef.current.lastT < 170) return;
     const rect = fieldRef.current!.getBoundingClientRect();
-    const wx = ((e.clientX - rect.left) / rect.width) * 100;
-    const wy = ((e.clientY - rect.top) / rect.height) * 100;
+    const { x: wx, y: wy } = unproject(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100);
     if (deployTroopAt(wx, wy)) { pourRef.current.lastT = now; pourRef.current.poured = true; }
   };
 
@@ -835,8 +848,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     if (isDefense || phase === 'result') return;
     if (pourRef.current.poured) { pourRef.current.poured = false; return; } // this click is a pour's tail
     const rect = fieldRef.current!.getBoundingClientRect();
-    const wx = ((e.clientX - rect.left) / rect.width) * 100;
-    const wy = ((e.clientY - rect.top) / rect.height) * 100;
+    const { x: wx, y: wy } = unproject(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100);
 
     if (castMode) {
       if ((plays[castMode.key] ?? 0) <= 0) return;
@@ -880,8 +892,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const fighters = [...s.troops, ...s.guards].filter(u => !u.dead && u.attacking);
     const pool = fighters.length ? fighters : s.troops.filter(u => !u.dead);
     if (pool.length) {
-      const fx0 = pool.reduce((a, u) => a + u.x, 0) / pool.length;
-      const fy0 = pool.reduce((a, u) => a + u.y, 0) / pool.length;
+      // lean toward the hottest fight in SCREEN space (project first)
+      const fx0 = pool.reduce((a, u) => a + px(u.x, u.y), 0) / pool.length;
+      const fy0 = pool.reduce((a, u) => a + py(u.x, u.y), 0) / pool.length;
       const tx = Math.max(-4, Math.min(4, (50 - fx0) * 0.12));
       const ty = Math.max(-4, Math.min(4, (50 - fy0) * 0.12));
       cam.current.x += (tx - cam.current.x) * 0.06;
@@ -989,41 +1002,46 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           onPointerUp={() => { pourRef.current.down = false; }}
           onPointerLeave={() => { pourRef.current.down = false; }}
           className={`relative rounded-2xl overflow-hidden shadow-2xl ${isDefense ? '' : castMode ? 'cursor-pointer ring-4 ring-offset-0' : 'cursor-crosshair'}`}
-          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'repeating-linear-gradient(180deg, #2f9e44 0% 10%, #2b8a3e 10% 20%)', border: '3px solid #14532d', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: `${(typeof window !== 'undefined' && window.innerWidth < 640) ? '' : `translate(${cam.current.x.toFixed(2)}%, ${cam.current.y.toFixed(2)}%) `}scale(${((typeof window !== 'undefined' && window.innerWidth < 640 ? 1.0 : isDefense || isReplay ? 1.24 : 1.18) * (1 + (s.punchT > 0 ? s.punchT * 0.16 : 0))).toFixed(3)})`, /* phones: field is already 96vw + no zoom crop to hide the pan behind — camera drift is desktop-only */ transition: 'transform 90ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
+          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'radial-gradient(ellipse at 50% 42%, #17402a 0%, #0d2617 55%, #071410 100%)', border: '3px solid #0a1f14', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: `${(typeof window !== 'undefined' && window.innerWidth < 640) ? '' : `translate(${cam.current.x.toFixed(2)}%, ${cam.current.y.toFixed(2)}%) `}scale(${((typeof window !== 'undefined' && window.innerWidth < 640 ? 1.06 : isDefense || isReplay ? 1.22 : 1.16) * (1 + (s.punchT > 0 ? s.punchT * 0.16 : 0))).toFixed(3)})`, /* phones: field is already 96vw + no zoom crop to hide the pan behind — camera drift is desktop-only. Iso diamond spans full width, so zooms stay modest. */ transition: 'transform 90ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
 
-          {/* 🏟 FIELD PAINT — yard lines, hash marks, end zones, midfield mark. The fight
-              happens ON A FOOTBALL FIELD, not a green checkerboard. */}
-          <div className="absolute inset-0 pointer-events-none z-0">
+          {/* 🔷 ISO GROUND — the Clash-style diamond. Mow stripes + chalk yard lines run
+              between projected world bands, end zones tint both ends, midfield gets the
+              ball mark. Everything is one SVG so the plane reads as ONE tilted surface. */}
+          <svg className="absolute inset-0 pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+            {/* mowed apron just outside the field */}
+            <polygon points={isoRect(-4, -4, 104, 104)} fill="#20522f" opacity="0.55" />
+            {/* mow stripes: alternating bands of constant world-y */}
+            {Array.from({ length: 10 }).map((_, i) => (
+              <polygon key={i} points={isoRect(0, i * 10, 100, i * 10 + 10)} fill={i % 2 ? '#2b8a3e' : '#2f9e44'} />
+            ))}
             {/* end zones */}
-            <div className="absolute left-0 right-0" style={{ top: 0, height: '9%', background: 'repeating-linear-gradient(45deg, rgba(249,115,22,0.24) 0 10px, rgba(249,115,22,0.10) 10px 20px)', borderBottom: '2px solid rgba(255,255,255,0.65)' }} />
-            <div className="absolute left-0 right-0" style={{ bottom: 0, height: '9%', background: 'repeating-linear-gradient(45deg, rgba(30,41,59,0.35) 0 10px, rgba(30,41,59,0.18) 10px 20px)', borderTop: '2px solid rgba(255,255,255,0.65)' }} />
-            {/* yard lines + numbers */}
-            {[19, 29, 39, 49.25, 59, 69, 79].map((p, i) => (
-              <div key={p} className="absolute left-0 right-0" style={{ top: `${p}%` }}>
-                <div style={{ height: i === 3 ? 2.5 : 1.5, background: `rgba(255,255,255,${i === 3 ? 0.7 : 0.42})` }} />
-                <span className="absolute font-black text-white/35" style={{ left: '2.5%', top: -14, fontSize: '2vmin' }}>{[10, 20, 30, 50, 30, 20, 10][i]}</span>
-              </div>
+            <polygon points={isoRect(0, 0, 100, 9)} fill="#b45309" opacity="0.5" />
+            <polygon points={isoRect(0, 91, 100, 100)} fill="#1e293b" opacity="0.6" />
+            {/* chalk yard lines (constant world-y) */}
+            {[9, 19, 29, 39, 50, 61, 71, 81, 91].map(yl => (
+              <line key={yl} x1={px(0, yl)} y1={py(0, yl)} x2={px(100, yl)} y2={py(100, yl)} stroke="#fff" strokeOpacity={yl === 50 ? 0.6 : 0.35} strokeWidth={yl === 50 ? 0.5 : 0.32} />
             ))}
-            {/* hash marks */}
-            {(['31%', '67%'] as const).map(x => (
-              <div key={x} className="absolute top-[10%] bottom-[10%]" style={{ left: x, width: 4, backgroundImage: 'repeating-linear-gradient(180deg, rgba(255,255,255,0.35) 0 4px, transparent 4px 22px)' }} />
-            ))}
-            {/* midfield mark */}
-            <div className="absolute rounded-full border-2 border-white/30 flex items-center justify-center" style={{ left: '50%', top: '49.25%', width: '13%', height: '13%', transform: 'translate(-50%,-50%)' }}>
-              <span style={{ fontSize: '3.4vmin', opacity: 0.5 }}>🏈</span>
-            </div>
-          </div>
-
-          {/* 🏰 MOAT + DRAWBRIDGES (home base views): a water ring outside the walls and
-              plank bridges at the gates — attackers cross the moat, storm the gate. */}
-          {(isDefense || isReplay) && (
-            <div className="absolute inset-0 pointer-events-none z-0">
-              <div className="absolute rounded-[10%]" style={{ left: '6%', top: '6%', right: '6%', bottom: '6%', boxShadow: '0 0 0 3.2vmin rgba(37,99,235,0.28), 0 0 0 3.6vmin rgba(147,197,253,0.25)' }} />
-              {[{ l: '47%', t: '2.2%', w: '7%', h: '5%' }, { l: '47%', t: '92.8%', w: '7%', h: '5%' }, { l: '2.2%', t: '47%', w: '5%', h: '7%' }, { l: '92.8%', t: '47%', w: '5%', h: '7%' }].map((b, i) => (
-                <div key={i} className="absolute" style={{ left: b.l, top: b.t, width: b.w, height: b.h, background: 'repeating-linear-gradient(90deg, #7c4a24 0 6px, #935a2e 6px 12px)', border: '1.5px solid #4a2c14', borderRadius: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.45)' }} />
-              ))}
-            </div>
-          )}
+            {/* sidelines */}
+            <polygon points={isoRect(0, 0, 100, 100)} fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="0.55" />
+            {/* midfield ellipse */}
+            <ellipse cx={px(50, 50)} cy={py(50, 50)} rx="6.5" ry={6.5 * (ISO_KY / ISO_KX)} fill="none" stroke="#fff" strokeOpacity="0.3" strokeWidth="0.4" />
+            {/* 🏰 MOAT ring + drawbridges (home-base views) */}
+            {(isDefense || isReplay) && (
+              <>
+                <polygon points={isoRect(7, 7, 93, 93)} fill="none" stroke="rgba(37,99,235,0.35)" strokeWidth="3.4" />
+                <polygon points={isoRect(7, 7, 93, 93)} fill="none" stroke="rgba(147,197,253,0.3)" strokeWidth="1" />
+                {([[50, 7, -30], [50, 93, -30], [7, 50, 30], [93, 50, 30]] as const).map(([bx, by, rot], i) => (
+                  <g key={i} transform={`translate(${px(bx, by)},${py(bx, by)}) rotate(${rot})`}>
+                    <rect x="-3.4" y="-1.6" width="6.8" height="3.2" fill="#935a2e" stroke="#4a2c14" strokeWidth="0.3" rx="0.4" />
+                    <line x1="-1.2" y1="-1.6" x2="-1.2" y2="1.6" stroke="#7c4a24" strokeWidth="0.35" />
+                    <line x1="1.2" y1="-1.6" x2="1.2" y2="1.6" stroke="#7c4a24" strokeWidth="0.35" />
+                  </g>
+                ))}
+              </>
+            )}
+          </svg>
+          {/* midfield ball mark */}
+          <span className="absolute pointer-events-none" style={{ left: `${px(50, 50)}%`, top: `${py(50, 50)}%`, transform: 'translate(-50%,-50%)', fontSize: '2.6vmin', opacity: 0.4, zIndex: 0 }}>🏈</span>
 
           {/* 🔇 THE SILENCING — the stands ARE the scoreboard (Design Bible §2).
               Kickoff: a full, waving HOME crowd in the rival's colors. As you take the
@@ -1048,54 +1066,56 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 animation: `fhq-wave ${taken ? '0.75' : waveDur}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite`,
               };
             };
+            // Seats RING THE DIAMOND — four grandstand lines hugging the iso field's
+            // edges (world lines just outside the sidelines), not the screen border.
+            const edges: Array<{ n: number; at: (t: number) => { x: number; y: number } }> = [
+              { n: 24, at: t => ({ x: t * 100, y: -7 }) },    // upper-right stand
+              { n: 24, at: t => ({ x: -7, y: t * 100 }) },    // upper-left stand
+              { n: 20, at: t => ({ x: t * 100, y: 107 }) },   // lower-left stand
+              { n: 20, at: t => ({ x: 107, y: t * 100 }) },   // lower-right stand
+            ];
             return (
           <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 0 14px rgba(15,23,42,0.35)${takeover > 0.15 ? `, inset 0 0 ${Math.round(takeover * 28)}px ${takeC}66` : ''}` }} />
-            {(['top', 'bottom'] as const).map(side => (
-              <div key={side} className="absolute left-0 right-0 flex justify-around px-1" style={{ [side]: 2 }}>
-                {Array.from({ length: 26 }).map((_, i) => (
-                  <div key={i} style={seat(i, 26)} />
-                ))}
-              </div>
-            ))}
-            {(['left', 'right'] as const).map(side => (
-              <div key={side} className="absolute top-0 bottom-0 flex flex-col justify-around py-1" style={{ [side]: 2 }}>
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <div key={i} style={seat(i + 7, 20)} />
-                ))}
-              </div>
+            {takeover > 0.15 && <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 ${Math.round(takeover * 28)}px ${takeC}55` }} />}
+            {edges.map((e, ei) => (
+              <React.Fragment key={ei}>
+                {Array.from({ length: e.n }).map((_, i) => {
+                  const w = e.at((i + 0.5) / e.n);
+                  const st = seat(i + ei * 7, e.n);
+                  return <div key={i} className="absolute" style={{ ...st, left: `${px(w.x, w.y)}%`, top: `${py(w.x, w.y)}%`, marginLeft: -(st.width as number) / 2, marginTop: -(st.height as number) / 2 }} />;
+                })}
+              </React.Fragment>
             ))}
             {/* 🅿️ THE APRON IS YOUR FAN ECONOMY — every Parking Lot level visibly packs
                 the outer ring with real tailgate art. Raiders fight through your fans. */}
             {(() => {
               const pl = Math.min(3, Math.max(0, config.parkingLot ?? 0));
-              const img = (src: string, style: React.CSSProperties, key: string) => (
+              // Off-diamond world spots — the tailgate scene rings the iso field.
+              const img = (src: string, wx: number, wy: number, w: number, key: string) => (
                 <img key={key} src={src} alt="" draggable={false}
                   onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  className="absolute pointer-events-none" style={{ opacity: 0.95, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))', ...style }} />
+                  className="absolute pointer-events-none" style={{ left: `${px(wx, wy)}%`, top: `${py(wx, wy)}%`, width: `${w}%`, transform: 'translate(-50%,-60%)', opacity: 0.95, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }} />
               );
               const props: React.ReactNode[] = [
-                // every base has SOME tailgaters (corners)
-                img('/assets/decor/tailgate-tent.png', { left: '1%', top: '1%', width: '9%' }, 'tt1'),
-                img('/assets/decor/merch-stand.png', { right: '1%', bottom: '1%', width: '9%' }, 'ms1'),
+                img('/assets/decor/tailgate-tent.png', 16, -14, 9, 'tt1'),
+                img('/assets/decor/merch-stand.png', 108, 70, 9, 'ms1'),
               ];
               if (pl >= 1) {
-                props.push(img('/assets/decor/parking-lot.png', { right: '1%', top: '1%', width: '11%' }, 'pk1'));
-                props.push(img('/assets/decor/parking-lot.png', { left: '1%', bottom: '1%', width: '11%' }, 'pk2'));
+                props.push(img('/assets/decor/parking-lot.png', 62, -16, 12, 'pk1'));
+                props.push(img('/assets/decor/parking-lot.png', 16, 112, 12, 'pk2'));
               }
               if (pl >= 2) {
-                props.push(img('/assets/decor/tailgate-tent.png', { left: '45%', top: '0.5%', width: '8%' }, 'tt2'));
-                props.push(img('/assets/decor/parking-lot.png', { left: '45%', bottom: '0.5%', width: '10%' }, 'pk3'));
+                props.push(img('/assets/decor/tailgate-tent.png', -14, 40, 8, 'tt2'));
+                props.push(img('/assets/decor/parking-lot.png', 112, 30, 11, 'pk3'));
               }
               if (pl >= 3) {
-                props.push(img('/assets/decor/tailgate-tent.png', { left: '0.5%', top: '44%', width: '8%' }, 'tt3'));
-                props.push(img('/assets/decor/merch-stand.png', { right: '0.5%', top: '44%', width: '8%' }, 'ms2'));
+                props.push(img('/assets/decor/tailgate-tent.png', 90, 112, 8, 'tt3'));
+                props.push(img('/assets/decor/merch-stand.png', -14, 78, 8, 'ms2'));
               }
               return (
                 <>
-                  {pl > 0 && <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 0 ${5 + pl * 2.2}vmin rgba(52,58,70,0.30)` }} />}
                   {props}
-                  {pl > 0 && <span className="absolute font-black text-white/25" style={{ left: '4%', bottom: '12%', fontSize: '2.2vmin' }}>🅿️ L{pl}</span>}
+                  {pl > 0 && <span className="absolute font-black text-white/25" style={{ left: `${px(-10, 108)}%`, top: `${py(-10, 108)}%`, fontSize: '2.2vmin' }}>🅿️ L{pl}</span>}
                 </>
               );
             })()}
@@ -1104,10 +1124,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
           {!isDefense && phase === 'deploy' && (
             <>
-              <div className="absolute rounded-full border-2 border-white/20 border-dashed pointer-events-none" style={{ left: '14%', top: '14%', width: '72%', height: '72%' }} />
-              {/* The SIDELINE is the tap target — make it glow until the first deploy
-                  (review: first-time raiders tapped open field and thought it was broken). */}
-              <div className="absolute inset-0 pointer-events-none animate-pulse" style={{ border: '1.5vmin solid rgba(253,224,71,0.42)', boxShadow: 'inset 0 0 3vmin rgba(253,224,71,0.55), 0 0 1.5vmin rgba(253,224,71,0.35)' }} />
+              {/* The SIDELINE is the tap target — the glowing band hugs the DIAMOND's rim
+                  until the first deploy (first-time raiders tapped open field). */}
+              <svg className="absolute inset-0 pointer-events-none animate-pulse" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ zIndex: 3 }}>
+                <polygon points={isoRect(1, 1, 99, 99)} fill="none" stroke="rgba(253,224,71,0.45)" strokeWidth="3.4" />
+                <polygon points={isoRect(-4, -4, 104, 104)} fill="none" stroke="rgba(253,224,71,0.25)" strokeWidth="1.4" />
+                <polygon points={isoRect(16, 16, 84, 84)} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="0.5" strokeDasharray="2.4 1.6" />
+              </svg>
               <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ bottom: '3%', zIndex: 220 }}>
                 <span className="inline-block animate-bounce-sm text-[11px] font-black uppercase tracking-wide bg-yellow-400 text-black px-3 py-1 rounded-full shadow-xl whitespace-nowrap">👇 tap the glowing sideline to deploy</span>
               </div>
@@ -1152,23 +1175,27 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
           )}
 
+          {/* Range rings — iso ellipses on the ground plane */}
           {s.buildings.filter(b => b.kind === 'defense' && !b.dead && b.range).map(b => (
-            <div key={`r-${b.id}`} className="absolute rounded-full border border-red-400/20 bg-red-500/5 pointer-events-none"
-              style={{ left: `${b.x - b.range!}%`, top: `${b.y - b.range!}%`, width: `${b.range! * 2}%`, height: `${b.range! * 2}%` }} />
+            <div key={`r-${b.id}`} className="absolute rounded-[50%] border border-red-400/20 bg-red-500/5 pointer-events-none"
+              style={{ left: `${px(b.x, b.y) - b.range! * ISO_KX * 2}%`, top: `${py(b.x, b.y) - b.range! * ISO_KY * 2}%`, width: `${b.range! * ISO_KX * 4}%`, height: `${b.range! * ISO_KY * 4}%` }} />
           ))}
 
-          {/* Play/ability pulses */}
+          {/* Play/ability pulses — flattened to the ground plane */}
           {s.pulses.map((p, i) => (
-            <div key={i} className="absolute rounded-full border-2 pointer-events-none" style={{ left: `${p.x - p.r}%`, top: `${p.y - p.r}%`, width: `${p.r * 2}%`, height: `${p.r * 2}%`, borderColor: p.color, backgroundColor: `${p.color}22`, opacity: p.life / p.maxLife }} />
+            <div key={i} className="absolute rounded-[50%] border-2 pointer-events-none" style={{ left: `${px(p.x, p.y) - p.r * ISO_KX * 2}%`, top: `${py(p.x, p.y) - p.r * ISO_KY * 2}%`, width: `${p.r * ISO_KX * 4}%`, height: `${p.r * ISO_KY * 4}%`, borderColor: p.color, backgroundColor: `${p.color}22`, opacity: p.life / p.maxLife }} />
           ))}
 
           {/* Defense "shots" arc through the air — footballs, penalty flags, or t-shirts. Never bullets. */}
           {s.shots.map((sh, i) => {
             const u = sh.t / sh.dur;
-            const x = sh.sx + (sh.tx - sh.sx) * u;
-            const y = sh.sy + (sh.ty - sh.sy) * u - Math.sin(Math.PI * u) * 9; // parabolic arc
+            // travel in WORLD space, arc in SCREEN space (lob height is a screen illusion)
+            const wx0 = sh.sx + (sh.tx - sh.sx) * u;
+            const wy0 = sh.sy + (sh.ty - sh.sy) * u;
+            const x = px(wx0, wy0);
+            const y = py(wx0, wy0) - Math.sin(Math.PI * u) * 7;
             const proj = sh.flavor === 'ref' ? '🚩' : sh.flavor === 'tshirt' ? '👕' : '🏈';
-            const ang = Math.atan2(sh.ty - sh.sy, sh.tx - sh.sx) * 180 / Math.PI;
+            const ang = Math.atan2(py(sh.tx, sh.ty) - py(sh.sx, sh.sy), px(sh.tx, sh.ty) - px(sh.sx, sh.sy)) * 180 / Math.PI;
             return (
               <React.Fragment key={i}>
                 {/* motion streak behind the ball — reads as SPEED */}
@@ -1187,7 +1214,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             if (f.type === 'yards') {
               const td = f.text === 'TOUCHDOWN!';
               return (
-                <div key={i} className="absolute pointer-events-none font-display font-black uppercase" style={{ left: `${f.x}%`, top: `${f.y}%`, color: td ? '#fde047' : '#fef08a', fontSize: td ? '5vmin' : '3.4vmin', letterSpacing: '0.02em', textShadow: td ? '0 0 8px #f59e0b, 0 3px 6px #000' : '0 2px 5px #000, 0 0 3px #000', zIndex: 210, transform: `translate(-50%, calc(-50% - ${(1 - k) * (td ? 46 : 34)}px)) scale(${td ? 1 + (1 - k) * 0.3 : 1})`, opacity: Math.min(1, k * 1.6) }}>{f.text}</div>
+                <div key={i} className="absolute pointer-events-none font-display font-black uppercase" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, color: td ? '#fde047' : '#fef08a', fontSize: td ? '5vmin' : '3.4vmin', letterSpacing: '0.02em', textShadow: td ? '0 0 8px #f59e0b, 0 3px 6px #000' : '0 2px 5px #000, 0 0 3px #000', zIndex: 210, transform: `translate(-50%, calc(-50% - ${(1 - k) * (td ? 46 : 34)}px)) scale(${td ? 1 + (1 - k) * 0.3 : 1})`, opacity: Math.min(1, k * 1.6) }}>{f.text}</div>
               );
             }
             if (f.type === 'dmg') return (
@@ -1197,24 +1224,24 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 const rise = (1 - k * k) * 30;               // ease-out rise
                 const pop = 1 + Math.max(0, (k - 0.72) / 0.28) * 0.6; // 1.6x at spawn → 1x
                 return (
-              <div key={i} className="absolute pointer-events-none font-black" style={{ left: `${f.x}%`, top: `${f.y}%`, color: f.color, fontSize: f.text?.includes('YDS') ? '1.8vmin' : '2.1vmin', textShadow: '0 1px 2px #000, 0 0 3px rgba(0,0,0,0.6)', zIndex: 208, transform: `translate(calc(-50% + ${(1 - k) * drift}px), calc(-50% - ${rise}px)) scale(${pop})`, opacity: Math.min(1, k * 1.8), whiteSpace: 'nowrap' }}>{f.text}</div>
+              <div key={i} className="absolute pointer-events-none font-black" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, color: f.color, fontSize: f.text?.includes('YDS') ? '1.8vmin' : '2.1vmin', textShadow: '0 1px 2px #000, 0 0 3px rgba(0,0,0,0.6)', zIndex: 208, transform: `translate(calc(-50% + ${(1 - k) * drift}px), calc(-50% - ${rise}px)) scale(${pop})`, opacity: Math.min(1, k * 1.8), whiteSpace: 'nowrap' }}>{f.text}</div>
                 ); })()
             );
             if (f.type === 'down') return (
               // Knocked-down player — the jersey chip tips over and fades where they fell.
-              <div key={i} className="absolute pointer-events-none flex items-center justify-center font-black text-white" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3vmin', height: '2.1vmin', background: f.color, border: '1px solid rgba(0,0,0,0.5)', borderRadius: 3, fontSize: '1.15vmin', zIndex: 90, transform: `translate(-50%,-30%) rotate(${90 - k * 20}deg)`, opacity: Math.min(0.85, k * 1.4), filter: 'brightness(0.8)' }}>{f.text}</div>
+              <div key={i} className="absolute pointer-events-none flex items-center justify-center font-black text-white" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '3vmin', height: '2.1vmin', background: f.color, border: '1px solid rgba(0,0,0,0.5)', borderRadius: 3, fontSize: '1.15vmin', zIndex: 90, transform: `translate(-50%,-30%) rotate(${90 - k * 20}deg)`, opacity: Math.min(0.85, k * 1.4), filter: 'brightness(0.8)' }}>{f.text}</div>
             );
             if (f.type === 'coin') return (
-              <span key={i} className="absolute pointer-events-none" style={{ left: `${f.x}%`, top: `${f.y}%`, fontSize: '1.7vmin', lineHeight: 1, zIndex: 205, transform: 'translate(-50%,-50%)', opacity: Math.min(1, k * 2), filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.6))' }}>🪙</span>
+              <span key={i} className="absolute pointer-events-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, fontSize: '1.7vmin', lineHeight: 1, zIndex: 205, transform: 'translate(-50%,-50%)', opacity: Math.min(1, k * 2), filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.6))' }}>🪙</span>
             );
             if (f.type === 'impact') return (
-              <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '3.6vmin', height: '3.6vmin', background: 'radial-gradient(circle, #fff 0%, #fde047 45%, transparent 72%)', zIndex: 150, transform: `translate(-50%,-50%) scale(${0.6 + (1 - k) * 1.1})`, opacity: k }} />
+              <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '3.6vmin', height: '3.6vmin', background: 'radial-gradient(circle, #fff 0%, #fde047 45%, transparent 72%)', zIndex: 150, transform: `translate(-50%,-50%) scale(${0.6 + (1 - k) * 1.1})`, opacity: k }} />
             );
             if (f.type === 'ballshot') return (
               // A thrown/kicked football spiraling to its target (lerp + arc + spin),
               // dragging two ghost afterimages along its flight path as a motion trail.
               (() => { const p = 1 - k;
-                const pos = (pp: number) => ({ bx: f.x + (f.vx! - f.x) * pp, by: f.y + (f.vy! - f.y) * pp - Math.sin(pp * Math.PI) * 4 });
+                const pos = (pp: number) => { const wx = f.x + (f.vx! - f.x) * pp, wy = f.y + (f.vy! - f.y) * pp; return { bx: px(wx, wy), by: py(wx, wy) - Math.sin(pp * Math.PI) * 4 }; };
                 return (
                   <React.Fragment key={i}>
                     {[0.26, 0.13, 0].map(d => { const pp = Math.max(0, p - d); const { bx, by } = pos(pp); const main = d === 0; return (
@@ -1227,24 +1254,24 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             );
             if (f.type === 'land') return (
               // Deploy landing puff — small dust burst under fresh boots
-              <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '4.6vmin', zIndex: 96, transform: `translate(-50%,-60%) scale(${0.45 + (1 - k) * 0.75})`, opacity: k * 0.85 }} />
+              <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '4.6vmin', zIndex: 96, transform: `translate(-50%,-60%) scale(${0.45 + (1 - k) * 0.75})`, opacity: k * 0.85 }} />
             );
             if (f.type === 'boom') return (
               // Teardown dust burst — the art sprite blooms out and fades over the wreck
-              <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '9vmin', zIndex: 158, transform: `translate(-50%,-55%) scale(${0.5 + (1 - k) * 0.9}) rotate(${(1 - k) * 20}deg)`, opacity: Math.min(1, k * 1.6) }} />
+              <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '9vmin', zIndex: 158, transform: `translate(-50%,-55%) scale(${0.5 + (1 - k) * 0.9}) rotate(${(1 - k) * 20}deg)`, opacity: Math.min(1, k * 1.6) }} />
             );
             if (f.type === 'debris') return (
               // Chunks of the sacked facility tumbling out of the wreck
-              <div key={i} className="absolute pointer-events-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '1.3vmin', height: '1.3vmin', background: f.color, border: '1px solid rgba(0,0,0,0.4)', borderRadius: 2, zIndex: 160, transform: `translate(-50%,-50%) rotate(${(1 - k) * 560}deg)`, opacity: Math.min(1, k * 1.6) }} />
+              <div key={i} className="absolute pointer-events-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '1.3vmin', height: '1.3vmin', background: f.color, border: '1px solid rgba(0,0,0,0.4)', borderRadius: 2, zIndex: 160, transform: `translate(-50%,-50%) rotate(${(1 - k) * 560}deg)`, opacity: Math.min(1, k * 1.6) }} />
             );
             if (f.type === 'confetti') return (
-              <div key={i} className="absolute pointer-events-none" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '1vmin', height: '1.6vmin', background: f.color, zIndex: 215, transform: `translate(-50%,-50%) rotate(${(1 - k) * 720}deg) scaleY(${0.4 + Math.abs(Math.sin((1 - k) * 9))})`, opacity: Math.min(1, k * 1.8) }} />
+              <div key={i} className="absolute pointer-events-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '1vmin', height: '1.6vmin', background: f.color, zIndex: 215, transform: `translate(-50%,-50%) rotate(${(1 - k) * 720}deg) scaleY(${0.4 + Math.abs(Math.sin((1 - k) * 9))})`, opacity: Math.min(1, k * 1.8) }} />
             );
             if (f.type === 'smoke') return (
-              <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${2 + (1 - k) * 3.4}vmin`, height: `${2 + (1 - k) * 3.4}vmin`, background: 'radial-gradient(circle, rgba(148,163,184,0.5) 0%, rgba(100,116,139,0.25) 55%, transparent 75%)', zIndex: 155, transform: 'translate(-50%,-50%)', opacity: k * 0.8 }} />
+              <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: `${2 + (1 - k) * 3.4}vmin`, height: `${2 + (1 - k) * 3.4}vmin`, background: 'radial-gradient(circle, rgba(148,163,184,0.5) 0%, rgba(100,116,139,0.25) 55%, transparent 75%)', zIndex: 155, transform: 'translate(-50%,-50%)', opacity: k * 0.8 }} />
             );
             return (
-              <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${f.x}%`, top: `${f.y}%`, width: '2.4vmin', height: '2.4vmin', background: 'rgba(212,190,150,0.55)', zIndex: 80, transform: `translate(-50%,-50%) scale(${0.4 + (1 - k)})`, opacity: k * 0.55 }} />
+              <div key={i} className="absolute pointer-events-none rounded-full" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '2.4vmin', height: '2.4vmin', background: 'rgba(212,190,150,0.55)', zIndex: 80, transform: `translate(-50%,-50%) scale(${0.4 + (1 - k)})`, opacity: k * 0.55 }} />
             );
           })}
 
@@ -1253,7 +1280,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               // Blocking Sled — hazard-striped barrier. Sized as a % of the field so it
               // tracks its world footprint at any viewport size.
               return (
-                <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.size * 1.7}%`, zIndex: Math.round(b.y) }}>
+                <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${px(b.x, b.y)}%`, top: `${py(b.x, b.y)}%`, width: `${b.size * 1.7}%`, zIndex: Math.round((b.x + b.y) / 2) }}>
                   {/* HP bar only once it's TAKEN damage — 30 full green bars was pure noise */}
                   {!b.dead && b.hp < b.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%', minWidth: 18 }}><div className="h-full bg-lime-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
                   <img src="/assets/battle/blocking-sled.png" alt="" draggable={false} className="w-full" style={{ height: 'auto', aspectRatio: '1', objectFit: 'contain', opacity: b.dead ? 0.25 : 1, transformOrigin: '50% 90%', animation: !b.dead && ((b as BBuilding & { hitFlash?: number }).hitFlash ?? 0) > 0 ? 'fhq-hitjolt 0.2s ease-out' : undefined, filter: b.dead ? 'grayscale(1) brightness(0.55)' : ((b as BBuilding & { hitFlash?: number }).hitFlash ?? 0) > 0 ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.4)) brightness(1.9)' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }} />
@@ -1267,7 +1294,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             // is the same base you built. Old published bases / bot bases lack it → pool art.
             const sprite = b.art ?? battleBuildingSprite(b.kind, b.id, !isDefense && !isReplay, b.flavor);
             return (
-              <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${wpct}%`, zIndex: Math.round(b.y) }}>
+              <div key={b.id} className="absolute -translate-x-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${px(b.x, b.y)}%`, top: `${py(b.x, b.y)}%`, transform: 'translate(-50%, -62%)', width: `${wpct}%`, zIndex: Math.round((b.x + b.y) / 2) }}>
                 {!b.dead && b.hp < b.maxHp && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
                 {b.dead ? (
                   <div className="relative w-full" style={{ aspectRatio: '1' }}>
@@ -1308,7 +1335,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const gBaseFilter = isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)';
             return (
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${g.x}%`, top: `${g.y}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                style={{ left: `${px(g.x, g.y)}%`, top: `${py(g.x, g.y)}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, zIndex: Math.round((g.x + g.y) / 2) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {g.hp < g.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
                 <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : g.attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : 'fhq-stepbob 0.21s ease-in-out infinite', rotate: g.attacking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
                   <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
@@ -1377,7 +1404,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const shadow = <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />;
             return (
               <div key={t.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${t.x}%`, top: `${t.y}%`, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round(t.y) + 100, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round((t.x + t.y) / 2) + 100, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
                 {t.hp < t.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
                 {specialDef ? (

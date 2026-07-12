@@ -41,6 +41,7 @@ import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe,
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
 import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor, masteryLevel, masteryDefMult, nextMasteryAt, MASTERY_THRESHOLDS } from './fixedBase';
+import { defenseSprite, DEFENSE_ART_GATES, buildingSprite as buildingArtFor, BUILDING_ART_LEVELS } from './assets';
 
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
@@ -1218,21 +1219,13 @@ function App() {
   // 🗺 Mini layout preview — drawn from the REAL formation geometry, so what you
   // see on the card is exactly the base you'll defend.
   const FormationPreview = ({ f }: { f: FormationKey }) => {
-    const cells: Record<string, string> = {};
-    for (const w of wallsFor(f, 12)) cells[`${w.gridX},${w.gridY}`] = '#475569';
-    for (const sl of slotsFor(f)) cells[`${sl.gridX},${sl.gridY}`] = '#b91c1c';
-    const bt = busTileFor(f); cells[`${bt.gridX},${bt.gridY}`] = '#7c2d12';
-    const an = anchorsFor(f);
-    for (const t of Object.keys(an) as BuildingType[]) {
-      const a = an[t]; const col = t === BuildingType.STADIUM ? '#22c55e' : '#f97316';
-      for (const [tx, ty] of buildingTiles(a.gridX, a.gridY)) cells[`${tx},${ty}`] = col;
-    }
     return (
-      <div className="grid mt-1.5 rounded overflow-hidden border border-slate-700/60" style={{ gridTemplateColumns: 'repeat(10, 1fr)', width: 70, height: 70 }}>
-        {Array.from({ length: 100 }).map((_, i) => {
-          const x = i % 10, y = Math.floor(i / 10);
-          return <div key={i} style={{ background: cells[`${x},${y}`] ?? '#14532d' }} />;
-        })}
+      <div className="mt-2 flex justify-center w-full">
+        <img 
+          src={`/assets/formations/${f}.png`} 
+          alt={f} 
+          className="w-[70px] h-[70px] object-contain drop-shadow-md" 
+        />
       </div>
     );
   };
@@ -1706,13 +1699,38 @@ function App() {
                     const crownCost = isCrown ? EXTRA_SLOT_COSTS[slot.crownIndex!] : 0;
                     return (
                       <div key={slot.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${unlocked ? 'border-slate-700 bg-slate-800/50' : 'border-slate-800 bg-slate-900/40 opacity-60'}`}>
-                        <span className="text-xl w-7 text-center shrink-0">{t.emoji}</span>
+                        {/* current-tier art (emoji shows until it loads) */}
+                        <span className="relative w-10 h-10 shrink-0 flex items-center justify-center">
+                          <span className="text-xl">{t.emoji}</span>
+                          <img src={defenseSprite(slot.kind, Math.max(1, lvl))} alt="" draggable={false}
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            className="absolute inset-0 w-full h-full object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))' }} />
+                        </span>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-bold text-white truncate">
                             {t.name} {lvl > 0 && <span className="text-yellow-300">L{lvl}</span>}
                             {lvl > 1 && <span className="text-[10px] text-green-400 font-mono ml-1.5">+{Math.round((slotHpMult(lvl) - 1) * 100)}% HP · +{Math.round((slotDmgMult(lvl) - 1) * 100)}% DMG</span>}
                           </div>
                           <div className="text-[11px] text-slate-400 truncate">{slot.covers} · {t.desc}</div>
+                          {/* 🛣 THE ROAD TO LEVELS — the gear itself visibly upgrades at L4 and L8 */}
+                          {unlocked && lvl > 0 && (
+                            <div className="flex items-center gap-1 mt-1.5">
+                              {DEFENSE_ART_GATES.map((gate, ti) => {
+                                const reached = lvl >= gate;
+                                return (
+                                  <React.Fragment key={gate}>
+                                    {ti > 0 && <span className={`text-[10px] ${reached ? 'text-orange-400' : 'text-slate-600'}`}>›</span>}
+                                    <span className={`relative w-9 h-9 rounded-lg border flex items-center justify-center overflow-visible ${reached ? 'border-orange-500/70 bg-slate-900/70' : 'border-slate-700 bg-slate-900/40'}`}>
+                                      <img src={defenseSprite(slot.kind, gate)} alt="" draggable={false}
+                                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                        className="w-full h-full object-contain" style={{ filter: reached ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' : 'grayscale(1) brightness(0.55)' }} />
+                                      <span className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-1 rounded text-[8px] font-black leading-tight ${reached ? 'bg-orange-500 text-black' : 'bg-slate-800 text-slate-400'}`}>L{gate}</span>
+                                    </span>
+                                  </React.Fragment>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                         {!unlocked ? (
                           isCrown ? (

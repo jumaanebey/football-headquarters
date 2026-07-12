@@ -1,9 +1,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Player, ResourceType, BuildingInstance, RecruitSlot } from '../types';
+import { Player, ResourceType, BuildingInstance, RecruitSlot, BuildingType } from '../types';
 import { RARITY_CONFIG, UPGRADE_CONFIG, RECRUIT_CONFIG } from '../constants';
 import { rosterCap, rollBoard, candidateOvr, recruitCost, recruitSeconds } from '../recruiting';
-import { unitSprite } from '../assets';
+import { unitSprite, buildingSprite, BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
 import { Search, Coins, Crown, Zap, ArrowUpCircle, Users, Clock, CheckCircle2, RefreshCw, Dumbbell, Brain, Lock } from 'lucide-react';
 import { Sheet, HowTo } from './ui';
 
@@ -219,6 +219,33 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
               </div>
             </>
           )}
+
+          {/* 📸 THE DRAFT BOARD STORY — the department's era-by-era progression photos,
+              from an easel under a canopy to Draft Command. Current era highlighted. */}
+          {(() => {
+            const tiers = BUILDING_ART_LEVELS(BuildingType.YOUTH_ACADEMY);
+            const eras = BUILDING_ERAS[BuildingType.YOUTH_ACADEMY];
+            const wearing = [...tiers].filter(l => l <= academy.level).pop() ?? tiers[0];
+            return (
+              <div className="mt-6 pt-5 border-t border-slate-800">
+                <div className="text-[12px] uppercase tracking-widest text-slate-500 font-bold mb-3">The story of your Scouting Dept</div>
+                <div className="flex items-end justify-between gap-2">
+                  {tiers.map((lvl, ti) => {
+                    const reached = academy.level >= lvl;
+                    const current = wearing === lvl;
+                    return (
+                      <div key={lvl} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${reached ? '' : 'opacity-45'}`}>
+                        <img src={buildingSprite(BuildingType.YOUTH_ACADEMY, lvl)} alt={`Level ${lvl}`} draggable={false}
+                          className={`w-full h-auto rounded-xl ${current ? 'ring-2 ring-orange-500 bg-orange-500/10' : ''} ${reached ? '' : 'grayscale'}`} />
+                        <span className={`text-[10px] font-bold uppercase tracking-tight leading-none text-center ${current ? 'text-orange-300' : reached ? 'text-slate-300' : 'text-slate-600'}`}>{eras[ti]}</span>
+                        <span className={`text-[10px] font-mono leading-none ${current ? 'text-orange-400' : reached ? 'text-slate-400' : 'text-slate-600'}`}>L{lvl}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
     </Sheet>
   );

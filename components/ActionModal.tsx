@@ -2,7 +2,7 @@
 import React from 'react';
 import { BuildingInstance, BuildingType, ResourceType, UpgradeJob } from '../types';
 import { BUILDING_INFO, UPGRADE_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, buildingEffect } from '../constants';
-import { buildingSprite } from '../assets';
+import { buildingSprite, BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
 import { X, ArrowUpCircle, Coins, Hammer, Lock, Clock, Crown, Zap } from 'lucide-react';
 
 interface Props {
@@ -115,26 +115,36 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
             </>
           )}
 
-          {/* THE ROAD AHEAD — what this facility BECOMES (Phase C finding: "show the
-              building progression so people know what they're building") */}
-          <div className="mt-5 pt-4 border-t border-slate-800">
-            <div className="text-[12px] uppercase tracking-wide text-slate-500 font-bold mb-2">The road to Level 5</div>
-            <div className="flex items-end justify-between gap-1.5">
-              {[1, 2, 3, 4, 5].map(lvl => {
-                const reached = building.level >= lvl;
-                const current = Math.min(building.level, 5) === lvl;
-                return (
-                  <div key={lvl} className={`flex-1 flex flex-col items-center gap-0.5 min-w-0 ${reached ? '' : 'opacity-45'}`}>
-                    <img src={buildingSprite(building.type, lvl)} alt={`Level ${lvl}`} draggable={false}
-                      className={`w-full h-auto rounded-lg ${current ? 'ring-2 ring-orange-500 bg-orange-500/10' : ''} ${reached ? '' : 'grayscale'}`} />
-                    <span className={`text-[12px] font-bold leading-none ${current ? 'text-orange-400' : reached ? 'text-slate-300' : 'text-slate-600'}`}>L{lvl}</span>
-                    <span className={`text-[11px] font-mono leading-none ${current ? 'text-white' : 'text-slate-500'}`}>{buildingEffect(building.type, lvl).value}</span>
-                  </div>
-                );
-              })}
-            </div>
-            {building.level > 5 && <div className="text-[11px] text-slate-500 mt-1.5 text-center">Facility art maxed — levels keep boosting {buildingEffect(building.type, building.level).label.toLowerCase()}</div>}
-          </div>
+          {/* 📸 THE STORY — the facility's real era-by-era progression photos. Only the
+              UNIQUE art tiers show (no duplicate frames on 3-tier arcs), each with its
+              era name, so players see exactly what they're building toward. */}
+          {(() => {
+            const tiers = BUILDING_ART_LEVELS(building.type);
+            const eras = BUILDING_ERAS[building.type] ?? [];
+            const maxTier = tiers[tiers.length - 1];
+            // "current" = the tier whose art the building wears right now
+            const wearing = [...tiers].filter(l => l <= building.level).pop() ?? tiers[0];
+            return (
+              <div className="mt-5 pt-4 border-t border-slate-800">
+                <div className="text-[12px] uppercase tracking-wide text-slate-500 font-bold mb-2">The story of your {info.name}</div>
+                <div className="flex items-end justify-between gap-1.5">
+                  {tiers.map((lvl, ti) => {
+                    const reached = building.level >= lvl;
+                    const current = wearing === lvl;
+                    return (
+                      <div key={lvl} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${reached ? '' : 'opacity-45'}`}>
+                        <img src={buildingSprite(building.type, lvl)} alt={`Level ${lvl}`} draggable={false}
+                          className={`w-full h-auto rounded-lg ${current ? 'ring-2 ring-orange-500 bg-orange-500/10' : ''} ${reached ? '' : 'grayscale'}`} />
+                        <span className={`text-[9px] font-bold uppercase tracking-tight leading-none text-center ${current ? 'text-orange-300' : reached ? 'text-slate-300' : 'text-slate-600'}`}>{eras[ti] ?? ''}</span>
+                        <span className={`text-[10px] font-mono leading-none ${current ? 'text-orange-400' : reached ? 'text-slate-400' : 'text-slate-600'}`}>L{lvl}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {building.level > maxTier && <div className="text-[11px] text-slate-500 mt-1.5 text-center">Final form reached — levels keep boosting {buildingEffect(building.type, building.level).label.toLowerCase()}</div>}
+              </div>
+            );
+          })()}
 
           {/* Builders status */}
           <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
