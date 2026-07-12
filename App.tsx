@@ -488,12 +488,17 @@ function App() {
 
         // 3. Player AI — off-duty DEFENSIVE players visibly patrol the stadium (your
         //    defense isn't an abstract stat: the guys you recruited walk the beat).
-        // Patrol the CENTRAL PRACTICE PATCH — the campus hub. (The stadium is now
-        // an off-campus backdrop; patrolling its display anchor would clamp the
-        // walkers into a huddle at the board's west edge.)
-        const patrolPoint = () => {
-          const cx = 55, cy = 55; // practice patch center, world units (tile 5,5)
-          const ang = Math.random() * Math.PI * 2, rad = 11 + Math.random() * 6;
+        // Patrol ORBITS the central practice patch — defenders walk the ring around
+        // it, never across it (July 11, Jumaane: they were strolling straight over
+        // the field). Next beat = a short step AROUND the ring from wherever the
+        // player is now, at a radius outside the chalk (field spans world 38-62 ×
+        // 33-67, so r≥20 keeps both the points and the short arcs between them off
+        // the turf).
+        const patrolPoint = (p: Player) => {
+          const cx = 55, cy = 55; // patch center, world units (tile 5,5)
+          const cur = Math.atan2((p.worldPos.y || cy) - cy, (p.worldPos.x || cx) - cx);
+          const ang = (Number.isFinite(cur) ? cur : Math.random() * Math.PI * 2) + 0.45 + Math.random() * 0.5;
+          const rad = 20 + Math.random() * 5;
           return {
             x: Math.min(94, Math.max(6, cx + Math.cos(ang) * rad)),
             y: Math.min(94, Math.max(6, cy + Math.sin(ang) * rad)),
@@ -503,7 +508,7 @@ function App() {
         const updatedRoster = prev.roster.map(p => {
           // Idle defender → take up a patrol route around the stadium.
           if (p.state === PlayerState.IDLE && TENDENCIES[p.tendency as TendencyKey]?.side === 'defense') {
-            return { ...p, state: PlayerState.PATROLLING, targetPos: patrolPoint() };
+            return { ...p, state: PlayerState.PATROLLING, targetPos: patrolPoint(p) };
           }
           let { x, y } = p.worldPos;
           const { x: tx, y: ty } = p.targetPos;
@@ -520,7 +525,7 @@ function App() {
             return { ...p, worldPos: { x, y, z: 0 }, state: p.targetPos.z === 1 ? PlayerState.TRAINING : patrolling ? PlayerState.PATROLLING : PlayerState.WALKING };
           } else {
              // Arrival: walkers-to-pitch train; patrollers pick the next beat; others idle.
-             if (patrolling) return { ...p, targetPos: patrolPoint() };
+             if (patrolling) return { ...p, targetPos: patrolPoint(p) };
              if (p.state === PlayerState.WALKING && p.targetPos.z === 1) {
                 return { ...p, state: PlayerState.TRAINING };
              }

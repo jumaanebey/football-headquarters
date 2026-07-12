@@ -492,7 +492,7 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 // Future layout rounds: edit → COPY LAYOUT CODE → paste → transplant.
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
   { slug: 'parking-lot', gridX: 14.5, gridY: 4.5, scale: 3.1 },
-  { slug: 'team-bus',    gridX: 14.5, gridY: 7, scale: 1.5, flip: true }, // parked at the road's east end, nose east
+  { slug: 'team-bus',    gridX: 14.5, gridY: 7, scale: 1.5 }, // parked at the road's east end — UNFLIPPED: the mirror was writing the APEX logo backwards (Jumaane); unmirrored it reads as pulling in toward the lot
   { slug: 'goalpost', gridX: 5, gridY: 2.95, scale: 0.6 },
   { slug: 'goalpost', gridX: 5, gridY: 7,    scale: 0.6 },
   { slug: 'floodlight', gridX: -6,   gridY: 2,    scale: 2.1 },
@@ -830,7 +830,6 @@ const BuildingSprite: React.FC<{
 // Players appear on the field while training OR while patrolling the stadium (defenders).
 const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
   const c = worldToScreen(player.worldPos.x, player.worldPos.y);
-  const isTraining = player.state === PlayerState.TRAINING;
   const isPatrolling = player.state === PlayerState.PATROLLING;
 
   let color = '#94a3b8';
@@ -841,11 +840,17 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
   // the fallback while the sprite loads. Face the direction of travel.
   const facingLeft = player.targetPos.x < player.worldPos.x;
 
+  // PATROLLING players are MOVING (between beat points) — they stride exactly like
+  // walkers. Only players standing still (training at a facility) hold their pose.
+  // (July 11, Jumaane: patrollers used to glide frozen — "floating" — with a 🛡️
+  // badge overhead; badges removed, legs added.)
+  const isMoving = player.state === PlayerState.WALKING || isPatrolling;
+
   return (
     <div className="absolute transition-all duration-[200ms] ease-linear animate-hop pointer-events-none"
       style={{ left: c.x, top: c.y, zIndex: Math.round((player.worldPos.y / 100) * GRID * 2) + 6, transform: 'translate(-50%,-100%)' }}>
       <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30" style={{ bottom: -3, width: 20, height: 7 }} />
-      <div className="fhq-unit relative flex items-end justify-center" style={{ width: 30, height: 34, rotate: player.state === PlayerState.WALKING ? (facingLeft ? '-2.5deg' : '2.5deg') : undefined }}>
+      <div className="fhq-unit relative flex items-end justify-center" style={{ width: 30, height: 34, rotate: isMoving ? (facingLeft ? '-2.5deg' : '2.5deg') : undefined }}>
         <div className="absolute bottom-1 w-4 h-6 rounded-t-full rounded-b-sm border border-black/30 flex items-start justify-center shadow" style={{ backgroundColor: color }}>
           <span className="text-[7px] font-bold text-white/90 leading-tight mt-0.5">{player.role}</span>
         </div>
@@ -854,8 +859,8 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           className="fhq-flat relative w-full h-auto max-w-none select-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]"
           style={{ transform: facingLeft ? 'scaleX(-1)' : undefined }} />
-        {/* Real stride while WALKING: two frames alternate; art faces LEFT natively */}
-        {player.state === PlayerState.WALKING && (() => {
+        {/* Real stride while MOVING: two frames alternate; art faces LEFT natively */}
+        {isMoving && (() => {
           const base = unitPlayerSprite(player.unit).replace('-player.png', '');
           const wFlip = facingLeft ? undefined : 'scaleX(-1)';
           const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
@@ -868,8 +873,6 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
             </>
           ); })()}
       </div>
-      {isTraining && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px]">💪</div>}
-      {isPatrolling && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px]">🛡️</div>}
     </div>
   );
 };
