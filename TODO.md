@@ -35,6 +35,14 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
 - [ ] 3. fhq.kickoffclubhq.com subdomain → this Vercel project + game landing
       card on Kickoff Club HQ (cross-promo funnel) — QUEUED per Jumaane
       (July 11: asset-refresh round runs first)
+- [ ] 4. Soft launch free → watch D1/D7 retention before building monetization
+- [ ] 5. Web gem shop via Stripe (keeps ~97% vs Apple 15-30%) — needs parent-co
+      Stripe entity + REAL privacy/terms (placeholders can't take money)
+- [ ] 6. Capacitor iOS app (HomeIQ recipe: server.url = live site; icon/splash/
+      screenshots from art backlog; Apple review)
+- [ ] 7. Season Ticket battle pass (recurring; football-native framing)
+- [ ] Notes: place-your-own decor doubles as a monetization feature (decor shop);
+      rewarded ads for non-payers; $4.99 starter pack = classic best converter
 
 ## Asset refresh round (July 11-12 — buildings chapter COMPLETE, confirm to close)
 
@@ -50,18 +58,10 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
       rank crests (still emoji per art backlog) · fx
 - [ ] PNG weight: new tiers run 1.3-1.9MB vs old ~0.9MB — consider pngquant
       pass before wide launch
-- [ ] 4. Soft launch free → watch D1/D7 retention before building monetization
-- [ ] 5. Web gem shop via Stripe (keeps ~97% vs Apple 15-30%) — needs parent-co
-      Stripe entity + REAL privacy/terms (placeholders can't take money)
-- [ ] 6. Capacitor iOS app (HomeIQ recipe: server.url = live site; icon/splash/
-      screenshots from art backlog; Apple review)
-- [ ] 7. Season Ticket battle pass (recurring; football-native framing)
-- [ ] Notes: place-your-own decor doubles as a monetization feature (decor shop);
-      rewarded ads for non-payers; $4.99 starter pack = classic best converter
 
 ## Standing / pre-launch
 
-- [ ] ⚠️ Remove the `vega300` owner boost (URL param + Settings redeem path) before wide launch
+- [x] ⚠️ vega300 owner boost REMOVED (bd4efda) — was: remove before wide launch
 - [ ] Balance watch: post-castle density + defense buffs may push ladder win rates below
       the 60–75% attacker-fun target
 - [ ] Jumaane phone-verify pass after each deploy batch (fresh tab — Safari cache ritual)
