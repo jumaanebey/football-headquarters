@@ -165,6 +165,50 @@ const sweep = (from = 400, to = 1900, dur = 0.35, peak = 0.14) => {
   src.start(t0); src.stop(t0 + dur);
 };
 
+/** The home crowd deflates — a falling "awwww": noise swell whose pitch sinks. */
+const deflate = (dur = 1.1, peak = 0.15) => {
+  if (muted) return;
+  const a = ac();
+  if (!a) return;
+  const t0 = a.currentTime;
+  const len = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.7;
+  f.frequency.setValueAtTime(950, t0);
+  f.frequency.exponentialRampToValueAtTime(300, t0 + dur); // the pitch of the room sinks
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + 0.12);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f).connect(g).connect(a.destination);
+  src.start(t0); src.stop(t0 + dur);
+};
+
+/** Stadium air horn — two detuned saws beating together, sagging as it runs out of air. */
+const horn = (dur = 0.75, peak = 0.16) => {
+  if (muted) return;
+  const a = ac();
+  if (!a) return;
+  const t0 = a.currentTime;
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + 0.05);
+  g.gain.setValueAtTime(peak, t0 + dur - 0.18);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400;
+  f.connect(g).connect(a.destination);
+  for (const det of [0, 6]) {
+    const o = a.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(233 + det, t0);
+    o.frequency.setValueAtTime(233 + det, t0 + dur - 0.12);
+    o.frequency.exponentialRampToValueAtTime(196 + det, t0 + dur);
+    o.connect(f); o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+};
+
 export const sfx = {
   thud:    () => impact(60, 0.26, 0.26),                              // boots hit the turf
   boom:    () => { impact(45, 0.5, 0.4); roar(0.8, 0.1); },           // facility sacked
@@ -174,6 +218,8 @@ export const sfx = {
   coinLand: () => seq([[1760, 0, 0.05], [2093, 0.04, 0.09]], 'triangle', 0.1), // arc arrival
   click:   () => seq([[880, 0, 0.06]], 'square', 0.12),
   crowdRoar: () => { roar(); seq([[659, 0.12, 0.12], [880, 0.26, 0.22]], 'triangle', 0.1); }, // roar + cheer sparkle
+  aww:     () => { deflate(); seq([[349, 0.05, 0.3], [294, 0.28, 0.45]], 'triangle', 0.05); }, // home crowd deflates
+  airhorn: () => horn(),                                              // the away section goes NUTS
   kickoff:  () => { seq([[2100, 0, 0.14], [1800, 0.12, 0.1]], 'square', 0.14); roar(0.9, 0.12); }, // whistle + crowd stir
   collect: () => seq([[880, 0, 0.09], [1320, 0.05, 0.12]]),          // coin ding
   upgrade: () => seq([[523, 0, 0.1], [659, 0.08, 0.1], [784, 0.16, 0.18]]), // C-E-G rise

@@ -126,7 +126,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
     return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
   };
-  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; punchT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number }>({
+  const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; shakeT: number; punchT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number; mascotOut: boolean; mascotT: number }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
     guards: (() => {
@@ -143,7 +143,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     })(),
     buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [], pulses: [], fx: [], shakeT: 0, punchT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
-    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0,
+    momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0, mascotOut: false, mascotT: 0,
   });
   const [driveStats, setDriveStats] = useState<{ mvp: string; mvpDmg: number; pancakes: number; lost: number; bonus: number } | null>(null);
 
@@ -276,8 +276,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // Kickoff: referee whistle + crowd stir the moment play starts; the crowd BED hums
   // underneath the whole battle and dies with the final whistle.
   useEffect(() => {
-    if (phase === 'fighting') { sfx.kickoff(); say(config.homeGuards?.length ? `KICKOFF! Your ${config.homeGuards.length} defenders take the field!` : `KICKOFF! ${config.title.toUpperCase()}!`); crowdBedStart(); }
-    if (phase === 'result') { crowdBedStop(); if (result) (result.won ? sfx.victory : sfx.defeat)(); }
+    if (phase === 'fighting') { sfx.kickoff(); say(config.homeGuards?.length ? `KICKOFF! Your ${config.homeGuards.length} defenders take the field!` : `KICKOFF! ${config.title.toUpperCase()}!`); crowdBedStart(); crowdBedIntensity(1); /* the house opens DEAFENING — silencing it is the win */ }
+    if (phase === 'result') { crowdBedStop(); if (result) { if (result.won && !povDefense) sfx.airhorn(); (result.won ? sfx.victory : sfx.defeat)(); } }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => crowdBedStop(), []); // never leak the loop on exit
 
@@ -399,7 +399,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           t.dmgAcc = (t.dmgAcc ?? 0) + dps * DT;
           t.dmgTimer = (t.dmgTimer ?? 0) + DT;
           if (t.dmgTimer >= 0.65) {
-            s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(t.dmgAcc))}`, color: '#fde047', x: target.x + (rand() * 4 - 2), y: target.y - target.size * 0.4, life: 0.7, maxLife: 0.7 });
+            // Yards, not damage (Design Bible §9): your plays GAIN YARDS on their building.
+            s.fx.push({ type: 'dmg', text: `+${Math.max(1, Math.round(t.dmgAcc))} YDS`, color: '#fde047', x: target.x + (rand() * 4 - 2), y: target.y - target.size * 0.4, life: 0.7, maxLife: 0.7 });
             // Structure FLINCHES on the damage pop — flash + jolt in the renderer
             (target as BBuilding & { hitFlash?: number }).hitFlash = 0.2;
             // QBs THROW and kickers KICK — a visible football flies with every hit cycle
@@ -422,9 +423,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             if (target.kind !== 'wall') {
               const scored = target.kind === 'hq'; // taking their stadium = the score
               s.fx.push({ type: 'yards', text: scored ? 'TOUCHDOWN!' : 'SACKED!', x: target.x, y: target.y, life: scored ? 1.5 : 1.0, maxLife: scored ? 1.5 : 1.0 });
-              say(scored ? '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!' : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(rand() * 3)]);
+              say(scored ? (povDefense ? '🏈 They score on YOUR house — the crowd goes dead silent…' : '🏈 TOUCHDOWN!! The home crowd goes DEAD silent!') : ['Another facility SACKED!', 'They tear through the complex!', 'That building is DONE for the day!'][Math.floor(rand() * 3)]);
               s.momentum = Math.min(100, s.momentum + (scored ? 25 : 12) * planRef.current.momentum);
-              if (scored) { s.freezeT = 0.45; sfx.crowdRoar(); } // freeze-frame + the stadium erupts
+              // freeze-frame + the sound tells the story: YOUR away section blasts the
+              // air horn — or, watching your own house fall, the home crowd deflates.
+              if (scored) { s.freezeT = 0.45; if (povDefense) sfx.aww(); else { sfx.airhorn(); sfx.crowdRoar(); } }
               // 💥 The teardown MOMENT: shockwave ring + dust burst + tumbling debris + smoke + loot.
               s.pulses.push({ x: target.x, y: target.y, r: scored ? 15 : 10, life: 0.45, maxLife: 0.45, color: scored ? '#fde047' : '#f8fafc' });
               s.fx.push({ type: 'boom', x: target.x, y: target.y - 1, life: 0.55, maxLife: 0.55 });
@@ -464,9 +467,33 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: src.x, y: src.y, hp: Math.round(140 * guardMult), maxHp: Math.round(140 * guardMult), dps: 11 * guardMult, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 40 + Math.floor(rand() * 59) });
         say(povDefense ? 'YOUR defense sends out a linebacker!' : 'The defense sends out a LINEBACKER!');
       }
+      // 🐯 ENEMY MASCOT MINI-BOSS (Design Bible §6): crack their stadium below 70% and the
+      // home mascot storms out of the tunnel — tanky, slow, body-checks your squad, and its
+      // hype pulses put nearby defenders in a frenzy. On defense it's YOUR mascot answering.
+      if (!s.mascotOut) {
+        const hq2 = s.buildings.find(b => b.kind === 'hq');
+        if (hq2 && !hq2.dead && hq2.hp < hq2.maxHp * 0.7) {
+          s.mascotOut = true;
+          s.guards.push({ id: `mas${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: hq2.x, y: hq2.y + 3, hp: Math.round(560 * guardMult), maxHp: Math.round(560 * guardMult), dps: 10 * guardMult, speed: 8.5, range: 3.4, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 0, guardArt: '/assets/units/mascot.png', isMascot: true } as BTroop);
+          say(povDefense ? '🐯 YOUR MASCOT charges out of the tunnel — the crowd comes ALIVE!' : '🐯 THEIR MASCOT storms out to defend the house!');
+          sfx.crowdRoar();
+          s.shakeT = 0.25;
+        }
+      }
+      // Mascot hype pulses — every 3s, home defenders near it catch fire (frenzy).
+      const mas = s.guards.find(g => !g.dead && (g as BTroop & { isMascot?: boolean }).isMascot);
+      if (mas) {
+        s.mascotT += DT;
+        if (s.mascotT >= 3) {
+          s.mascotT = 0;
+          for (const g of s.guards) { if (!g.dead && g !== mas && dist(mas.x, mas.y, g.x, g.y) <= 14) g.rageT = 2; }
+          s.pulses.push({ x: mas.x, y: mas.y, r: 14, life: 0.45, maxLife: 0.45, color: povDefense ? '#f97316' : '#ef4444' });
+        }
+      }
       for (const g of s.guards) {
         if (g.dead) continue;
         if (g.hitFlash > 0) g.hitFlash = Math.max(0, g.hitFlash - DT);
+        if (g.rageT > 0) g.rageT = Math.max(0, g.rageT - DT);
         // chase the nearest living attacker
         let prey: BTroop | null = null, pd = 1e9;
         for (const t of s.troops) { if (t.dead) continue; const dd = dist(g.x, g.y, t.x, t.y); if (dd < pd) { pd = dd; prey = t; } }
@@ -483,11 +510,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           const preyOut = prey.dps * (prey.rageT > 0 ? 2 : 1) * 0.55 * DT;
           // OL power: the pocket — QB/RB near a live lineman take reduced damage
           const pocket = (prey.role === 'QB' || prey.role === 'RB') && s.troops.some(o => !o.dead && ROLE_COMBAT[o.role ?? '']?.protector && dist(o.x, o.y, prey.x, prey.y) < POCKET_RADIUS) ? POCKET_FACTOR : 1;
-          prey.hp -= g.dps * shieldFactor * pocket * DT; prey.hitFlash = 0.12;
+          const frenzy = g.rageT > 0 ? 1.35 : 1; // mascot-hyped defenders hit harder
+          prey.hp -= g.dps * frenzy * shieldFactor * pocket * DT; prey.hitFlash = 0.12;
           g.hp -= preyOut; g.hitFlash = 0.12;
           prey.dmg = (prey.dmg ?? 0) + preyOut;
           // Red numbers when the defense is chewing on your player.
-          g.dmgAcc = (g.dmgAcc ?? 0) + g.dps * shieldFactor * DT;
+          g.dmgAcc = (g.dmgAcc ?? 0) + g.dps * frenzy * shieldFactor * DT;
           g.dmgTimer = (g.dmgTimer ?? 0) + DT;
           if (g.dmgTimer >= 0.65) {
             s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(g.dmgAcc))}`, color: '#f87171', x: prey.x + (rand() * 3 - 1.5), y: prey.y - 2.5, life: 0.7, maxLife: 0.7 });
@@ -503,15 +531,28 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           }
           if (g.hp <= 0) {
             g.hp = 0; g.dead = true;
-            s.fx.push({ type: 'down', text: `${g.jersey ?? ''}`, color: isDefense ? '#111827' : '#b91c1c', x: g.x, y: g.y, life: 1.1, maxLife: 1.1 });
             prey.kills = (prey.kills ?? 0) + 1;
-            if (!isDefense) {
-              // Takeaway pays the ATTACKER only — never inflate your own defense losses.
-              s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10 * planRef.current.momentum);
-              say(isReplay ? `💥 They PANCAKE your linebacker!` : `💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
-              for (let ci = 0; ci < 3; ci++) { const ca = rand() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
+            if ((g as BTroop & { isMascot?: boolean }).isMascot) {
+              // The mascot goes down — a comedy pratfall, and the whole building feels it.
+              s.fx.push({ type: 'boom', x: g.x, y: g.y - 1, life: 0.5, maxLife: 0.5 });
+              sfx.aww();
+              if (!isDefense) {
+                s.bonus += 50; s.momentum = Math.min(100, s.momentum + 15);
+                say(isReplay ? '💥 They flatten your mascot — the stands go quiet…' : '💥 Their MASCOT hits the TURF — the stands go QUIET! (+50 loot)');
+                for (let ci = 0; ci < 4; ci++) { const ca = rand() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
+              } else {
+                say('Your mascot gets flattened — the crowd GASPS!');
+              }
             } else {
-              say(`Your #${g.jersey ?? '??'} gets flattened — they keep coming!`);
+              s.fx.push({ type: 'down', text: `${g.jersey ?? ''}`, color: isDefense ? '#111827' : '#b91c1c', x: g.x, y: g.y, life: 1.1, maxLife: 1.1 });
+              if (!isDefense) {
+                // Takeaway pays the ATTACKER only — never inflate your own defense losses.
+                s.pancakes++; s.bonus += 25; s.momentum = Math.min(100, s.momentum + 10 * planRef.current.momentum);
+                say(isReplay ? `💥 They PANCAKE your linebacker!` : `💥 TAKEAWAY! Linebacker PANCAKED — bonus loot! (+25)`);
+                for (let ci = 0; ci < 3; ci++) { const ca = rand() * Math.PI * 2; s.fx.push({ type: 'coin', x: g.x, y: g.y, vx: Math.cos(ca) * 8, vy: Math.sin(ca) * 4 - 8, life: 0.6, maxLife: 0.6 }); }
+              } else {
+                say(`Your #${g.jersey ?? '??'} gets flattened — they keep coming!`);
+              }
             }
             s.fx.push({ type: 'impact', x: g.x, y: g.y, life: 0.3, maxLife: 0.3 });
           }
@@ -520,9 +561,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
       // MOMENTUM: builds on sacks/pancakes, drains on losses, decays over time.
       // Fill the meter and the whole squad catches fire. The crowd breathes with it.
+      // 🔇 THE SILENCING (Design Bible §2): the crowd bed tracks the HOME crowd's
+      // remaining energy — deafening at kickoff, a murmur once the house is taken.
+      // The stadium's volume IS the scoreboard.
+      if (Math.round(s.time * 20) % 20 === 0) { // ~1x/sec
+        const nw2 = s.buildings.filter(b => b.kind !== 'wall');
+        const gone = nw2.length ? nw2.reduce((sum, b) => sum + (1 - Math.max(0, b.hp) / b.maxHp), 0) / nw2.length : 0;
+        crowdBedIntensity(Math.max(0.08, 1 - gone));
+      }
       if (!isDefense) {
         s.momentum = Math.max(0, s.momentum - 1.5 * DT);
-        if (Math.round(s.time * 20) % 20 === 0) crowdBedIntensity(s.momentum / 100); // ~1x/sec
         if (s.momentum >= 100) {
           s.momentum = 30;
           s.troops.forEach(t => { if (!t.dead) t.rageT = Math.max(t.rageT, 4); });
@@ -582,8 +630,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         if (!prey) { b.cooldown = 0.1; continue; }
         const fl = b.flavor;
         if (fl === 'tshirt') {
-          // T-Shirt Cannon: splash — everyone bunched near the target eats it
-          for (const t of s.troops) { if (!t.dead && dist(t.x, t.y, prey.x, prey.y) <= 7) hitTroop(t, b.damage * 0.7); }
+          // T-Shirt Cannon: splash — everyone bunched near the target eats it AND gets
+          // tangled up in free t-shirts (comedic slow, Design Bible §6)
+          for (const t of s.troops) { if (!t.dead && dist(t.x, t.y, prey.x, prey.y) <= 7) { hitTroop(t, b.damage * 0.7); t.slowT = Math.max(t.slowT ?? 0, 1.5); } }
           s.pulses.push({ x: prey.x, y: prey.y, r: 7, life: 0.35, maxLife: 0.35, color: '#f472b6' });
           b.cooldown = 1.15;
         } else if (fl === 'ref') {
@@ -830,10 +879,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     if (m > lastMilestone.current && pct > 0 && phase === 'fighting') {
       lastMilestone.current = m;
       setMilestoneKey(k => k + 1);
-      crowdBedIntensity(Math.min(1, m * 0.3));
-      sfx.crowdRoar();
+      // Each quarter of the house taken, the HOME crowd deflates a little more —
+      // the announcer tells the silencing story (the bed volume tracks it in-sim).
+      sfx.aww();
+      say(povDefense
+        ? ['They\'ve taken a QUARTER of your house — hold the line!', 'HALF your house is gone — your crowd is stunned…', 'Your fans can\'t watch this…'][Math.min(2, m - 1)]
+        : ['A quarter of their house is YOURS — the crowd is getting nervous!', 'HALF the house taken — listen to that silence spreading!', 'Their fans are heading for the EXITS!'][Math.min(2, m - 1)]);
     }
-  }, [pct, phase]);
+  }, [pct, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const instruction = castMode ? `Tap the field to call ${castMode.name}`
     : pendingSpecial ? `Tap the sideline to send in the ${pendingSpecial.name}`
@@ -893,7 +946,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         </div>
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <div className="text-center">
-            <div className="text-[9px] sm:text-[10px] uppercase text-slate-500 font-bold leading-none whitespace-nowrap">{isDefense ? 'Ground lost' : 'Drive'}</div>
+            <div className="text-[9px] sm:text-[10px] uppercase text-slate-500 font-bold leading-none whitespace-nowrap">{isDefense ? 'Ground lost' : 'House taken'}</div>
             <div key={milestoneKey} className={`font-mono font-bold text-base sm:text-lg leading-none ${isDefense && pct >= 50 ? 'text-red-400' : 'text-white'}`} style={{ animation: milestoneKey ? 'fhq-counter-pop 0.55s ease-out' : undefined, display: 'inline-block' }}>{pct}%</div>
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold ${timeLeft <= 10 ? 'bg-red-900/50 text-red-300' : 'bg-slate-800 text-white'}`}>
@@ -946,23 +999,43 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
           )}
 
-          {/* Stadium surround — a dark stands ring + crowd doing the wave on all four sides.
-              The crowd SWELLS with momentum: dots grow, the wave speeds up, the stands
-              glow warmer — a hot drive FEELS hot before you read a single number. */}
-          {(() => { const crowdE = Math.min(1, Math.max(0, s.momentum) / 100); const dot = 5 + crowdE * 3.5; const waveDur = (1.3 - crowdE * 0.65).toFixed(2); return (
+          {/* 🔇 THE SILENCING — the stands ARE the scoreboard (Design Bible §2).
+              Kickoff: a full, waving HOME crowd in the rival's colors. As you take the
+              house, scattered sections flip to YOUR orange (their fans converted), the
+              home dots dim and shrink, and the wave goes sluggish. On defense/replays
+              it's YOUR orange crowd with the raider's red creeping in. */}
+          {(() => {
+            const takeover = Math.min(1, pct / 100);   // seats converted so far
+            const health = 1 - takeover;               // the home crowd's remaining energy
+            const rivalC = config.rival?.color ?? '#dc2626';
+            const homeCols = povDefense ? ['#f97316', '#e2e8f0', '#fdba74'] : [rivalC, '#e2e8f0', rivalC];
+            const takeC = povDefense ? '#dc2626' : '#f97316';
+            const dotHome = 5 + health * 3.2;
+            const waveDur = (0.72 + takeover * 0.9).toFixed(2); // lively → sluggish
+            const seat = (i: number, n: number): React.CSSProperties => {
+              const taken = ((i * 7919) % n) / n < takeover; // scattered sections flip, not a sweep
+              return {
+                width: taken ? 6.5 : dotHome, height: taken ? 6.5 : dotHome, borderRadius: '50%',
+                background: taken ? takeC : homeCols[i % 3],
+                opacity: taken ? 1 : 0.28 + 0.72 * health,
+                filter: taken ? 'brightness(1.3)' : undefined,
+                animation: `fhq-wave ${taken ? '0.75' : waveDur}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite`,
+              };
+            };
+            return (
           <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 0 14px rgba(15,23,42,0.35)${crowdE > 0.4 ? `, inset 0 0 ${Math.round(crowdE * 26)}px rgba(249,115,22,${(crowdE * 0.35).toFixed(2)})` : ''}` }} />
+            <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 0 14px rgba(15,23,42,0.35)${takeover > 0.15 ? `, inset 0 0 ${Math.round(takeover * 28)}px ${takeC}66` : ''}` }} />
             {(['top', 'bottom'] as const).map(side => (
               <div key={side} className="absolute left-0 right-0 flex justify-around px-1" style={{ [side]: 2 }}>
                 {Array.from({ length: 26 }).map((_, i) => (
-                  <div key={i} style={{ width: dot, height: dot, borderRadius: '50%', background: i % 3 === 0 ? '#f59e0b' : i % 3 === 1 ? '#3b82f6' : '#e2e8f0', filter: crowdE > 0.5 ? 'brightness(1.35)' : undefined, animation: `fhq-wave ${waveDur}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` }} />
+                  <div key={i} style={seat(i, 26)} />
                 ))}
               </div>
             ))}
             {(['left', 'right'] as const).map(side => (
               <div key={side} className="absolute top-0 bottom-0 flex flex-col justify-around py-1" style={{ [side]: 2 }}>
                 {Array.from({ length: 20 }).map((_, i) => (
-                  <div key={i} style={{ width: dot, height: dot, borderRadius: '50%', background: i % 3 === 0 ? '#e2e8f0' : i % 3 === 1 ? '#f59e0b' : '#3b82f6', filter: crowdE > 0.5 ? 'brightness(1.35)' : undefined, animation: `fhq-wave ${waveDur}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` }} />
+                  <div key={i} style={seat(i + 7, 20)} />
                 ))}
               </div>
             ))}
@@ -1098,7 +1171,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 const rise = (1 - k * k) * 30;               // ease-out rise
                 const pop = 1 + Math.max(0, (k - 0.72) / 0.28) * 0.6; // 1.6x at spawn → 1x
                 return (
-              <div key={i} className="absolute pointer-events-none font-black" style={{ left: `${f.x}%`, top: `${f.y}%`, color: f.color, fontSize: '2.1vmin', textShadow: '0 1px 2px #000, 0 0 3px rgba(0,0,0,0.6)', zIndex: 208, transform: `translate(calc(-50% + ${(1 - k) * drift}px), calc(-50% - ${rise}px)) scale(${pop})`, opacity: Math.min(1, k * 1.8) }}>{f.text}</div>
+              <div key={i} className="absolute pointer-events-none font-black" style={{ left: `${f.x}%`, top: `${f.y}%`, color: f.color, fontSize: f.text?.includes('YDS') ? '1.8vmin' : '2.1vmin', textShadow: '0 1px 2px #000, 0 0 3px rgba(0,0,0,0.6)', zIndex: 208, transform: `translate(calc(-50% + ${(1 - k) * drift}px), calc(-50% - ${rise}px)) scale(${pop})`, opacity: Math.min(1, k * 1.8), whiteSpace: 'nowrap' }}>{f.text}</div>
                 ); })()
             );
             if (f.type === 'down') return (
@@ -1187,7 +1260,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                         when the drive crosses a 25% milestone (key remount retriggers). */}
                     {b.kind === 'hq' && (
                       <img key={milestoneKey} src="/assets/fx/crowd-strip.png" alt="" draggable={false} className="absolute select-none"
-                        style={{ left: '14%', top: '26%', width: '72%', opacity: 0.85, animation: milestoneKey ? 'fhq-crowdwave 1.2s ease-in-out, fhq-breathe 3s ease-in-out 1.2s infinite' : 'fhq-breathe 3s ease-in-out infinite', transformOrigin: '50% 100%' }} />
+                        style={{ left: '14%', top: '26%', width: '72%', opacity: 0.2 + 0.65 * Math.max(0, 1 - pct / 100) /* the bowl empties as the house is taken */, animation: milestoneKey ? 'fhq-crowdwave 1.2s ease-in-out, fhq-breathe 3s ease-in-out 1.2s infinite' : 'fhq-breathe 3s ease-in-out infinite', transformOrigin: '50% 100%' }} />
                     )}
                   </div>
                   ); })()}
@@ -1203,24 +1276,32 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const jersey = isDefense ? '#1f2937' : '#b91c1c';
             const art = (g as BTroop & { guardArt?: string }).guardArt; // hero defenders carry their portrait
             const isHeroGuard = !!art;
+            const isMascotG = !!(g as BTroop & { isMascot?: boolean }).isMascot;
+            // Mascot-hyped defenders play FRENZIED — red glow while the pulse lasts.
+            const frenzied = g.rageT > 0;
+            const gBaseFilter = isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)';
             return (
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${g.x}%`, top: `${g.y}%`, width: isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isHeroGuard ? 48 : 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                style={{ left: `${g.x}%`, top: `${g.y}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, zIndex: Math.round(g.y) + 99, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {g.hp < g.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
                 <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : g.attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : 'fhq-stepbob 0.21s ease-in-out infinite', rotate: g.attacking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
                   <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
                   {/* Chip fallback hides the moment the sprite loads — no floating bubble. */}
+                  {isMascotG ? (
+                    <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '3.2vmin' }}>🐯</span>
+                  ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <div className="relative" style={{ width: '46%', height: '40%', borderRadius: '50% 50% 42% 42%', background: helm, border: '1px solid rgba(255,255,255,0.3)', marginBottom: '-9%', zIndex: 2 }}>
                       <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '18%', width: '70%', height: '14%', background: stripe, borderRadius: 2 }} />
                     </div>
                     <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: jersey, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{g.jersey}</div>
                   </div>
+                  )}
                   <img src={art ?? unitPlayerSprite(g.unit)} alt="" draggable={false}
                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     onLoad={e => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; }}
                     className="fhq-flat absolute inset-0 w-full h-full object-contain"
-                    style={{ transform: `translateZ(0)${((g as BTroop & { face?: number }).face ?? 1) < 0 ? ' scaleX(-1)' : ''}`, filter: isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)' }} />
+                    style={{ transform: `translateZ(0)${((g as BTroop & { face?: number }).face ?? 1) < 0 ? ' scaleX(-1)' : ''}`, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
                   {/* Hero gate guards WALK too — same two-frame stride, derived from the portrait path */}
                   {isHeroGuard && !g.attacking && (() => {
                     const hk = (art!.match(/heroes\/(\w+)\.png/) || [])[1];
@@ -1514,7 +1595,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               )}
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Ground given up' : 'Field taken'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Ground given up' : 'House taken'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
               {!isDefense && driveStats && (
                 <>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} dmg)</span></span></div>
