@@ -235,7 +235,7 @@ const gClear = (t: number) => gauntletReward(t, 5, true).coins;
 const gRewardMono = Array.from({ length: GAUNTLET_MAX_TIER - 1 }, (_, i) => gClear(i + 2) > gClear(i + 1)).every(Boolean);
 const gMultMono = Array.from({ length: GAUNTLET_MAX_TIER - 1 }, (_, i) => gauntletWaves(i + 2)[4].mult > gauntletWaves(i + 1)[4].mult).every(Boolean);
 const gMax = gClear(GAUNTLET_MAX_TIER);
-check('Gauntlet purse and ramp scale with tier', gRewardMono && gMultMono && gMax >= 9_000 && gMax <= 36_000, `night-${GAUNTLET_MAX_TIER} full clear = ${gMax.toLocaleString()} coins (baseline 18k, band 9k–36k); reward/difficulty monotonic = ${gRewardMono}/${gMultMono}`);
+check('Gauntlet purse and ramp scale with tier', gRewardMono && gMultMono && gMax >= 15_000 && gMax <= 21_000, `night-${GAUNTLET_MAX_TIER} full clear = ${gMax.toLocaleString()} coins (baseline 18k, band 15k–21k — tight enough to catch a ~40% swing); reward/difficulty monotonic = ${gRewardMono}/${gMultMono}`);
 
 if (failures.length) {
   console.error(`\n❌ BALANCE REGRESSION — ${failures.length} target(s) out of band:\n  - ${failures.join('\n  - ')}\n`);
