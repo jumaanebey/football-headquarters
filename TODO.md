@@ -44,6 +44,30 @@ Order agreed as recommendation (soft-launch free first, monetize after retention
 - [ ] Notes: place-your-own decor doubles as a monetization feature (decor shop);
       rewarded ads for non-payers; $4.99 starter pack = classic best converter
 
+## PERFECTION SWEEP — 5 deep dives (July 12, 2fad11c/45b7378/b2d203f — confirm to close)
+
+- [x] ASSETS: 221MB → 15MB (243 sprites palette-quantized, visually identical)
+- [x] Tailwind CDN runtime compiler removed from prod → build-time Tailwind v3
+- [x] CRITICAL cloud-save fixes: newest-wins actually works (true last-played
+      stamp), restore no longer clobbered by unload persist, pagehide for iOS,
+      500KB self-slimming pushes, auth-refresh no longer forks identity, 10s
+      network budgets everywhere
+- [x] CRASH fixed: raid picker threw for players above ~700 trophies
+- [x] Replay integrity: squad stats + the whistle now recorded; spectators
+      can't inject troops; HUD % == verdict % (damage-weighted everywhere,
+      incl. offline sim); Collect double-tap guard; Gauntlet X-exploit dead
+- [x] Board truth: walkers were drawing half a tile off (animate-hop stomp) —
+      fixed + 4 more centering stomps (bubble, banner, LEVEL UP, rings);
+      gate posts moved off buildings/walls (audit now checks posts)
+- [x] Economy guards: double-tap can't double-spend (roll/upgrade/recruit/
+      attack/revenge); Test Defense free; energy banks missed regen; local-
+      midnight resets; 'Crowns' naming unified; phantom XP float removed
+- [ ] ACCEPTED/DEFERRED (documented, low risk): pvp watermark-before-persist
+      crash window (~2s); wall COUNT doesn't grow with stadium (copy fixed;
+      adding tiles = content change); ?edit=1 reachable in prod (it's
+      Jumaane's own layout tool); Gauntlet endgame income dominance (day-
+      capped, by design); recruiting board free rerolls (design)
+
 ## THE GAUNTLET (July 12, dc3362f — confirm to close)
 
 - [ ] SHIPPED: nightly siege mode — 5 escalating waves attack YOUR base
