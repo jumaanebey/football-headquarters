@@ -13,3 +13,4 @@ shot.log
 __pycache__/
 public/asset-review.html
 marketing
+.claude/settings.local.json
