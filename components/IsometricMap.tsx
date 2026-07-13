@@ -74,7 +74,10 @@ const useBoardScale = () => {
 // (The ?bigstadium size-swap preview SHIPPED as the default look, July 11 2026 —
 // backdrop stadium on the west grounds, chalk practice patch dead center.)
 const URL_PARAMS = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-const EDIT_ON = !!URL_PARAMS?.has('edit');
+// The layout editor is dev-only tooling — never ship it (or its ~500 lines of drag/snap
+// handlers and the "paste to Claude" export) to players. DEV-gated so `?edit=1` is inert
+// in the production bundle even if someone finds the flag.
+const EDIT_ON = !!(import.meta as any).env?.DEV && !!URL_PARAMS?.has('edit');
 const GRID_ON = !!URL_PARAMS?.has('grid') || EDIT_ON;
 
 // The ground is a floating turf island (Clash-style): mowed-lawn bands instead of a

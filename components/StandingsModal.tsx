@@ -1,7 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { GameState } from '../types';
-import { computeStandings } from '../league';
 import { rankFor, RANKS, clubPower, clubPowerBreakdown } from '../ranks';
 import { pvpEnabled, fetchLeaderboard, playerId, LeaderRow } from '../pvp';
 import { Trophy, TrendingUp, TrendingDown, Dumbbell, Zap } from 'lucide-react';
@@ -11,19 +10,17 @@ interface Props {
   gameState: GameState;
   onClose: () => void;
   onPlay: () => void;
-  initialTab?: 'live' | 'league' | 'ladder';
+  initialTab?: 'live' | 'ladder';
 }
 
 export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, initialTab }) => {
-  const rows = computeStandings(gameState);
   const played = gameState.matchHistory.length;
-  const myRank = rows.findIndex(r => r.isPlayer) + 1;
   const recent = gameState.matchHistory.slice(0, 5); // newest first
   const ready = gameState.teamReadiness >= 100;
 
   // LIVE leaderboard — real coaches only, ranked by trophies. The competitive spine.
   const live = pvpEnabled();
-  const [tab, setTab] = useState<'live' | 'league' | 'ladder'>(initialTab ?? (live ? 'live' : 'ladder'));
+  const [tab, setTab] = useState<'live' | 'ladder'>(initialTab ?? (live ? 'live' : 'ladder'));
   const [board, setBoard] = useState<LeaderRow[] | null>(null);
   const [copied, setCopied] = useState(false);
   const myPid = playerId();
@@ -44,7 +41,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
       icon={<Trophy className="text-yellow-500" size={22} />}
       subtitle={tab === 'live'
         ? (myLiveRank > 0 ? <>You’re <span className="text-fuchsia-300 font-bold">#{myLiveRank}</span> of {board?.length ?? '…'} real coaches</> : 'Real coaches, ranked by trophies')
-        : <>Practice circuit vs bot squads<span className="text-slate-600"> • </span>{played} games played<span className="text-slate-600"> • </span>You’re <span className="text-yellow-400 font-bold">#{myRank}</span> of {rows.length}</>}
+        : <>Your trophy climb<span className="text-slate-600"> • </span>{played} game{played === 1 ? '' : 's'} played</>}
       onClose={onClose}
       maxWidth="max-w-2xl"
       footer={
@@ -60,7 +57,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
         </div>
       }
     >
-        {/* Tabs — LIVE board = real competition; Ladder = your climb; league = practice bots */}
+        {/* Tabs — LIVE board = real competition; Ranks = your trophy climb. */}
         <div className="flex gap-2 px-5 pt-3 pb-1">
           {live && (
             <button onClick={() => setTab('live')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'live' ? 'bg-fuchsia-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
@@ -69,9 +66,6 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
           )}
           <button onClick={() => setTab('ladder')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'ladder' ? 'bg-yellow-500 text-black' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
             🎖 Ranks
-          </button>
-          <button onClick={() => setTab('league')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'league' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-            🤖 Scrimmage
           </button>
         </div>
 
@@ -141,8 +135,32 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
                   </div>
                 );
               })()}
+
+              {/* Recent results — real match history (newest first) */}
+              {recent.length > 0 && (
+                <div className="pt-2 border-t border-slate-800">
+                  <h3 className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-3">Recent Results</h3>
+                  <div className="space-y-2">
+                    {recent.map((m, i) => (
+                      <div key={i} className="flex items-center justify-between bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center ${m.won ? 'bg-green-600' : 'bg-red-600'}`}>
+                            {m.won ? <TrendingUp size={13} className="text-white" /> : <TrendingDown size={13} className="text-white" />}
+                          </span>
+                          <span className="text-slate-300 text-sm">Game {m.week} vs <span className="font-bold">{m.opponent}</span></span>
+                        </div>
+                        {/* ourScore holds Game Balls (0-3) — show them AS game balls, never as a fake football score */}
+                        <span className="flex items-center gap-1">
+                          {[0, 1, 2].map(i => <span key={i} className="text-sm" style={{ opacity: i < m.ourScore ? 1 : 0.2, filter: i < m.ourScore ? 'none' : 'grayscale(1)' }}>🏈</span>)}
+                          <span className={`ml-1 text-[11px] font-bold uppercase ${m.won ? 'text-green-400' : 'text-red-400'}`}>{m.won ? 'Won' : 'Lost'}</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          ) : tab === 'live' ? (
+          ) : (
             <div className="p-5 pt-3">
               {!board && <div className="text-center text-slate-500 italic py-10">Loading the ladder…</div>}
               {board && board.length === 0 && <div className="text-center text-slate-500 italic py-10">No published rivals yet — raid to plant your flag.</div>}
@@ -179,77 +197,6 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
                 </div>
               )}
             </div>
-          ) : (
-            <>
-              {/* Practice-bot league table (kept for W/L flavor — clearly labeled, not real people) */}
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-slate-900/95 backdrop-blur text-slate-500 text-[10px] uppercase tracking-widest">
-                  <tr>
-                    <th className="text-left py-2 pl-5 w-8">#</th>
-                    <th className="text-left py-2">Team</th>
-                    <th className="text-center py-2 w-10">W</th>
-                    <th className="text-center py-2 w-10">L</th>
-                    <th className="text-center py-2 w-12">PF</th>
-                    <th className="text-center py-2 w-12">PA</th>
-                    <th className="text-center py-2 w-14 pr-5">Diff</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => {
-                    const diff = r.pf - r.pa;
-                    return (
-                      <tr key={r.id} className={`border-t border-slate-800/60 ${r.isPlayer ? 'bg-yellow-500/10' : 'hover:bg-slate-900/50'}`}>
-                        <td className={`py-3 pl-5 font-mono font-bold ${i === 0 ? 'text-yellow-400' : 'text-slate-500'}`}>{i + 1}</td>
-                        <td className="py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ backgroundColor: r.color }} />
-                            <span className={`font-bold ${r.isPlayer ? 'text-yellow-300' : 'text-slate-200'}`}>{r.name}</span>
-                            {r.isPlayer && <span className="text-[9px] font-bold uppercase bg-yellow-500 text-black px-1.5 rounded">You</span>}
-                          </div>
-                        </td>
-                        <td className="py-3 text-center font-mono text-green-400">{r.wins}</td>
-                        <td className="py-3 text-center font-mono text-red-400">{r.losses}</td>
-                        <td className="py-3 text-center font-mono text-slate-300">{r.pf}</td>
-                        <td className="py-3 text-center font-mono text-slate-300">{r.pa}</td>
-                        <td className={`py-3 text-center font-mono font-bold pr-5 ${diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-slate-400'}`}>
-                          {diff > 0 ? `+${diff}` : diff}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {played === 0 && (
-                <div className="text-center text-slate-500 italic py-8 px-5">
-                  No games played yet. Raid a rival to put your first result on the board.
-                </div>
-              )}
-
-              {/* Recent results */}
-              {recent.length > 0 && (
-                <div className="p-5 border-t border-slate-800">
-                  <h3 className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-3">Recent Results</h3>
-                  <div className="space-y-2">
-                    {recent.map((m, i) => (
-                      <div key={i} className="flex items-center justify-between bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-800">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center ${m.won ? 'bg-green-600' : 'bg-red-600'}`}>
-                            {m.won ? <TrendingUp size={13} className="text-white" /> : <TrendingDown size={13} className="text-white" />}
-                          </span>
-                          <span className="text-slate-300 text-sm">Game {m.week} vs <span className="font-bold">{m.opponent}</span></span>
-                        </div>
-                        {/* ourScore holds Game Balls (0-3) — show them AS game balls, never as a fake football score */}
-                        <span className="flex items-center gap-1">
-                          {[0, 1, 2].map(i => <span key={i} className="text-sm" style={{ opacity: i < m.ourScore ? 1 : 0.2, filter: i < m.ourScore ? 'none' : 'grayscale(1)' }}>🏈</span>)}
-                          <span className={`ml-1 text-[11px] font-bold uppercase ${m.won ? 'text-green-400' : 'text-red-400'}`}>{m.won ? 'Won' : 'Lost'}</span>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
           )}
         </div>
 

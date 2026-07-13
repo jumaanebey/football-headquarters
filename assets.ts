@@ -56,8 +56,6 @@ export const unitSpriteForState = (unit: UnitGroup, playerState: PlayerState): s
 export const RESOURCE_ICON = {
   coins: '/assets/icons/coins.png',
   energy: '/assets/icons/energy.png',
-  level: '/assets/icons/level.png',
-  xp: '/assets/icons/xp.png',
 };
 
 // Battle-screen building art. When ATTACKING, buildings wear the crimson RIVAL skins so
