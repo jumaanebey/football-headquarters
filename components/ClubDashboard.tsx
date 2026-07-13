@@ -70,7 +70,7 @@ export const ClubDashboard: React.FC<{ gs: GameState; onClose: () => void }> = (
   return (
     <Sheet title="Club Dashboard" icon={<span>🏙</span>}
       subtitle={<span>{gs.teamName} · {rankInfo.rank.name}</span>} onClose={onClose}>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 p-5">
 
         <Card title="Fan base & campus">
           <div className="flex items-baseline justify-between mb-1.5">

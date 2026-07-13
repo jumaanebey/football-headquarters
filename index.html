@@ -11,54 +11,10 @@
     <meta property="og:url" content="https://football-headquarters.vercel.app" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="apple-touch-icon" href="/assets/brand/app-icon.png" />
+    <meta name="theme-color" content="#0f172a" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏈</text></svg>" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              display: ['Chakra Petch', 'sans-serif'],
-            },
-            colors: {
-              brand: {
-                dark: '#0f172a',
-                accent: '#3b82f6',
-                gold: '#fbbf24',
-              }
-            },
-            animation: {
-              'float': 'float 3s ease-in-out infinite',
-              'bounce-sm': 'bounce-sm 1s infinite',
-              'collect': 'collect 0.8s ease-out forwards',
-              'hop': 'hop 0.4s infinite alternate',
-              'spin-slow': 'spin 3s linear infinite',
-              'fade-in': 'fade-in 0.25s ease-out',
-            },
-            keyframes: {
-              float: {
-                '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-10px)' },
-              },
-              'bounce-sm': {
-                '0%, 100%': { transform: 'translateY(-25%)', animationTimingFunction: 'cubic-bezier(0.8,0,1,1)' },
-                '50%': { transform: 'none', animationTimingFunction: 'cubic-bezier(0,0,0.2,1)' },
-              },
-              collect: {
-                '0%': { opacity: '1', transform: 'translateY(0) scale(1)' },
-                '100%': { opacity: '0', transform: 'translateY(-50px) scale(1.5)' },
-              },
-              hop: {
-                '0%': { transform: 'translateZ(0px)' },
-                '100%': { transform: 'translateZ(10px)' },
-              }
-            }
-          }
-        }
-      }
-    </script>
+        <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
       body {
         background-color: #0f172a;
@@ -66,59 +22,6 @@
         overflow: hidden;
       }
 
-      /* --- VOXEL ENGINE CSS --- */
-      .scene {
-        perspective: 1600px;
-        perspective-origin: 50% 50%;
-        overflow: hidden;
-      }
-
-      .world {
-        transform-style: preserve-3d;
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .space-3d {
-        transform-style: preserve-3d;
-        position: absolute;
-      }
-
-      .cube {
-        transform-style: preserve-3d;
-        position: absolute;
-      }
-
-      .face {
-        position: absolute;
-        backface-visibility: hidden;
-        image-rendering: pixelated;
-      }
-
-      .face-top {
-        transform-origin: top left;
-        transform: rotateX(90deg) translateZ(0);
-      }
-
-      .face-front {
-        transform-origin: bottom left;
-        transform: rotateX(0deg) translateZ(0);
-      }
-
-      .face-right {
-        transform-origin: top right;
-        transform: rotateY(-90deg) translateX(100%);
-      }
-
-      .shade-top { filter: brightness(1.2); }
-      .shade-front { filter: brightness(1.0); }
-      .shade-right { filter: brightness(0.7); }
-      .shade-left { filter: brightness(0.7); }
-
-      .hover-lift:hover {
-        transform: translateZ(10px);
-      }
 
       /* --- BATTLE JUICE --- */
       @keyframes fhq-bob   { 0%,100% { transform: translateY(0); }   50% { transform: translateY(-3px); } }
@@ -178,7 +81,6 @@
       @keyframes fhq-glow { 0%,100% { opacity: .3; } 50% { opacity: .62; } }
       /* --- HERO CARD FLOURISH (Hall of Heroes) --- */
       @keyframes fhq-aura { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      @keyframes fhq-hero-breathe { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.012); } }
       /* Full-body idle: weight-shift sway for most of the cycle, then an anticipation
          squash → hop → landing recover near the end. Origin at the feet. */
       @keyframes fhq-hero-idle {
@@ -284,12 +186,6 @@
         60%,69.9% { opacity: 0; } 70%,79.9% { opacity: 1; }
         80%,100% { opacity: 0; }
       }
-      @keyframes fhq-ball-left {
-        0%,79% { opacity: 0; transform: translate(0,0) scale(0.5) rotate(0deg) scaleX(-1); }
-        83% { opacity: 1; transform: translate(-4px,-2px) scale(0.9) rotate(-20deg) scaleX(-1); }
-        96% { opacity: 1; transform: translate(-140px,-95px) scale(0.5) rotate(-420deg) scaleX(-1); }
-        97%,100% { opacity: 0; transform: translate(-150px,-105px) scale(0.45) rotate(-430deg) scaleX(-1); }
-      }
       .fhq-shine { position: relative; overflow: hidden; }
       .fhq-shine::after { content: ''; position: absolute; top: -30%; bottom: -30%; width: 34%; left: -45%; background: linear-gradient(105deg, transparent, rgba(255,255,255,0.75), transparent); transform: skewX(-20deg); pointer-events: none; }
       .fhq-shine:hover::after { animation: fhq-sweep 0.6s ease-out; }
@@ -316,6 +212,9 @@
 
       /* --- ACCESSIBILITY: honor reduced-motion (POLISH-PLAN D5) --- */
       @media (prefers-reduced-motion: reduce) {
+        /* animated-opacity walk frames freeze as a 4-pose ghost pile — hide them, the flat art stands in */
+        .fhq-rigframe { display: none !important; }
+        .fhq-unit[data-rig="1"] .fhq-flat { visibility: visible !important; }
         *, *::before, *::after {
           animation-duration: 0.01ms !important;
           animation-iteration-count: 1 !important;

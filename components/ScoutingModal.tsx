@@ -146,7 +146,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
               className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95
                 ${canRush ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
             >
-              <Crown size={16} className="fill-current" /> Rush ({RECRUIT_CONFIG.rushGemCost} Gems)
+              <Crown size={16} className="fill-current" /> Rush ({RECRUIT_CONFIG.rushGemCost} Crowns)
             </button>
           </div>
         )}

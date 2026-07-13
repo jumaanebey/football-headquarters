@@ -240,6 +240,11 @@ const fightSong = () => {
   snare(2.5, 0.12);
 };
 
+// iOS creates AudioContexts suspended unless born in a user gesture — the battle's
+// first sounds fire from an effect, not a tap, so warm the context on the first
+// pointer anywhere. One-shot, zero cost after that.
+if (typeof window !== 'undefined') window.addEventListener('pointerdown', () => { ac(); }, { once: true });
+
 export const sfx = {
   thud:    () => impact(60, 0.26, 0.26),                              // boots hit the turf
   boom:    () => { impact(45, 0.5, 0.4); roar(0.8, 0.1); },           // facility sacked

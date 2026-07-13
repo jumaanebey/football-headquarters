@@ -393,8 +393,17 @@ function App() {
   profileRef.current = profile;
   const lastCloudPushRef = useRef(0);
 
+  // The cloud row has a hard 500KB cap (server-side check constraint). Replay film
+  // can push a save past it — and an oversize push 400s SILENTLY on every retry
+  // forever. Slim the pushed copy (drop replay blobs, oldest first) until it fits.
+  const slimForCloud = (gs: GameState): GameState => {
+    let out = gs;
+    if (JSON.stringify(out).length > 450_000) out = { ...out, defenseLog: out.defenseLog.map(en => en.replay ? { ...en, replay: undefined } : en) };
+    if (JSON.stringify(out).length > 450_000) out = { ...out, defenseLog: [], matchHistory: out.matchHistory.slice(0, 10) };
+    return out;
+  };
   const pushSaveToCloud = async (): Promise<boolean> => {
-    const ok = await pushCloudSave(stateRef.current, stateRef.current.teamName || 'Club', clubPower(stateRef.current));
+    const ok = await pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current));
     if (ok) lastCloudPushRef.current = Date.now();
     return ok;
   };
@@ -422,10 +431,15 @@ function App() {
     const localTime = localRecency ?? Date.now();
     if (force || cloudTime > localTime + 90000) { // 90s skew guard — ties keep local
       suppressPersistRef.current = true; // the unload flush must not resurrect the old save
-      try { localStorage.setItem('fhq_backup_precloud', localStorage.getItem(SAVE_KEY) ?? ''); } catch { /* best effort */ }
-      localStorage.setItem(SAVE_KEY, JSON.stringify(cloud.save));
-      try { localStorage.setItem('fhq_saved_at', String(cloudTime || Date.now())); } catch { /* best effort */ }
-      sessionStorage.setItem('fhq_cloud_applied', '1'); // reload-loop guard
+      try {
+        try { localStorage.setItem('fhq_backup_precloud', localStorage.getItem(SAVE_KEY) ?? ''); } catch { /* best effort */ }
+        localStorage.setItem(SAVE_KEY, JSON.stringify(cloud.save));
+        try { localStorage.setItem('fhq_saved_at', String(cloudTime || Date.now())); } catch { /* best effort */ }
+        sessionStorage.setItem('fhq_cloud_applied', '1'); // reload-loop guard
+      } catch {
+        suppressPersistRef.current = false; // write failed (quota/private mode) — re-enable autosave, do NOT strand the session unsaved
+        return 'none';
+      }
       window.location.reload();
       return 'applied';
     }
@@ -467,7 +481,7 @@ function App() {
       // up to the cloud once a minute, quietly
       if ((profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
         lastCloudPushRef.current = Date.now(); // set BEFORE the await — no double-fire
-        pushCloudSave(stateRef.current, stateRef.current.teamName || 'Club', clubPower(stateRef.current)).catch(() => { /* offline — next tick */ });
+        pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current)).catch(() => { /* offline — next tick */ });
       }
     };
     const saveLoop = setInterval(persist, 2000);
@@ -1938,7 +1952,7 @@ function App() {
 
               {/* Perimeter + crowd — automatic layers, shown so the player knows they exist */}
               <div className="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2.5 space-y-1">
-                <div className="text-[12px] text-slate-300"><b>🛑 Perimeter:</b> {walls.length} Blocking Sleds at {wallHpFor(stadiumLevel)} HP — grows automatically with your Stadium (L{stadiumLevel}).</div>
+                <div className="text-[12px] text-slate-300"><b>🛑 Perimeter:</b> {walls.length} Blocking Sleds at {wallHpFor(stadiumLevel)} HP — hardens automatically with your Stadium (L{stadiumLevel}).</div>
                 <div className="text-[12px] text-slate-300">
                   <b>🔊 Home crowd:</b> {gameState.resources.FANS >= 300
                     ? <span className="text-rose-300">{gameState.resources.FANS.toLocaleString()} fans stall enemy drives ~{(0.8 + Math.min(1.7, gameState.resources.FANS / 1500)).toFixed(1)}s every 10s</span>

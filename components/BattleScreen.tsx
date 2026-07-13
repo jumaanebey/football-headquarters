@@ -1550,7 +1550,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     return (
                       <>
                         {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                          <img key={fr} src={`/assets/heroes/rig/${hk}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
+                          <img key={fr} src={`/assets/heroes/rig/${hk}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
                         ))}
                       </>
                     ); })()}
@@ -1647,7 +1647,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       const rigOn2 = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
                       const rigOff2 = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
                       return (['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                        <img key={fr} src={`${base}-${fr}.png`} alt="" draggable={false} onLoad={rigOn2} onError={rigOff2} className="absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${uFlip}` }} />
+                        <img key={fr} src={`${base}-${fr}.png`} alt="" draggable={false} onLoad={rigOn2} onError={rigOff2} className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${uFlip}` }} />
                       )); })()}
                     {/* jersey number rides the real sprite — the announcer talks about #23, so show #23 */}
                     <span className="absolute flex items-center justify-center font-black text-white" style={{ right: '-4%', bottom: '-2%', minWidth: '38%', height: '32%', borderRadius: 4, background: st.color, border: '1px solid rgba(0,0,0,0.55)', fontSize: '1.15vmin', boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t.jersey}</span>

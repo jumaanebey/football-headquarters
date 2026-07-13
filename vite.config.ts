@@ -9,8 +9,6 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       __BUILD_TS__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'),
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },
     resolve: {
       alias: { '@': path.resolve(__dirname, '.') },

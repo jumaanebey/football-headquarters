@@ -17,6 +17,12 @@ export const pvpEnabled = () => !!(URL_ && ANON);
 
 // ── Anonymous auth session ───────────────────────────────────────────────────
 interface Session { access_token: string; refresh_token: string; expires_at: number; uid: string }
+// Every call gets a hard 10s budget — a hanging cell-network fetch must never
+// wedge "Sync now" / sign-in / matchmaking forever. Falls back cleanly where
+// AbortSignal.timeout is unavailable (very old WebKit).
+const tfetch = (url: string, init?: RequestInit): Promise<Response> =>
+  fetch(url, { ...init, signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(10000) : undefined });
+
 const SESSION_KEY = 'fhq_session_v1';
 
 const loadSession = (): Session | null => {
@@ -35,7 +41,7 @@ const toSession = (j: any): Session | null =>
 
 const signUpAnonymous = async (): Promise<Session | null> => {
   try {
-    const res = await fetch(`${URL_}/auth/v1/signup`, {
+    const res = await tfetch(`${URL_}/auth/v1/signup`, {
       method: 'POST', headers: { apikey: ANON!, 'Content-Type': 'application/json' }, body: '{}',
     });
     if (!res.ok) return null;
@@ -45,17 +51,21 @@ const signUpAnonymous = async (): Promise<Session | null> => {
   } catch { return null; }
 };
 
-const refreshSession = async (s: Session): Promise<Session | null> => {
+// Refresh outcome distinguishes "the token is DEAD" (4xx — server rejected it)
+// from "the network hiccuped" (5xx / timeout). Only a dead token may fall through
+// to a fresh anonymous signup — a transient failure used to mint a brand-new
+// identity and silently orphan the player's cloud save, base, and trophies.
+const refreshSession = async (s: Session): Promise<{ session: Session | null; tokenDead: boolean }> => {
   try {
-    const res = await fetch(`${URL_}/auth/v1/token?grant_type=refresh_token`, {
+    const res = await tfetch(`${URL_}/auth/v1/token?grant_type=refresh_token`, {
       method: 'POST', headers: { apikey: ANON!, 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: s.refresh_token }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { session: null, tokenDead: res.status >= 400 && res.status < 500 && res.status !== 429 };
     const ns = toSession(await res.json());
     saveSession(ns);
-    return ns;
-  } catch { return null; }
+    return { session: ns, tokenDead: false };
+  } catch { return { session: null, tokenDead: false }; }
 };
 
 let inflight: Promise<Session | null> | null = null;
@@ -64,8 +74,14 @@ const ensureSession = async (): Promise<Session | null> => {
   const cur = loadSession();
   if (cur && cur.expires_at > Date.now() / 1000 + 60) return cur;
   if (!inflight) {
-    inflight = (async () => (cur?.refresh_token ? await refreshSession(cur) : null) ?? await signUpAnonymous())()
-      .finally(() => { inflight = null; });
+    inflight = (async () => {
+      if (cur?.refresh_token) {
+        const r = await refreshSession(cur);
+        if (r.session) return r.session;
+        if (!r.tokenDead) return null; // transient — keep the identity, no-op this call, retry later
+      }
+      return await signUpAnonymous(); // no session at all, or a definitively dead token
+    })().finally(() => { inflight = null; });
   }
   return inflight;
 };
@@ -99,7 +115,7 @@ export const publishBase = async (name: string, trophies: number, layout: Battle
     const h = await authedHeaders();
     if (!h) return;
     const s = loadSession()!;
-    await fetch(`${URL_}/rest/v1/fhq_bases?on_conflict=pid`, {
+    await tfetch(`${URL_}/rest/v1/fhq_bases?on_conflict=pid`, {
       method: 'POST',
       headers: { ...h, Prefer: 'resolution=merge-duplicates' },
       body: JSON.stringify([{ pid: s.uid, name: name.slice(0, 40), trophies, layout, updated_at: new Date().toISOString() }]),
@@ -129,7 +145,7 @@ export const reportAttack = async (targetPid: string, attackerName: string, star
     const s = loadSession()!;
     // Attach the recorded drive so the defender can watch it (server caps size at 80KB).
     const replayJson = replay && JSON.stringify(replay).length < 75000 ? replay : null;
-    await fetch(`${URL_}/rest/v1/fhq_attacks`, {
+    await tfetch(`${URL_}/rest/v1/fhq_attacks`, {
       method: 'POST', headers: h,
       body: JSON.stringify([{ target_pid: targetPid, attacker_pid: s.uid, attacker_name: attackerName.slice(0, 40), stars, pct, coins_lost: coinsLost, replay: replayJson }]),
     });
@@ -140,7 +156,7 @@ export const reportAttack = async (targetPid: string, attackerName: string, star
 export const fetchBase = async (pid: string): Promise<LiveBase | null> => {
   if (!pvpEnabled()) return null;
   try {
-    const res = await fetch(
+    const res = await tfetch(
       `${URL_}/rest/v1/fhq_bases?pid=eq.${encodeURIComponent(pid)}&select=pid,name,trophies,layout&limit=1`,
       { headers: readHeaders() },
     );
@@ -153,7 +169,7 @@ export const fetchBase = async (pid: string): Promise<LiveBase | null> => {
 export const fetchLeaderboard = async (limit = 20): Promise<LeaderRow[]> => {
   if (!pvpEnabled()) return [];
   try {
-    const res = await fetch(
+    const res = await tfetch(
       `${URL_}/rest/v1/fhq_bases?select=pid,name,trophies&order=trophies.desc,updated_at.desc&limit=${limit}`,
       { headers: readHeaders() },
     );
@@ -181,7 +197,7 @@ export const getProfile = async (): Promise<ProfileInfo | null> => {
   try {
     const h = await authedHeaders();
     if (!h) return null;
-    const res = await fetch(`${URL_}/auth/v1/user`, { headers: h });
+    const res = await tfetch(`${URL_}/auth/v1/user`, { headers: h });
     if (!res.ok) return null;
     const u = await res.json();
     const confirmed = !!u.email_confirmed_at;
@@ -200,7 +216,7 @@ export const linkAccount = async (email: string, password: string): Promise<{ ok
   try {
     const h = await authedHeaders();
     if (!h) return { ok: false, error: 'No connection — try again in a moment.' };
-    const res = await fetch(`${URL_}/auth/v1/user`, { method: 'PUT', headers: h, body: JSON.stringify({ email, password }) });
+    const res = await tfetch(`${URL_}/auth/v1/user`, { method: 'PUT', headers: h, body: JSON.stringify({ email, password }) });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: j?.msg || j?.error_description || 'Could not create the account.' };
     return { ok: true };
@@ -211,7 +227,7 @@ export const linkAccount = async (email: string, password: string): Promise<{ ok
 export const signInWithPassword = async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
   if (!pvpEnabled()) return { ok: false, error: 'Cloud saves are not configured in this build.' };
   try {
-    const res = await fetch(`${URL_}/auth/v1/token?grant_type=password`, {
+    const res = await tfetch(`${URL_}/auth/v1/token?grant_type=password`, {
       method: 'POST', headers: { apikey: ANON!, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
@@ -237,7 +253,7 @@ export const fetchCloudSave = async (): Promise<CloudSave | null> => {
     const h = await authedHeaders();
     if (!h) return null;
     const s = loadSession()!;
-    const res = await fetch(`${URL_}/rest/v1/fhq_saves?pid=eq.${s.uid}&select=save,club_name,updated_at&limit=1`, { headers: h });
+    const res = await tfetch(`${URL_}/rest/v1/fhq_saves?pid=eq.${s.uid}&select=save,club_name,updated_at&limit=1`, { headers: h });
     const rows: CloudSave[] = res.ok ? await res.json() : [];
     return rows[0] ?? null;
   } catch { return null; }
@@ -249,7 +265,7 @@ export const pushCloudSave = async (save: unknown, clubName: string, clubPower: 
     const h = await authedHeaders();
     if (!h) return false;
     const s = loadSession()!;
-    const res = await fetch(`${URL_}/rest/v1/fhq_saves?on_conflict=pid`, {
+    const res = await tfetch(`${URL_}/rest/v1/fhq_saves?on_conflict=pid`, {
       method: 'POST', headers: { ...h, Prefer: 'resolution=merge-duplicates' },
       body: JSON.stringify([{ pid: s.uid, save, club_name: clubName.slice(0, 40), club_power: Math.round(clubPower), updated_at: new Date().toISOString() }]),
     });
@@ -275,7 +291,7 @@ export const fetchAttacksOnMe = async (sinceIso: string): Promise<LiveAttack[]> 
   if (!pvpEnabled()) return [];
   try {
     await ensureSession(); // makes sure fhq_pid is my auth uid before we query by it
-    const res = await fetch(
+    const res = await tfetch(
       `${URL_}/rest/v1/fhq_attacks?target_pid=eq.${playerId()}&created_at=gt.${encodeURIComponent(sinceIso)}&select=id,attacker_name,attacker_pid,stars,pct,coins_lost,created_at,replay&order=created_at.asc&limit=20`,
       { headers: readHeaders() },
     );

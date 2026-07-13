@@ -287,7 +287,7 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
       </div>
       {reveal !== undefined && (
         <>
-          <div className="absolute -translate-x-1/2 rounded-full border-4 border-orange-300" style={{ width: 20, height: 20, left: 0, top: -TILE_H / 2 - 10, opacity: 0, animation: `fhq-reveal-burst 0.8s ease-out ${reveal + 0.15}s both` }} />
+          <div className="absolute rounded-full border-4 border-orange-300" style={{ width: 20, height: 20, left: -10, top: -TILE_H / 2 - 10, opacity: 0, animation: `fhq-reveal-burst 0.8s ease-out ${reveal + 0.15}s both` }} />
           {[0, 1].map(i => (
             <img key={i} src="/assets/fx/spark-star.png" alt="" draggable={false} className="absolute select-none" style={{
               width: 16, left: -22 + i * 30, top: -TILE_H / 2 - 26 + (i % 2) * 14, opacity: 0,
@@ -413,7 +413,7 @@ const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, sc
 // in the art so the game renders live stats onto real screen space.
 const BOARD_ANCHOR = { gx: 3.5, gy: -1, w: 1.65 }; // tall art: slimmer + one row lower keeps the crown in frame at the default camera
 const BOARD_ASPECT = 1.946; // cropped scoreboard-dualdeck.png h/w
-const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number; onOpenStats?: () => void }> = ({ clubName, trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w, onOpenStats }) => {
+const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number; onOpenStats?: () => void; clickGuard?: React.MutableRefObject<boolean> }> = ({ clubName, trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w, onOpenStats, clickGuard }) => {
   // BOARD diagonal BEHIND THE WAR ROOM (Jumaane): ribbon-board art (wide panel,
   // short blocks) sloping down-right along the campus's upper-right edge. Width is
   // the honest max that keeps the panel inside the frame at the default camera —
@@ -425,7 +425,7 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 1 }}>
       <div style={{ position: 'absolute', width: w, height: w * BOARD_ASPECT, left: -w / 2, bottom: -TILE_H / 2 }}>
         <img src="/assets/decor/scoreboard-dualdeck.png" alt="" draggable={false}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          onError={e => { const p = e.currentTarget.parentElement as HTMLElement | null; if (p) p.style.display = 'none'; /* art gone → decks + hitbox go too, no LED text floating in the sky */ }}
           style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
         {/* TWO LIVE DECKS on the art's blank LED surfaces (no fake backing needed —
             the screens ARE dark in the art): club name on the MAIN deck, labeled
@@ -455,7 +455,7 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
             A-frame legs stay click-through for panning. */}
         {onOpenStats && (
           <div className="cursor-pointer" title="Club Dashboard"
-            onClick={e => { e.stopPropagation(); onOpenStats(); }}
+            onClick={e => { e.stopPropagation(); if (clickGuard?.current) { clickGuard.current = false; return; } onOpenStats(); }}
             style={{ position: 'absolute', left: '10%', top: '5%', width: '80%', height: '50%', pointerEvents: 'auto' }} />
         )}
       </div>
@@ -480,7 +480,7 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
             className="fhq-flat absolute inset-0 w-full h-full object-contain" />
           {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
             <img key={fr} src={`/assets/units/${slug}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff}
-              className="absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite` }} />
+              className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite` }} />
           ))}
         </div>
       </div>
@@ -707,14 +707,14 @@ const BuildingSprite: React.FC<{
       {/* 🎉 upgrade-complete burst */}
       {celebrating && (
         <div className="absolute pointer-events-none" style={{ left: 0, bottom: TILE_H * 0.4, zIndex: 70 }}>
-          <div className="absolute -translate-x-1/2 rounded-full border-4 border-yellow-300" style={{ width: 20, height: 20, left: 0, bottom: 0, animation: 'fhq-reveal-burst 0.8s ease-out forwards' }} />
+          <div className="absolute rounded-full border-4 border-yellow-300" style={{ width: 20, height: 20, left: -10 /* margin-centering — the burst keyframe's transform replaces translate classes */, bottom: 0, animation: 'fhq-reveal-burst 0.8s ease-out forwards' }} />
           {[0, 1, 2, 3].map(i => (
             <img key={i} src="/assets/fx/spark-star.png" alt="" draggable={false} className="absolute select-none" style={{
               width: 18, left: -30 + i * 20, bottom: -6 + (i % 2) * 16, opacity: 0,
               animation: `fhq-twinkle 0.9s ease-in-out ${i * 0.18}s 2`,
             }} />
           ))}
-          <div className="absolute -translate-x-1/2 whitespace-nowrap font-display font-black text-yellow-300 text-sm uppercase" style={{ left: 0, bottom: 26, textShadow: '0 2px 4px #000', animation: 'fhq-reveal-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>Level up!</div>
+          <div className="absolute whitespace-nowrap font-display font-black text-yellow-300 text-sm uppercase" style={{ left: 0, bottom: 26, textShadow: '0 2px 4px #000', transform: 'none', translate: '-50% 0' /* standalone `translate` composes with the reveal keyframe's transform */, animation: 'fhq-reveal-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>Level up!</div>
         </div>
       )}
       {/* Glow ring under actionable buildings */}
@@ -731,7 +731,7 @@ const BuildingSprite: React.FC<{
       }}>
         <img src={src} alt={info.name} draggable={false}
           className="select-none transition-transform group-hover:-translate-y-1 group-active:scale-95"
-          style={{ display: 'block', width: '100%', maxWidth: 'none', height: 'auto', filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} />
+          style={{ display: 'block', width: '100%', maxWidth: 'none', height: 'auto', filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
         {/* Scouting HQ chimney smoke — three staggered puffs rising off the roofline */}
         {isAcademy && [0, 1, 2].map(i => (
           <img key={i} src="/assets/fx/smoke-puff.png" alt="" draggable={false} className="absolute select-none" style={{
@@ -821,14 +821,13 @@ const BuildingSprite: React.FC<{
 
       {/* Coin indicator — shows the haul is ready; TAPPING THE BUILDING collects it
           (one tap target per building, no separate button to fight the sprite). */}
+      {/* centering lives on an animation-free wrapper — bounce-sm's transform used to REPLACE the -translate-x-1/2 */}
       {showBubble && (
-        <div
-          data-tour="collect"
-          className="absolute -translate-x-1/2 flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl bg-amber-400 animate-bounce-sm pointer-events-none"
-          style={{ left: 30, top: -30, zIndex: 44 }}
-        >
-          <Coins size={18} className="text-yellow-900 fill-yellow-800" />
-          <span className="text-sm font-display font-bold text-yellow-950">{banked}</span>
+        <div data-tour="collect" className="absolute -translate-x-1/2 pointer-events-none" style={{ left: 30, top: -30, zIndex: 44 }}>
+          <div className="flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl bg-amber-400 animate-bounce-sm">
+            <Coins size={18} className="text-yellow-900 fill-yellow-800" />
+            <span className="text-sm font-display font-bold text-yellow-950">{banked}</span>
+          </div>
         </div>
       )}
     </div>
@@ -855,8 +854,8 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
   const isMoving = player.state === PlayerState.WALKING || isPatrolling;
 
   return (
-    <div className="absolute transition-all duration-[200ms] ease-linear animate-hop pointer-events-none"
-      style={{ left: c.x, top: c.y, zIndex: Math.round((player.worldPos.y / 100) * GRID * 2) + 6, transform: 'translate(-50%,-100%)' }}>
+    <div className="absolute transition-all duration-[200ms] ease-linear pointer-events-none"
+      style={{ left: c.x, top: c.y, zIndex: Math.round(((player.worldPos.x + player.worldPos.y) / 100) * GRID) + 6 /* iso depth = x+y, matching buildings */, transform: 'translate(-50%,-100%)' }}>
       <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30" style={{ bottom: -3, width: 20, height: 7 }} />
       <div className="fhq-unit relative flex items-end justify-center" style={{ width: 30, height: 34, rotate: isMoving ? (facingLeft ? '-2.5deg' : '2.5deg') : undefined }}>
         <div className="absolute bottom-1 w-4 h-6 rounded-t-full rounded-b-sm border border-black/30 flex items-start justify-center shadow" style={{ backgroundColor: color }}>
@@ -1204,7 +1203,7 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
           <GroundLayer buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
-          <Jumbotron clubName={clubName} trophies={showTrophies} fans={showFans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} />
+          <Jumbotron clubName={clubName} trophies={showTrophies} fans={showFans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} clickGuard={panMovedRef} />
           {outerList.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
           ))}
@@ -1347,9 +1346,11 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
 
       {/* 🏙 stage-up banner — one keyframe owns bounce/hold/fade; unmounts at 4.2s */}
       {growthCeleb !== null && (
-        <div className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center" style={{ top: '16%', animation: 'fhq-growstamp 4.2s ease-out both' }}>
+        <div className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none" style={{ top: '16%' }}>
+        <div className="flex flex-col items-center" style={{ animation: 'fhq-growstamp 4.2s ease-out both' }}>
           <div className="font-display font-black uppercase text-orange-300" style={{ fontSize: 30, letterSpacing: 1, textShadow: '0 0 18px rgba(249,115,22,0.8), 0 2px 4px #000' }}>🏙 Campus growing!</div>
           <div className="font-display font-bold uppercase tracking-[0.3em] text-white/90 mt-1" style={{ fontSize: 14, textShadow: '0 1px 3px #000' }}>{GROWTH_STAGES[growthCeleb - 1]?.name}</div>
+        </div>
         </div>
       )}
 

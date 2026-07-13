@@ -1,3 +1,4 @@
+import './tailwind.css'; // build-time Tailwind (replaces the CDN play script)
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';

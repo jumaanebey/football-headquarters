@@ -29,7 +29,12 @@ export const ALL_QUESTS: DailyQuestDef[] = [
 
 export const SWEEP_BONUS_GEMS = 6;
 
-export const todayKey = () => new Date().toISOString().slice(0, 10);
+export const todayKey = () => {
+  // LOCAL calendar date — the UTC version reset dailies and Gauntlet nights at
+  // 4-5pm for a US-Pacific player, wiping in-progress quests mid-evening.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 /** The 3 quests for a given date — seeded by the date so everyone gets the same slate. */
 export const questsForDate = (dateKey: string): DailyQuestDef[] => {

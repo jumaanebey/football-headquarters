@@ -377,7 +377,7 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
     const botFormation = tier >= 2.2 ? 'maxprotect' : tier >= 1.4 ? 'cover3' : 'goalline';
     const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage, formation: b.kind === 'hq' ? botFormation : undefined }));
     const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 30], [50, 70], [38, 64]];
-    const extras = Math.min(6, 1 + Math.floor(tier / 1.1)); // every bot fields real turret coverage — empty bases read as no game
+    const extras = Math.min(extraSpots.length, 1 + Math.floor(tier / 1.1)); // was min(6,...) with 5 spots — guaranteed TypeError opening the raid picker above ~700 trophies // every bot fields real turret coverage — empty bases read as no game
     const flavors: BattleBuildingDef['flavor'][] = ['tshirt', 'ref', 'sled', 'cooler', 'ref']; // varied looks at higher tiers
     for (let e = 0; e < extras; e++) {
       const [x, y] = extraSpots[e];
@@ -753,7 +753,10 @@ export const simulateRaid = (
       b.cooldown -= DT;
       if (b.cooldown <= 0) {
         const prey = nearestTroop(b.x, b.y, troops, b.range);
-        if (prey) { prey.hp -= b.damage; if (prey.hp <= 0) { prey.hp = 0; prey.dead = true; } b.cooldown = 0.7; }
+        // per-flavor cadence mirrors the live sim — the flat 0.7s made a Gatorade
+        // Station ~3.7x more lethal offline than it ever is live
+        const cadence = b.flavor === 'jugs' ? 0.55 : b.flavor === 'ref' ? 0.9 : b.flavor === 'sled' ? 1.1 : b.flavor === 'tshirt' ? 1.15 : b.flavor === 'cooler' ? 2.6 : 0.7;
+        if (prey) { prey.hp -= b.damage; if (prey.hp <= 0) { prey.hp = 0; prey.dead = true; } b.cooldown = cadence; }
         else b.cooldown = 0.1;
       }
     }
@@ -761,8 +764,10 @@ export const simulateRaid = (
     if (allDead || !troops.some(tr => !tr.dead)) break;
   }
 
-  const destroyed = buildings.filter(b => b.dead && b.kind !== 'wall').length;
-  const pct = Math.round((destroyed / total) * 100);
+  // DAMAGE-WEIGHTED pct — the same formula the live battle uses (destroyed-count
+  // here made the offline defense log disagree with any live/Test run of the same fight)
+  const nw = buildings.filter(b => b.kind !== 'wall');
+  const pct = nw.length ? Math.round(nw.reduce((sum, b) => sum + (1 - Math.max(0, b.hp) / (b.maxHp || 1)), 0) / nw.length * 100) : 0;
   const hqDead = buildings.find(b => b.kind === 'hq')?.dead ?? false;
   const stars = (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0);
   return { stars, pct, hqDead };

@@ -186,8 +186,11 @@ export const FORMATIONS: Record<FormationKey, FormationDef> = {
 export interface GatePost { id: string; label: string; gridX: number; gridY: number; }
 const GATE_POSTS: Record<FormationKey, GatePost[]> = {
   goalline:   [{ id: 'north', label: 'North Gate', gridX: 4, gridY: 1 }, { id: 'south', label: 'South Gate', gridX: 5, gridY: 8 }],
-  cover3:     [{ id: 'north', label: 'North Wall', gridX: 4, gridY: 2 }, { id: 'south', label: 'SE Corner Gate', gridX: 7, gridY: 7 }],
-  maxprotect: [{ id: 'north', label: 'Courtyard North', gridX: 4, gridY: 2 }, { id: 'south', label: 'Keep South Gate', gridX: 4, gridY: 7 }],
+  // Posts must sit on OPEN tiles — (7,7) was inside Training's footprint, and
+  // maxprotect's old posts sat on the D1 turret tile / a live wall tile, so gate
+  // heroes spawned inside buildings. Now audited (auditFormation checks posts).
+  cover3:     [{ id: 'north', label: 'North Wall', gridX: 4, gridY: 2 }, { id: 'south', label: 'SE Corner Gate', gridX: 6, gridY: 8 }],
+  maxprotect: [{ id: 'north', label: 'Courtyard North', gridX: 4, gridY: 1 }, { id: 'south', label: 'South Approach', gridX: 5, gridY: 8 }],
 };
 export const gatePostsFor = (f: FormationKey): GatePost[] => GATE_POSTS[f] ?? GATE_POSTS.goalline;
 
@@ -304,6 +307,12 @@ export const auditFormation = (f: FormationKey): string[] => {
     const d = Math.max(Math.abs(sl.gridX - scx), Math.abs(sl.gridY - scy));
     if (sl.kind === 'sled' && d > 2.5) errors.push(`${sl.id} (sled) too far out (d=${d}) — point-blank belongs MID`);
     if ((sl.kind === 'ref' || sl.kind === 'tshirt') && d < 2.5) errors.push(`${sl.id} (${sl.kind}) too close in (d=${d}) — belongs PERIMETER`);
+  }
+  // Hero gate posts stand on OPEN ground — `seen` already holds every claimed tile
+  // (footprints, slots, walls, bus), so any post on a claimed tile is a bug.
+  for (const post of gatePostsFor(f)) {
+    const pk = `${post.gridX},${post.gridY}`;
+    if (seen.has(pk)) errors.push(`gate post ${post.id} at ${pk} sits on an occupied tile`);
   }
   return errors;
 };

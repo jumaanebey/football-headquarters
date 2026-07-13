@@ -47,7 +47,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
     <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose}></div>
 
-      <div className="bg-slate-900 w-[90%] max-w-sm rounded-2xl border border-slate-700 shadow-2xl pointer-events-auto overflow-hidden relative">
+      <div className="bg-slate-900 w-[90%] max-w-sm max-h-[92vh] overflow-y-auto rounded-2xl border border-slate-700 shadow-2xl pointer-events-auto relative">
         <div className={`h-28 ${info.color} bg-opacity-20 relative flex items-center justify-center overflow-hidden`}>
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
           <Hammer size={56} className="text-white/10" />
@@ -96,7 +96,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
                 className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95
                   ${resources.GEMS >= gemCost ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
                 <Crown size={16} className="fill-current" /> Finish Now
-                <span className="text-sm bg-black/20 px-2 py-0.5 rounded">{gemCost} gems</span>
+                <span className="text-sm bg-black/20 px-2 py-0.5 rounded">{gemCost} Crowns</span>
               </button>
             </div>
           ) : gated ? (
@@ -154,7 +154,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
             {builders < MAX_BUILDERS && (
               <button onClick={onHireBuilder} disabled={resources.GEMS < hireCost}
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors ${resources.GEMS >= hireCost ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                <Zap size={12} /> Hire ({hireCost} gems)
+                <Zap size={12} /> Hire ({hireCost} Crowns)
               </button>
             )}
           </div>
