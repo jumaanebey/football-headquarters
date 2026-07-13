@@ -351,6 +351,7 @@ function App() {
   const finishTutorial = (teamName: string, startRaid: boolean) => {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     track('club_created', { startRaid, nameLen: teamName.length });
+    track('tutorial_choice', { stormFirst: startRaid });
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
     if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0)), 400);
@@ -769,6 +770,11 @@ function App() {
     setSelectedBuilding(null);
     sfx.upgrade();
     spawnText('Rushed!', window.innerWidth / 2, window.innerHeight / 2, '#a78bfa');
+    const job = gameState.upgrades.find(u => u.id === jobId);
+    if (job) {
+      const gemCost = skipGemCost(Math.max(0, (job.finishTime - Date.now()) / 1000));
+      if (gameState.resources.GEMS >= gemCost) track('upgrade_finish_now', { gems: gemCost, kind: job.kind });
+    }
   };
 
   const handleHireBuilder = () => {
@@ -780,6 +786,7 @@ function App() {
     });
     sfx.upgrade();
     spawnText('Builder hired!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
+    if (gameState.builders < MAX_BUILDERS && gameState.resources.GEMS >= builderHireCost(gameState.builders)) track('builder_hire', { gems: builderHireCost(gameState.builders), builders: gameState.builders + 1 });
   };
 
   // --- PASSIVE COLLECTORS ---
@@ -947,6 +954,7 @@ function App() {
       pvpTarget,
     });
     if (!launched) return;
+    track('revenge', { live: !!entry.attackerPid });
     setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => e.id === entry.id ? { ...e, avenged: true } : e) }));
     setDefenseLogOpen(false);
   };
@@ -1096,6 +1104,7 @@ function App() {
       if (r.coins > 0) spawnText(`Gate haul +${r.coins} coins!`, window.innerWidth / 2, window.innerHeight / 2, '#fbbf24');
       if (gemReward > 0) spawnText(`+${gemReward} 👑`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
       if (isCampaign && r.won && stageDef && !gameState.campaign.claimed.includes(stage)) spawnText(`First clear! +${stageDef.firstClear.gems} 👑 +${stageDef.firstClear.shards} shards`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
+      if (isCampaign && r.won && stageDef && !gameState.campaign.claimed.includes(stage)) track('campaign_first_clear', { stage, stars: r.stars });
       if (!isCampaign) spawnText(`${trophyDelta >= 0 ? '+' : ''}${trophyDelta} 🏆`, window.innerWidth / 2, window.innerHeight / 2 + 80, trophyDelta >= 0 ? '#22c55e' : '#ef4444');
       // Daily Practice progress
       if (r.won) bumpDaily('win_attack');
@@ -1245,6 +1254,7 @@ function App() {
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
     publishBase(gameState.teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0));
+    track('base_publish', { trophies: gameState.trophies });
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1304,7 +1314,7 @@ function App() {
       campaignStage: stage,
       rival: coachForStage(stage),
     });
-    if (launched) setAttackSelectOpen(false);
+    if (launched) { setAttackSelectOpen(false); track('campaign_start', { stage }); }
   };
 
   // Unlock a hero by paying its coin/gem cost.
@@ -1335,7 +1345,7 @@ function App() {
       return { ...prev, resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - cost }, bonusDefSlots: prev.bonusDefSlots + 1 };
     });
     const ok = gameState.bonusDefSlots < EXTRA_SLOT_COSTS.length && gameState.resources.GEMS >= EXTRA_SLOT_COSTS[gameState.bonusDefSlots];
-    if (ok) { sfx.upgrade(); spawnText('+1 equipment slot!', window.innerWidth / 2, window.innerHeight / 2, '#a855f7'); }
+    if (ok) { sfx.upgrade(); spawnText('+1 equipment slot!', window.innerWidth / 2, window.innerHeight / 2, '#a855f7'); track('slot_buy', { gems: EXTRA_SLOT_COSTS[gameState.bonusDefSlots], slot: gameState.bonusDefSlots + 1 }); }
   };
 
   // ✂️ CUT a player — frees a roster spot so you can scout better talent.
@@ -1431,7 +1441,7 @@ function App() {
       return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, parkingLot: prev.parkingLot + 1 };
     });
     const affordable = gameState.parkingLot < PARKING_LOT.maxLevel && gameState.resources.COINS >= PARKING_LOT.costs[gameState.parkingLot];
-    if (affordable) { sfx.upgrade(); spawnText('🅿️ Parking Lot paved — longer approach for raiders!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80'); setTimeout(publishMyBase, 500); }
+    if (affordable) { sfx.upgrade(); spawnText('🅿️ Parking Lot paved — longer approach for raiders!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80'); setTimeout(publishMyBase, 500); track('parking_lot_pave', { coins: PARKING_LOT.costs[gameState.parkingLot], toLevel: gameState.parkingLot + 1 }); }
   };
 
   const handleResetGame = () => {
