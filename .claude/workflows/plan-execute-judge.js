@@ -39,8 +39,17 @@ export const meta = {
   ],
 }
 
-// ── inputs (accept a bare string goal OR a config object) ──────────────────────
-const input = typeof args === 'string' ? { goal: args } : (args || {})
+// ── inputs (accept a bare string goal, a config object, OR a JSON-encoded string) ──
+let input
+if (typeof args === 'string') {
+  const s = args.trim()
+  // Some callers hand the whole config object through as a JSON string — parse it so
+  // the goal doesn't end up as raw JSON. A plain-text goal is used verbatim.
+  if (s.startsWith('{')) { try { input = JSON.parse(s) } catch { input = { goal: args } } }
+  else input = { goal: args }
+} else {
+  input = args || {}
+}
 const GOAL = (input.goal || '').trim()
 const MAX_ROUNDS = Number.isFinite(input.maxRounds) ? input.maxRounds : 4
 const STD_TIER = input.execTier === 'haiku' ? 'haiku' : 'sonnet'
