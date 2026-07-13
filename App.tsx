@@ -999,6 +999,7 @@ function App() {
   const handleStartGauntlet = () => {
     if (gameState.gauntlet.attempts <= 0 && gameState.gauntlet.date === todayKey()) { sfx.error(); spawnText('No Gauntlet attempts left today', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); return; }
     const tier = Math.min(GAUNTLET_MAX_TIER, gameState.gauntlet.best + 1);
+    track('gauntlet_start', { tier });
     setGameState(prev => {
       // Day rolled over mid-session? Refill FIRST, then consume — stamping today on a
       // carried-over attempt used to eat the whole new day's refill. Floor at 0.
@@ -1113,6 +1114,7 @@ function App() {
       // 🛡 Gauntlet night: pay per wave held; clearing a NEW night banks gems + raises the tier.
       const pay = gauntletReward(r.gauntletTier, r.wavesHeld ?? 0, !!r.gauntletCleared);
       const newBest = !!r.gauntletCleared && r.gauntletTier > gameState.gauntlet.best;
+      track('gauntlet_result', { tier: r.gauntletTier, wavesHeld: r.wavesHeld ?? 0, cleared: !!r.gauntletCleared, newBest });
       setGameState(prev => ({
         ...prev,
         resources: {

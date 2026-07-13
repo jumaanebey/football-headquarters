@@ -19,6 +19,7 @@ import {
   TROOP_STATS, HERO_DEFS, heroForBattle, heroUpgradeCost, heroLevelMult, heroStarMult,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS,
   BattleBuildingDef, BBuilding, BTroop, generateRaidTargets, defenseLayoutFromBase, defenseAiTroops, raidAiMult, simulateRaid,
+  gauntletReward, gauntletWaves, GAUNTLET_MAX_TIER,
 } from './battle';
 import { CAMPAIGN_STAGES, campaignBase } from './campaign';
 import { UnitGroup, BuildingType } from './types';
@@ -185,6 +186,8 @@ let hoursToAllL5 = 0, heroTo15Coins = 0;
   const starGain = (heroStarMult(5) / heroStarMult(1) - 1) * 100;
   const lvlGain = (heroLevelMult(15) / heroLevelMult(10) - 1) * 100;
   console.log(`power: 5★ vs 1★ = +${Math.round(starGain)}% · hero L10→15 = +${Math.round(lvlGain)}% for ${Math.round(heroTo15 - heroTo10).toLocaleString()} coins`);
+  const gClearCoins = (t: number) => gauntletReward(t, 5, true).coins;
+  console.log(`Gauntlet full-clear purse: night-1 ${gClearCoins(1).toLocaleString()} · night-5 ${gClearCoins(5).toLocaleString()} · night-10 ${gClearCoins(10).toLocaleString()} · night-${GAUNTLET_MAX_TIER} ${gClearCoins(GAUNTLET_MAX_TIER).toLocaleString()} coins`);
 }
 console.log('');
 
@@ -224,6 +227,15 @@ check('Hero L15 is a real coin sink', heroTo15Coins >= 350_000 && heroTo15Coins 
 
 // Gacha: direct-buying The Legend (120👑) must stay the smart path vs chasing it in rolls.
 check('Legend direct-buy beats rolling for it', medRollsToLegend * 20 > 200, `median ${medRollsToLegend} rolls ≈ ${medRollsToLegend * 20}👑 vs 120 direct`);
+
+// Gauntlet is pure (no RNG): the purse must keep climbing with tier and the wave-5
+// difficulty ramp must keep climbing too, so pushing further into the ladder always
+// feels like a real step up — band catches drift, not the exact tuned curve.
+const gClear = (t: number) => gauntletReward(t, 5, true).coins;
+const gRewardMono = Array.from({ length: GAUNTLET_MAX_TIER - 1 }, (_, i) => gClear(i + 2) > gClear(i + 1)).every(Boolean);
+const gMultMono = Array.from({ length: GAUNTLET_MAX_TIER - 1 }, (_, i) => gauntletWaves(i + 2)[4].mult > gauntletWaves(i + 1)[4].mult).every(Boolean);
+const gMax = gClear(GAUNTLET_MAX_TIER);
+check('Gauntlet purse and ramp scale with tier', gRewardMono && gMultMono && gMax >= 9_000 && gMax <= 36_000, `night-${GAUNTLET_MAX_TIER} full clear = ${gMax.toLocaleString()} coins (baseline 18k, band 9k–36k); reward/difficulty monotonic = ${gRewardMono}/${gMultMono}`);
 
 if (failures.length) {
   console.error(`\n❌ BALANCE REGRESSION — ${failures.length} target(s) out of band:\n  - ${failures.join('\n  - ')}\n`);
