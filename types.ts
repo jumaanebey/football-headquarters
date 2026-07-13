@@ -164,9 +164,6 @@ export interface GameState {
   teamReadiness: number; // 0-100%
   currentMatch: number; // 1-17
   matchHistory: MatchResult[];
-  level: number;
-  xp: number;
-  xpToNextLevel: number;
   buildings: BuildingInstance[];
   roster: Player[];
   bonusOrbs: BonusOrb[];
