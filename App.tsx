@@ -16,7 +16,7 @@ const ClickAwayCloser: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return null;
 };
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingXpMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap, buildingTiles, inFootprint, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
+import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingYieldMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap, buildingTiles, inFootprint, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap, screenToTile, BOARD_DIMS } from './components/IsometricMap';
@@ -38,6 +38,7 @@ import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from '
 import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, crestForTeam } from './campaign';
 import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, ProfileInfo } from './pvp';
+import { track } from './analytics';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
 import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor, masteryLevel, masteryDefMult, nextMasteryAt, MASTERY_THRESHOLDS } from './fixedBase';
@@ -64,9 +65,6 @@ const INITIAL_STATE: GameState = {
   teamReadiness: 0,
   currentMatch: 1,
   matchHistory: [],
-  level: 1,
-  xp: 0,
-  xpToNextLevel: 100,
   // Snap to the starter formation even for brand-new saves — fresh players never
   // pass through loadState's migration, so anchor drift here would ship scrambled.
   buildings: INITIAL_BUILDINGS.map(b => ({ ...b, gridX: anchorsFor('goalline')[b.type].gridX, gridY: anchorsFor('goalline')[b.type].gridY })),
@@ -259,7 +257,7 @@ function App() {
   const [isSquadOpen, setIsSquadOpen] = useState(false);
   const [isScoutingOpen, setIsScoutingOpen] = useState(false);
   const [isStandingsOpen, setIsStandingsOpen] = useState(false);
-  const [standingsTab, setStandingsTab] = useState<'live' | 'league' | 'ladder' | undefined>(undefined);
+  const [standingsTab, setStandingsTab] = useState<'live' | 'ladder' | undefined>(undefined);
   const [attackSelectOpen, setAttackSelectOpen] = useState(false);
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
@@ -352,6 +350,8 @@ function App() {
 
   const finishTutorial = (teamName: string, startRaid: boolean) => {
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
+    track('club_created', { startRaid, nameLen: teamName.length });
+    track('tutorial_choice', { stormFirst: startRaid });
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
     if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0)), 400);
@@ -681,6 +681,9 @@ function App() {
      if (!building.activeDrillId) return;
      const drill = DRILLS[building.activeDrillId];
 
+     // Training Field level boosts the coin payout of every drill (its real, wired effect).
+     const pitch = gameState.buildings.find(b => b.type === 'TRAINING_PITCH');
+     const drillCoins = Math.round(drill.rewardCoins * trainingYieldMult(pitch ? pitch.level : 1));
 
      setGameState(prev => {
        // War Room (Tactics) sharpens the game plan → more readiness per drill.
@@ -690,7 +693,7 @@ function App() {
 
        return {
          ...prev,
-         resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS + drill.rewardCoins },
+         resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS + drillCoins },
          teamReadiness: newReadiness,
          roster: prev.roster.map(p => {
            if (drill.targetUnit === 'ALL' || p.unit === building.targetUnit) { // scrimmage trains the whole squad
@@ -708,8 +711,8 @@ function App() {
        };
      });
 
-     spawnText(`+${drill.rewardCoins} Coins`, screenPos.x, screenPos.y, '#fbbf24');
-     spawnCoinArc(screenPos, drill.rewardCoins);
+     spawnText(`+${drillCoins} Coins`, screenPos.x, screenPos.y, '#fbbf24');
+     spawnCoinArc(screenPos, drillCoins);
      spawnText('Squad +1 LVL', screenPos.x, screenPos.y - 30, '#3b82f6'); // the REAL reward — the old float advertised XP that no system ever recorded
      sfx.collect();
      bumpDaily('drills');
@@ -747,6 +750,7 @@ function App() {
     setSelectedBuilding(null);
     sfx.click();
     spawnText('Under construction…', window.innerWidth / 2, window.innerHeight / 2, '#60a5fa');
+    track('building_upgrade', { type: building.type, toLevel });
   };
 
   const handleFinishNow = (jobId: string) => {
@@ -766,6 +770,11 @@ function App() {
     setSelectedBuilding(null);
     sfx.upgrade();
     spawnText('Rushed!', window.innerWidth / 2, window.innerHeight / 2, '#a78bfa');
+    const job = gameState.upgrades.find(u => u.id === jobId);
+    if (job) {
+      const gemCost = skipGemCost(Math.max(0, (job.finishTime - Date.now()) / 1000));
+      if (gameState.resources.GEMS >= gemCost) track('upgrade_finish_now', { gems: gemCost, kind: job.kind });
+    }
   };
 
   const handleHireBuilder = () => {
@@ -777,6 +786,7 @@ function App() {
     });
     sfx.upgrade();
     spawnText('Builder hired!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
+    if (gameState.builders < MAX_BUILDERS && gameState.resources.GEMS >= builderHireCost(gameState.builders)) track('builder_hire', { gems: builderHireCost(gameState.builders), builders: gameState.builders + 1 });
   };
 
   // --- PASSIVE COLLECTORS ---
@@ -900,6 +910,7 @@ function App() {
     setLiveTargets([]);
     if (pvpEnabled()) findOpponents(gameState.trophies).then(setLiveTargets);
     setAttackSelectOpen(true);
+    track('raid_open', { trophies: gameState.trophies });
   };
 
   // Take REVENGE on a rival who raided you — storm their (scaled) base for extra loot.
@@ -943,6 +954,7 @@ function App() {
       pvpTarget,
     });
     if (!launched) return;
+    track('revenge', { live: !!entry.attackerPid });
     setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => e.id === entry.id ? { ...e, avenged: true } : e) }));
     setDefenseLogOpen(false);
   };
@@ -995,6 +1007,7 @@ function App() {
   const handleStartGauntlet = () => {
     if (gameState.gauntlet.attempts <= 0 && gameState.gauntlet.date === todayKey()) { sfx.error(); spawnText('No Gauntlet attempts left today', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); return; }
     const tier = Math.min(GAUNTLET_MAX_TIER, gameState.gauntlet.best + 1);
+    track('gauntlet_start', { tier });
     setGameState(prev => {
       // Day rolled over mid-session? Refill FIRST, then consume — stamping today on a
       // carried-over attempt used to eat the whole new day's refill. Floor at 0.
@@ -1046,6 +1059,15 @@ function App() {
 
   const handleBattleFinish = (r: BattleResult) => {
     if (r.isReplay) { setBattleConfig(null); return; } // spectating awards nothing
+    track('battle_result', {
+      mode: r.mode,
+      won: r.won,
+      stars: r.stars,
+      pct: r.pct,
+      campaign: !!r.campaignStage,
+      gauntlet: r.gauntletTier !== undefined,
+      live: !!r.pvpTarget,
+    });
     if (r.mode === 'attack') {
       const isCampaign = !!r.campaignStage;
       // Raids move the trophy ladder + pay star-gems; campaign pays via first-clear bounties instead.
@@ -1082,6 +1104,7 @@ function App() {
       if (r.coins > 0) spawnText(`Gate haul +${r.coins} coins!`, window.innerWidth / 2, window.innerHeight / 2, '#fbbf24');
       if (gemReward > 0) spawnText(`+${gemReward} 👑`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
       if (isCampaign && r.won && stageDef && !gameState.campaign.claimed.includes(stage)) spawnText(`First clear! +${stageDef.firstClear.gems} 👑 +${stageDef.firstClear.shards} shards`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
+      if (isCampaign && r.won && stageDef && !gameState.campaign.claimed.includes(stage)) track('campaign_first_clear', { stage, stars: r.stars });
       if (!isCampaign) spawnText(`${trophyDelta >= 0 ? '+' : ''}${trophyDelta} 🏆`, window.innerWidth / 2, window.innerHeight / 2 + 80, trophyDelta >= 0 ? '#22c55e' : '#ef4444');
       // Daily Practice progress
       if (r.won) bumpDaily('win_attack');
@@ -1100,6 +1123,7 @@ function App() {
       // 🛡 Gauntlet night: pay per wave held; clearing a NEW night banks gems + raises the tier.
       const pay = gauntletReward(r.gauntletTier, r.wavesHeld ?? 0, !!r.gauntletCleared);
       const newBest = !!r.gauntletCleared && r.gauntletTier > gameState.gauntlet.best;
+      track('gauntlet_result', { tier: r.gauntletTier, wavesHeld: r.wavesHeld ?? 0, cleared: !!r.gauntletCleared, newBest });
       setGameState(prev => ({
         ...prev,
         resources: {
@@ -1153,6 +1177,7 @@ function App() {
       bumpDaily('train_hero');
       sfx.upgrade();
       spawnText('Training session started 🏋️', window.innerWidth / 2, window.innerHeight / 2, '#facc15');
+      track('hero_upgrade', { key, toLevel: (h0?.level ?? 0) + 1 });
     }
   };
 
@@ -1187,6 +1212,7 @@ function App() {
     });
     sfx.collect();
     spawnText('Daily reward claimed!', window.innerWidth / 2, window.innerHeight / 2, '#f43f5e');
+    track('daily_claim', { id });
   };
 
   const dailyClaimable = questsForDate(gameState.dailies.date)
@@ -1228,8 +1254,14 @@ function App() {
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
     publishBase(gameState.teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0));
+    track('base_publish', { trophies: gameState.trophies });
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One session_start per load — the denominator for every retention/funnel metric.
+  useEffect(() => {
+    track('session_start', { trophies: gameState.trophies, returning: localStorage.getItem(TUTORIAL_KEY) === '1' });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // SCOUT SEARCH (hero gacha): spend gems, get a new hero or shards toward a star-up.
   const handleRollHero = () => {
@@ -1248,6 +1280,7 @@ function App() {
     setLastRoll(res);
     bumpDaily('scout');
     if (res.isNew) sfx.victory(); else sfx.sign();
+    track('scout_search', { isNew: res.isNew, key: res.key, shards: res.shards ?? 0 });
   };
 
   // Star-up: spend a hero's banked shards for a big evolution power spike.
@@ -1261,6 +1294,7 @@ function App() {
     });
     sfx.upgrade();
     spawnText('⭐ STAR UP!', window.innerWidth / 2, window.innerHeight / 2, '#fde047');
+    track('hero_starup', { key });
   };
 
   // Launch a Season campaign stage (deterministic ladder — the PvE spine).
@@ -1280,7 +1314,7 @@ function App() {
       campaignStage: stage,
       rival: coachForStage(stage),
     });
-    if (launched) setAttackSelectOpen(false);
+    if (launched) { setAttackSelectOpen(false); track('campaign_start', { stage }); }
   };
 
   // Unlock a hero by paying its coin/gem cost.
@@ -1311,7 +1345,7 @@ function App() {
       return { ...prev, resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - cost }, bonusDefSlots: prev.bonusDefSlots + 1 };
     });
     const ok = gameState.bonusDefSlots < EXTRA_SLOT_COSTS.length && gameState.resources.GEMS >= EXTRA_SLOT_COSTS[gameState.bonusDefSlots];
-    if (ok) { sfx.upgrade(); spawnText('+1 equipment slot!', window.innerWidth / 2, window.innerHeight / 2, '#a855f7'); }
+    if (ok) { sfx.upgrade(); spawnText('+1 equipment slot!', window.innerWidth / 2, window.innerHeight / 2, '#a855f7'); track('slot_buy', { gems: EXTRA_SLOT_COSTS[gameState.bonusDefSlots], slot: gameState.bonusDefSlots + 1 }); }
   };
 
   // ✂️ CUT a player — frees a roster spot so you can scout better talent.
@@ -1407,7 +1441,7 @@ function App() {
       return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, parkingLot: prev.parkingLot + 1 };
     });
     const affordable = gameState.parkingLot < PARKING_LOT.maxLevel && gameState.resources.COINS >= PARKING_LOT.costs[gameState.parkingLot];
-    if (affordable) { sfx.upgrade(); spawnText('🅿️ Parking Lot paved — longer approach for raiders!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80'); setTimeout(publishMyBase, 500); }
+    if (affordable) { sfx.upgrade(); spawnText('🅿️ Parking Lot paved — longer approach for raiders!', window.innerWidth / 2, window.innerHeight / 2, '#4ade80'); setTimeout(publishMyBase, 500); track('parking_lot_pave', { coins: PARKING_LOT.costs[gameState.parkingLot], toLevel: gameState.parkingLot + 1 }); }
   };
 
   const handleResetGame = () => {

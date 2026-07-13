@@ -136,7 +136,7 @@ export const INITIAL_BUILDINGS: BuildingInstance[] = [
 ];
 
 export const BUILDING_INFO = {
-  [BuildingType.TRAINING_PITCH]: { name: 'Training Field', color: '#10b981', description: 'Increases XP gained from drills.' },
+  [BuildingType.TRAINING_PITCH]: { name: 'Training Field', color: '#10b981', description: 'Boosts coins earned from drills.' },
   [BuildingType.YOUTH_ACADEMY]: { name: 'Scouting Dept', color: '#3b82f6', description: 'Raises your roster cap so you can sign more players.' },
   [BuildingType.TACTICS_ROOM]: { name: 'Film Room', color: '#9333ea', description: 'Break down the film, sharpen the game plan — boosts team readiness gained from drills.' },
   [BuildingType.MEDICAL_CENTER]: { name: 'Rehab Center', color: '#ef4444', description: 'Increases Energy Regen rate.' },
@@ -414,7 +414,7 @@ export const RECRUIT_LAST_NAMES = ['Steel', 'Storm', 'Rhodes', 'Blaze', 'Cannon'
 
 // --- BUILDING EFFECTS (single source of truth; used by the game loop AND the upgrade modal
 //     so the displayed stat is always the REAL wired effect, never a placeholder) ---
-export const trainingXpMult      = (level: number) => 1 + level * 0.1; // Training Field: +10% drill XP / level
+export const trainingYieldMult    = (level: number) => 1 + level * 0.1; // Training Field: +10% drill coin payout / level
 export const warRoomReadinessMult = (level: number) => 1 + level * 0.1; // War Room: +10% drill readiness / level
 export const energyIntervalMs    = (medLevel: number) => Math.max(4000, 8000 - (medLevel - 1) * 800); // Rehab Center regen cadence
 
@@ -424,7 +424,7 @@ export const buildingEffect = (type: BuildingType, level: number): { label: stri
     case BuildingType.STADIUM:
       return { label: 'Income', value: `${Math.round(collectorRate(type, level) * 60)}/min` };
     case BuildingType.TRAINING_PITCH:
-      return { label: 'Drill XP', value: `+${Math.round((trainingXpMult(level) - 1) * 100)}%` };
+      return { label: 'Drill Payout', value: `+${Math.round((trainingYieldMult(level) - 1) * 100)}%` };
     case BuildingType.MEDICAL_CENTER:
       return { label: 'Energy Regen', value: `${(60000 / energyIntervalMs(level)).toFixed(1)}/min` };
     case BuildingType.YOUTH_ACADEMY:
