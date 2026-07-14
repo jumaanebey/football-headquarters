@@ -1,10 +1,26 @@
 // Headless balance harness — runs the REAL game math (battle/campaign/gacha/economy)
-// across player-progression tiers. Throwaway: bundled with esbuild, run in node.
+// across player-progression tiers. Bundled with esbuild, run in node.
+//
+// Doubles as a CI GUARD: after printing the report it asserts the measured curves
+// against the BALANCE.md targets and exits non-zero on regression, so a stray tweak to
+// campaign/battle/gacha/economy constants can't silently break the game's math.
+//
+// RNG is SEEDED (mulberry32) so raid-target selection and the gacha Monte Carlo are
+// reproducible run-to-run — assertions can be tight and CI never flakes.
+const mulberry32 = (seed: number) => () => {
+  seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+Math.random = mulberry32(0x1234abcd);
+
 import {
   TROOP_STATS, HERO_DEFS, heroForBattle, heroUpgradeCost, heroLevelMult, heroStarMult,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS,
   BattleBuildingDef, BBuilding, BTroop, generateRaidTargets, defenseLayoutFromBase, defenseAiTroops, raidAiMult, simulateRaid,
   effectiveStat, unitCombatStats, ENEMY_BASES, SimAttacker,
+  gauntletReward, gauntletWaves, GAUNTLET_MAX_TIER,
 } from './battle';
 import { CAMPAIGN_STAGES, campaignBase } from './campaign';
 import { UnitGroup, BuildingType, PlayerRarity, PlayerRole } from './types';
@@ -86,16 +102,21 @@ for (const st of CAMPAIGN_STAGES) {
 }
 
 // ---------- 2. RAID LADDER (matchmaking difficulty vs tier) ----------
-console.log('\n===== 2. RAIDS — avg % destroyed / win rate over 40 random targets at tier-typical trophies =====');
+console.log('\n===== 2. RAIDS — avg % destroyed / win rate over 400 random targets at tier-typical trophies =====');
 const TIER_TROPHIES = [0, 150, 450, 1000, 1800];
+// 400 samples/tier (not 40): the CI assertion needs the win rate to CONVERGE near its
+// true mean so the band is a stable signal, not a coin-flip on the seed.
+const RAID_SAMPLES = 400;
+const raidWinPct: number[] = [];
 TIERS.forEach((t, i) => {
   let wins = 0, pctSum = 0, starsSum = 0;
-  for (let k = 0; k < 40; k++) {
+  for (let k = 0; k < RAID_SAMPLES; k++) {
     const target = generateRaidTargets(TIER_TROPHIES[i])[Math.floor(Math.random() * 3)];
     const r = simBattle(target.buildings, buildArmy(t));
     pctSum += r.pct; starsSum += r.stars; if (r.stars > 0) wins++;
   }
-  console.log(`${t.name} @${String(TIER_TROPHIES[i]).padStart(4)}🏆: win ${Math.round(wins / 40 * 100)}%  avg ${Math.round(pctSum / 40)}%  avg⭐ ${(starsSum / 40).toFixed(1)}`);
+  raidWinPct[i] = Math.round(wins / RAID_SAMPLES * 100);
+  console.log(`${t.name} @${String(TIER_TROPHIES[i]).padStart(4)}🏆: win ${raidWinPct[i]}%  avg ${Math.round(pctSum / RAID_SAMPLES)}%  avg⭐ ${(starsSum / RAID_SAMPLES).toFixed(1)}`);
 });
 
 // ---------- 3. DEFENSE (offline raids) with tendency boost ----------
@@ -120,6 +141,7 @@ TIERS.forEach((t, i) => {
 
 // ---------- 4. GACHA ECONOMICS (Monte Carlo) ----------
 console.log('\n===== 4. GACHA — Monte Carlo (2000 runs) =====');
+let medRollsToAll = 0, medRollsToLegend = 0;
 {
   let rollsToAll: number[] = [], rollsToLegend: number[] = [];
   for (let run = 0; run < 2000; run++) {
@@ -136,14 +158,17 @@ console.log('\n===== 4. GACHA — Monte Carlo (2000 runs) =====');
     rollsToAll.push(gotAll || 400); rollsToLegend.push(gotLegend || 400);
   }
   const med = (a: number[]) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)];
-  console.log(`median rolls to unlock ALL heroes: ${med(rollsToAll)}  (=${med(rollsToAll) * 25} gems)`);
-  console.log(`median rolls to hit The Legend:    ${med(rollsToLegend)}  (=${med(rollsToLegend) * 25} gems; direct-buy = 120)`);
+  medRollsToAll = med(rollsToAll);
+  medRollsToLegend = med(rollsToLegend);
+  console.log(`median rolls to unlock ALL heroes: ${medRollsToAll}  (=${medRollsToAll * 25} gems)`);
+  console.log(`median rolls to hit The Legend:    ${medRollsToLegend}  (=${medRollsToLegend * 25} gems; direct-buy = 120)`);
   // shard flow: avg shards per duplicate roll ≈ 13; cost 1→5★ = 25+50+90+140 = 305
   console.log(`shards needed 1★→5★ per hero: 305 (≈${Math.ceil(305 / 13)} duplicate pulls of THAT hero)`);
 }
 
 // ---------- 5. ECONOMY THROUGHPUT (closed-form) ----------
 console.log('\n===== 5. ECONOMY =====');
+let hoursToAllL5 = 0, heroTo15Coins = 0;
 {
   const upCost = (l: number) => Math.floor(UPGRADE_CONFIG.baseCost * Math.pow(UPGRADE_CONFIG.costMultiplier, l - 1));
   const toL5 = (upCost(1) + upCost(2) + upCost(3) + upCost(4)) * 5;
@@ -151,15 +176,19 @@ console.log('\n===== 5. ECONOMY =====');
   const drillsPerHr = Math.min(3600 / drill.durationSeconds, (100 + 7.5 * 60) / drill.costEnergy); // energy-bound at L1 regen
   const activeCoinsHr = drillsPerHr * drill.rewardCoins + (COLLECTOR_CONFIG[BuildingType.STADIUM]!.ratePerSecPerLevel * 3600) * 3; // drills + stadium L3-ish
   const raidCoinsHr = 12 * 550; // ~12 raids/hr at ~550 avg loot
+  hoursToAllL5 = toL5 / (activeCoinsHr + raidCoinsHr);
   console.log(`all 5 buildings L1→L5 cost: ${toL5.toLocaleString()} coins`);
-  console.log(`active income ≈ ${Math.round(activeCoinsHr).toLocaleString()}/hr (drills+stadium) + ${raidCoinsHr.toLocaleString()}/hr raiding → ~${((toL5) / (activeCoinsHr + raidCoinsHr)).toFixed(1)}h to all-L5`);
+  console.log(`active income ≈ ${Math.round(activeCoinsHr).toLocaleString()}/hr (drills+stadium) + ${raidCoinsHr.toLocaleString()}/hr raiding → ~${hoursToAllL5.toFixed(1)}h to all-L5`);
   const heroTo10 = Array.from({ length: 9 }, (_, i) => heroUpgradeCost(i + 1)).reduce((a, b) => a + b, 0);
   const heroTo15 = Array.from({ length: 14 }, (_, i) => heroUpgradeCost(i + 1)).reduce((a, b) => a + b, 0);
+  heroTo15Coins = heroTo15;
   console.log(`ONE hero L1→10: ${Math.round(heroTo10).toLocaleString()} coins · L1→15: ${Math.round(heroTo15).toLocaleString()} coins · ×9 heroes L15 = ${Math.round(heroTo15 * 9).toLocaleString()}`);
   console.log(`gems/day F2P ≈ dailies 15-23 + raids ~20-40 → ~40-60/day → rolls/day ≈ 1.6-2.4 · Legend direct (120) ≈ 2-3 days`);
   const starGain = (heroStarMult(5) / heroStarMult(1) - 1) * 100;
   const lvlGain = (heroLevelMult(15) / heroLevelMult(10) - 1) * 100;
   console.log(`power: 5★ vs 1★ = +${Math.round(starGain)}% · hero L10→15 = +${Math.round(lvlGain)}% for ${Math.round(heroTo15 - heroTo10).toLocaleString()} coins`);
+  const gClearCoins = (t: number) => gauntletReward(t, 5, true).coins;
+  console.log(`Gauntlet full-clear purse: night-1 ${gClearCoins(1).toLocaleString()} · night-5 ${gClearCoins(5).toLocaleString()} · night-10 ${gClearCoins(10).toLocaleString()} · night-${GAUNTLET_MAX_TIER} ${gClearCoins(GAUNTLET_MAX_TIER).toLocaleString()} coins`);
 }
 // ---------- 6. RARITY & ROLE COMBAT (P0-1 / P1-2 acceptance) ----------
 console.log('\n===== 6. RARITY & ROLES — effectiveStat / unitCombatStats / scripted sims =====');
@@ -193,3 +222,55 @@ console.log('\n===== 6. RARITY & ROLES — effectiveStat / unitCombatStats / scr
   console.log(`WR corps w/ QB on the field: ${wrWithQB.pct}% vs w/o QB: ${wrNoQB.pct}% ${wrWithQB.pct > wrNoQB.pct ? '→ RECEIVER FLAG LIVE' : '(no edge this layout)'}`);
 }
 console.log('');
+
+// ---------- 6. ASSERTIONS (CI GUARD) ----------
+// Bands are wider than the exact tuned values so ordinary tuning passes, but a curve
+// that drifts out of its BALANCE.md target range fails the build. Ranges — not equality —
+// because the intent ("raids are winnable but not trivial at your own tier") is a band,
+// not a magic number. If you INTEND to move a target, update BALANCE.md and the band here.
+console.log('===== 6. ASSERTIONS (vs BALANCE.md targets) =====');
+const failures: string[] = [];
+const check = (name: string, ok: boolean, detail: string) => {
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name} — ${detail}`);
+  if (!ok) failures.push(`${name}: ${detail}`);
+};
+
+// Campaign is deterministic (no RNG): the final boss must demand active play at T4 but
+// never be a walkover, and must wall a fresh (T0) roster well before the endgame.
+const champ = CAMPAIGN_STAGES[CAMPAIGN_STAGES.length - 1];
+const champBase = campaignBase(champ.stage);
+const champT4 = simBattle(champBase.buildings, buildArmy(TIERS[4])).pct;
+const champT0 = simBattle(champBase.buildings, buildArmy(TIERS[0])).pct;
+check('Championship demands actives at T4', champT4 >= 30 && champT4 <= 62, `s${champ.stage} T4 sim = ${champT4}% (target ~46%, band 30–62)`);
+check('Championship walls a fresh roster', champT0 <= 40, `s${champ.stage} T0 sim = ${champT0}% (must be far from a clear)`);
+
+// Raid ladder: generous onboarding, biting-but-winnable at the top. NOTE the bands are
+// on the CONSERVATIVE sim (no plays/mascot/hero abilities) — BALANCE.md notes real play
+// runs +25–40% above sim, so a ~46% sim win rate at T3 ≈ ~60% live. The band's job is to
+// catch DRIFT from today's baseline (T0 100, T3 46, T4 67), not to enforce the live target.
+check('Onboarding raids are generous (T0)', raidWinPct[0] >= 80, `T0 win ${raidWinPct[0]}% (baseline 100)`);
+check('Endgame raids winnable-not-trivial (T3)', raidWinPct[3] >= 40 && raidWinPct[3] <= 85, `T3 win ${raidWinPct[3]}% (sim baseline 46, band 40–85)`);
+check('Endgame raids winnable-not-trivial (T4)', raidWinPct[4] >= 40 && raidWinPct[4] <= 85, `T4 win ${raidWinPct[4]}% (sim baseline 67, band 40–85)`);
+
+// Economy: all buildings to L5 stays a focused-session goal, not a grind wall.
+check('All-L5 is a focused session', hoursToAllL5 >= 1.5 && hoursToAllL5 <= 6, `${hoursToAllL5.toFixed(1)}h (target 3–5, band 1.5–6)`);
+// One hero to L15 stays the long-term coin sink.
+check('Hero L15 is a real coin sink', heroTo15Coins >= 350_000 && heroTo15Coins <= 700_000, `${Math.round(heroTo15Coins).toLocaleString()} coins (target ~503k)`);
+
+// Gacha: direct-buying The Legend (120👑) must stay the smart path vs chasing it in rolls.
+check('Legend direct-buy beats rolling for it', medRollsToLegend * 20 > 200, `median ${medRollsToLegend} rolls ≈ ${medRollsToLegend * 20}👑 vs 120 direct`);
+
+// Gauntlet is pure (no RNG): the purse must keep climbing with tier and the wave-5
+// difficulty ramp must keep climbing too, so pushing further into the ladder always
+// feels like a real step up — band catches drift, not the exact tuned curve.
+const gClear = (t: number) => gauntletReward(t, 5, true).coins;
+const gRewardMono = Array.from({ length: GAUNTLET_MAX_TIER - 1 }, (_, i) => gClear(i + 2) > gClear(i + 1)).every(Boolean);
+const gMultMono = Array.from({ length: GAUNTLET_MAX_TIER - 1 }, (_, i) => gauntletWaves(i + 2)[4].mult > gauntletWaves(i + 1)[4].mult).every(Boolean);
+const gMax = gClear(GAUNTLET_MAX_TIER);
+check('Gauntlet purse and ramp scale with tier', gRewardMono && gMultMono && gMax >= 15_000 && gMax <= 21_000, `night-${GAUNTLET_MAX_TIER} full clear = ${gMax.toLocaleString()} coins (baseline 18k, band 15k–21k — tight enough to catch a ~40% swing); reward/difficulty monotonic = ${gRewardMono}/${gMultMono}`);
+
+if (failures.length) {
+  console.error(`\n❌ BALANCE REGRESSION — ${failures.length} target(s) out of band:\n  - ${failures.join('\n  - ')}\n`);
+  process.exit(1);
+}
+console.log('\n✅ All balance targets within band.\n');
