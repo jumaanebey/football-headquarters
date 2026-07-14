@@ -12,7 +12,7 @@ export interface Objective {
 }
 
 // A single concurrent goal shown in the Goals panel. `id` routes the tap to an action.
-export type GoalId = 'collect-drill' | 'play' | 'collect-coins' | 'fortify' | 'train' | 'upgrade' | 'recruit' | 'raid';
+export type GoalId = 'collect-drill' | 'play' | 'collect-coins' | 'fortify' | 'train' | 'upgrade' | 'recruit' | 'raid' | 'campaign';
 export interface ObjectiveItem {
   id: GoalId;
   text: string;
@@ -24,6 +24,11 @@ export interface ObjectiveItem {
 // FIXED BASE: walls are automatic now. "Fortify" = install/upgrade defense
 // emplacements in the Front Office instead of placing sleds.
 export const FORTIFY_MIN_SLOTS = 2;
+
+// Keep "play your next game" as the top goal through the early season, while the
+// campaign is the only reliably winnable loop a new coach has.
+export const EARLY_SEASON_GOAL_THROUGH = 3;
+export const CAMPAIGN_STAGE_COUNT = 12;
 
 /**
  * Up to 3 concurrent goals, prioritized — so the player always has a few things to
@@ -47,13 +52,24 @@ export const getObjectives = (gs: GameState): ObjectiveItem[] => {
   });
 
   const pool: (ObjectiveItem & { prio: number })[] = [];
+  // A new coach's next move is always the next game. Without this, the top goal for a
+  // fresh player was an impossible one (see fortify below) and nothing in the Goals
+  // panel ever pointed at the only loop that works early: play the next season game.
+  if ((gs.campaign?.unlocked ?? 1) <= EARLY_SEASON_GOAL_THROUGH) {
+    const wk = Math.min(gs.campaign?.unlocked ?? 1, CAMPAIGN_STAGE_COUNT);
+    pool.push({ prio: 0, id: 'campaign', text: `Play your next game — Week ${wk}`, iconKey: 'swords', target: 'trophy' });
+  }
   if (completedDrill) pool.push({ prio: 1, id: 'collect-drill', text: 'Collect your finished drill (green ✓)', iconKey: 'check', target: 'drill-done' });
   if (gs.teamReadiness >= 100) pool.push({ prio: 2, id: 'play', text: 'Squad FIRED UP (+15% raid power) — raid now!', iconKey: 'trophy', target: 'trophy' });
   // (No "bank your revenue" goal — the coin bubble on the Stadium already sells itself.
   //  Goals are for MOVES: fortify, train, upgrade, recruit, raid.)
   {
+    // The 2nd defense slot (D3) needs Stadium L2 — see fixedBase.ts SLOTS. Offering
+    // "install defenses" at L1 sent every brand-new coach to a wall of padlocks: it was
+    // prio 4, which made it goal #1, so the game's FIRST instruction was impossible.
     const activeSlots = Object.values(gs.defenseSlots ?? {}).filter(l => l > 0).length;
-    if (activeSlots < FORTIFY_MIN_SLOTS) pool.push({ prio: 4, id: 'fortify', text: 'Fortify your base — install defenses (Front Office)', iconKey: 'shield', target: 'design', progress: { cur: activeSlots, max: FORTIFY_MIN_SLOTS } });
+    const canActuallyFortify = stadiumLvl >= 2;
+    if (activeSlots < FORTIFY_MIN_SLOTS && canActuallyFortify) pool.push({ prio: 4, id: 'fortify', text: 'Set up your defense — add equipment in the Front Office', iconKey: 'shield', target: 'design', progress: { cur: activeSlots, max: FORTIFY_MIN_SLOTS } });
   }
   if (gs.teamReadiness < 100) pool.push({ prio: 5, id: 'train', text: 'Train up to match-ready', iconKey: 'dumbbell', target: 'coach', progress: { cur: Math.round(gs.teamReadiness), max: 100 } });
   if (canUpgrade) pool.push({ prio: 6, id: 'upgrade', text: 'Upgrade a building', iconKey: 'arrowUp', target: null });

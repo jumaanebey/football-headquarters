@@ -47,25 +47,29 @@ export const TutorialOverlay: React.FC<Props> = ({ initialName, onRerollName, on
         ) : (
           <div className="p-6 text-center">
             <h2 className="text-2xl font-display font-bold text-white mb-1">{clean}</h2>
-            <p className="text-slate-400 text-sm mb-5">Build your stadium, train heroes, raid rivals. You'll never be lost —</p>
+            {/* This screen used to teach three BASE-screen cues (goals panel, bouncing
+                arrow, glow) and then drop the player straight into the BATTLE screen,
+                where none of them exist — "you'll never be lost" was falsified within
+                ten seconds. Teach the screen they are actually about to see. */}
+            <p className="text-slate-400 text-sm mb-5">You're up first against the worst team in the league. Here's all you need —</p>
 
             <div className="space-y-3 text-left mb-6">
               <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><ListChecks size={18} className="text-blue-400" /></span>
-                <p className="text-sm text-slate-300">The <span className="text-white font-bold">Goals panel</span> (top-left) always has your next moves.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><ArrowDownCircle size={18} className="text-yellow-400" /></span>
-                <p className="text-sm text-slate-300">A <span className="text-yellow-300 font-bold">bouncing arrow</span> points right at the thing to tap.</p>
-              </div>
-              <div className="flex items-center gap-3">
                 <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><MousePointerClick size={18} className="text-green-400" /></span>
-                <p className="text-sm text-slate-300">Anything <span className="text-white font-bold">glowing</span> is ready for you to tap.</p>
+                <p className="text-sm text-slate-300">Tap a <span className="text-white font-bold">player card</span> at the bottom, then tap the <span className="text-yellow-300 font-bold">glowing sideline</span> to send them in.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><Swords size={18} className="text-red-400" /></span>
+                <p className="text-sm text-slate-300">Wreck <span className="text-white font-bold">half their buildings</span> before the clock runs out and you win.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><ListChecks size={18} className="text-blue-400" /></span>
+                <p className="text-sm text-slate-300">Afterwards, the <span className="text-white font-bold">Goals panel</span> back at your stadium always has your next move.</p>
               </div>
             </div>
 
             <button onClick={() => onDone(clean, true)} className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-lg transition-colors active:scale-95 flex items-center justify-center gap-2 mb-2">
-              <Swords size={20} /> Storm your first rival!
+              <Swords size={20} /> Play your first game →
             </button>
             <button onClick={() => onDone(clean, false)} className="w-full py-2 text-slate-400 hover:text-white text-sm font-bold transition-colors">
               Look around first
