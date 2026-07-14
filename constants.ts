@@ -1,5 +1,5 @@
 
-import { BuildingType, Drill, DrillState, BuildingInstance, Player, PlayerRole, PlayerRarity, PlayerState, UnitGroup, SeasonPhase, Opponent, ResourceType } from './types';
+import { BuildingType, Drill, DrillState, BuildingInstance, Player, PlayerRole, PlayerRarity, PlayerState, PlayerStats, UnitGroup, SeasonPhase, Opponent, ResourceType } from './types';
 
 export const DRILLS: Record<string, Drill> = {
   // OFFENSE LINE DRILLS
@@ -357,6 +357,33 @@ export const INITIAL_ROSTER: Player[] = [
   createPlayer('cb1', 'Island', PlayerRole.CB, UnitGroup.DEFENSE_SECONDARY, PlayerRarity.EPIC, 70, 30, '#1e40af'),
   createPlayer('s1', 'Viper', PlayerRole.S, UnitGroup.DEFENSE_SECONDARY, PlayerRarity.RARE, 75, 35, '#1e40af'),
 ];
+
+// ── RARITY IN COMBAT (P0-1): rarity is a real stat multiplier, not just a card frame.
+// An EPIC measurably outhits a COMMON of the same level (see battle.ts effectiveStat).
+export const RARITY_MULT: Record<PlayerRarity, number> = {
+  [PlayerRarity.COMMON]: 1.0,
+  [PlayerRarity.RARE]: 1.25,
+  [PlayerRarity.EPIC]: 1.6,
+  [PlayerRarity.LEGENDARY]: 2.1,
+};
+
+// Per-level stat growth used by effectiveStat (battle.ts): +8% per level past 1.
+export const LEVEL_STAT_GAIN = 0.08;
+
+// Role-shaped BASE stats — the anchor for effectiveStat. The three stats stop
+// collapsing into one average: STRENGTH → hp & damage, SPEED → move speed,
+// IQ → ability charge rate. Shapes match ROLE_COMBAT (battle.ts) so role flavor
+// and rarity STACK: an OL is tough because he's an OL *and* tougher again if EPIC.
+export const ROLE_BASE_STATS: Record<PlayerRole, PlayerStats> = {
+  [PlayerRole.QB]: { strength: 8,  speed: 10, iq: 14 },
+  [PlayerRole.RB]: { strength: 13, speed: 12, iq: 8 },
+  [PlayerRole.WR]: { strength: 7,  speed: 14, iq: 10 },
+  [PlayerRole.OL]: { strength: 14, speed: 6,  iq: 9 },
+  [PlayerRole.DL]: { strength: 13, speed: 8,  iq: 8 },
+  [PlayerRole.LB]: { strength: 11, speed: 10, iq: 10 },
+  [PlayerRole.CB]: { strength: 7,  speed: 14, iq: 10 },
+  [PlayerRole.S]:  { strength: 8,  speed: 12, iq: 12 },
+};
 
 export const RARITY_CONFIG = {
   [PlayerRarity.COMMON]: { color: 'from-slate-500 to-slate-700', border: 'border-slate-400', maxStat: 30, next: PlayerRarity.RARE },

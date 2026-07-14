@@ -1,5 +1,5 @@
-import { UnitGroup, Player, BuildingInstance, BuildingType } from './types';
-import { WALL_HP, TENDENCIES, TendencyKey, DEFENSE_TYPES, PARKING_LOT } from './constants';
+import { UnitGroup, Player, PlayerRarity, PlayerRole, PlayerStats, BuildingInstance, BuildingType } from './types';
+import { WALL_HP, TENDENCIES, TendencyKey, DEFENSE_TYPES, PARKING_LOT, RARITY_MULT, ROLE_BASE_STATS, LEVEL_STAT_GAIN } from './constants';
 import { buildingSprite, defenseSprite, wallSprite } from './assets';
 
 // ---------------------------------------------------------------------------
@@ -160,6 +160,56 @@ export const ROLE_COMBAT: Record<string, RoleCombat> = {
   S:  { range: 9, speedMult: 1.2, power: 'plays deep — mid range' },
 };
 
+// Per-ROLE targeting overrides (stack on top of the group UNIT_PREF): the CB is the
+// ballhawk — he races PAST turrets to the open loot harder than the rest of his group.
+export const ROLE_PREF: Partial<Record<string, TargetPref>> = {
+  CB: { kind: 'loot', w: 0.5 },
+};
+
+// ── RARITY & PER-STAT COMBAT (P0-1) ─────────────────────────────────────────
+// Rarity is a real combat multiplier and the three stats stop collapsing into one
+// average: STRENGTH drives hp & damage, SPEED drives move speed, IQ drives ability
+// charge rate. All pure functions — unit-testable, and the UI can show the SAME
+// derived power the sim actually uses.
+export type StatKey = keyof PlayerStats; // 'strength' | 'speed' | 'iq'
+export type CombatUnit = Pick<Player, 'role' | 'rarity' | 'level'> & { stats?: PlayerStats };
+
+/** THE formula: role-shaped base stat × rarity × level. Pure — the acceptance hook. */
+export const effectiveStat = (u: Pick<Player, 'role' | 'rarity' | 'level'>, stat: StatKey): number =>
+  ROLE_BASE_STATS[u.role][stat] * RARITY_MULT[u.rarity] * (1 + LEVEL_STAT_GAIN * (u.level - 1));
+
+/** effectiveStat PLUS trained surplus (drills push stats past the 10 baseline) — so
+ *  training a player still shows up on the field, on the stat it actually trained. */
+export const combatStat = (u: CombatUnit, stat: StatKey): number =>
+  effectiveStat(u, stat) + Math.max(0, (u.stats?.[stat] ?? 10) - 10);
+
+/** Derived unit power for the UI (deploy cards / roster tooltips) — sum of the three. */
+export const unitPower = (u: CombatUnit): number =>
+  Math.round(combatStat(u, 'strength') + combatStat(u, 'speed') + combatStat(u, 'iq'));
+
+// Per-stat scaling factor: 10 = the COMMON baseline → 1.0×. Clamped like armyStrength.
+const statFactor = (v: number) => Math.max(0.6, Math.min(4.5, v / 10));
+
+export interface UnitCombatStats { hp: number; dps: number; speed: number; range: number; chargeRate: number; }
+/** The REAL battle statline for a roster player: group base (TROOP_STATS) × role table
+ *  (ROLE_COMBAT) × per-stat scaling — strength→hp/dmg, speed→move, iq→charge. Rarity and
+ *  level ride effectiveStat, so an EPIC statline beats a COMMON one at equal level. */
+export const unitCombatStats = (u: CombatUnit & { unit: UnitGroup }): UnitCombatStats => {
+  const st = TROOP_STATS[u.unit];
+  const rc: RoleCombat | undefined = ROLE_COMBAT[u.role];
+  const strF = statFactor(combatStat(u, 'strength'));
+  const spdF = statFactor(combatStat(u, 'speed'));
+  return {
+    hp: Math.round(st.hp * (rc?.hpMult ?? 1) * strF),
+    dps: st.dps * (rc?.dmgMult ?? 1) * strF,
+    // softened (sqrt): raw 2×+ move speed breaks pathing/kiting feel — LEGENDARY is
+    // still clearly quicker, just not teleporting.
+    speed: st.speed * (rc?.speedMult ?? 1) * Math.sqrt(spdF),
+    range: rc?.range ?? st.range,
+    chargeRate: statFactor(combatStat(u, 'iq')), // ability cadence mult (cd = base / chargeRate)
+  };
+};
+
 // --- HEROES: your best players, as powerful ability units ---
 export interface RaidHero {
   key: string;
@@ -273,8 +323,11 @@ export const specialsForBattle = (fans: number): SpecialDef[] =>
     : sp);
 
 /**
- * Per-group troop strength multiplier from the roster's average OVR — so training
- * and recruiting better players makes your raids hit harder (baseline OVR 10 = 1x).
+ * Per-group troop strength multiplier — feeds hp & dmg in the live battle (makeTroop).
+ * Now built from each player's COMBAT STRENGTH (role base × rarity × level + trained
+ * strength surplus) instead of the flat 3-stat average, so an EPIC-heavy group
+ * measurably outhits a COMMON one and training STRENGTH is what makes you hit harder
+ * (baseline: COMMON L1 ≈ 1x).
  */
 export const armyStrength = (roster: Player[]): Record<UnitGroup, number> => {
   const acc: Record<UnitGroup, { t: number; n: number }> = {
@@ -290,7 +343,7 @@ export const armyStrength = (roster: Player[]): Record<UnitGroup, number> => {
     [UnitGroup.DEFENSE_LINE]: 0, [UnitGroup.DEFENSE_SECONDARY]: 0,
   };
   roster.forEach(p => {
-    acc[p.unit].t += playerOvr(p); acc[p.unit].n += 1;
+    acc[p.unit].t += combatStat(p, 'strength'); acc[p.unit].n += 1;
     const side = TENDENCIES[p.tendency as TendencyKey]?.side;
     if (side === 'offense') tBonus[p.unit] += 0.06;
     else if (side === 'balanced') tBonus[p.unit] += 0.03;
@@ -339,6 +392,80 @@ export const ENEMY_BASES: EnemyBase[] = [
       { id: 'w3', kind: 'wall', x: 50, y: 63, hp: 260, size: 4 }, { id: 'w4', kind: 'wall', x: 41, y: 59, hp: 260, size: 4 },
       { id: 'w5', kind: 'wall', x: 37, y: 50, hp: 260, size: 4 }, { id: 'w6', kind: 'wall', x: 41, y: 41, hp: 260, size: 4 },
       { id: 'w7', kind: 'wall', x: 50, y: 37, hp: 260, size: 4 }, { id: 'w8', kind: 'wall', x: 59, y: 41, hp: 260, size: 4 },
+    ],
+  },
+  // ── P2-2: more layouts so generateRaidTargets stops cycling valley/tech/valley.
+  // generateRaidTargets rescales hp/damage per trophy tier and overrides the hq
+  // formation — what these add is DISTINCT GEOMETRY (wall shape, turret placement,
+  // building count) so consecutive raid boards read differently.
+  {
+    id: 'harbor', name: 'Harbor Hawks', difficulty: 3, reward: { coins: 1900, fans: 70 },
+    buildings: [
+      { id: 'hq',  kind: 'hq',       x: 50, y: 52, hp: 720, size: 8, formation: 'cover3' },
+      // Turrets pushed NORTH (the approach side); the south is an open kill-lane behind them.
+      { id: 'd1',  kind: 'defense',  x: 34, y: 40, hp: 280, size: 5, damage: 22, range: 24 },
+      { id: 'd2',  kind: 'defense',  x: 66, y: 40, hp: 280, size: 5, damage: 22, range: 24 },
+      { id: 'd3',  kind: 'defense',  x: 50, y: 32, hp: 300, size: 5, damage: 24, range: 26 },
+      { id: 'b1',  kind: 'building', x: 34, y: 66, hp: 190, size: 5 },
+      { id: 'b2',  kind: 'building', x: 66, y: 66, hp: 190, size: 5 },
+      { id: 'b3',  kind: 'building', x: 50, y: 70, hp: 190, size: 5 },
+      // Front-facing wall ARC only (north) — no rear wall, so flankers can swing around.
+      { id: 'w1', kind: 'wall', x: 40, y: 44, hp: 280, size: 4 }, { id: 'w2', kind: 'wall', x: 50, y: 41, hp: 280, size: 4 },
+      { id: 'w3', kind: 'wall', x: 60, y: 44, hp: 280, size: 4 }, { id: 'w4', kind: 'wall', x: 34, y: 52, hp: 280, size: 4 },
+      { id: 'w5', kind: 'wall', x: 66, y: 52, hp: 280, size: 4 },
+    ],
+  },
+  {
+    id: 'summit', name: 'Summit Stags', difficulty: 4, reward: { coins: 2500, fans: 90 },
+    buildings: [
+      { id: 'hq',  kind: 'hq',       x: 50, y: 50, hp: 820, size: 8, formation: 'maxprotect' },
+      // Four corner turrets + a TIGHT inner wall box: you must break the shell to reach the HQ.
+      { id: 'd1',  kind: 'defense',  x: 36, y: 36, hp: 300, size: 5, damage: 24, range: 24 },
+      { id: 'd2',  kind: 'defense',  x: 64, y: 36, hp: 300, size: 5, damage: 24, range: 24 },
+      { id: 'd3',  kind: 'defense',  x: 36, y: 64, hp: 300, size: 5, damage: 24, range: 24 },
+      { id: 'd4',  kind: 'defense',  x: 64, y: 64, hp: 300, size: 5, damage: 24, range: 24 },
+      { id: 'b1',  kind: 'building', x: 50, y: 30, hp: 200, size: 5 },
+      { id: 'b2',  kind: 'building', x: 50, y: 70, hp: 200, size: 5 },
+      { id: 'w1', kind: 'wall', x: 44, y: 44, hp: 300, size: 4 }, { id: 'w2', kind: 'wall', x: 56, y: 44, hp: 300, size: 4 },
+      { id: 'w3', kind: 'wall', x: 44, y: 56, hp: 300, size: 4 }, { id: 'w4', kind: 'wall', x: 56, y: 56, hp: 300, size: 4 },
+      { id: 'w5', kind: 'wall', x: 50, y: 42, hp: 300, size: 4 }, { id: 'w6', kind: 'wall', x: 50, y: 58, hp: 300, size: 4 },
+      { id: 'w7', kind: 'wall', x: 42, y: 50, hp: 300, size: 4 }, { id: 'w8', kind: 'wall', x: 58, y: 50, hp: 300, size: 4 },
+    ],
+  },
+  {
+    id: 'delta', name: 'Delta Dragons', difficulty: 5, reward: { coins: 3200, fans: 110 },
+    buildings: [
+      { id: 'hq',  kind: 'hq',       x: 50, y: 50, hp: 900, size: 8, formation: 'goalline' },
+      // Wide open base: cardinal turrets with long range, loot at the corners — a race,
+      // not a siege. Only a sparse wall cross slows the direct lanes in.
+      { id: 'd1',  kind: 'defense',  x: 50, y: 28, hp: 320, size: 5, damage: 26, range: 28 },
+      { id: 'd2',  kind: 'defense',  x: 50, y: 72, hp: 320, size: 5, damage: 26, range: 28 },
+      { id: 'd3',  kind: 'defense',  x: 28, y: 50, hp: 320, size: 5, damage: 26, range: 28 },
+      { id: 'd4',  kind: 'defense',  x: 72, y: 50, hp: 320, size: 5, damage: 26, range: 28 },
+      { id: 'b1',  kind: 'building', x: 30, y: 30, hp: 210, size: 5 },
+      { id: 'b2',  kind: 'building', x: 70, y: 30, hp: 210, size: 5 },
+      { id: 'b3',  kind: 'building', x: 30, y: 70, hp: 210, size: 5 },
+      { id: 'b4',  kind: 'building', x: 70, y: 70, hp: 210, size: 5 },
+      { id: 'w1', kind: 'wall', x: 50, y: 40, hp: 300, size: 4 }, { id: 'w2', kind: 'wall', x: 50, y: 60, hp: 300, size: 4 },
+      { id: 'w3', kind: 'wall', x: 40, y: 50, hp: 300, size: 4 }, { id: 'w4', kind: 'wall', x: 60, y: 50, hp: 300, size: 4 },
+    ],
+  },
+  {
+    id: 'ridge', name: 'Ridge Raiders', difficulty: 6, reward: { coins: 4200, fans: 140 },
+    buildings: [
+      { id: 'hq',  kind: 'hq',       x: 50, y: 50, hp: 1050, size: 8, formation: 'maxprotect' },
+      // The fortress: five turrets + a full outer ring, loot buried in the core.
+      { id: 'd1',  kind: 'defense',  x: 38, y: 32, hp: 340, size: 5, damage: 28, range: 26 },
+      { id: 'd2',  kind: 'defense',  x: 62, y: 32, hp: 340, size: 5, damage: 28, range: 26 },
+      { id: 'd3',  kind: 'defense',  x: 32, y: 62, hp: 340, size: 5, damage: 28, range: 26 },
+      { id: 'd4',  kind: 'defense',  x: 68, y: 62, hp: 340, size: 5, damage: 28, range: 26 },
+      { id: 'd5',  kind: 'defense',  x: 50, y: 68, hp: 340, size: 5, damage: 28, range: 26 },
+      { id: 'b1',  kind: 'building', x: 44, y: 44, hp: 220, size: 5 },
+      { id: 'b2',  kind: 'building', x: 56, y: 44, hp: 220, size: 5 },
+      { id: 'w1', kind: 'wall', x: 63, y: 50, hp: 340, size: 4 }, { id: 'w2', kind: 'wall', x: 59, y: 59, hp: 340, size: 4 },
+      { id: 'w3', kind: 'wall', x: 50, y: 63, hp: 340, size: 4 }, { id: 'w4', kind: 'wall', x: 41, y: 59, hp: 340, size: 4 },
+      { id: 'w5', kind: 'wall', x: 37, y: 50, hp: 340, size: 4 }, { id: 'w6', kind: 'wall', x: 41, y: 41, hp: 340, size: 4 },
+      { id: 'w7', kind: 'wall', x: 50, y: 37, hp: 340, size: 4 }, { id: 'w8', kind: 'wall', x: 59, y: 41, hp: 340, size: 4 },
     ],
   },
 ];
@@ -457,15 +584,17 @@ export const homeDefenders = (roster: Player[], parkingLotLevel = 0): HomeGuardD
   
   const rosterGuards = roster
     .filter(p => side(p) > 0)
-    .sort((a, b) => side(b) - side(a) || playerOvr(b) - playerOvr(a))
+    .sort((a, b) => side(b) - side(a) || unitPower(b) - unitPower(a))
     .slice(0, 4)
     .map(p => {
-      const ovr = playerOvr(p);
+      // STRENGTH (role base × rarity × level + training) drives a guard's hp & hits —
+      // an EPIC Anchor is visibly harder to move than a COMMON one now.
+      const str = combatStat(p, 'strength');
       const balanced = side(p) === 1;
       return {
         jersey: jerseyOf(p.id),
-        hp: Math.round((110 + ovr * 5.5) * (balanced ? 0.8 : 1)),
-        dps: Math.round((7 + ovr * 0.55) * (balanced ? 0.8 : 1) * 10) / 10,
+        hp: Math.round((110 + str * 5.5) * (balanced ? 0.8 : 1)),
+        dps: Math.round((7 + str * 0.55) * (balanced ? 0.8 : 1) * 10) / 10,
         name: p.name,
         unit: p.unit, // real position group → the guard wears the right sprite
       };
@@ -716,24 +845,41 @@ export const nearestTroop = (x: number, y: number, troops: BTroop[], within: num
 // ---------------------------------------------------------------------------
 export interface RaidSimResult { stars: number; pct: number; hqDead: boolean; }
 
+/** A headless-sim attacker. `role` (+ optional rarity/level) turns on the ROLE_COMBAT
+ *  statline and flag behaviors — QB/S shoot from range, WRs catch, OL forms the pocket,
+ *  CBs race to loot. Roleless attackers (bots, old callers) behave exactly as before. */
+export interface SimAttacker {
+  unit: UnitGroup; x: number; y: number;
+  role?: PlayerRole | string; rarity?: PlayerRarity; level?: number;
+}
+
 export const simulateRaid = (
   defBuildings: BattleBuildingDef[],
-  attackers: { unit: UnitGroup; x: number; y: number }[],
+  attackers: SimAttacker[],
   aiMult = 1,
 ): RaidSimResult => {
   const buildings: BBuilding[] = defBuildings.map(b => ({ ...b, maxHp: b.hp, dead: false, cooldown: 0 }));
   const troops: BTroop[] = attackers.map((t, i) => {
-    const st = TROOP_STATS[t.unit];
+    // Role'd attackers get the REAL per-unit statline (role table × rarity × level);
+    // roleless ones keep the legacy flat group stats — bot raids stay tuned as-is.
+    const st = t.role
+      ? unitCombatStats({ unit: t.unit, role: t.role as PlayerRole, rarity: t.rarity ?? PlayerRarity.COMMON, level: t.level ?? 1 })
+      : TROOP_STATS[t.unit];
     const hp = Math.round(st.hp * aiMult);
-    return { id: `a${i}`, unit: t.unit, x: t.x, y: t.y, hp, maxHp: hp, dps: st.dps * aiMult, speed: st.speed, range: st.range, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0 };
+    return { id: `a${i}`, unit: t.unit, x: t.x, y: t.y, hp, maxHp: hp, dps: st.dps * aiMult, speed: st.speed, range: st.range, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, role: t.role };
   });
   const total = buildings.filter(b => b.kind !== 'wall').length || 1;
   const DT = 0.1; // coarse 100ms steps — plenty accurate for a resolved outcome
 
   for (let t = 0; t < BATTLE_SECONDS; t += DT) {
+    // WR flag: +60% dmg while a thrower (QB) is alive on the field — mirrors the live sim.
+    const throwerUp = troops.some(o => !o.dead && !!ROLE_COMBAT[o.role ?? '']?.thrower);
     for (const tr of troops) {
       if (tr.dead) continue;
-      const goal = nearestBuilding(tr.x, tr.y, buildings);
+      // Role'd units target like they play: CBs discount loot hard (ROLE_PREF),
+      // everyone else with a role uses their group lean. Roleless = legacy nearest.
+      const pref = tr.role ? (ROLE_PREF[tr.role] ?? UNIT_PREF[tr.unit]) : undefined;
+      const goal = nearestBuilding(tr.x, tr.y, buildings, pref);
       if (!goal) continue;
       const wall = blockingWall(tr.x, tr.y, tr.range, goal, buildings);
       const target = wall || goal;
@@ -744,7 +890,8 @@ export const simulateRaid = (
         tr.x += ((target.x - tr.x) / d) * step;
         tr.y += ((target.y - tr.y) / d) * step;
       } else {
-        target.hp -= tr.dps * DT;
+        const catching = throwerUp && !!ROLE_COMBAT[tr.role ?? '']?.receiver;
+        target.hp -= tr.dps * (catching ? RECEIVER_BONUS : 1) * DT;
         if (target.hp <= 0) { target.hp = 0; target.dead = true; }
       }
     }
@@ -756,7 +903,16 @@ export const simulateRaid = (
         // per-flavor cadence mirrors the live sim — the flat 0.7s made a Gatorade
         // Station ~3.7x more lethal offline than it ever is live
         const cadence = b.flavor === 'jugs' ? 0.55 : b.flavor === 'ref' ? 0.9 : b.flavor === 'sled' ? 1.1 : b.flavor === 'tshirt' ? 1.15 : b.flavor === 'cooler' ? 2.6 : 0.7;
-        if (prey) { prey.hp -= b.damage; if (prey.hp <= 0) { prey.hp = 0; prey.dead = true; } b.cooldown = cadence; }
+        if (prey) {
+          // OL flag: the pocket — a QB/RB with a live OL protector nearby takes
+          // POCKET_FACTOR damage (same rule the live BattleScreen sim applies).
+          const pocket = (prey.role === 'QB' || prey.role === 'RB')
+            && troops.some(o => !o.dead && !!ROLE_COMBAT[o.role ?? '']?.protector && dist(o.x, o.y, prey.x, prey.y) < POCKET_RADIUS)
+            ? POCKET_FACTOR : 1;
+          prey.hp -= b.damage * pocket;
+          if (prey.hp <= 0) { prey.hp = 0; prey.dead = true; }
+          b.cooldown = cadence;
+        }
         else b.cooldown = 0.1;
       }
     }
