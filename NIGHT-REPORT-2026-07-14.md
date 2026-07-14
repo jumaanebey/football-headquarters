@@ -1,5 +1,26 @@
 # Overnight report — Football HQ, 2026-07-14
 
+> ## ⚠️ CORRECTION (added after review)
+>
+> **The premise this report was built on was wrong.** I claimed "~19 real people played,
+> 18 never earned a trophy." That was inference, not fact, and Jumaane was right to
+> challenge it.
+>
+> `fhq_bases` rows are **not people.** `publishBase` fires on mount for every fresh device
+> identity, so clearing localStorage during development publishes a new base each time.
+> The data shows three bases within 60 seconds (Jul 08 16:57, 16:57, 16:58) and 18 of 20
+> clubs carrying the game's **auto-generated default names** (`genTeamName()` — surname +
+> suffix). That is a dev loop, not an audience. The game has never been marketed.
+>
+> **There are no analytics.** `fhq_events` has 0 rows and always has: the sendBeacon bug
+> dropped 100% of events until it was fixed, and everything after the fix was test data
+> that has been deleted.
+>
+> **What survives:** every bug below was verified against the code or measured on the wire,
+> independent of the player-count claim. **What does not:** the "retention cliff" framing,
+> and any prioritization justified by it. `trophies: 0` means "someone clicked through a
+> tutorial", not "a player churned."
+
 **Everything below is live on production and verified on an emulated iPhone 14.**
 Rollback: `git reset --hard pre-night-2026-07-14 && git push --force origin main` (tag = `d810caa`).
 
@@ -7,17 +28,14 @@ Rollback: `git reset --hard pre-night-2026-07-14 && git push --force origin main
 
 ## The headline
 
-You don't have a traffic problem. **~19 real people already played. 18 never earned a
-trophy.** I audited the whole game against that single fact. The first session was
-broken in ways that had nothing to do with the game being bad.
+The fixes below are real and verified. The *motivation* I originally gave for them was
+not — see the correction above. These were found by reading the code and measuring the
+page, so they stand on their own:
 
-**The single worst thing I found:** the first instruction the game gives every new
-coach — *"Fortify your base — install defenses"* — was **impossible to complete.** It
-fired whenever you had fewer than 2 defense slots, but the 2nd slot needs Stadium L2,
-which a new player doesn't have. It was priority 4, which made it goal **#1**. Every
-new coach was sent to a wall of padlocks as their opening move.
-
----
+**The worst one:** the first instruction the game gives every new coach — *"Fortify your
+base — install defenses"* — is **impossible to complete.** It fires whenever you have
+fewer than 2 defense slots, but the 2nd slot needs Stadium L2, which a new player doesn't
+have. It was priority 4, which made it goal **#1**.
 
 ## Shipped (all verified live, not just compiled)
 
@@ -75,8 +93,7 @@ Every sprite was a **1024×1024 PNG rendered at 11–40 px** — ~960× more pix
 screen can show. One rank icon rendered at **0×0** and still cost 40 KB. Converted 253
 files to WebP capped at 512px (compression, not art direction — nothing was redrawn;
 displayed sizes top out ~120 CSS px, so at DPR 3 there's real margin). Also: all 18
-rival-coach portraits (731 KB) were eagerly downloaded onto the *home screen* for a
-screen most players never reached — now warmed when Game Day opens.
+rival-coach portraits (731 KB) were eagerly downloaded onto the *home screen* for a screen a player only reaches after the tutorial — now warmed when Game Day opens.
 
 ---
 
