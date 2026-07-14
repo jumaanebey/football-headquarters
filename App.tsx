@@ -355,7 +355,12 @@ function App() {
     setShowTutorial(false);
     setGameState(prev => ({ ...prev, teamName }));
     if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0)), 400);
-    if (startRaid) openRaid();
+    // "Storm your first rival!" must actually storm a rival. It used to open the GAME DAY
+    // panel — four tabs, a currency lesson, and a wall of jargon — so a first-timer who
+    // asked to play got a manual instead. 19 of the first 20 coaches never reached a
+    // single trophy. Drop them straight into the Preseason Opener; the systems can
+    // introduce themselves once the player has actually snapped a ball.
+    if (startRaid && !startCampaign(1)) openRaid(); // fall back if the game can't launch
   };
 
   // ⌨️ Esc closes the topmost sheet (D5: minimum keyboard support).
@@ -1298,9 +1303,11 @@ function App() {
   };
 
   // Launch a Season campaign stage (deterministic ladder — the PvE spine).
-  const startCampaign = (stage: number) => {
+  // Returns whether the game actually started, so the tutorial can fall back to the
+  // GAME DAY panel instead of stranding a brand-new coach on an empty field.
+  const startCampaign = (stage: number): boolean => {
     const st = CAMPAIGN_STAGES[stage - 1];
-    if (!st || stage > gameState.campaign.unlocked) { sfx.error(); return; }
+    if (!st || stage > gameState.campaign.unlocked) { sfx.error(); return false; }
     const base = campaignBase(stage);
     const launched = launchAttack({
       mode: 'attack',
@@ -1315,6 +1322,7 @@ function App() {
       rival: coachForStage(stage),
     });
     if (launched) { setAttackSelectOpen(false); track('campaign_start', { stage }); }
+    return launched;
   };
 
   // Unlock a hero by paying its coin/gem cost.
