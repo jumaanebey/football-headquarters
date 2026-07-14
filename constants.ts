@@ -267,11 +267,11 @@ export interface DefenseTypeDef {
 // Each kind FIGHTS differently in battle (see BattleScreen turret logic) — the shop
 // choice is a real tactical decision, not a reskin.
 export const DEFENSE_TYPES: DefenseTypeDef[] = [
-  { kind: 'jugs',   name: 'JUGS Machine',   sprite: '/assets/battle/jugs-machine.png',   emoji: '🏈', desc: 'Rapid-fire football launcher',            cost: 2500, hp: 260, damage: 16, range: 24 },
-  { kind: 'sled',   name: 'Tackling Sled',  sprite: '/assets/battle/tackling-sled.png',  emoji: '🛷', desc: 'Short range, hits like a truck (+35%)',   cost: 1800, hp: 340, damage: 22, range: 14 },
-  { kind: 'ref',    name: 'Ref Tower',      sprite: '/assets/battle/ref-tower.png',      emoji: '🚩', desc: 'Penalty flags SLOW runners, longest range', cost: 3200, hp: 220, damage: 13, range: 30 },
-  { kind: 'tshirt', name: 'T-Shirt Cannon', sprite: '/assets/battle/tshirt-cannon.png',  emoji: '👕', desc: 'Splash — blasts the whole cluster',       cost: 2200, hp: 240, damage: 18, range: 20 },
-  { kind: 'cooler', name: 'Gatorade Station', sprite: '/assets/battle/gatorade-station.png', emoji: '🥤', desc: 'Soaks the turf — puddle zones SLOW everyone crossing', cost: 2800, hp: 250, damage: 8, range: 22 },
+  { kind: 'jugs',   name: 'JUGS Machine',   sprite: '/assets/battle/jugs-machine.webp',   emoji: '🏈', desc: 'Rapid-fire football launcher',            cost: 2500, hp: 260, damage: 16, range: 24 },
+  { kind: 'sled',   name: 'Tackling Sled',  sprite: '/assets/battle/tackling-sled.webp',  emoji: '🛷', desc: 'Short range, hits like a truck (+35%)',   cost: 1800, hp: 340, damage: 22, range: 14 },
+  { kind: 'ref',    name: 'Ref Tower',      sprite: '/assets/battle/ref-tower.webp',      emoji: '🚩', desc: 'Penalty flags SLOW runners, longest range', cost: 3200, hp: 220, damage: 13, range: 30 },
+  { kind: 'tshirt', name: 'T-Shirt Cannon', sprite: '/assets/battle/tshirt-cannon.webp',  emoji: '👕', desc: 'Splash — blasts the whole cluster',       cost: 2200, hp: 240, damage: 18, range: 20 },
+  { kind: 'cooler', name: 'Gatorade Station', sprite: '/assets/battle/gatorade-station.webp', emoji: '🥤', desc: 'Soaks the turf — puddle zones SLOW everyone crossing', cost: 2800, hp: 250, damage: 8, range: 22 },
 ];
 /** How many defense pieces your Stadium level supports (before purchased bonus slots). */
 export const maxDefenses = (stadiumLevel: number) => Math.min(6, 2 + Math.floor(stadiumLevel / 3));

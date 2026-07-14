@@ -59,7 +59,7 @@ export const TopHUD: React.FC<Props> = ({ gameState, onRally, onOpenRanks }) => 
           title="Your club — tap to see the rank ladder and Club Power">
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden flex items-center justify-center border-2 border-orange-500 bg-[#111827] relative shrink-0">
             <span className="text-lg">🏈</span>
-            <img src="/assets/brand/app-icon.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
+            <img src="/assets/brand/app-icon.webp" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
           </div>
           <div className="flex flex-col max-w-[76px] sm:max-w-[150px]">
             <span className="text-[11px] sm:text-xs font-bold text-white leading-tight truncate">

@@ -5,13 +5,13 @@ export interface Rank { name: string; min: number; color: string; emoji: string;
 // `art` = crest PNG (Round 6); the emoji stays as the loading/fallback glyph so ranks
 // whose crest hasn't landed yet (or fails to load) degrade gracefully.
 export const RANKS: Rank[] = [
-  { name: 'Sandlot',      min: 0,    color: '#94a3b8', emoji: '🏈', art: '/assets/ranks/sandlot.png' },
-  { name: 'JV',           min: 100,  color: '#22c55e', emoji: '🌱', art: '/assets/ranks/jv.png' },
-  { name: 'Varsity',      min: 250,  color: '#38bdf8', emoji: '⭐', art: '/assets/ranks/varsity.png' },
-  { name: 'Pro',          min: 500,  color: '#a855f7', emoji: '💪', art: '/assets/ranks/pro.png' },
-  { name: 'All-Pro',      min: 900,  color: '#f59e0b', emoji: '🏆', art: '/assets/ranks/allpro.png' },
-  { name: 'Hall of Fame', min: 1400, color: '#ef4444', emoji: '🔥', art: '/assets/ranks/halloffame.png' },
-  { name: 'G.O.A.T.',     min: 2100, color: '#fde047', emoji: '👑', art: '/assets/ranks/goat.png' },
+  { name: 'Sandlot',      min: 0,    color: '#94a3b8', emoji: '🏈', art: '/assets/ranks/sandlot.webp' },
+  { name: 'JV',           min: 100,  color: '#22c55e', emoji: '🌱', art: '/assets/ranks/jv.webp' },
+  { name: 'Varsity',      min: 250,  color: '#38bdf8', emoji: '⭐', art: '/assets/ranks/varsity.webp' },
+  { name: 'Pro',          min: 500,  color: '#a855f7', emoji: '💪', art: '/assets/ranks/pro.webp' },
+  { name: 'All-Pro',      min: 900,  color: '#f59e0b', emoji: '🏆', art: '/assets/ranks/allpro.webp' },
+  { name: 'Hall of Fame', min: 1400, color: '#ef4444', emoji: '🔥', art: '/assets/ranks/halloffame.webp' },
+  { name: 'G.O.A.T.',     min: 2100, color: '#fde047', emoji: '👑', art: '/assets/ranks/goat.webp' },
 ];
 
 export const rankFor = (trophies: number): { rank: Rank; next: Rank | null; progress: number; index: number } => {

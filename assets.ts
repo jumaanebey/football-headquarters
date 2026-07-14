@@ -27,7 +27,7 @@ export const BUILDING_ERAS: Record<BuildingType, string[]> = {
 export const buildingSprite = (type: BuildingType, level: number): string => {
   const art = BUILDING_ART[type];
   const match = [...art.levels].filter((l) => l <= level).pop() ?? art.levels[0];
-  return `/assets/buildings/${art.slug}-${match}.png`;
+  return `/assets/buildings/${art.slug}-${match}.webp`;
 };
 
 // Maps each unit group to its player-trio sprite slug.
@@ -40,12 +40,12 @@ const UNIT_ART: Record<UnitGroup, string> = {
 
 /** Returns the unit-group sprite for a given animation state (idle | ready | training). */
 export const unitSprite = (unit: UnitGroup, state: 'idle' | 'ready' | 'training' = 'idle'): string => {
-  return `/assets/units/${UNIT_ART[unit]}-${state}.png`;
+  return `/assets/units/${UNIT_ART[unit]}-${state}.webp`;
 };
 
 /** Single-player battle sprite (ONE football player, not the clumpy trio). IDE-generated;
  *  falls back to a clean jersey chip in-battle until the art lands. */
-export const unitPlayerSprite = (unit: UnitGroup): string => `/assets/units/${UNIT_ART[unit]}-player.png`;
+export const unitPlayerSprite = (unit: UnitGroup): string => `/assets/units/${UNIT_ART[unit]}-player.webp`;
 
 /** Convenience: pick a unit sprite state from a live PlayerState. */
 export const unitSpriteForState = (unit: UnitGroup, playerState: PlayerState): string => {
@@ -54,8 +54,8 @@ export const unitSpriteForState = (unit: UnitGroup, playerState: PlayerState): s
 };
 
 export const RESOURCE_ICON = {
-  coins: '/assets/icons/coins.png',
-  energy: '/assets/icons/energy.png',
+  coins: '/assets/icons/coins.webp',
+  energy: '/assets/icons/energy.webp',
 };
 
 // Battle-screen building art. When ATTACKING, buildings wear the crimson RIVAL skins so
@@ -69,9 +69,9 @@ const DEFENSE_FLAVOR_SPRITE: Record<string, string> = {
 // Walls (Blocking Sleds) wear era art by STADIUM level: backyard sawhorse pads →
 // hazard-striped pro sled → championship barrier. One tier per base (walls are uniform).
 export const wallSprite = (stadiumLevel: number): string =>
-  stadiumLevel >= 9 ? '/assets/battle/blocking-sled-3.png'
-  : stadiumLevel >= 5 ? '/assets/battle/blocking-sled.png'
-  : '/assets/battle/blocking-sled-1.png';
+  stadiumLevel >= 9 ? '/assets/battle/blocking-sled-3.webp'
+  : stadiumLevel >= 5 ? '/assets/battle/blocking-sled.webp'
+  : '/assets/battle/blocking-sled-1.webp';
 
 // Defense emplacements LEVEL UP visibly: tier 1 (L1-3) → tier 2 pro rig (L4-7) →
 // tier 3 flagship (L8+). Art tiers exist for all four kinds in /assets/battle/.
@@ -79,10 +79,10 @@ export const DEFENSE_ART_GATES = [1, 4, 8] as const;
 export const defenseSprite = (kind: string, level = 1): string => {
   const slug = DEFENSE_FLAVOR_SPRITE[kind] ?? 'jugs-machine';
   const tier = level >= 8 ? 3 : level >= 4 ? 2 : 1;
-  return `/assets/battle/${slug}${tier > 1 ? `-${tier}` : ''}.png`;
+  return `/assets/battle/${slug}${tier > 1 ? `-${tier}` : ''}.webp`;
 };
 export const battleBuildingSprite = (kind: string, id: string, rival = false, flavor?: string): string => {
-  if (kind === 'hq') return rival ? '/assets/buildings/rival-stadium.png' : '/assets/buildings/stadium-3.png';
+  if (kind === 'hq') return rival ? '/assets/buildings/rival-stadium.webp' : '/assets/buildings/stadium-3.webp';
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   if (kind === 'defense') {
@@ -90,8 +90,8 @@ export const battleBuildingSprite = (kind: string, id: string, rival = false, fl
     // unflavored turrets stay hash-varied so bases feel distinct.
     const slug = (flavor && DEFENSE_FLAVOR_SPRITE[flavor])
       ?? ['jugs-machine', 'tackling-sled', 'ref-tower', 'tshirt-cannon'][h % 4];
-    return `/assets/battle/${slug}.png`;
+    return `/assets/battle/${slug}.webp`;
   }
   const pool = rival ? RIVAL_POOL : BATTLE_BUILDING_POOL;
-  return `/assets/buildings/${pool[h % pool.length]}.png`;
+  return `/assets/buildings/${pool[h % pool.length]}.webp`;
 };

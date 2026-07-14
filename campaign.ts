@@ -27,7 +27,7 @@ export interface RivalCoach {
   loss: string;    // their gloat when they stop you
 }
 
-const coachArt = (slug: string) => `/assets/coaches/${slug}.png`;
+const coachArt = (slug: string) => `/assets/coaches/${slug}.webp`;
 
 const COACHES: RivalCoach[] = [
   { name: 'Coach "Salty" Pete Grimes', emoji: '🤠', art: coachArt('grimes'), color: '#ca8a04', intro: "New coach, huh? We're the worst team in the league and I STILL like our chances.", win: 'Well… shoot. Kid can coach.', loss: "HA! Beat by the Dust Bowl! Tell everyone." },
@@ -64,9 +64,19 @@ export const coachForBase = (baseName: string): RivalCoach => {
 };
 
 /** Warm the browser cache for all 18 coach portraits so Game Day never opens to a
- *  wall of empty circles. Called once from App on an idle tick after boot. */
+ *  wall of empty circles. Call this when Game Day OPENS — not on boot.
+ *
+ *  Pulling all 18 on a boot timer cost 731 KB (23% of the whole page) on the home
+ *  screen, competing for bandwidth with the board the player is actually looking at,
+ *  for a screen 18 of the first 19 real coaches never reached. */
 export const preloadCoachArt = (): void => {
   for (const c of [...COACHES, ...RAID_COACHES]) { const img = new Image(); img.src = c.art; }
+};
+
+/** The only portraits the first session actually needs: the next opponent (shown on the
+ *  battle card the moment the tutorial launches) and the one after it. ~2 images. */
+export const preloadNextCoaches = (stage: number): void => {
+  for (const c of [COACHES[stage - 1], COACHES[stage]]) { if (c) { const img = new Image(); img.src = c.art; } }
 };
 
 const SCHEDULE: [string, string][] = [
@@ -133,8 +143,8 @@ const CREST_BY_TEAM: Record<string, string> = {
 };
 export const crestForTeam = (teamName: string): string => {
   const named = CREST_BY_TEAM[teamName];
-  if (named) return `/assets/rivals/crest-${named}.png`;
+  if (named) return `/assets/rivals/crest-${named}.webp`;
   let h = 0;
   for (let i = 0; i < teamName.length; i++) h = (h * 31 + teamName.charCodeAt(i)) >>> 0;
-  return `/assets/rivals/crest-${RIVAL_CREST_SLUGS[h % RIVAL_CREST_SLUGS.length]}.png`;
+  return `/assets/rivals/crest-${RIVAL_CREST_SLUGS[h % RIVAL_CREST_SLUGS.length]}.webp`;
 };
