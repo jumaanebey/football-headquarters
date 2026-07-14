@@ -30,13 +30,11 @@ const postEvents = (rows: QueuedEvent[]): void => {
   const url = `${URL_}/rest/v1/fhq_events`;
   const body = JSON.stringify(rows);
   try {
-    // sendBeacon survives tab-close (the moment we most want the session's tail).
-    // It can't set an apikey header, so we pass it as a query param (PostgREST accepts it).
-    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-      const ok = navigator.sendBeacon(`${url}?apikey=${ANON}`, new Blob([body], { type: 'application/json' }));
-      if (ok) return;
-    }
-    // Fallback: keepalive fetch (also allowed during unload).
+    // NOT sendBeacon: PostgREST needs an `application/json` body, which is not a
+    // CORS-safelisted content type, so the browser preflights the beacon and drops it —
+    // while sendBeacon still returns true (it only reports "queued", never "delivered").
+    // That silently swallowed 100% of events. `keepalive` fetch is likewise allowed to
+    // outlive the page, and it actually surfaces failures.
     fetch(url, {
       method: 'POST',
       headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' },
