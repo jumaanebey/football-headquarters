@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "balance": "esbuild balance-sim.ts --bundle --format=esm --platform=node --outfile=dist/balance.mjs && node dist/balance.mjs",
-    "shots": "node scripts/marketing-shots.mjs"
+    "shots": "node scripts/marketing-shots.mjs",
+    "funnel": "node scripts/funnel.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.554.0",
