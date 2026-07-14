@@ -136,7 +136,10 @@ const DeployCard: React.FC<{
           className="absolute inset-0 h-full w-full object-contain p-0.5" style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))' }} />}
         {overlay}
       </span>
-      <span className="block bg-black/45 px-0.5 py-0.5 text-center text-[8px] font-black uppercase leading-tight text-white truncate">{label}</span>
+      {/* Wraps instead of truncating: the plain-English group names ("Pass Rushers",
+          "Defensive Backs") are longer than the old jargon and were being cut to
+          "PASS RUSH…" — which is just a new abbreviation. */}
+      <span className="block bg-black/45 px-0.5 py-0.5 text-center text-[8px] font-black uppercase leading-[1.1] text-white">{label}</span>
       {sub !== undefined && <span className="block px-0.5 pb-0.5 text-center text-[8px] font-bold leading-tight text-orange-300 truncate">{sub}</span>}
       {subSub !== undefined && <span className="block px-0.5 pb-1 text-center text-[7px] font-bold leading-tight text-slate-400 truncate">{subSub}</span>}
     </span>
