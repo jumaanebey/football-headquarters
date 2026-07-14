@@ -17,7 +17,14 @@ const DEV = !!env.DEV;
 // without any cross-session tracking. Regenerated every reload; never persisted.
 const SESSION_ID = Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
 
-interface QueuedEvent { pid: string; session_id: string; event: string; props: Record<string, unknown>; ts: string }
+// NOTE: no `pid` here. On a first-ever load, anonymous auth has not resolved yet, so
+// playerId() hands back a throwaway `p_…` placeholder and only becomes the real auth
+// uid once ensureSession() lands. Stamping the pid when the event is QUEUED therefore
+// filed session_start under the placeholder and every later event under the uid — the
+// same player counted as two, which made the funnel show a 100% drop at step 2 for
+// every genuine new player. The pid is now resolved at FLUSH time (≥5s later, after
+// auth), so one player is one pid.
+interface QueuedEvent { session_id: string; event: string; props: Record<string, unknown>; ts: string }
 
 const queue: QueuedEvent[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -28,7 +35,8 @@ const MAX_BATCH = 25;    // hard cap so a burst can't build an unbounded body
 const postEvents = (rows: QueuedEvent[]): void => {
   if (!URL_ || !ANON || !rows.length) return;
   const url = `${URL_}/rest/v1/fhq_events`;
-  const body = JSON.stringify(rows);
+  const pid = playerId(); // resolved now, not at queue time — see note above
+  const body = JSON.stringify(rows.map(r => ({ ...r, pid })));
   try {
     // NOT sendBeacon: PostgREST needs an `application/json` body, which is not a
     // CORS-safelisted content type, so the browser preflights the beacon and drops it —
@@ -51,6 +59,23 @@ const flush = (): void => {
 };
 
 /**
+ * Where this player came from — so a launch post can be judged on players, not clicks.
+ * Tag shared links like ?src=reddit and it shows up in the funnel. Falls back to the
+ * referring HOST only (never the full URL / query, which can carry personal data).
+ */
+export const trafficSource = (): { source: string; referrer: string } => {
+  try {
+    const tagged = new URLSearchParams(location.search).get('src')
+      || new URLSearchParams(location.search).get('utm_source');
+    const host = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : '';
+    return {
+      source: (tagged || host || 'direct').slice(0, 32),
+      referrer: host.slice(0, 64),
+    };
+  } catch { return { source: 'direct', referrer: '' }; }
+};
+
+/**
  * Record an anonymous product event. No-op unless Supabase is configured.
  * Keep `props` small and non-identifying (counts, tiers, booleans — never names/emails).
  */
@@ -59,7 +84,7 @@ export const track = (event: string, props: Record<string, unknown> = {}): void 
     if (DEV) console.debug('[analytics:noop]', event, props); // eslint-disable-line no-console
     return;
   }
-  queue.push({ pid: playerId(), session_id: SESSION_ID, event: event.slice(0, 64), props, ts: new Date().toISOString() });
+  queue.push({ session_id: SESSION_ID, event: event.slice(0, 64), props, ts: new Date().toISOString() });
   if (queue.length >= MAX_BATCH) { flush(); return; }
   if (!flushTimer) flushTimer = setTimeout(flush, FLUSH_MS);
 };
