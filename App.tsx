@@ -239,7 +239,16 @@ const loadState = (): GameState => {
         // Got roughed up (≥50% taken) → grant a protective shield so you're not farmed.
         if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
       }
-      const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins };
+      // Energy regen used to stop dead while the tab was closed: loadState stamps
+      // lastTick = now, so the live ticker saw a zero-length gap and granted nothing.
+      // Coins accrued offline but energy didn't, which is inconsistent — and it meant a
+      // player who quit below the 12⚡ a game costs came back the next day still unable
+      // to play. That is the exact cohort we need to return.
+      const medLvl = (saved.buildings || INITIAL_BUILDINGS).find(b => b.type === 'MEDICAL_CENTER')?.level ?? 1;
+      const offlineEnergy = Math.floor((offlineSecs * 1000) / energyIntervalMs(medLvl));
+      const savedEnergy = (saved.resources || INITIAL_STATE.resources)[ResourceType.ENERGY] ?? 100;
+      const energy = Math.min(100, savedEnergy + offlineEnergy);
+      const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins, [ResourceType.ENERGY]: energy };
       // Gauntlet attempts refill with the calendar day (best tier persists).
       const gauntlet = (saved.gauntlet && saved.gauntlet.date === todayKey())
         ? saved.gauntlet
@@ -360,7 +369,7 @@ function App() {
     // asked to play got a manual instead. 19 of the first 20 coaches never reached a
     // single trophy. Drop them straight into the Preseason Opener; the systems can
     // introduce themselves once the player has actually snapped a ball.
-    if (startRaid && !startCampaign(1)) openRaid(); // fall back if the game can't launch
+    if (startRaid && !startCampaign(1, teamName)) openRaid(); // fall back if the game can't launch
   };
 
   // ⌨️ Esc closes the topmost sheet (D5: minimum keyboard support).
@@ -396,7 +405,13 @@ function App() {
   const [cloudMsg, setCloudMsg] = useState<string | null>(null);
   const profileRef = useRef<ProfileInfo | null>(null);
   profileRef.current = profile;
-  const lastCloudPushRef = useRef(0);
+  // Seeded to NOW, not 0. At 0, the very first 2s autosave tick that saw a signed-in
+  // profile would push immediately — which could fire while the boot cloud-sync was
+  // still deciding which save is newer, shoving a stale local club over a fresher cloud
+  // one and then "winning" the recency check on the way back down.
+  const lastCloudPushRef = useRef(Date.now());
+  // The trickle push must not run until the boot sync has settled who wins.
+  const bootSyncDoneRef = useRef(false);
 
   // The cloud row has a hard 500KB cap (server-side check constraint). Replay film
   // can push a save past it — and an oversize push 400s SILENTLY on every retry
@@ -426,12 +441,19 @@ function App() {
    *  otherwise push the local club up. force=true always applies cloud (fresh
    *  device sign-in). localRecency = when this device last recorded progress
    *  (boot passes the pre-session stamp; an actively-played session is "now"). */
-  const syncWithCloud = async (force = false, localRecency?: number): Promise<'applied' | 'pushed' | 'none'> => {
-    const cloud = await fetchCloudSave();
-    if (!cloud || !cloud.save) {
+  const syncWithCloud = async (force = false, localRecency?: number): Promise<'applied' | 'pushed' | 'error' | 'none'> => {
+    const res = await fetchCloudSave();
+    // NEVER push on an error. A timed-out lookup used to be indistinguishable from an
+    // empty account, so a network blip during sign-in would overwrite a real club in
+    // the cloud with the fresh local one — and then report "saved ✓". Back off instead:
+    // the local save is untouched and the next sync can try again.
+    if (res.status === 'error') return 'error';
+    if (res.status === 'empty') {
       const pushed = await pushSaveToCloud();
       return pushed ? 'pushed' : 'none';
     }
+    const cloud = res.save;
+    if (!cloud.save) return 'none';
     const cloudTime = Date.parse(cloud.updated_at);
     const localTime = localRecency ?? Date.now();
     if (force || cloudTime > localTime + 90000) { // 90s skew guard — ties keep local
@@ -462,7 +484,8 @@ function App() {
       // cloud save — that reload IS the sync); guests stay local-only.
       // Recency = the stamp from BEFORE this session started (see bootSavedAt).
       if ((p?.email || p?.pendingEmail) && !justApplied) await syncWithCloud(false, bootSavedAt);
-    });
+      bootSyncDoneRef.current = true; // only now may the autosave trickle-push to the cloud
+    }).catch(() => { bootSyncDoneRef.current = true; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -484,7 +507,7 @@ function App() {
       }
       // ☁️ linked clubs (active OR pending-confirm — same uid either way) trickle
       // up to the cloud once a minute, quietly
-      if ((profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
+      if (bootSyncDoneRef.current && (profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
         lastCloudPushRef.current = Date.now(); // set BEFORE the await — no double-fire
         pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current)).catch(() => { /* offline — next tick */ });
       }
@@ -891,6 +914,9 @@ function App() {
       case 'collect-drill': { const d = gameState.buildings.find(b => b.state === DrillState.COMPLETED); if (d) handleCollect(d, center); break; }
       case 'collect-coins': { const st = find(BuildingType.STADIUM); if (st) handleCollectResource(st, center); break; }
       case 'play': openRaid(); break;
+      // Straight into the next season game — no menu. If it can't launch (no energy,
+      // season finished), fall back to the Game Day sheet rather than doing nothing.
+      case 'campaign': { const next = Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length); if (!startCampaign(next)) setAttackSelectOpen(true); break; }
       case 'fortify': setFrontOfficeOpen(true); setSelectedBuilding(null); break;
       case 'train': setIsSquadOpen(true); break;
       case 'upgrade': { const st = find(BuildingType.STADIUM); if (st) setSelectedBuilding(st); break; }
@@ -923,7 +949,11 @@ function App() {
   const handleRevenge = async (entry: DefenseLogEntry) => {
     if (revengeInFlightRef.current) return; // double-tap during the base fetch launched (and charged) twice
     revengeInFlightRef.current = true;
-    setTimeout(() => { revengeInFlightRef.current = false; }, 4000);
+    // Was a fixed 4s timer guarding a fetch with a 10s budget: on mobile data the guard
+    // self-cleared while the request was still in flight, so the natural second tap
+    // launched a SECOND raid and charged 12⚡ twice for one battle. Cleared in a finally
+    // instead, so the guard lasts exactly as long as the work does.
+    try {
     // LIVE rival? Revenge storms their REAL published base — not a lookalike.
     let buildings = null as import('./battle').BattleBuildingDef[] | null;
     let pvpTarget: string | undefined;
@@ -962,6 +992,9 @@ function App() {
     track('revenge', { live: !!entry.attackerPid });
     setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => e.id === entry.id ? { ...e, avenged: true } : e) }));
     setDefenseLogOpen(false);
+    } finally {
+      revengeInFlightRef.current = false;
+    }
   };
 
   // --- BATTLES (real-time raid + base defense) ---
@@ -975,7 +1008,10 @@ function App() {
     }
     setGameState(prev => prev.resources.ENERGY < RAID_ENERGY ? prev // double-fire must not double-charge
       : { ...prev, resources: { ...prev.resources, [ResourceType.ENERGY]: prev.resources.ENERGY - RAID_ENERGY } });
-    setBattleConfig({ ...config, attackerName: gameState.teamName, squad: gameState.roster }); // your club + your INDIVIDUALS
+    // Respect an explicit attackerName. The tutorial launches the first game in the same
+    // tick it sets the club name, so gameState.teamName is still the stale auto-generated
+    // one here — the player would watch their first matchup card show a name they didn't pick.
+    setBattleConfig({ ...config, attackerName: config.attackerName ?? gameState.teamName, squad: gameState.roster }); // your club + your INDIVIDUALS
     return true;
   };
 
@@ -1256,10 +1292,17 @@ function App() {
   }, []);
 
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
+  // Reads stateRef, NOT the render closure. Every caller schedules this with
+  // setTimeout(publishMyBase, 500) from inside the handler that just changed the state,
+  // so the timer held that render's function object and published the PRE-change base —
+  // no delay can refresh a captured closure. Rivals were raiding a stadium without the
+  // turret the player had just bought, against the formation they'd just switched off,
+  // with trophies one raid stale (which also skewed matchmaking).
   const publishMyBase = () => {
     if (!pvpEnabled()) return;
-    publishBase(gameState.teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0));
-    track('base_publish', { trophies: gameState.trophies });
+    const s = stateRef.current;
+    publishBase(s.teamName, s.trophies, layoutFromFixedBase(s.buildings, s.roster, s.defenseSlots, s.parkingLot, s.formation, s.formationMastery[s.formation] ?? 0));
+    track('base_publish', { trophies: s.trophies });
   };
   useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1305,11 +1348,12 @@ function App() {
   // Launch a Season campaign stage (deterministic ladder — the PvE spine).
   // Returns whether the game actually started, so the tutorial can fall back to the
   // GAME DAY panel instead of stranding a brand-new coach on an empty field.
-  const startCampaign = (stage: number): boolean => {
+  const startCampaign = (stage: number, attackerName?: string): boolean => {
     const st = CAMPAIGN_STAGES[stage - 1];
     if (!st || stage > gameState.campaign.unlocked) { sfx.error(); return false; }
     const base = campaignBase(stage);
     const launched = launchAttack({
+      attackerName, // the tutorial passes the just-typed club name; gameState is stale in that tick
       mode: 'attack',
       title: `${st.name} — ${st.opponent}`,
       buildings: base.buildings,
@@ -1716,8 +1760,10 @@ function App() {
                   <div className="text-[10px] uppercase tracking-widest font-bold text-slate-500 pt-1">Scrimmage bots</div>
                 </>
               )}
+              {/* Was: "not connected — raid real players by wiring Supabase (see PVP-SETUP.md)".
+                  That is a developer instruction, and it was shipping to real players. */}
               {!pvpEnabled() && (
-                <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> not connected — raid real players by wiring Supabase (see <span className="font-mono">PVP-SETUP.md</span>).</div>
+                <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> — raiding real coaches' stadiums is coming soon.</div>
               )}
               {raidTargets.map(b => (
                 <button key={b.id} onClick={() => { if (launchAttack({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) })) setAttackSelectOpen(false); }}
@@ -1751,7 +1797,16 @@ function App() {
         <BattleScreen
           config={battleConfig}
           onFinish={handleBattleFinish}
-          onExit={() => setBattleConfig(null)}
+          onExit={(beforeKickoff) => {
+            // Energy is charged in launchAttack, before the battle mounts. Backing out of
+            // the deploy screen used to eat it silently — no game, no loot, no refund, and
+            // no analytics event, so the drop-off was invisible in the funnel too.
+            if (beforeKickoff) {
+              setGameState(prev => ({ ...prev, resources: { ...prev.resources, [ResourceType.ENERGY]: Math.min(100, prev.resources.ENERGY + RAID_ENERGY) } }));
+              track('battle_abandon', { mode: battleConfig?.mode, campaign: !!battleConfig?.campaignStage });
+            }
+            setBattleConfig(null);
+          }}
         />
       )}
 
@@ -2077,7 +2132,7 @@ function App() {
                           : <>Almost done — we sent a confirmation link to <span className="text-yellow-300 font-bold">{profile.pendingEmail}</span>. Your club already syncs from THIS device; click the link to unlock sign-in from other devices, then tap Sync now.</>}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={async () => { setCloudMsg('Syncing…'); const r = await syncWithCloud(); setCloudMsg(r === 'pushed' ? 'Club saved to the cloud ✓' : r === 'none' ? 'Could not reach the cloud — will retry' : null); }}
+                        <button onClick={async () => { setCloudMsg('Syncing…'); const r = await syncWithCloud(); setCloudMsg(r === 'pushed' ? 'Club saved to the cloud ✓' : r === 'error' || r === 'none' ? "Couldn't reach the cloud — your club is safe on this device. We'll retry." : null); }}
                           className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors active:scale-95">☁️ Sync now</button>
                         <button onClick={() => { signOutToGuest(); setProfile(null); setCloudMsg('Signed out — this device plays as a new guest.'); }}
                           className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Sign out</button>
@@ -2118,7 +2173,10 @@ function App() {
                           if (!r.ok) { setCloudMsg(r.error ?? 'Sign-in failed.'); return; }
                           const p = await getProfile(); setProfile(p);
                           setCloudMsg('Signed in — loading your club…');
-                          await syncWithCloud(true); // fresh device: the cloud club wins (local backed up first)
+                          // On success this reloads into the cloud club. On a failed lookup it now
+                          // backs off instead of pushing this device's save over the real one.
+                          const sync = await syncWithCloud(true); // fresh device: the cloud club wins (local backed up first)
+                          if (sync === 'error') setCloudMsg("Signed in, but we couldn't load your club just yet — check your connection and tap Sync. Your saved club has not been overwritten.");
                         }} className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Sign in</button>
                       </div>
                     </>

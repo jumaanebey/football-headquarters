@@ -252,16 +252,27 @@ export const signOutToGuest = (): void => {
 
 export interface CloudSave { save: unknown; club_name: string | null; updated_at: string }
 
-export const fetchCloudSave = async (): Promise<CloudSave | null> => {
-  if (!pvpEnabled()) return null;
+/** A failed lookup and an empty account are NOT the same thing. Collapsing both to
+ *  `null` let a timeout look like "this coach has no cloud save", and the caller
+ *  answered that by PUSHING the local club — overwriting a real, older club in the
+ *  cloud with whatever fresh save happened to be on the device. Callers must be able
+ *  to tell the difference, so an error is now explicit and never means "empty". */
+export type CloudFetch =
+  | { status: 'found'; save: CloudSave }
+  | { status: 'empty' }
+  | { status: 'error' };
+
+export const fetchCloudSave = async (): Promise<CloudFetch> => {
+  if (!pvpEnabled()) return { status: 'error' };
   try {
     const h = await authedHeaders();
-    if (!h) return null;
+    if (!h) return { status: 'error' };            // not signed in / token refresh failed
     const s = loadSession()!;
     const res = await tfetch(`${URL_}/rest/v1/fhq_saves?pid=eq.${s.uid}&select=save,club_name,updated_at&limit=1`, { headers: h });
-    const rows: CloudSave[] = res.ok ? await res.json() : [];
-    return rows[0] ?? null;
-  } catch { return null; }
+    if (!res.ok) return { status: 'error' };       // 4xx/5xx is NOT "no save"
+    const rows: CloudSave[] = await res.json();
+    return rows[0] ? { status: 'found', save: rows[0] } : { status: 'empty' };
+  } catch { return { status: 'error' }; }          // timeout / offline is NOT "no save"
 };
 
 export const pushCloudSave = async (save: unknown, clubName: string, clubPower: number): Promise<boolean> => {

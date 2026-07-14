@@ -57,7 +57,9 @@ export interface BattleResult {
 interface Props {
   config: BattleConfig;
   onFinish: (result: BattleResult) => void;
-  onExit: () => void;
+  /** `beforeKickoff` = they backed out during deploy, so no game was played and the
+   *  energy charged at launch must be handed back. */
+  onExit: (beforeKickoff?: boolean) => void;
 }
 
 // A defense "shot" is now a football lobbed from a defender to a target — an arcing
@@ -1139,7 +1141,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 px-2.5 sm:px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button onClick={() => { if (phase === 'fighting' && !sim.current.ended) { endBattle(); } else onExit(); }} title="Blow the whistle — see the result" className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
+          <button onClick={() => { if (phase === 'fighting' && !sim.current.ended) { endBattle(); } else onExit(phase === 'deploy'); }} title="Blow the whistle — see the result" className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
           <div className="min-w-0">
             {/* Phone: ONE line, truncated — the two-line wrap crushed the whole bar */}
             <div className="font-display font-bold text-white uppercase tracking-tight leading-none flex items-center gap-1.5 sm:gap-2 text-[13px] sm:text-base min-w-0">
@@ -1863,6 +1865,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           ))}
           <div className="relative bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl overflow-hidden" style={{ animation: 'fhq-reveal-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
             <div className={`py-6 text-center ${result.won ? 'bg-gradient-to-b from-green-700 to-green-900' : 'bg-gradient-to-b from-red-800 to-red-950'}`}>
+              {/* Say WON or LOST first. Every headline here was pure flavour — a first-timer
+                  read "Shut Out" or "Goal-Line Stand!" and could not tell what had happened
+                  to them. Flavour is kept, but the verdict leads. */}
+              {!(result.campaignStage === 12 && result.won) && (
+                <div className={`text-sm font-display font-black uppercase tracking-widest mb-1 ${result.won ? 'text-green-300' : 'text-red-300'}`}>
+                  {result.won ? 'You won' : 'You lost'}
+                </div>
+              )}
               <div className="text-3xl font-display font-black text-white uppercase mb-3">
                 {result.campaignStage === 12 && result.won ? '💍 League Champions!'
                   : result.gauntletTier !== undefined ? (result.gauntletCleared ? `🛡 Night ${result.gauntletTier} Survived!` : 'The House Fell')
@@ -1896,12 +1906,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               )}
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Ground given up' : 'House taken'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Your base wrecked' : 'Rival base wrecked'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
               {!isDefense && driveStats && (
                 <>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} dmg)</span></span></div>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">💥 Takeaways</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Players stuffed</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">💥 Defenders flattened</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Your players knocked out</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
                 </>
               )}
               {result.gauntletTier !== undefined ? (() => { const pay = gauntletReward(result.gauntletTier, result.wavesHeld ?? 0, !!result.gauntletCleared); return (
@@ -1910,9 +1920,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   <div className="flex justify-between text-sm"><span className="text-slate-400">New fans won over</span><span className="font-mono font-bold text-rose-400">+{pay.fans}</span></div>
                 </>
               ); })() : (
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Gate revenue lost' : 'Gate haul'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Coins lost' : 'Coins won'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
               )}
-              {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">Fans poached</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
+              {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">New fans won over</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
               <button onClick={() => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result); }} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
                 {isReplay ? 'Close Replay' : isDefense ? 'Back to Base' : 'Collect Rewards'}
               </button>

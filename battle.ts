@@ -81,10 +81,13 @@ export interface BTroop {
 // Troop archetypes per position group.
 // Colors are on the home-team identity (steel / orange / charcoal / gold) — see ART-DIRECTION.md.
 export const TROOP_STATS: Record<UnitGroup, { hp: number; dps: number; speed: number; range: number; label: string; color: string; emoji: string; hint: string }> = {
-  [UnitGroup.OFFENSE_LINE]:      { hp: 280, dps: 14, speed: 9,  range: 4,  label: 'Linemen',   color: '#475569', emoji: '🛡️', hint: 'the POCKET — OL shield your QB & RB' },       // steel
-  [UnitGroup.OFFENSE_SKILL]:     { hp: 95,  dps: 34, speed: 15, range: 7,  label: 'Skill',     color: '#f97316', emoji: '⚡', hint: 'QBs THROW · RBs TRUCK · WRs CATCH' },            // team orange
-  [UnitGroup.DEFENSE_LINE]:      { hp: 175, dps: 24, speed: 11, range: 4,  label: 'Front 7',   color: '#1f2937', emoji: '💥', hint: 'BLITZ defensive gear first' },         // charcoal
-  [UnitGroup.DEFENSE_SECONDARY]: { hp: 90,  dps: 22, speed: 17, range: 8,  label: 'Secondary', color: '#eab308', emoji: '🏃', hint: 'fast — race to open loot' },           // gold
+  // Names and hints are written for someone who has never played this and may not follow
+  // football. No position abbreviations, no internal terms — a first-timer reads these
+  // mid-battle with a clock running. Same four names are used on the Coach screen.
+  [UnitGroup.OFFENSE_LINE]:      { hp: 280, dps: 14, speed: 9,  range: 4,  label: 'Linemen',        color: '#475569', emoji: '🛡️', hint: 'big blockers — they soak the hits and shield everyone behind them' },  // steel
+  [UnitGroup.OFFENSE_SKILL]:     { hp: 95,  dps: 34, speed: 15, range: 7,  label: 'Playmakers',     color: '#f97316', emoji: '⚡', hint: 'your stars — hit hard and move fast, but they go down easy' },          // team orange
+  [UnitGroup.DEFENSE_LINE]:      { hp: 175, dps: 24, speed: 11, range: 4,  label: 'Pass Rushers',   color: '#1f2937', emoji: '💥', hint: 'they charge the rival\'s defensive equipment first' },                  // charcoal
+  [UnitGroup.DEFENSE_SECONDARY]: { hp: 90,  dps: 22, speed: 17, range: 8,  label: 'Defensive Backs', color: '#eab308', emoji: '🏃', hint: 'your fastest group — they sprint for the buildings holding the loot' }, // gold
 };
 
 // TARGETING ROLES: each position group goes after what it's built for, so WHICH players
@@ -293,7 +296,7 @@ export interface PlayDef {
   emoji: string;
 }
 export const PLAYBOOK: PlayDef[] = [
-  { key: 'blitz', name: 'Blitz', desc: 'Rage nearby troops — 2× damage & speed', charges: 2, radius: 22, color: '#dc2626', emoji: '🔥' },
+  { key: 'blitz', name: 'Blitz', desc: 'Nearby players hit twice as hard and move twice as fast', charges: 2, radius: 22, color: '#dc2626', emoji: '🔥' },
   { key: 'medic', name: 'Trainer', desc: 'Athletic trainer patches up nearby players', charges: 2, radius: 22, color: '#16a34a', emoji: '➕' },
 ];
 
@@ -311,7 +314,7 @@ export interface SpecialDef {
 }
 export const SPECIALS: SpecialDef[] = [
   // The team mascot struts in, soaks hits, and keeps everyone near it Raging ("crowd goes wild").
-  { key: 'mascot', name: 'Mascot', desc: 'Struts in and hypes nearby players — Rage aura', count: 1, charges: 1, hp: 520, dps: 8, speed: 9, range: 4, aura: { radius: 16, keepRageT: 1.1 }, color: '#f97316', emoji: '🐯', art: '/assets/units/mascot.png' },
+  { key: 'mascot', name: 'Mascot', desc: 'Nearby players hit harder while it is alive', count: 1, charges: 1, hp: 520, dps: 8, speed: 9, range: 4, aura: { radius: 16, keepRageT: 1.1 }, color: '#f97316', emoji: '🐯', art: '/assets/units/mascot.png' },
   // A cheap, fast, fragile swarm — the tailgate crowd storming the field.
   { key: 'fan',    name: 'Fan Mob', desc: 'A swarm of rowdy fans storms the field', count: 5, charges: 2, hp: 45, dps: 9, speed: 16, range: 3, color: '#fb923c', emoji: '📣', art: '/assets/units/fan-mob.png' },
 ];
