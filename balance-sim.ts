@@ -4,11 +4,12 @@ import {
   TROOP_STATS, HERO_DEFS, heroForBattle, heroUpgradeCost, heroLevelMult, heroStarMult,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS,
   BattleBuildingDef, BBuilding, BTroop, generateRaidTargets, defenseLayoutFromBase, defenseAiTroops, raidAiMult, simulateRaid,
+  effectiveStat, unitCombatStats, ENEMY_BASES, SimAttacker,
 } from './battle';
 import { CAMPAIGN_STAGES, campaignBase } from './campaign';
-import { UnitGroup, BuildingType } from './types';
+import { UnitGroup, BuildingType, PlayerRarity, PlayerRole } from './types';
 import { rollHero } from './gacha';
-import { UPGRADE_CONFIG, RECRUIT_CONFIG, DRILLS, COLLECTOR_CONFIG } from './constants';
+import { UPGRADE_CONFIG, RECRUIT_CONFIG, DRILLS, COLLECTOR_CONFIG, ROLE_UNIT } from './constants';
 
 // ---------- player progression tiers (the model under test) ----------
 interface Tier { name: string; ovr: number; roster: number; heroLvl: number; stars: number; heroesOwned: number; walls: number; }
@@ -159,5 +160,36 @@ console.log('\n===== 5. ECONOMY =====');
   const starGain = (heroStarMult(5) / heroStarMult(1) - 1) * 100;
   const lvlGain = (heroLevelMult(15) / heroLevelMult(10) - 1) * 100;
   console.log(`power: 5★ vs 1★ = +${Math.round(starGain)}% · hero L10→15 = +${Math.round(lvlGain)}% for ${Math.round(heroTo15 - heroTo10).toLocaleString()} coins`);
+}
+// ---------- 6. RARITY & ROLE COMBAT (P0-1 / P1-2 acceptance) ----------
+console.log('\n===== 6. RARITY & ROLES — effectiveStat / unitCombatStats / scripted sims =====');
+{
+  // 6a. Rarity is a real multiplier at equal level (P0-1 accept).
+  const rb = (rarity: PlayerRarity) => ({ role: PlayerRole.RB, rarity, level: 5 });
+  const ratio = effectiveStat(rb(PlayerRarity.EPIC), 'strength') / effectiveStat(rb(PlayerRarity.COMMON), 'strength');
+  console.log(`effectiveStat EPIC/COMMON (RB L5, strength): ${ratio.toFixed(2)}x (expect 1.60)`);
+
+  // 6b. Role statlines are DISTINCT (P1-2 accept) — COMMON L1, group × role × stats.
+  console.log('role'.padEnd(5) + 'hp'.padStart(5) + 'dps'.padStart(7) + 'spd'.padStart(7) + 'rng'.padStart(5));
+  (Object.keys(ROLE_UNIT) as PlayerRole[]).forEach(role => {
+    const cs = unitCombatStats({ role, rarity: PlayerRarity.COMMON, level: 1, unit: ROLE_UNIT[role] });
+    console.log(role.padEnd(5) + String(cs.hp).padStart(5) + cs.dps.toFixed(1).padStart(7) + cs.speed.toFixed(1).padStart(7) + String(cs.range).padStart(5));
+  });
+
+  // 6c. Scripted raid: identical squads, COMMON vs EPIC — EPIC must take more of the base.
+  const ROLES: PlayerRole[] = [PlayerRole.QB, PlayerRole.OL, PlayerRole.OL, PlayerRole.RB, PlayerRole.WR, PlayerRole.WR, PlayerRole.DL, PlayerRole.CB];
+  const squad = (rarity: PlayerRarity, roles: PlayerRole[] = ROLES): SimAttacker[] => roles.map((role, i) => {
+    const p = ringPos(i, roles.length);
+    return { unit: ROLE_UNIT[role], x: p.x, y: p.y, role, rarity, level: 5 };
+  });
+  const base = ENEMY_BASES[1].buildings; // Tech University — turrets + wall ring
+  const rCommon = simulateRaid(base, squad(PlayerRarity.COMMON));
+  const rEpic = simulateRaid(base, squad(PlayerRarity.EPIC));
+  console.log(`scripted raid (same squad, L5): COMMON ${rCommon.pct}%/${rCommon.stars}⭐ vs EPIC ${rEpic.pct}%/${rEpic.stars}⭐ ${rEpic.pct > rCommon.pct ? '→ RARITY MATTERS' : '⚠️ EPIC did not outperform!'}`);
+
+  // 6d. Role flags in the headless sim: WRs with a QB out (receiver bonus + pocket) vs without.
+  const wrWithQB = simulateRaid(base, squad(PlayerRarity.COMMON, [PlayerRole.QB, PlayerRole.OL, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR]));
+  const wrNoQB = simulateRaid(base, squad(PlayerRarity.COMMON, [PlayerRole.LB, PlayerRole.OL, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR]));
+  console.log(`WR corps w/ QB on the field: ${wrWithQB.pct}% vs w/o QB: ${wrNoQB.pct}% ${wrWithQB.pct > wrNoQB.pct ? '→ RECEIVER FLAG LIVE' : '(no edge this layout)'}`);
 }
 console.log('');
