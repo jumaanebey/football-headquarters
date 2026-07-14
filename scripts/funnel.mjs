@@ -95,8 +95,8 @@ const table = (rows, cols) => {
 };
 
 const main = async () => {
-  const [funnel, retention, engagement, sinks, daily] = await Promise.all(
-    ['fhq_funnel', 'fhq_retention', 'fhq_engagement', 'fhq_gem_sinks', 'fhq_daily'].map(view),
+  const [funnel, retention, engagement, sinks, daily, channels] = await Promise.all(
+    ['fhq_funnel', 'fhq_retention', 'fhq_engagement', 'fhq_gem_sinks', 'fhq_daily', 'fhq_channels'].map(view),
   );
 
   const totalEvents = daily.reduce((s, d) => s + Number(d.events), 0);
@@ -122,6 +122,17 @@ const main = async () => {
       .sort((a, b) => Number(a.delta_from_prev) - Number(b.delta_from_prev))[0];
     if (biggest) console.log(`\n  ${red('Biggest drop-off:')} ${biggest.label} (${biggest.delta_from_prev} players)`);
   }
+
+  head('CHANNELS  — which source produced players (tag links with ?src=reddit)');
+  table(channels, [
+    { label: 'source', get: (r) => r.source },
+    { label: 'players', get: (r) => n(r.players, 7) },
+    { label: 'club', get: (r) => n(r.created_club, 4) },
+    { label: 'played', get: (r) => n(r.played_a_game, 6) },
+    { label: 'won', get: (r) => n(r.won_a_game, 3) },
+    { label: 'back', get: (r) => n(r.came_back, 4) },
+    { label: '% reached a game', get: (r) => (r.pct_reached_a_game == null ? '-' : `${r.pct_reached_a_game}%`) },
+  ]);
 
   head('RETENTION  — by first-seen cohort');
   table(retention, [

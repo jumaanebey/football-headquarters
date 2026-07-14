@@ -38,7 +38,7 @@ import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from '
 import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, crestForTeam } from './campaign';
 import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, ProfileInfo } from './pvp';
-import { track } from './analytics';
+import { track, trafficSource } from './analytics';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 import { RECRUIT_LAST_NAMES } from './constants';
 import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor, masteryLevel, masteryDefMult, nextMasteryAt, MASTERY_THRESHOLDS } from './fixedBase';
@@ -1260,7 +1260,7 @@ function App() {
 
   // One session_start per load — the denominator for every retention/funnel metric.
   useEffect(() => {
-    track('session_start', { trophies: gameState.trophies, returning: localStorage.getItem(TUTORIAL_KEY) === '1' });
+    track('session_start', { trophies: gameState.trophies, returning: localStorage.getItem(TUTORIAL_KEY) === '1', ...trafficSource() });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // SCOUT SEARCH (hero gacha): spend gems, get a new hero or shards toward a star-up.
