@@ -35,7 +35,7 @@ import { tendencyFromId, TENDENCIES, TendencyKey, displayAnchorOf } from './cons
 import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense, clubPower } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
-import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, crestForTeam } from './campaign';
+import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, preloadNextCoaches, crestForTeam } from './campaign';
 import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, ProfileInfo } from './pvp';
 import { track, trafficSource } from './analytics';
@@ -523,10 +523,12 @@ function App() {
     };
   }, []);
 
-  // Warm the coach-portrait cache off the critical path — Game Day used to open to a
-  // flash of empty circles while 18 PNGs raced in.
+  // Warm ONLY the next opponent or two. Preloading all 18 coach portraits on a boot
+  // timer pulled 731 KB (23% of the page) onto the home screen — for a screen that 18
+  // of the first 19 real coaches never even reached. The full set is warmed when Game
+  // Day actually opens (see openRaid), which is the moment it can matter.
   useEffect(() => {
-    const t = setTimeout(preloadCoachArt, 2500);
+    const t = setTimeout(() => preloadNextCoaches(stateRef.current.campaign?.unlocked ?? 1), 2500);
     return () => clearTimeout(t);
   }, []);
 
@@ -937,6 +939,7 @@ function App() {
   // Open the raid picker with a fresh set of trophy-scaled rivals (no more farming 2 bases).
   // When Live Rivals is connected, also fetch REAL player bases near your trophy count.
   const openRaid = () => {
+    preloadCoachArt(); // full portrait set, warmed only now that Game Day is actually open
     setRaidTargets(generateRaidTargets(gameState.trophies));
     setLiveTargets([]);
     if (pvpEnabled()) findOpponents(gameState.trophies).then(setLiveTargets);
@@ -1425,7 +1428,7 @@ function App() {
     return (
       <div className="mt-2 flex justify-center w-full">
         <img
-          src={`/assets/formations/${f}.png`}
+          src={`/assets/formations/${f}.webp`}
           alt={f}
           draggable={false}
           onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
@@ -1547,7 +1550,7 @@ function App() {
       {/* coin flights: outer = X easing, inner = Y easing → curved arc to the HUD */}
       {coinFlights.map(f => (
         <span key={f.id} className="fixed pointer-events-none" style={{ left: f.x, top: f.y, zIndex: 95, animation: `fhq-coin-x 0.75s cubic-bezier(0.55,0,1,0.45) ${f.delay}ms forwards` , ['--dx' as string]: `${f.dx}px` } as React.CSSProperties}>
-          <img src="/assets/icons/coins.png" alt="" draggable={false} className="w-5 h-5 select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
+          <img src="/assets/icons/coins.webp" alt="" draggable={false} className="w-5 h-5 select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
             style={{ animation: `fhq-coin-y 0.75s cubic-bezier(0,0.55,0.45,1) ${f.delay}ms forwards`, ['--dy' as string]: `${f.dy}px` } as React.CSSProperties} />
         </span>
       ))}
@@ -1611,7 +1614,7 @@ function App() {
             <div className="flex items-center gap-1.5 text-sm font-mono font-bold" style={{ textShadow: '0 1px 4px #000' }}>
               {busy ? <span className="text-amber-300">🔨 upgrading…</span>
                 : gated ? <span className="text-slate-300">🔒 needs Stadium L{b.level + 1}</span>
-                : <><img src="/assets/icons/coins.png" alt="" className="w-4 h-4" draggable={false} /><span className={canAfford ? 'text-yellow-300' : 'text-red-400'}>{cost.toLocaleString()}</span></>}
+                : <><img src="/assets/icons/coins.webp" alt="" className="w-4 h-4" draggable={false} /><span className={canAfford ? 'text-yellow-300' : 'text-red-400'}>{cost.toLocaleString()}</span></>}
             </div>
             <div className="flex items-end gap-2 mt-1">
               <CCBtn label="Info" emoji="💬" onClick={() => setBuildingInfoOpen(true)} />

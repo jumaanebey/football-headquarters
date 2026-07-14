@@ -28,15 +28,15 @@ const HERO_RIG: Record<string, { body: string; action: string; flipX?: boolean; 
   // either is missing the card silently keeps the single-pose body.
   // QB reads RIGHT-HANDED: art is flipped so the raised hand is on the viewer's right,
   // the ball sits IN that hand all cycle, and the throw goes downfield to the right.
-  qb:        { body: '/assets/heroes/franchise-rig/body.png', action: '/assets/heroes/franchise-rig/body-followthrough.png', flipX: true, ball: { left: '58%', top: '16%', anim: 'fhq-ball-inhand' } },
-  enforcer:  { body: '/assets/heroes/rig/enforcer-body.png',  action: '/assets/heroes/rig/enforcer-action.png' },
-  coach:     { body: '/assets/heroes/rig/coach-body.png',     action: '/assets/heroes/rig/coach-action.png' },
-  kicker:    { body: '/assets/heroes/rig/kicker-body.png',    action: '/assets/heroes/rig/kicker-action.png', ball: { left: '44%', top: '48%' } },
-  burner:    { body: '/assets/heroes/rig/burner-body.png',    action: '/assets/heroes/rig/burner-action.png' },
-  medic:     { body: '/assets/heroes/rig/medic-body.png',     action: '/assets/heroes/rig/medic-action.png' },
-  captain:   { body: '/assets/heroes/rig/captain-body.png',   action: '/assets/heroes/rig/captain-action.png' },
-  playmaker: { body: '/assets/heroes/rig/playmaker-body.png', action: '/assets/heroes/rig/playmaker-action.png' },
-  legend:    { body: '/assets/heroes/rig/legend-body.png',    action: '/assets/heroes/rig/legend-action.png' },
+  qb:        { body: '/assets/heroes/franchise-rig/body.webp', action: '/assets/heroes/franchise-rig/body-followthrough.webp', flipX: true, ball: { left: '58%', top: '16%', anim: 'fhq-ball-inhand' } },
+  enforcer:  { body: '/assets/heroes/rig/enforcer-body.webp',  action: '/assets/heroes/rig/enforcer-action.webp' },
+  coach:     { body: '/assets/heroes/rig/coach-body.webp',     action: '/assets/heroes/rig/coach-action.webp' },
+  kicker:    { body: '/assets/heroes/rig/kicker-body.webp',    action: '/assets/heroes/rig/kicker-action.webp', ball: { left: '44%', top: '48%' } },
+  burner:    { body: '/assets/heroes/rig/burner-body.webp',    action: '/assets/heroes/rig/burner-action.webp' },
+  medic:     { body: '/assets/heroes/rig/medic-body.webp',     action: '/assets/heroes/rig/medic-action.webp' },
+  captain:   { body: '/assets/heroes/rig/captain-body.webp',   action: '/assets/heroes/rig/captain-action.webp' },
+  playmaker: { body: '/assets/heroes/rig/playmaker-body.webp', action: '/assets/heroes/rig/playmaker-action.webp' },
+  legend:    { body: '/assets/heroes/rig/legend-body.webp',    action: '/assets/heroes/rig/legend-action.webp' },
 };
 
 // Hue (0-360) of a hex color — used to hue-shift the golden flame ring (base hue ≈45°)
@@ -92,7 +92,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
         {revealDef && lastRoll && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm animate-fade-in cursor-pointer" onClick={() => setReveal('idle')}>
             <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
-              <img src="/assets/heroes/franchise-rig/aura-ring.png" alt="" draggable={false} className="absolute select-none"
+              <img src="/assets/heroes/franchise-rig/aura-ring.webp" alt="" draggable={false} className="absolute select-none"
                 style={{ width: 230, height: 230, animation: `fhq-aura ${reveal === 'suspense' ? '0.9s' : '6s'} linear infinite`, opacity: 0.95,
                   filter: reveal === 'shown' ? `hue-rotate(${heroHue(revealDef.color) - 45}deg) saturate(1.2) drop-shadow(0 0 14px ${revealDef.color})` : 'drop-shadow(0 0 10px #f97316aa)' }} />
               {reveal === 'suspense' ? (
@@ -173,14 +173,14 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                       golden base to each hero's signature color. Glow breathes behind it. */}
                   {unlocked && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-                      <img src="/assets/heroes/franchise-rig/aura-ring.png" alt="" draggable={false}
+                      <img src="/assets/heroes/franchise-rig/aura-ring.webp" alt="" draggable={false}
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         style={{ width: 152, height: 152, animation: 'fhq-aura 9s linear infinite', opacity: 0.92,
                           filter: `hue-rotate(${heroHue(def.color) - 45}deg) saturate(1.15) drop-shadow(0 0 8px ${def.color}66)` }} />
                     </div>
                   )}
                   {unlocked && (
-                    <img src="/assets/fx/window-glow.png" alt="" draggable={false}
+                    <img src="/assets/fx/window-glow.webp" alt="" draggable={false}
                       onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none"
                       style={{ width: 150, mixBlendMode: 'screen', animation: 'fhq-glow 3s ease-in-out infinite' }} />
@@ -208,7 +208,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                           QB's frames are ARM-LOCKED to the reference (extended empty palm) so
                           the in-hand ball keeps riding his hand through the shuffle. */}
                       {(['A', 'B'] as const).map(f => (
-                        <img key={f} src={`/assets/heroes/rig/${def.key}-idle${f}.png`} alt="" draggable={false}
+                        <img key={f} src={`/assets/heroes/rig/${def.key}-idle${f}.webp`} alt="" draggable={false}
                           onLoad={e => {
                             const p = e.currentTarget.parentElement as HTMLElement;
                             p.dataset[`idle${f}`] = '1';
@@ -230,7 +230,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                         style={{ animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
                       </div>
                       {rig.ball && (
-                        <img src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false}
+                        <img src="/assets/heroes/franchise-rig/ball.webp" alt="" draggable={false}
                           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           className="absolute pointer-events-none"
                           style={{ width: '30%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 5.5s ease-in-out ${dly} infinite`, opacity: rig.ball.anim === 'fhq-ball-inhand' ? 1 : 0 }} />

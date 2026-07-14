@@ -603,7 +603,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         const hq2 = s.buildings.find(b => b.kind === 'hq');
         if (hq2 && !hq2.dead && hq2.hp < hq2.maxHp * 0.7) {
           s.mascotOut = true;
-          s.guards.push({ id: `mas${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: hq2.x, y: hq2.y + 3, hp: Math.round(560 * guardMult), maxHp: Math.round(560 * guardMult), dps: 10 * guardMult, speed: 8.5, range: 3.4, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 0, guardArt: '/assets/units/mascot.png', isMascot: true } as BTroop);
+          s.guards.push({ id: `mas${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: hq2.x, y: hq2.y + 3, hp: Math.round(560 * guardMult), maxHp: Math.round(560 * guardMult), dps: 10 * guardMult, speed: 8.5, range: 3.4, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 0, guardArt: '/assets/units/mascot.webp', isMascot: true } as BTroop);
           say(povDefense ? '🐯 YOUR MASCOT charges out of the tunnel — the crowd comes ALIVE!' : '🐯 THEIR MASCOT storms out to defend the house!');
           sfx.crowdRoar();
           s.shakeT = 0.25;
@@ -1118,7 +1118,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div className="flex-1 text-center min-w-0">
                 <div className="w-16 h-16 mx-auto rounded-full border-4 border-orange-500 bg-[#111827] overflow-hidden relative flex items-center justify-center">
                   <span className="text-2xl">🏈</span>
-                  <img src="/assets/brand/app-icon.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
+                  <img src="/assets/brand/app-icon.webp" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
                 </div>
                 <div className="mt-2 font-display font-black text-white uppercase text-sm leading-tight truncate">{config.attackerName ?? 'Your Squad'}</div>
                 <div className="text-[10px] text-orange-300 font-bold uppercase mt-0.5">{plan.emoji} {plan.name}</div>
@@ -1267,20 +1267,20 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   className="absolute pointer-events-none" style={{ left: `${px(wx, wy)}%`, top: `${py(wx, wy)}%`, width: `${w}%`, transform: 'translate(-50%,-60%)', opacity: 0.95, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }} />
               );
               const props: React.ReactNode[] = [
-                img('/assets/decor/tailgate-tent.png', 16, -14, 9, 'tt1'),
-                img('/assets/decor/merch-stand.png', 108, 70, 9, 'ms1'),
+                img('/assets/decor/tailgate-tent.webp', 16, -14, 9, 'tt1'),
+                img('/assets/decor/merch-stand.webp', 108, 70, 9, 'ms1'),
               ];
               if (pl >= 1) {
-                props.push(img('/assets/decor/parking-lot.png', 62, -16, 12, 'pk1'));
-                props.push(img('/assets/decor/parking-lot.png', 16, 112, 12, 'pk2'));
+                props.push(img('/assets/decor/parking-lot.webp', 62, -16, 12, 'pk1'));
+                props.push(img('/assets/decor/parking-lot.webp', 16, 112, 12, 'pk2'));
               }
               if (pl >= 2) {
-                props.push(img('/assets/decor/tailgate-tent.png', -14, 40, 8, 'tt2'));
-                props.push(img('/assets/decor/parking-lot.png', 112, 30, 11, 'pk3'));
+                props.push(img('/assets/decor/tailgate-tent.webp', -14, 40, 8, 'tt2'));
+                props.push(img('/assets/decor/parking-lot.webp', 112, 30, 11, 'pk3'));
               }
               if (pl >= 3) {
-                props.push(img('/assets/decor/tailgate-tent.png', 90, 112, 8, 'tt3'));
-                props.push(img('/assets/decor/merch-stand.png', -14, 78, 8, 'ms2'));
+                props.push(img('/assets/decor/tailgate-tent.webp', 90, 112, 8, 'tt3'));
+                props.push(img('/assets/decor/merch-stand.webp', -14, 78, 8, 'ms2'));
               }
               return (
                 <>{props}</>
@@ -1389,7 +1389,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 <div className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '5vmin', height: 2, zIndex: 94, transformOrigin: '100% 50%', transform: `translate(-100%,-50%) rotate(${ang}deg)`, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.55))', opacity: 0.5 + u * 0.3 }} />
                 <div className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '3vmin', height: '3vmin', zIndex: 95, transform: `translate(-50%,-50%) rotate(${sh.rot + u * 540}deg)`, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>
                   <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '2.4vmin', lineHeight: 1 }}>{proj}</span>
-                  {proj === '🏈' && <img src="/assets/battle/football-proj.png" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />}
+                  {proj === '🏈' && <img src="/assets/battle/football-proj.webp" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />}
                 </div>
               </React.Fragment>
             );
@@ -1432,7 +1432,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 return (
                   <React.Fragment key={i}>
                     {[0.26, 0.13, 0].map(d => { const pp = Math.max(0, p - d); const { bx, by } = pos(pp); const main = d === 0; return (
-                      <img key={d} src="/assets/heroes/franchise-rig/ball.png" alt="" draggable={false} className="absolute pointer-events-none select-none"
+                      <img key={d} src="/assets/heroes/franchise-rig/ball.webp" alt="" draggable={false} className="absolute pointer-events-none select-none"
                         style={{ left: `${bx}%`, top: `${by}%`, width: main ? '2.6vmin' : d === 0.13 ? '2.1vmin' : '1.7vmin', zIndex: main ? 202 : 201, transform: `translate(-50%,-50%) rotate(${pp * 720}deg)`, opacity: Math.min(1, k * 3) * (main ? 1 : d === 0.13 ? 0.38 : 0.18), filter: main ? undefined : 'brightness(1.5) blur(0.5px)' }} />
                     ); })}
                   </React.Fragment>
@@ -1441,11 +1441,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             );
             if (f.type === 'land') return (
               // Deploy landing puff — small dust burst under fresh boots
-              <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '4.6vmin', zIndex: 96, transform: `translate(-50%,-60%) scale(${0.45 + (1 - k) * 0.75})`, opacity: k * 0.85 }} />
+              <img key={i} src="/assets/fx/dust-impact.webp" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '4.6vmin', zIndex: 96, transform: `translate(-50%,-60%) scale(${0.45 + (1 - k) * 0.75})`, opacity: k * 0.85 }} />
             );
             if (f.type === 'boom') return (
               // Teardown dust burst — the art sprite blooms out and fades over the wreck
-              <img key={i} src="/assets/fx/dust-impact.png" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '9vmin', zIndex: 158, transform: `translate(-50%,-55%) scale(${0.5 + (1 - k) * 0.9}) rotate(${(1 - k) * 20}deg)`, opacity: Math.min(1, k * 1.6) }} />
+              <img key={i} src="/assets/fx/dust-impact.webp" alt="" draggable={false} className="absolute pointer-events-none select-none" style={{ left: `${px(f.x, f.y)}%`, top: `${py(f.x, f.y)}%`, width: '9vmin', zIndex: 158, transform: `translate(-50%,-55%) scale(${0.5 + (1 - k) * 0.9}) rotate(${(1 - k) * 20}deg)`, opacity: Math.min(1, k * 1.6) }} />
             );
             if (f.type === 'debris') return (
               // Chunks of the sacked facility tumbling out of the wreck
@@ -1470,7 +1470,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${px(b.x, b.y)}%`, top: `${py(b.x, b.y)}%`, width: `${b.size * 1.7}%`, zIndex: Math.round((b.x + b.y) / 2) }}>
                   {/* HP bar only once it's TAKEN damage — 30 full green bars was pure noise */}
                   {!b.dead && b.hp < b.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%', minWidth: 18 }}><div className="h-full bg-lime-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
-                  <img src={b.art ?? '/assets/battle/blocking-sled.png'} alt="" draggable={false} className="w-full" style={{ height: 'auto', aspectRatio: '1', objectFit: 'contain', opacity: b.dead ? 0.25 : 1, transformOrigin: '50% 90%', animation: !b.dead && ((b as BBuilding & { hitFlash?: number }).hitFlash ?? 0) > 0 ? 'fhq-hitjolt 0.2s ease-out' : undefined, filter: b.dead ? 'grayscale(1) brightness(0.55)' : ((b as BBuilding & { hitFlash?: number }).hitFlash ?? 0) > 0 ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.4)) brightness(1.9)' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }} />
+                  <img src={b.art ?? '/assets/battle/blocking-sled.webp'} alt="" draggable={false} className="w-full" style={{ height: 'auto', aspectRatio: '1', objectFit: 'contain', opacity: b.dead ? 0.25 : 1, transformOrigin: '50% 90%', animation: !b.dead && ((b as BBuilding & { hitFlash?: number }).hitFlash ?? 0) > 0 ? 'fhq-hitjolt 0.2s ease-out' : undefined, filter: b.dead ? 'grayscale(1) brightness(0.55)' : ((b as BBuilding & { hitFlash?: number }).hitFlash ?? 0) > 0 ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.4)) brightness(1.9)' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }} />
                 </div>
               );
             }
@@ -1499,7 +1499,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     {/* Live crowd in the stadium bowl — breathes normally, does THE WAVE
                         when the drive crosses a 25% milestone (key remount retriggers). */}
                     {b.kind === 'hq' && (
-                      <img key={milestoneKey} src="/assets/fx/crowd-strip.png" alt="" draggable={false} className="absolute select-none"
+                      <img key={milestoneKey} src="/assets/fx/crowd-strip.webp" alt="" draggable={false} className="absolute select-none"
                         style={{ left: '14%', top: '26%', width: '72%', opacity: 0.2 + 0.65 * Math.max(0, 1 - pct / 100) /* the bowl empties as the house is taken */, animation: milestoneKey ? 'fhq-crowdwave 1.2s ease-in-out, fhq-breathe 3s ease-in-out 1.2s infinite' : 'fhq-breathe 3s ease-in-out infinite', transformOrigin: '50% 100%' }} />
                     )}
                   </div>
@@ -1552,7 +1552,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     return (
                       <>
                         {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                          <img key={fr} src={`/assets/heroes/rig/${hk}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
+                          <img key={fr} src={`/assets/heroes/rig/${hk}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
                         ))}
                       </>
                     ); })()}
@@ -1612,7 +1612,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     {/* HEROES WALK: two-frame stride while moving, action pose while attacking.
                         Walk frames face viewer-LEFT natively → flip when running right. Missing
                         frames self-hide, leaving the flat art underneath. */}
-                    {(() => { const rp = { action: t.heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.png' : `/assets/heroes/rig/${t.heroKey}-action.png`, base: `/assets/heroes/rig/${t.heroKey}` };
+                    {(() => { const rp = { action: t.heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${t.heroKey}-action.webp`, base: `/assets/heroes/rig/${t.heroKey}` };
                       const rigFlip = face > 0 ? ' scaleX(-1)' : '';
                       const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
                       const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
@@ -1622,7 +1622,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       ) : (
                         <>
                           {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                            <img key={fr} src={`${rp.base}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${rigFlip}` }} />
+                            <img key={fr} src={`${rp.base}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${rigFlip}` }} />
                           ))}
                         </>
                       ); })()}
@@ -1644,12 +1644,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     </div>
                     <img src={unitPlayerSprite(t.unit)} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ transform: `translateZ(0)${flip}` }} />
                     {!t.attacking && (() => {
-                      const base = unitPlayerSprite(t.unit).replace('-player.png', '');
+                      const base = unitPlayerSprite(t.unit).replace('-player.webp', '');
                       const uFlip = face > 0 ? ' scaleX(-1)' : '';
                       const rigOn2 = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
                       const rigOff2 = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
                       return (['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                        <img key={fr} src={`${base}-${fr}.png`} alt="" draggable={false} onLoad={rigOn2} onError={rigOff2} className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${uFlip}` }} />
+                        <img key={fr} src={`${base}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn2} onError={rigOff2} className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${uFlip}` }} />
                       )); })()}
                     {/* jersey number rides the real sprite — the announcer talks about #23, so show #23 */}
                     <span className="absolute flex items-center justify-center font-black text-white" style={{ right: '-4%', bottom: '-2%', minWidth: '38%', height: '32%', borderRadius: 4, background: st.color, border: '1px solid rgba(0,0,0,0.55)', fontSize: '1.15vmin', boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t.jersey}</span>
@@ -1667,7 +1667,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div className="relative w-full" style={{ aspectRatio: '1', animation: 'fhq-bandbob 0.44s ease-in-out infinite' }}>
                 <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '3vmin', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }}>{m === 'drum' ? '🥁' : m === 'major' ? '✨' : '🎺'}</span>
                 {(['A', 'B'] as const).map(fr => (
-                  <img key={fr} src={`/assets/battle/band/band-${m}-${fr}.png`} alt="" draggable={false}
+                  <img key={fr} src={`/assets/battle/band/band-${m}-${fr}.webp`} alt="" draggable={false}
                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     onLoad={e => { const sp = e.currentTarget.parentElement?.querySelector('span'); if (sp) (sp as HTMLElement).style.display = 'none'; }}
                     className="absolute inset-0 w-full h-full object-contain"

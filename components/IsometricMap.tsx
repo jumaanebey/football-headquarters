@@ -132,7 +132,7 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
         const pc = tileToScreen(x, y);
         // HTML <img> (GPU-composited) — NOT an SVG <image>; those rasterize per frame.
         paths.push(
-          <img key={`p${k}`} src="/assets/ground/dirt-path-tile.png" alt="" draggable={false}
+          <img key={`p${k}`} src="/assets/ground/dirt-path-tile.webp" alt="" draggable={false}
             style={{ position: 'absolute', left: pc.x - (TILE_W / 2) * 0.8, top: pc.y - (TILE_H / 2) * 0.8, width: TILE_W * 0.8, height: TILE_H * 0.8, maxWidth: 'none', opacity: 0.85, pointerEvents: 'none' }} />
         );
       }
@@ -164,11 +164,11 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
           {/* Iso turf tiling as ONE pattern (center + 4 half-offset corner copies). */}
           <pattern id="turfPat" width={TILE_W} height={TILE_H} patternUnits="userSpaceOnUse"
             x={ORIGIN_X - TILE_W / 2} y={ORIGIN_Y - TILE_H / 2}>
-            <image href="/assets/ground/turf-tile-dark.png" x={0} y={0} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-            <image href="/assets/ground/turf-tile-dark.png" x={-TILE_W / 2} y={-TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-            <image href="/assets/ground/turf-tile-dark.png" x={TILE_W / 2} y={-TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-            <image href="/assets/ground/turf-tile-dark.png" x={-TILE_W / 2} y={TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-            <image href="/assets/ground/turf-tile-dark.png" x={TILE_W / 2} y={TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.webp" x={0} y={0} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.webp" x={-TILE_W / 2} y={-TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.webp" x={TILE_W / 2} y={-TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.webp" x={-TILE_W / 2} y={TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
+            <image href="/assets/ground/turf-tile-dark.webp" x={TILE_W / 2} y={TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
           </pattern>
           <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
@@ -284,7 +284,7 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: Math.max(1, Math.round(z ?? gridX + gridY)) }}>
       <div style={reveal !== undefined ? { animation: `fhq-reveal-in 0.6s cubic-bezier(0.34,1.56,0.64,1) ${reveal}s both` } : undefined}>
-        <img src={`/assets/decor/${slug}.png`} alt="" draggable={false}
+        <img src={`/assets/decor/${slug}.webp`} alt="" draggable={false}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
       </div>
@@ -292,7 +292,7 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
         <>
           <div className="absolute rounded-full border-4 border-orange-300" style={{ width: 20, height: 20, left: -10, top: -TILE_H / 2 - 10, opacity: 0, animation: `fhq-reveal-burst 0.8s ease-out ${reveal + 0.15}s both` }} />
           {[0, 1].map(i => (
-            <img key={i} src="/assets/fx/spark-star.png" alt="" draggable={false} className="absolute select-none" style={{
+            <img key={i} src="/assets/fx/spark-star.webp" alt="" draggable={false} className="absolute select-none" style={{
               width: 16, left: -22 + i * 30, top: -TILE_H / 2 - 26 + (i % 2) * 14, opacity: 0,
               animation: `fhq-twinkle 0.9s ease-in-out ${reveal + 0.2 + i * 0.25}s 2`,
             }} />
@@ -399,7 +399,7 @@ const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, sc
   return (
     <div className="fhq-traffic absolute pointer-events-none"
       style={{ left: a.x, top: a.y, zIndex: 22, '--dx': `${b.x - a.x}px`, '--dy': `${b.y - a.y}px`, animation: `fhq-drive ${dur}s linear ${delay}s infinite` } as React.CSSProperties}>
-      <img src={`/assets/decor/${slug}.png`} alt="" draggable={false}
+      <img src={`/assets/decor/${slug}.webp`} alt="" draggable={false}
         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: 'scaleX(-1)', filter: 'drop-shadow(0 6px 5px rgba(0,0,0,0.35))' }} />
     </div>
@@ -427,7 +427,7 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: 1 }}>
       <div style={{ position: 'absolute', width: w, height: w * BOARD_ASPECT, left: -w / 2, bottom: -TILE_H / 2 }}>
-        <img src="/assets/decor/scoreboard-dualdeck.png" alt="" draggable={false}
+        <img src="/assets/decor/scoreboard-dualdeck.webp" alt="" draggable={false}
           onError={e => { const p = e.currentTarget.parentElement as HTMLElement | null; if (p) p.style.display = 'none'; /* art gone → decks + hitbox go too, no LED text floating in the sky */ }}
           style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
         {/* TWO LIVE DECKS on the art's blank LED surfaces (no fake backing needed —
@@ -478,11 +478,11 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
       <div className="absolute" style={{ left: -13, top: -28, width: 26, height: 30 }}>
         <div className="fhq-unit relative w-full h-full" style={{ animation: `${rev ? 'fhq-drillflip-r' : 'fhq-drillflip'} ${dur}s linear ${delay}s infinite` }}>
           <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30" style={{ bottom: -2, width: 17, height: 6 }} />
-          <img src={`/assets/units/${slug}-player.png`} alt="" draggable={false}
+          <img src={`/assets/units/${slug}-player.webp`} alt="" draggable={false}
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             className="fhq-flat absolute inset-0 w-full h-full object-contain" />
           {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-            <img key={fr} src={`/assets/units/${slug}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff}
+            <img key={fr} src={`/assets/units/${slug}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff}
               className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite` }} />
           ))}
         </div>
@@ -712,7 +712,7 @@ const BuildingSprite: React.FC<{
         <div className="absolute pointer-events-none" style={{ left: 0, bottom: TILE_H * 0.4, zIndex: 70 }}>
           <div className="absolute rounded-full border-4 border-yellow-300" style={{ width: 20, height: 20, left: -10 /* margin-centering — the burst keyframe's transform replaces translate classes */, bottom: 0, animation: 'fhq-reveal-burst 0.8s ease-out forwards' }} />
           {[0, 1, 2, 3].map(i => (
-            <img key={i} src="/assets/fx/spark-star.png" alt="" draggable={false} className="absolute select-none" style={{
+            <img key={i} src="/assets/fx/spark-star.webp" alt="" draggable={false} className="absolute select-none" style={{
               width: 18, left: -30 + i * 20, bottom: -6 + (i % 2) * 16, opacity: 0,
               animation: `fhq-twinkle 0.9s ease-in-out ${i * 0.18}s 2`,
             }} />
@@ -737,7 +737,7 @@ const BuildingSprite: React.FC<{
           style={{ display: 'block', width: '100%', maxWidth: 'none', height: 'auto', filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
         {/* Scouting HQ chimney smoke — three staggered puffs rising off the roofline */}
         {isAcademy && [0, 1, 2].map(i => (
-          <img key={i} src="/assets/fx/smoke-puff.png" alt="" draggable={false} className="absolute select-none" style={{
+          <img key={i} src="/assets/fx/smoke-puff.webp" alt="" draggable={false} className="absolute select-none" style={{
             width: 14 + i * 4, left: SPRITE_W * 0.44, bottom: SPRITE_W * 0.58,
             opacity: 0, animation: `fhq-smoke 4.5s linear ${i * 1.5}s infinite`,
           }} />
@@ -745,7 +745,7 @@ const BuildingSprite: React.FC<{
         {/* Lit windows — always on (the night never ends here), breathing slowly.
             Screen blend keeps the art underneath readable. */}
         {(WINDOW_GLOWS[building.type] ?? []).map((g, i) => (
-          <img key={`g${i}`} src="/assets/fx/window-glow.png" alt="" draggable={false} className="absolute select-none" style={{
+          <img key={`g${i}`} src="/assets/fx/window-glow.webp" alt="" draggable={false} className="absolute select-none" style={{
             width: SPRITE_W * g.w, left: SPRITE_W * g.x, bottom: SPRITE_W * g.y,
             mixBlendMode: 'screen', animation: `fhq-glow ${4 + i}s ease-in-out ${(building.gridX * 3 + i * 2) % 4}s infinite`,
           }} />
@@ -753,14 +753,14 @@ const BuildingSprite: React.FC<{
         {/* Stadium dressing: swaying team banner off the near corner + crowd shimmer isn't
             needed here (the bowl is tiny at board zoom) — banner only. */}
         {building.type === BuildingType.STADIUM && (
-          <img src="/assets/fx/banner-team.png" alt="" draggable={false} className="absolute select-none" style={{
+          <img src="/assets/fx/banner-team.webp" alt="" draggable={false} className="absolute select-none" style={{
             width: SPRITE_W * 0.2, left: SPRITE_W * 0.03, bottom: SPRITE_W * 0.34,
             transformOrigin: '50% 0%', animation: 'fhq-sway 4s ease-in-out infinite',
           }} />
         )}
         {/* Collect-ready shimmer: two golden sparks twinkling over the haul */}
         {showBubble && [0, 1].map(i => (
-          <img key={`s${i}`} src="/assets/fx/spark-star.png" alt="" draggable={false} className="absolute select-none" style={{
+          <img key={`s${i}`} src="/assets/fx/spark-star.webp" alt="" draggable={false} className="absolute select-none" style={{
             width: 16 - i * 4, left: SPRITE_W * (0.3 + i * 0.28), bottom: SPRITE_W * (0.42 - i * 0.14),
             opacity: 0, animation: `fhq-twinkle 1.8s ease-in-out ${i * 0.7}s infinite`,
           }} />
@@ -871,14 +871,14 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
           style={{ transform: facingLeft ? 'scaleX(-1)' : undefined }} />
         {/* Real stride while MOVING: two frames alternate; art faces LEFT natively */}
         {isMoving && (() => {
-          const base = unitPlayerSprite(player.unit).replace('-player.png', '');
+          const base = unitPlayerSprite(player.unit).replace('-player.webp', '');
           const wFlip = facingLeft ? undefined : 'scaleX(-1)';
           const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
           const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
           return (
             <>
               {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                <img key={fr} src={`${base}-${fr}.png`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: `fhq-q${qi + 1} 0.5s linear infinite`, transform: wFlip }} />
+                <img key={fr} src={`${base}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: `fhq-q${qi + 1} 0.5s linear infinite`, transform: wFlip }} />
               ))}
             </>
           ); })()}

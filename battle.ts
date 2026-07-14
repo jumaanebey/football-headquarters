@@ -243,17 +243,17 @@ export interface HeroDef {
 }
 export const HERO_DEFS: HeroDef[] = [
   // --- Starters (owned from the start) ---
-  { key: 'qb', name: 'The Franchise', role: 'QB', unit: UnitGroup.OFFENSE_SKILL, ability: 'hailmary', abilityName: 'Hail Mary', abilityDesc: 'Bomb a building from range', baseHp: 240, baseDps: 28, speed: 13, range: 9, color: '#f59e0b', emoji: '🎯', art: '/assets/heroes/qb.png', starter: true },
-  { key: 'enforcer', name: 'The Enforcer', role: 'RB', unit: UnitGroup.DEFENSE_LINE, ability: 'truckstick', abilityName: 'Truck Stick', abilityDesc: 'Rage: 2× damage + full heal', baseHp: 460, baseDps: 24, speed: 10, range: 4, color: '#7c3aed', emoji: '🚛', art: '/assets/heroes/enforcer.png', starter: true },
-  { key: 'coach', name: 'The General', role: 'HC', unit: UnitGroup.OFFENSE_LINE, ability: 'motivation', abilityName: 'Inspire', abilityDesc: 'Give nearby troops 4s of Rage', baseHp: 380, baseDps: 18, speed: 8, range: 4, color: '#10b981', emoji: '📋', art: '/assets/heroes/coach.png', starter: true },
-  { key: 'kicker', name: 'The Specialist', role: 'K', unit: UnitGroup.OFFENSE_SKILL, ability: 'onside_bomb', abilityName: 'Onside Bomb', abilityDesc: 'Lob an explosive ball dealing 600 damage', baseHp: 190, baseDps: 35, speed: 12, range: 12, color: '#3b82f6', emoji: '🏈', art: '/assets/heroes/kicker.png', starter: true },
-  { key: 'burner', name: 'The Burner', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'burner_dash', abilityName: 'Jet Sweep', abilityDesc: 'Teleport to nearest building', baseHp: 220, baseDps: 32, speed: 18, range: 5, color: '#ef4444', emoji: '🔥', art: '/assets/heroes/burner.png', starter: true },
+  { key: 'qb', name: 'The Franchise', role: 'QB', unit: UnitGroup.OFFENSE_SKILL, ability: 'hailmary', abilityName: 'Hail Mary', abilityDesc: 'Bomb a building from range', baseHp: 240, baseDps: 28, speed: 13, range: 9, color: '#f59e0b', emoji: '🎯', art: '/assets/heroes/qb.webp', starter: true },
+  { key: 'enforcer', name: 'The Enforcer', role: 'RB', unit: UnitGroup.DEFENSE_LINE, ability: 'truckstick', abilityName: 'Truck Stick', abilityDesc: 'Rage: 2× damage + full heal', baseHp: 460, baseDps: 24, speed: 10, range: 4, color: '#7c3aed', emoji: '🚛', art: '/assets/heroes/enforcer.webp', starter: true },
+  { key: 'coach', name: 'The General', role: 'HC', unit: UnitGroup.OFFENSE_LINE, ability: 'motivation', abilityName: 'Inspire', abilityDesc: 'Give nearby troops 4s of Rage', baseHp: 380, baseDps: 18, speed: 8, range: 4, color: '#10b981', emoji: '📋', art: '/assets/heroes/coach.webp', starter: true },
+  { key: 'kicker', name: 'The Specialist', role: 'K', unit: UnitGroup.OFFENSE_SKILL, ability: 'onside_bomb', abilityName: 'Onside Bomb', abilityDesc: 'Lob an explosive ball dealing 600 damage', baseHp: 190, baseDps: 35, speed: 12, range: 12, color: '#3b82f6', emoji: '🏈', art: '/assets/heroes/kicker.webp', starter: true },
+  { key: 'burner', name: 'The Burner', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'burner_dash', abilityName: 'Jet Sweep', abilityDesc: 'Teleport to nearest building', baseHp: 220, baseDps: 32, speed: 18, range: 5, color: '#ef4444', emoji: '🔥', art: '/assets/heroes/burner.webp', starter: true },
   // --- Unlockable heroes (coin-gated) — distinct support roles, incl. women ---
-  { key: 'medic', name: 'Dr. Sloane', role: 'Team Doc', unit: UnitGroup.DEFENSE_SECONDARY, ability: 'field_medic', abilityName: 'Field Medic', abilityDesc: 'Heal all nearby players for a big chunk + regen', baseHp: 300, baseDps: 10, speed: 13, range: 6, color: '#22c55e', emoji: '⛑️', art: '/assets/heroes/medic.png', unlock: { coins: 8000 } },
-  { key: 'captain', name: 'The Captain', role: 'S', unit: UnitGroup.DEFENSE_SECONDARY, ability: 'shield_wall', abilityName: 'Shield Wall', abilityDesc: 'Nearby players take half damage for 5s', baseHp: 440, baseDps: 16, speed: 11, range: 4, color: '#0ea5e9', emoji: '🛡️', art: '/assets/heroes/captain.png', unlock: { coins: 14000 } },
-  { key: 'playmaker', name: 'The Playmaker', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'trick_play', abilityName: 'Trick Play', abilityDesc: 'Summon a burst of skill players onto the field', baseHp: 250, baseDps: 30, speed: 16, range: 7, color: '#ec4899', emoji: '🎩', art: '/assets/heroes/playmaker.png', unlock: { coins: 20000 } },
+  { key: 'medic', name: 'Dr. Sloane', role: 'Team Doc', unit: UnitGroup.DEFENSE_SECONDARY, ability: 'field_medic', abilityName: 'Field Medic', abilityDesc: 'Heal all nearby players for a big chunk + regen', baseHp: 300, baseDps: 10, speed: 13, range: 6, color: '#22c55e', emoji: '⛑️', art: '/assets/heroes/medic.webp', unlock: { coins: 8000 } },
+  { key: 'captain', name: 'The Captain', role: 'S', unit: UnitGroup.DEFENSE_SECONDARY, ability: 'shield_wall', abilityName: 'Shield Wall', abilityDesc: 'Nearby players take half damage for 5s', baseHp: 440, baseDps: 16, speed: 11, range: 4, color: '#0ea5e9', emoji: '🛡️', art: '/assets/heroes/captain.webp', unlock: { coins: 14000 } },
+  { key: 'playmaker', name: 'The Playmaker', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'trick_play', abilityName: 'Trick Play', abilityDesc: 'Summon a burst of skill players onto the field', baseHp: 250, baseDps: 30, speed: 16, range: 7, color: '#ec4899', emoji: '🎩', art: '/assets/heroes/playmaker.webp', unlock: { coins: 20000 } },
   // --- Premium pay-to-unlock hero (gems) — the GOAT ---
-  { key: 'legend', name: 'The Legend', role: 'GOAT', unit: UnitGroup.OFFENSE_SKILL, ability: 'hall_of_fame', abilityName: 'Hall of Fame', abilityDesc: 'Rage + full heal for your ENTIRE squad', baseHp: 520, baseDps: 40, speed: 14, range: 8, color: '#a855f7', emoji: '👑', art: '/assets/heroes/legend.png', unlock: { gems: 120 } },
+  { key: 'legend', name: 'The Legend', role: 'GOAT', unit: UnitGroup.OFFENSE_SKILL, ability: 'hall_of_fame', abilityName: 'Hall of Fame', abilityDesc: 'Rage + full heal for your ENTIRE squad', baseHp: 520, baseDps: 40, speed: 14, range: 8, color: '#a855f7', emoji: '👑', art: '/assets/heroes/legend.webp', unlock: { gems: 120 } },
 ];
 export const STARTER_HERO_KEYS = HERO_DEFS.filter(h => h.starter).map(h => h.key);
 export const heroLevelMult = (level: number) => 1 + 0.25 * (level - 1);
@@ -314,9 +314,9 @@ export interface SpecialDef {
 }
 export const SPECIALS: SpecialDef[] = [
   // The team mascot struts in, soaks hits, and keeps everyone near it Raging ("crowd goes wild").
-  { key: 'mascot', name: 'Mascot', desc: 'Nearby players hit harder while it is alive', count: 1, charges: 1, hp: 520, dps: 8, speed: 9, range: 4, aura: { radius: 16, keepRageT: 1.1 }, color: '#f97316', emoji: '🐯', art: '/assets/units/mascot.png' },
+  { key: 'mascot', name: 'Mascot', desc: 'Nearby players hit harder while it is alive', count: 1, charges: 1, hp: 520, dps: 8, speed: 9, range: 4, aura: { radius: 16, keepRageT: 1.1 }, color: '#f97316', emoji: '🐯', art: '/assets/units/mascot.webp' },
   // A cheap, fast, fragile swarm — the tailgate crowd storming the field.
-  { key: 'fan',    name: 'Fan Mob', desc: 'A swarm of rowdy fans storms the field', count: 5, charges: 2, hp: 45, dps: 9, speed: 16, range: 3, color: '#fb923c', emoji: '📣', art: '/assets/units/fan-mob.png' },
+  { key: 'fan',    name: 'Fan Mob', desc: 'A swarm of rowdy fans storms the field', count: 5, charges: 2, hp: 45, dps: 9, speed: 16, range: 3, color: '#fb923c', emoji: '📣', art: '/assets/units/fan-mob.webp' },
 ];
 
 /** Specials available for a raid. Fan Mob charges scale with your fanbase (the Fans currency). */
@@ -613,7 +613,7 @@ export const homeDefenders = (roster: Player[], parkingLotLevel = 0): HomeGuardD
         hp: 75,
         dps: 12,
         name: 'Tailgate Mob',
-        art: '/assets/units/fan-mob.png'
+        art: '/assets/units/fan-mob.webp'
       });
     }
   }
