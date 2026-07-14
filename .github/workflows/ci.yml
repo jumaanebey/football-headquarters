@@ -1,0 +1,32 @@
+name: CI
+
+# Guards the things that were previously protected only by memory: the tests, the
+# production build, and — most importantly — the game's economy/difficulty math
+# (balance-sim asserts every tuned curve against BALANCE.md and fails on regression).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Balance regression guard
+        run: npm run balance

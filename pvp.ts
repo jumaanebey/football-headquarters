@@ -127,12 +127,17 @@ export const publishBase = async (name: string, trophies: number, layout: Battle
 export const findOpponents = async (trophies: number): Promise<LiveBase[]> => {
   if (!pvpEnabled()) return [];
   try {
+    // DISCOVERY is lightweight: pid,name,trophies only — never pull the 60KB `layout`
+    // jsonb for 12 candidates just to throw 9 away. We hydrate the 3 winners below.
     const lo = Math.max(0, trophies - 200), hi = trophies + 400;
-    const q = (extra: string) => fetch(`${URL_}/rest/v1/fhq_bases?pid=neq.${playerId()}&select=pid,name,trophies,layout${extra}&limit=12`, { headers: readHeaders() });
+    const q = (extra: string) => fetch(`${URL_}/rest/v1/fhq_bases?pid=neq.${playerId()}&select=pid,name,trophies${extra}&limit=12`, { headers: readHeaders() });
     let res = await q(`&trophies=gte.${lo}&trophies=lte.${hi}`);
-    let rows: LiveBase[] = res.ok ? await res.json() : [];
+    let rows: LeaderRow[] = res.ok ? await res.json() : [];
     if (!rows.length) { res = await q(''); rows = res.ok ? await res.json() : []; }
-    return rows.sort(() => Math.random() - 0.5).slice(0, 3);
+    const chosen = rows.sort(() => Math.random() - 0.5).slice(0, 3);
+    // Hydrate only the picked bases (3 layout fetches, not 12). Drop any that vanished.
+    const bases = await Promise.all(chosen.map(r => fetchBase(r.pid)));
+    return bases.filter((b): b is LiveBase => b !== null);
   } catch { return []; }
 };
 
