@@ -19,8 +19,13 @@ alter table fhq_excluded_pids enable row level security;
 revoke all on fhq_excluded_pids from anon, authenticated;
 grant select, insert, delete on fhq_excluded_pids to service_role;
 
-insert into fhq_excluded_pids (pid, note)
-values ('88de63dd-421e-47ec-be62-a30fdeafc946', 'Jumaane — Chrome dev/test device')
+-- Jumaane's own devices. A device's pid is its anonymous Supabase Auth uid, so it
+-- changes if local storage is cleared — hence several pids for the same human.
+insert into fhq_excluded_pids (pid, note) values
+  ('88de63dd-421e-47ec-be62-a30fdeafc946', 'Jumaane — Chrome dev/test device'),
+  ('8e69eb9c-b3a8-46e1-8175-aaeca86893fb', 'Jumaane — Vega Dynasty, 2026-07-14 01:39 UTC session'),
+  ('24aa0a0c-85eb-4dd3-a45c-f6eb767b2637', 'Jumaane — Vega Dynasty, 2026-07-14 01:39 UTC session'),
+  ('6e04720c-3577-4039-8444-419a27f8ed0d', 'Jumaane — Kane Dynasty, 2026-07-14 01:34 UTC session')
 on conflict (pid) do nothing;
 
 -- The single place the exclusion is applied. Every metric view reads from this rather
