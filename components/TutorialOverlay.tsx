@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Sparkles, ArrowDownCircle, ListChecks, MousePointerClick, Dices, Swords } from 'lucide-react';
+import { Sparkles, ArrowDownCircle, ListChecks, MousePointerClick, Dices } from 'lucide-react';
 
 interface Props {
   initialName: string;
@@ -59,8 +59,8 @@ export const TutorialOverlay: React.FC<Props> = ({ initialName, onRerollName, on
                 <p className="text-sm text-slate-300">Tap a <span className="text-white font-bold">player card</span> at the bottom, then tap the <span className="text-yellow-300 font-bold">glowing sideline</span> to send them in.</p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><Swords size={18} className="text-red-400" /></span>
-                <p className="text-sm text-slate-300">Wreck <span className="text-white font-bold">half their buildings</span> before the clock runs out and you win.</p>
+                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><span className="text-lg leading-none">🏈</span></span>
+                <p className="text-sm text-slate-300">Sack <span className="text-white font-bold">half their buildings</span> before the clock runs out and you win.</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><ListChecks size={18} className="text-blue-400" /></span>
@@ -69,7 +69,7 @@ export const TutorialOverlay: React.FC<Props> = ({ initialName, onRerollName, on
             </div>
 
             <button onClick={() => onDone(clean, true)} className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-lg transition-colors active:scale-95 flex items-center justify-center gap-2 mb-2">
-              <Swords size={20} /> Play your first game →
+              <span className="text-xl leading-none">🏈</span> Play your first game →
             </button>
             <button onClick={() => onDone(clean, false)} className="w-full py-2 text-slate-400 hover:text-white text-sm font-bold transition-colors">
               Look around first

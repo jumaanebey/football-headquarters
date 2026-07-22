@@ -3,6 +3,22 @@
 Running task list. Rules (per ~/CLAUDE.md): only mark complete when Jumaane confirms;
 never delete incomplete tasks.
 
+## Design-Bible vocab + icon sweep (July 21 — confirm to close)
+
+External UX review (claude.ai deck) flagged Bible violations in live UI. Verified against
+current source, fixed the real ones (build green via `vite build`):
+- [ ] SHIPPED: player-facing "Wreck"→"Sack" (tutorial + verdict), "DMG"→"yards/YDS",
+      "HP"→"Grit" across hero card, defense-slot tooltip, Game Plan blurbs, perimeter,
+      MVP stat. Internal enums/comments/field names left terse (Bible §engineering note).
+- [ ] SHIPPED: Swords icon (banned) → 🏈 emoji in all ~8 player-facing spots — raid FAB,
+      Game Day sheet, difficulty stars, tutorial (×2), hero YDS stat, defense log (×3),
+      objective banner. Unused lucide `Swords` imports stripped from 5 files.
+- [ ] FALSE ALARM in the review: "WAR ROOM" building already renamed "Film Room"
+      (constants.ts:141) — no change needed.
+- [ ] NOT done this pass (needs your call): first-battle info-overload resequencing
+      (the review's Phase 4 tutorial gating) + enemy-base art conformance to ART-DIRECTION.
+- [ ] Phone-verify pass owed (Safari cache ritual) before this closes.
+
 ## Open — from the July 2026 full review
 
 - [ ] **Early-base defense balance** — SHIPPED 475ee6f (confirm to close): newbie mercy in

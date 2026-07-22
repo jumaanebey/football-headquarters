@@ -52,7 +52,7 @@ import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, 
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
-import { Trophy, Users, Calendar, Volume2, VolumeX, Swords, X, Shield, Star, ClipboardList, Settings as SettingsIcon, Gift } from 'lucide-react';
+import { Trophy, Users, Calendar, Volume2, VolumeX, X, Shield, Star, ClipboardList, Settings as SettingsIcon, Gift } from 'lucide-react';
 
 const INITIAL_STATE: GameState = {
   resources: {
@@ -1642,7 +1642,7 @@ function App() {
       {attackSelectOpen && (
         <Sheet
           title={<>Game Day <span className="text-[12px] font-sans font-bold normal-case tracking-normal text-slate-400 bg-slate-800 border border-slate-700 rounded-full px-2 py-0.5" title="Suiting up costs Energy — regen at the Rehab Center">⚡{RAID_ENERGY} per game</span></>}
-          icon={<Swords className="text-red-500" size={22} />}
+          icon={<span className="text-[22px] leading-none">🏈</span>}
           onClose={() => setAttackSelectOpen(false)}
           maxWidth="max-w-md"
         >
@@ -1778,7 +1778,7 @@ function App() {
                   <div>
                     <div className="font-bold text-white text-lg">{b.name}</div>
                     <div className="text-xs text-slate-400 flex items-center gap-2">
-                      {Array.from({ length: Math.max(1, Math.min(5, Math.round(b.difficulty))) }).map((_, i) => <Swords key={i} size={11} className="text-red-400 inline" />)}
+                      {Array.from({ length: Math.max(1, Math.min(5, Math.round(b.difficulty))) }).map((_, i) => <span key={i} className="text-[11px] leading-none inline-block">🏈</span>)}
                       <span>• {b.buildings.filter(x => x.kind !== 'wall').length} buildings</span>
                       {(() => { const f = b.buildings.find(x => x.kind === 'hq')?.formation; return f && FORMATIONS[f as FormationKey] ? <span className="text-sky-300 font-bold">• 📋 {FORMATIONS[f as FormationKey].name}</span> : null; })()}
                     </div>
@@ -1959,7 +1959,7 @@ function App() {
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-bold text-white truncate">
                             {t.name} {lvl > 0 && <span className="text-yellow-300">L{lvl}</span>}
-                            {lvl > 1 && <span className="text-[10px] text-green-400 font-mono ml-1.5">+{Math.round((slotHpMult(lvl) - 1) * 100)}% HP · +{Math.round((slotDmgMult(lvl) - 1) * 100)}% DMG</span>}
+                            {lvl > 1 && <span className="text-[10px] text-green-400 font-mono ml-1.5">+{Math.round((slotHpMult(lvl) - 1) * 100)}% Grit · +{Math.round((slotDmgMult(lvl) - 1) * 100)}% yards</span>}
                           </div>
                           <div className="text-[11px] text-slate-400 truncate">{slot.covers} · {t.desc}</div>
                           {/* 🛣 THE ROAD TO LEVELS — the gear itself visibly upgrades at L4 and L8 */}
@@ -2052,7 +2052,7 @@ function App() {
 
               {/* Perimeter + crowd — automatic layers, shown so the player knows they exist */}
               <div className="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2.5 space-y-1">
-                <div className="text-[12px] text-slate-300"><b>🛑 Perimeter:</b> {walls.length} Blocking Sleds at {wallHpFor(stadiumLevel)} HP — hardens automatically with your Stadium (L{stadiumLevel}).</div>
+                <div className="text-[12px] text-slate-300"><b>🛑 Perimeter:</b> {walls.length} Blocking Sleds at {wallHpFor(stadiumLevel)} Grit — hardens automatically with your Stadium (L{stadiumLevel}).</div>
                 <div className="text-[12px] text-slate-300">
                   <b>🔊 Home crowd:</b> {gameState.resources.FANS >= 300
                     ? <span className="text-rose-300">{gameState.resources.FANS.toLocaleString()} fans stall enemy drives ~{(0.8 + Math.min(1.7, gameState.resources.FANS / 1500)).toFixed(1)}s every 10s</span>
@@ -2225,7 +2225,7 @@ function App() {
              onClick={openRaid}
              className="relative -mt-10 p-4 sm:p-5 rounded-full border-4 shadow-2xl cursor-pointer hover:scale-105 transition-transform bg-red-600 border-red-400 hover:bg-red-500 shrink-0"
           >
-             <Swords size={30} className="text-white" />
+             <span className="text-3xl leading-none">🏈</span>
              {unseenDefenses > 0 && (
                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-sky-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center leading-none animate-pulse">{unseenDefenses}</span>
              )}

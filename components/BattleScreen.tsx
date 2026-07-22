@@ -1909,10 +1909,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               )}
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Your base wrecked' : 'Rival base wrecked'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Your base sacked' : 'Rival base sacked'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
               {!isDefense && driveStats && (
                 <>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} dmg)</span></span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} yds)</span></span></div>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">💥 Defenders flattened</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Your players knocked out</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
                 </>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { GameState } from '../types';
 import { getObjectives, IconKey, GoalId } from '../objectives';
-import { Coins, CheckCircle2, Trophy, Clock, Zap, Dumbbell, Shield, ArrowUpCircle, Swords, Users, ChevronRight } from 'lucide-react';
+import { Coins, CheckCircle2, Trophy, Clock, Zap, Dumbbell, Shield, ArrowUpCircle, Users, ChevronRight } from 'lucide-react';
 
 interface Props {
   gameState: GameState;
@@ -21,7 +21,7 @@ const ICONS: Record<IconKey, React.ReactNode> = {
   dumbbell: <Dumbbell size={16} />,
   shield: <Shield size={16} />,
   arrowUp: <ArrowUpCircle size={16} />,
-  swords: <Swords size={16} />,
+  swords: <span className="text-base leading-none">🏈</span>,
   users: <Users size={16} />,
 };
 

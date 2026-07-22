@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ResourceType, HeroState } from '../types';
 import { HERO_DEFS, heroLevelMult, heroStarMult, heroUpgradeCost, heroMaxLevel } from '../battle';
 import { ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS, RollResult } from '../gacha';
-import { Star, ArrowUpCircle, Coins, Dumbbell, Swords, Lock, Crown, Sparkles } from 'lucide-react';
+import { Star, ArrowUpCircle, Coins, Dumbbell, Lock, Crown, Sparkles } from 'lucide-react';
 import { Sheet, HowTo } from './ui';
 import { sfx } from '../sound';
 
@@ -272,8 +272,8 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                     <div className="text-xs text-slate-400">{def.role} • Hero</div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-center gap-1.5 bg-slate-800/60 rounded-lg px-2 py-1.5"><Dumbbell size={14} className="text-red-400" /><span className="text-slate-400 text-xs">HP</span><span className="ml-auto font-mono font-bold text-white">{hp}</span></div>
-                    <div className="flex items-center gap-1.5 bg-slate-800/60 rounded-lg px-2 py-1.5"><Swords size={14} className="text-orange-400" /><span className="text-slate-400 text-xs">DMG</span><span className="ml-auto font-mono font-bold text-white">{dps}</span></div>
+                    <div className="flex items-center gap-1.5 bg-slate-800/60 rounded-lg px-2 py-1.5"><Dumbbell size={14} className="text-red-400" /><span className="text-slate-400 text-xs">GRIT</span><span className="ml-auto font-mono font-bold text-white">{hp}</span></div>
+                    <div className="flex items-center gap-1.5 bg-slate-800/60 rounded-lg px-2 py-1.5"><span className="text-sm leading-none">🏈</span><span className="text-slate-400 text-xs">YDS</span><span className="ml-auto font-mono font-bold text-white">{dps}</span></div>
                   </div>
                   <div className="text-xs bg-slate-800/50 rounded-lg px-3 py-2 border border-slate-700">
                     <span className="font-bold" style={{ color: def.color }}>{def.emoji} {def.abilityName}</span>
