@@ -15,9 +15,17 @@ current source, fixed the real ones (build green via `vite build`):
       objective banner. Unused lucide `Swords` imports stripped from 5 files.
 - [ ] FALSE ALARM in the review: "WAR ROOM" building already renamed "Film Room"
       (constants.ts:141) — no change needed.
-- [ ] NOT done this pass (needs your call): first-battle info-overload resequencing
-      (the review's Phase 4 tutorial gating) + enemy-base art conformance to ART-DIRECTION.
-- [ ] Phone-verify pass owed (Safari cache ritual) before this closes.
+- [ ] SHIPPED: first-battle info-overload fix (the review's Phase 4). The Game Plan
+      picker + COUNTERED/SOFT badges + "They're running X" line are HIDDEN on a player's
+      very first game — so game 1 shows only coach dialogue → "tap the glowing sideline"
+      hint → card tray → live raid. Game Plans appear on game 2 with a green NEW badge;
+      normal from game 3. Gated on a device-local counter `fhq_games_played_v1` (bumped in
+      App handleBattleFinish on every finished attack; replays never count). Attack-only;
+      defense/Gauntlet/replays untouched. Build green.
+- [ ] NOT done: enemy-base art conformance to ART-DIRECTION (art round, Antigravity).
+- [ ] Phone-verify owed: browser check this session was BLOCKED (connected Chrome couldn't
+      reach localhost:3000). Verify on your device — fresh club → first game shows NO Game
+      Plan row; second game shows it with a NEW badge. (Safari cache ritual.)
 
 ## Open — from the July 2026 full review
 

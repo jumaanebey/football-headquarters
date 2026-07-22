@@ -1113,6 +1113,9 @@ function App() {
       live: !!r.pvpTarget,
     });
     if (r.mode === 'attack') {
+      // 🎓 Onboarding counter — drives the first-game Game Plan deferral in BattleScreen.
+      // Device-local, attack-only, replays already returned above.
+      try { const n = (parseInt(localStorage.getItem('fhq_games_played_v1') || '0', 10) || 0) + 1; localStorage.setItem('fhq_games_played_v1', String(n)); } catch { /* ignore */ }
       const isCampaign = !!r.campaignStage;
       // Raids move the trophy ladder + pay star-gems; campaign pays via first-clear bounties instead.
       const gemReward = isCampaign ? 0 : (r.stars >= 3 ? 5 : r.stars === 2 ? 2 : r.stars === 1 ? 1 : 0);
