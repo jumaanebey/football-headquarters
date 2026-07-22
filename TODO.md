@@ -25,11 +25,14 @@ current source, fixed the real ones (build green via `vite build`):
 - [ ] SHIPPED (Phase 5 Track B): drawn Game Plan icons replace 🐂🚀📋 emoji (e1c24b8) —
       GroundAndPound/AirRaid/Balanced stroke icons in ui.tsx, currentColor-tinted; 🧠 header
       + opponent-formation labels → lucide ClipboardList. Build/tests/balance green.
-- [ ] Phase 5 Track A (enemy-base art) — SCOUTED, handoff in `PHASE-5-ART-HANDOFF.md`:
-      5 rival building sprites to regenerate (drop-in, zero code change if same filenames);
-      field-green recolor is a code tunable at BattleScreen.tsx:1204-1211 pending your color
-      call. Sprite gen is the art step (Antigravity/Gemini). Turret watchtower/wagon caveat
-      noted (shared with home base).
+- [x] Phase 5 Track A field-green recolor — SHIPPED (5af0586): battle field darkened to
+      night turf (BattleScreen.tsx:1204-1211), both views.
+- [ ] Phase 5 Track A sprite drop — SHIPPED: rival-film-room (barn→slate+glass Clubhouse),
+      rival-headquarters (wagon→slate-metal Equipment truck), rival-stadium (field→lit night
+      turf). Produced via Higgsfield flux_kontext EDIT of the ORIGINAL sprites (footprint/angle
+      preserved) + remove_background for clean alpha; 1024² png + 512² webp, same filenames,
+      zero code change. Build/test/balance green. Turret crimson variant still an optional
+      non-blocking follow-up.
 - [ ] Phone-verify owed: browser check this session was BLOCKED (connected Chrome couldn't
       reach localhost:3000). Verify on your device — fresh club → first game shows NO Game
       Plan row; second game shows it with a NEW badge. (Safari cache ritual.)
