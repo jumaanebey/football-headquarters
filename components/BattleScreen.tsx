@@ -4,14 +4,25 @@ import {
   BattleBuildingDef, BBuilding, BTroop, TROOP_STATS, UNIT_ORDER, UNIT_PREF,
   nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS, planPath, losClear,
   RaidHero, PLAYBOOK, PlayDef, ABILITY_CD, RAGE_SECONDS, HEAL_SECONDS, HEAL_PER_SEC,
-  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef, HomeGuardDef, mulberry32, ReplayAction, ReplayData, GauntletWave, gauntletReward,
+  SpecialDef, SpecialKind, GAME_PLANS, GamePlanDef, GamePlanKey, HomeGuardDef, mulberry32, ReplayAction, ReplayData, GauntletWave, gauntletReward,
   ROLE_COMBAT, POCKET_RADIUS, RECEIVER_BONUS, POCKET_FACTOR } from '../battle';
 import { RivalCoach } from '../campaign';
 import { battleBuildingSprite, unitSprite, unitPlayerSprite } from '../assets';
 import { sfx, crowdBedStart, crowdBedStop, crowdBedIntensity } from '../sound';
 import { CROWD_PULSE } from '../constants';
-import { X, Clock, Flag, Shield } from 'lucide-react';
+import { X, Clock, Flag, Shield, ClipboardList } from 'lucide-react';
+import { GroundAndPoundIcon, AirRaidIcon, BalancedIcon } from './ui';
 import { FORMATIONS, COUNTER_WEAK_MULT, COUNTER_STRONG_MULT, FormationKey } from '../fixedBase';
+
+// Game Plan key → drawn stroke icon (Phase 5; replaces 🐂/🚀/📋). currentColor-tinted,
+// so the same text-* class that colors the label colors the icon.
+const PLAN_ICONS: Record<GamePlanKey, React.FC<{ size?: number; className?: string }>> = {
+  ground: GroundAndPoundIcon, balanced: BalancedIcon, air: AirRaidIcon,
+};
+const PlanGlyph: React.FC<{ k: GamePlanKey; size?: number; className?: string }> = ({ k, size = 16, className }) => {
+  const Ic = PLAN_ICONS[k];
+  return <Ic size={size} className={className} />;
+};
 
 export interface BattleConfig {
   mode: 'attack' | 'defense';
@@ -1132,7 +1143,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   <img src="/assets/brand/app-icon.webp" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
                 </div>
                 <div className="mt-2 font-display font-black text-white uppercase text-sm leading-tight truncate">{config.attackerName ?? 'Your Squad'}</div>
-                <div className="text-[10px] text-orange-300 font-bold uppercase mt-0.5">{plan.emoji} {plan.name}</div>
+                <div className="flex items-center gap-1 text-[10px] text-orange-300 font-bold uppercase mt-0.5"><PlanGlyph k={plan.key} size={12} className="shrink-0" /> {plan.name}</div>
               </div>
               <div className="shrink-0 font-display font-black text-4xl italic text-yellow-400" style={{ textShadow: '0 0 14px rgba(250,204,21,0.5), 0 3px 6px #000' }}>VS</div>
               <div className="flex-1 text-center min-w-0">
@@ -1141,7 +1152,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   {config.rival && <img src={config.rival.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />}
                 </div>
                 <div className="mt-2 font-display font-black text-white uppercase text-sm leading-tight truncate">{config.rival?.name ?? config.title.replace(/^(Raiding|Attacking)\s+/i, '')}</div>
-                {defFormation && FORMATIONS[defFormation] && <div className="text-[10px] text-sky-300 font-bold uppercase mt-0.5">📋 {FORMATIONS[defFormation].name}</div>}
+                {defFormation && FORMATIONS[defFormation] && <div className="flex items-center gap-1 text-[10px] text-sky-300 font-bold uppercase mt-0.5"><ClipboardList size={11} className="shrink-0" /> {FORMATIONS[defFormation].name}</div>}
               </div>
             </div>
             {config.rival?.intro && <p className="mt-5 text-center text-[12px] italic text-slate-300 leading-snug">“{config.rival.intro}”</p>}
@@ -1735,7 +1746,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <>
               {phase === 'deploy' && !hideGamePlan && (
                 <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">🧠 Game Plan{introGamePlan && <span className="ml-1 text-[8px] bg-green-500 text-black px-1 rounded animate-pulse">NEW</span>}</span>
+                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1"><ClipboardList size={11} /> Game Plan{introGamePlan && <span className="ml-1 text-[8px] bg-green-500 text-black px-1 rounded animate-pulse">NEW</span>}</span>
                   {GAME_PLANS.map(gp => {
                     const active = plan.key === gp.key;
                     // Scouting read: how does this call fare against THEIR formation?
@@ -1745,7 +1756,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                         className={`relative flex flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
                           ${active ? 'border-yellow-400 bg-orange-900/50' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}
                         style={active ? { boxShadow: '0 0 10px rgba(249,115,22,0.4)' } : undefined}>
-                        <span className={`text-[10px] font-bold uppercase leading-tight ${active ? 'text-orange-200' : 'text-white'}`}>{gp.emoji} {gp.name}</span>
+                        <span className={`flex items-center gap-1 text-[10px] font-bold uppercase leading-tight ${active ? 'text-orange-300' : 'text-slate-400'}`}><PlanGlyph k={gp.key} size={18} className="shrink-0" /> {gp.name}</span>
                         <span className="text-[8px] text-slate-400 leading-tight">{gp.blurb}</span>
                         {cm > 1 && <span className="absolute -top-2 -right-1 text-[8px] font-black uppercase bg-green-500 text-black px-1 rounded">they're soft vs this</span>}
                         {cm < 1 && <span className="absolute -top-2 -right-1 text-[8px] font-black uppercase bg-red-600 text-white px-1 rounded">countered</span>}
@@ -1753,12 +1764,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     );
                   })}
                   {defFormation && FORMATIONS[defFormation] && (
-                    <span className="w-full text-center text-[9px] text-sky-300 font-bold">📋 They're running {FORMATIONS[defFormation].name}</span>
+                    <span className="w-full flex items-center justify-center gap-1 text-[9px] text-sky-300 font-bold"><ClipboardList size={10} className="shrink-0" /> They're running {FORMATIONS[defFormation].name}</span>
                   )}
                 </div>
               )}
               <div className="text-center text-xs text-orange-300 font-bold mb-2">
-                {phase === 'fighting' && <span className="inline-block mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle">{plan.emoji} {plan.name}</span>}
+                {phase === 'fighting' && <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle"><PlanGlyph k={plan.key} size={11} className="shrink-0" /> {plan.name}</span>}
                 {instruction}
               </div>
               {/* Phones: ONE scrollable card tray (CC-style) — wrapping 18 cards into

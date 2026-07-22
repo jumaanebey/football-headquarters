@@ -122,6 +122,45 @@ export const Sheet: React.FC<{
   </div>
 );
 
+// ─── GAME PLAN ICONS ─────────────────────────────────────────────────────────
+// Drawn stroke icons matching lucide's grammar (viewBox 24, stroke-width 1.8, round
+// caps/joins, stroke=currentColor) so they tint with Tailwind text-* classes and size
+// like any lucide icon. Replaces the old 🐂/🚀/📋 Game Plan emoji (Phase 5, approved
+// 2026-07-22). Paths are the approved export/ SVGs.
+type IconProps = { size?: number; className?: string };
+const iconBase = {
+  fill: 'none' as const, stroke: 'currentColor', strokeWidth: 1.8,
+  strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+};
+
+/** Ground & Pound — a front-on helmet. */
+export const GroundAndPoundIcon = ({ size = 16, className = '' }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...iconBase}>
+    <path d="M12 3c-4.5 0-7.5 3-7.5 7 0 2.2 1 3.8 2.5 4.8V18a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 17 18v-3.2c1.5-1 2.5-2.6 2.5-4.8 0-4-3-7-7.5-7Z" />
+    <path d="M4.5 10h15" />
+    <path d="M9.5 19.5v-4h5v4" />
+  </svg>
+);
+
+/** Air Raid — a ball in flight with speed lines. */
+export const AirRaidIcon = ({ size = 16, className = '' }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...iconBase}>
+    <ellipse cx="14" cy="10" rx="6.2" ry="4" transform="rotate(-35 14 10)" />
+    <path d="M12 8l4 4M13.5 6.5l4 4" />
+    <path d="M3 17l5-2M4 20.5l6-2.5" />
+  </svg>
+);
+
+/** Balanced — an X-and-O play diagram. */
+export const BalancedIcon = ({ size = 16, className = '' }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...iconBase}>
+    <circle cx="7" cy="17" r="2.5" />
+    <path d="M15 15l4 4M19 15l-4 4" />
+    <path d="M7 14.5V9a4 4 0 0 1 4-4h6" strokeDasharray="2.5 2.5" />
+    <path d="M14.5 2.5L17 5l-2.5 2.5" />
+  </svg>
+);
+
 // Rank crest with graceful degradation: the emoji renders underneath and the crest PNG
 // covers it once loaded; a missing/failed crest (e.g. not delivered yet) just leaves the
 // emoji — no broken-image icon, no layout shift.

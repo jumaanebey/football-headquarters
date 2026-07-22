@@ -112,13 +112,15 @@ export const UNIT_ORDER: UnitGroup[] = [
 // there is no strictly-best plan, only the right plan for the base you're hitting.
 export type GamePlanKey = 'ground' | 'balanced' | 'air';
 export interface GamePlanDef {
-  key: GamePlanKey; name: string; emoji: string; blurb: string;
+  // Icon is resolved from `key` at the render site (PLAN_ICONS in BattleScreen) — drawn
+  // stroke icons, not emoji (Phase 5). No display glyph lives on the data model.
+  key: GamePlanKey; name: string; blurb: string;
   hp: number; dps: number; speed: number; momentum: number; // multipliers
 }
 export const GAME_PLANS: GamePlanDef[] = [
-  { key: 'ground',   name: 'Ground & Pound', emoji: '🐂', blurb: 'Tough +30% Grit · slower',        hp: 1.30, dps: 1.0,  speed: 0.85, momentum: 1.0 },
-  { key: 'balanced', name: 'Balanced',       emoji: '📋', blurb: 'Momentum builds 40% faster',    hp: 1.0,  dps: 1.0,  speed: 1.0,  momentum: 1.4 },
-  { key: 'air',      name: 'Air Raid',       emoji: '🚀', blurb: '+20% yards +25% speed · fragile', hp: 0.75, dps: 1.20, speed: 1.25, momentum: 1.0 },
+  { key: 'ground',   name: 'Ground & Pound', blurb: 'Tough +30% Grit · slower',        hp: 1.30, dps: 1.0,  speed: 0.85, momentum: 1.0 },
+  { key: 'balanced', name: 'Balanced',       blurb: 'Momentum builds 40% faster',    hp: 1.0,  dps: 1.0,  speed: 1.0,  momentum: 1.4 },
+  { key: 'air',      name: 'Air Raid',       blurb: '+20% yards +25% speed · fragile', hp: 0.75, dps: 1.20, speed: 1.25, momentum: 1.0 },
 ];
 
 /** Build the deployable army from the current roster: one troop per player, grouped. */
