@@ -1,56 +1,51 @@
-# Phase 5 — Track A handoff (enemy-base art conformance)
+# Phase 5 — Track A handoff (enemy-base art conformance) — FINAL
 
-Track B (drawn Game Plan icons) is **shipped** (commit `e1c24b8`). Track A is art
-generation + a small optional field recolor. Everything below is scouted and turnkey.
+**Shipped already:** Track B drawn Game Plan icons (`e1c24b8`) · battle field darkened to
+night turf (`5af0586`).
 
-## 1. Sprites to regenerate (art step — Antigravity/Gemini)
+**Remaining = the art drop.** Generation is the **Antigravity/Gemini** step; Claude Code
+**wires** (zero code change — see below). Design ruling 2026-07-22: **defense turret sprites
+stay SHARED** (silhouette recognition > team color mid-raid). A crimson accent-swap turret
+variant is a nice-to-have follow-up, NOT part of this list, and must not block Phase 5.
 
-The enemy base wears **rival-specific** building skins, resolved in `assets.ts`:
-`battleBuildingSprite()` → `rival-stadium.webp` (HQ) + `RIVAL_POOL` loot buildings.
+## Scope: 3 regenerations (2 buildings + 1 field fix)
 
-Regenerate these **5 files** at `public/assets/buildings/` (style-matched to the home
-base: dark slate + glass + metal trim, emissive warm window glow, night grounding, banner
-flags; swap ONLY the accent orange `#f97316` → crimson `#b91c1c`; gold `#fbbf24` stays):
+Verified by opening every enemy sprite. Only these read as an older art generation:
 
-| File (keep the exact name) | Role | Per-spec conversion |
+| File (keep exact name) | Current sprite | Target |
 |---|---|---|
-| `rival-stadium.webp` | enemy HQ | crimson stadium, home-base construction language |
-| `rival-headquarters.webp` | loot building | Barn → **Rival Clubhouse** (slate+glass skybox; keep the satellite dish) |
-| `rival-film-room.webp` | loot building | style-match to home Film Room, crimson accent |
-| `rival-weight-room.webp` | loot building | style-match, crimson accent |
-| `rival-practice-field.webp` | loot building | style-match, crimson accent |
+| `rival-film-room` | **thatch-roof barn** cabin (stone base, glass skybox, satellite dish, warm glow) | **Rival Clubhouse** — thatch roof → slate + glass skybox; KEEP the dish |
+| `rival-headquarters` | **curved-roof wagon/trailer** (crimson roof, dish, barrels, wheels) | **Equipment truck** — same sprite family as the home-base truck, crimson |
+| `rival-stadium` | enemy HQ stadium — **bright daylight-green field baked into the sprite** | recolor ONLY the interior field to night turf (see palette) — stands/structure are fine |
 
-**Requirements:** same footprint/resolution and isometric angle as the sprites they
-replace (use `docs/screenshot.png` buildings as the angle ref); transparent background;
-no text. Also emit the matching `.png` source alongside each `.webp` (repo convention).
+Out of scope (leave as-is): `rival-weight-room` (crimson-brick gym) and `rival-practice-field`
+read as acceptable crimson/castle theme. The reviewer's "timber watchtower" was the shared
+`ref-tower` **turret** — excluded per the ruling above.
 
-**Drop-in = ZERO code changes.** Same filenames → the game picks them up automatically.
-If art delivers *new* filenames instead, update `RIVAL_POOL` (assets.ts:64) and the
-`rival-stadium` path (assets.ts:85).
+## Conformance rule — same bones, rival colors
+Reuse the home-base construction language exactly (dark slate + glass + metal trim, emissive
+warm window glow, night grounding, banner flags) and swap ONLY the accent channel:
+orange `#f97316` → crimson `#b91c1c`. Gold `#fbbf24` stays shared. For the stadium field,
+match the board's shipped night turf: stripes `#123522`/`#15402a`, apron `#0e2417`.
 
-⚠️ **Watchtower / wagon caveat:** the spec's "timber watchtower → Broadcast tower" and
-"red wagon → Equipment truck" may be the **defense turrets** (`ref-tower`, `tshirt-cannon`
-in `/assets/battle/`), which are **SHARED between the home base and the enemy base**
-(`DEFENSE_FLAVOR_SPRITE`, assets.ts:65-66). Regenerating those changes YOUR base too, and
-they were already refreshed in the July defense-depth round. Confirm whether those two are
-rival buildings or shared turrets before touching turret art — the 5 files above are
-unambiguously enemy-only.
+## Exact output specs (match the sprites being replaced)
+- **`.png` source at 1024×1024**, transparent background, no text.
+- **`.webp` at 512×512** (this is what the game loads), transparent.
+- Same isometric angle + on-canvas footprint/scale as the current file (overlay-check
+  against the existing sprite so board placement/collision is unchanged). Angle ref:
+  `docs/screenshot.png` and the home-base `stadium-3` / `headquarters-1` / `film-room-1`.
 
-## 2. Field green (code — needs a color sign-off)
+Deliver all three (`rival-film-room`, `rival-headquarters`, `rival-stadium`) as `.webp` +
+`.png` at `public/assets/buildings/`, **same filenames**.
 
-The "bright daylight green" is the iso field surface in `components/BattleScreen.tsx`:
+## Wiring (Claude Code, once assets land) — ZERO code change
+`assets.ts` already routes enemy buildings to these exact paths (`RIVAL_POOL` +
+`rival-stadium`). Same filenames → picked up automatically. I only touch code if art ships
+NEW filenames (then update `RIVAL_POOL` at assets.ts:64 / the `rival-stadium` path at :85).
 
-- `:1204` grounds plane — `fill="#20522f"` (dark green, ok-ish)
-- `:1207` **yard stripes** — `fill={i % 2 ? '#2b8a3e' : '#2f9e44'}` ← the bright green
-- `:1210` top end zone `#b45309`, `:1211` bottom end zone `#1e293b`
-
-This is a real tunable, but the field renders the SAME in **attack AND defense** views —
-darkening it recolors the whole battle screen, not just enemy maps. It's a one-edit change
-(e.g. stripes → `#14532d`/`#166534` night turf). Left for Jumaane's color call / the mock's
-palette rather than guessed.
-
-## 3. Verification after art lands
-- Tutorial raid + campaign stages show the new enemy structures; eyeball vs. home base =
-  same style family, crimson vs. orange accent.
-- `npm run balance` exit 0 with identical numbers; `npm test` green; no footprint/collision
-  diffs (pure sprite/color swap — no template stats/footprints touched).
+## Verification after drop
+- Tutorial raid + campaign stages show the new Clubhouse / Equipment truck; stadium field
+  reads night turf (matches the board).
+- Eyeball vs. home base: same style family, crimson vs. orange accent.
+- `npm run balance` exit 0 (identical numbers), `npm test` green, no footprint/collision
+  diffs — pure asset swap.
