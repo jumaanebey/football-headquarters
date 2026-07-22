@@ -1200,11 +1200,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               between projected world bands, end zones tint both ends, midfield gets the
               ball mark. Everything is one SVG so the plane reads as ONE tilted surface. */}
           <svg className="absolute inset-0 pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-            {/* mowed apron just outside the field */}
-            <polygon points={isoRect(-4, -4, 104, 104)} fill="#20522f" opacity="0.55" />
-            {/* mow stripes: alternating bands of constant world-y */}
+            {/* mowed apron just outside the field — floodlit night turf, grounds into the dark */}
+            <polygon points={isoRect(-4, -4, 104, 104)} fill="#0e2417" opacity="0.55" />
+            {/* mow stripes: alternating bands of constant world-y (night turf, subtle contrast) */}
             {Array.from({ length: 10 }).map((_, i) => (
-              <polygon key={i} points={isoRect(0, i * 10, 100, i * 10 + 10)} fill={i % 2 ? '#2b8a3e' : '#2f9e44'} />
+              <polygon key={i} points={isoRect(0, i * 10, 100, i * 10 + 10)} fill={i % 2 ? '#15402a' : '#123522'} />
             ))}
             {/* end zones */}
             <polygon points={isoRect(0, 0, 100, 9)} fill="#b45309" opacity="0.5" />
