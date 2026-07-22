@@ -22,7 +22,14 @@ current source, fixed the real ones (build green via `vite build`):
       normal from game 3. Gated on a device-local counter `fhq_games_played_v1` (bumped in
       App handleBattleFinish on every finished attack; replays never count). Attack-only;
       defense/Gauntlet/replays untouched. Build green.
-- [ ] NOT done: enemy-base art conformance to ART-DIRECTION (art round, Antigravity).
+- [ ] SHIPPED (Phase 5 Track B): drawn Game Plan icons replace 🐂🚀📋 emoji (e1c24b8) —
+      GroundAndPound/AirRaid/Balanced stroke icons in ui.tsx, currentColor-tinted; 🧠 header
+      + opponent-formation labels → lucide ClipboardList. Build/tests/balance green.
+- [ ] Phase 5 Track A (enemy-base art) — SCOUTED, handoff in `PHASE-5-ART-HANDOFF.md`:
+      5 rival building sprites to regenerate (drop-in, zero code change if same filenames);
+      field-green recolor is a code tunable at BattleScreen.tsx:1204-1211 pending your color
+      call. Sprite gen is the art step (Antigravity/Gemini). Turret watchtower/wagon caveat
+      noted (shared with home base).
 - [ ] Phone-verify owed: browser check this session was BLOCKED (connected Chrome couldn't
       reach localhost:3000). Verify on your device — fresh club → first game shows NO Game
       Plan row; second game shows it with a NEW badge. (Safari cache ritual.)
