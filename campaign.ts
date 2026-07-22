@@ -110,12 +110,24 @@ export const CAMPAIGN_STAGES: CampaignStage[] = SCHEDULE.map(([name, opponent], 
   };
 });
 
+// Campaign geometry is PINNED per stage by template ID — NOT by `ENEMY_BASES.length`.
+// History: `ENEMY_BASES[(stage-1) % length]` coupled the campaign to the RAID template
+// pool, so growing that pool 2→6 (commit 7e87a90, added for raid variety) silently shifted
+// the Championship from `tech` to the `ridge` fortress and dropped its T4 sim clear from the
+// tuned 46% to 15%. Pinning by id keeps difficulty stable when raid templates are added, and
+// makes the boss geometry an explicit choice — the Ridge fortress is the intended finale.
+const CAMPAIGN_TEMPLATE_IDS = ['valley', 'tech', 'harbor', 'summit', 'delta', 'ridge',
+                               'valley', 'tech', 'harbor', 'summit', 'delta', 'ridge'];
+
 /** Build the deterministic battle layout for a stage: scaled template + extra defenses late. */
 export const campaignBase = (stage: number): EnemyBase => {
   const st = CAMPAIGN_STAGES[stage - 1];
-  const template = ENEMY_BASES[(stage - 1) % ENEMY_BASES.length];
+  const templateId = CAMPAIGN_TEMPLATE_IDS[(stage - 1) % CAMPAIGN_TEMPLATE_IDS.length];
+  const template = ENEMY_BASES.find(b => b.id === templateId) ?? ENEMY_BASES[0];
   // Turret lethality scales superlinearly (attacker power compounds); loot buildings stay linear.
-  const tDmg = Math.round(13 * Math.pow(st.mult, 1.25));
+  // Coeff tuned to 9 (was 13): the Championship pulls the Ridge fortress (5 turrets), so the
+  // per-turret damage is softened to land the T4 boss at ~38% (band 30–62) instead of 15%.
+  const tDmg = Math.round(9 * Math.pow(st.mult, 1.25));
   const buildings: BattleBuildingDef[] = template.buildings.map(b => ({
     ...b,
     hp: Math.round(b.hp * st.mult),
