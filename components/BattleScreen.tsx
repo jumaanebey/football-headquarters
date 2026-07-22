@@ -159,6 +159,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const isDefense = config.mode === 'defense';
   const isReplay = !!config.replay;
   const povDefense = isDefense || isReplay; // whose broadcast is this? replays are watched by the DEFENDER
+  // 🎓 Onboarding declutter (UX review, July 2026): the FIRST game hides the Game Plan
+  // picker + scouting badges so a first-timer sees only dialogue → deploy hint → live raid.
+  // Game Plans are introduced with a NEW badge on the 2nd game. Counter is device-local
+  // (fhq_games_played_v1), bumped in App on every FINISHED attack — replays never count.
+  const gamesDone = (() => { try { return parseInt(localStorage.getItem('fhq_games_played_v1') || '0', 10) || 0; } catch { return 0; } })();
+  const isOnboardAttack = config.mode === 'attack' && !isReplay;
+  const hideGamePlan = isOnboardAttack && gamesDone < 1;    // game 1: no picker at all
+  const introGamePlan = isOnboardAttack && gamesDone === 1; // game 2: picker + NEW badge
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
   // Broadcast-camera drift: eases toward the hottest fight each render (presentation
@@ -1725,9 +1733,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             </div>
           ) : (
             <>
-              {phase === 'deploy' && (
+              {phase === 'deploy' && !hideGamePlan && (
                 <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">🧠 Game Plan</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">🧠 Game Plan{introGamePlan && <span className="ml-1 text-[8px] bg-green-500 text-black px-1 rounded animate-pulse">NEW</span>}</span>
                   {GAME_PLANS.map(gp => {
                     const active = plan.key === gp.key;
                     // Scouting read: how does this call fare against THEIR formation?
@@ -1909,10 +1917,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               )}
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Your base wrecked' : 'Rival base wrecked'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Your base sacked' : 'Rival base sacked'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
               {!isDefense && driveStats && (
                 <>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} dmg)</span></span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} yds)</span></span></div>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">💥 Defenders flattened</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Your players knocked out</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
                 </>

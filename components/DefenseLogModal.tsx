@@ -1,6 +1,6 @@
 import React from 'react';
 import { DefenseLogEntry } from '../types';
-import { Shield, Swords, Coins, Star, ShieldCheck } from 'lucide-react';
+import { Shield, Coins, Star, ShieldCheck } from 'lucide-react';
 import { Sheet, Btn, HowTo } from './ui';
 
 interface Props {
@@ -74,7 +74,7 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
             return (
               <div key={e.id} className={`rounded-xl border p-3 flex items-center gap-3 ${held ? 'border-green-800/60 bg-green-950/30' : 'border-red-900/50 bg-red-950/20'}`}>
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${held ? 'bg-green-900/60' : 'bg-red-900/50'}`}>
-                  <Swords size={16} className={held ? 'text-green-300' : 'text-red-300'} />
+                  <span className="text-base leading-none">🏈</span>
                 </div>
                 <div className="min-w-0">
                   <div className="font-bold text-white truncate">
@@ -98,10 +98,10 @@ export const DefenseLogModal: React.FC<Props> = ({ log, shieldUntil, onClose, on
                       </button>
                     )}
                     {!held && (e.avenged ? (
-                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Swords size={11} /> Avenged</span>
+                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><span className="text-[11px] leading-none">🏈</span> Avenged</span>
                     ) : (
                       <button onClick={() => onRevenge(e)} className="text-[11px] font-bold px-2 py-1 rounded-lg bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-1 transition-colors active:scale-95">
-                        <Swords size={12} /> Revenge
+                        <span className="text-xs leading-none">🏈</span> Revenge
                       </button>
                     ))}
                   </div>

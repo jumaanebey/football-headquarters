@@ -3,6 +3,30 @@
 Running task list. Rules (per ~/CLAUDE.md): only mark complete when Jumaane confirms;
 never delete incomplete tasks.
 
+## Design-Bible vocab + icon sweep (July 21 — confirm to close)
+
+External UX review (claude.ai deck) flagged Bible violations in live UI. Verified against
+current source, fixed the real ones (build green via `vite build`):
+- [ ] SHIPPED: player-facing "Wreck"→"Sack" (tutorial + verdict), "DMG"→"yards/YDS",
+      "HP"→"Grit" across hero card, defense-slot tooltip, Game Plan blurbs, perimeter,
+      MVP stat. Internal enums/comments/field names left terse (Bible §engineering note).
+- [ ] SHIPPED: Swords icon (banned) → 🏈 emoji in all ~8 player-facing spots — raid FAB,
+      Game Day sheet, difficulty stars, tutorial (×2), hero YDS stat, defense log (×3),
+      objective banner. Unused lucide `Swords` imports stripped from 5 files.
+- [ ] FALSE ALARM in the review: "WAR ROOM" building already renamed "Film Room"
+      (constants.ts:141) — no change needed.
+- [ ] SHIPPED: first-battle info-overload fix (the review's Phase 4). The Game Plan
+      picker + COUNTERED/SOFT badges + "They're running X" line are HIDDEN on a player's
+      very first game — so game 1 shows only coach dialogue → "tap the glowing sideline"
+      hint → card tray → live raid. Game Plans appear on game 2 with a green NEW badge;
+      normal from game 3. Gated on a device-local counter `fhq_games_played_v1` (bumped in
+      App handleBattleFinish on every finished attack; replays never count). Attack-only;
+      defense/Gauntlet/replays untouched. Build green.
+- [ ] NOT done: enemy-base art conformance to ART-DIRECTION (art round, Antigravity).
+- [ ] Phone-verify owed: browser check this session was BLOCKED (connected Chrome couldn't
+      reach localhost:3000). Verify on your device — fresh club → first game shows NO Game
+      Plan row; second game shows it with a NEW badge. (Safari cache ritual.)
+
 ## Open — from the July 2026 full review
 
 - [ ] **Early-base defense balance** — SHIPPED 475ee6f (confirm to close): newbie mercy in

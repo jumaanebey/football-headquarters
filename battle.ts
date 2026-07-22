@@ -116,9 +116,9 @@ export interface GamePlanDef {
   hp: number; dps: number; speed: number; momentum: number; // multipliers
 }
 export const GAME_PLANS: GamePlanDef[] = [
-  { key: 'ground',   name: 'Ground & Pound', emoji: '🐂', blurb: 'Tough +30% HP · slower',        hp: 1.30, dps: 1.0,  speed: 0.85, momentum: 1.0 },
+  { key: 'ground',   name: 'Ground & Pound', emoji: '🐂', blurb: 'Tough +30% Grit · slower',        hp: 1.30, dps: 1.0,  speed: 0.85, momentum: 1.0 },
   { key: 'balanced', name: 'Balanced',       emoji: '📋', blurb: 'Momentum builds 40% faster',    hp: 1.0,  dps: 1.0,  speed: 1.0,  momentum: 1.4 },
-  { key: 'air',      name: 'Air Raid',       emoji: '🚀', blurb: '+20% DMG +25% speed · fragile', hp: 0.75, dps: 1.20, speed: 1.25, momentum: 1.0 },
+  { key: 'air',      name: 'Air Raid',       emoji: '🚀', blurb: '+20% yards +25% speed · fragile', hp: 0.75, dps: 1.20, speed: 1.25, momentum: 1.0 },
 ];
 
 /** Build the deployable army from the current roster: one troop per player, grouped. */
