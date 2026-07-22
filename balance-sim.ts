@@ -241,7 +241,7 @@ const champ = CAMPAIGN_STAGES[CAMPAIGN_STAGES.length - 1];
 const champBase = campaignBase(champ.stage);
 const champT4 = simBattle(champBase.buildings, buildArmy(TIERS[4])).pct;
 const champT0 = simBattle(champBase.buildings, buildArmy(TIERS[0])).pct;
-check('Championship demands actives at T4', champT4 >= 30 && champT4 <= 62, `s${champ.stage} T4 sim = ${champT4}% (target ~46%, band 30–62)`);
+check('Championship demands actives at T4', champT4 >= 30 && champT4 <= 62, `s${champ.stage} T4 sim = ${champT4}% (target ~38%, band 30–62)`);
 check('Championship walls a fresh roster', champT0 <= 40, `s${champ.stage} T0 sim = ${champT0}% (must be far from a clear)`);
 
 // Raid ladder: generous onboarding, biting-but-winnable at the top. NOTE the bands are

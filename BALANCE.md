@@ -33,7 +33,7 @@ must *kill units*, not just soak longer.
 | System | Target | Result |
 |---|---|---|
 | Campaign walls | each tier walls ~2-3 stages after the last | T0→s5, T1→s6, T2→s9, T3→s10-11, T4→s12 |
-| Championship (s12) | demands actives even at T4 | T4 sim = 46% (sim has NO plays/mascot/abilities ≈ +25-40% live headroom → beatable only with skilled active play — the intended final boss) |
+| Championship (s12) | demands actives even at T4 | T4 sim = 38% (sim has NO plays/mascot/abilities ≈ +25-40% live headroom → beatable only with skilled active play — the intended final boss). The finale pulls the **Ridge fortress** template (pinned by id in `campaign.ts`, not by `ENEMY_BASES` index); turret-dmg coeff softened 13→9 to land the fortress in-band. Was tuned at 46% against the old `tech` template before the campaign was decoupled from the raid template pool. |
 | Raid win rate at own tier | 60-75% live | **seeded sim (400 samples): T0-T2 ~100%, T3 46%/1.1⭐, T4 67%/1.3⭐.** The sim is conservative (no plays/mascot/abilities → +25-40% live headroom), so T3 46% sim ≈ ~60% live. CI band 40-85% catches drift from this baseline; the *live* 60-75% target is validated with analytics, not the sim. |
 | Defense | gradient, fresh bases protected by shields | T0-T1 farmed (shield triggers ≥50%), T2 concedes 1⭐, T3+ HOLD |
 | Buildings all-L5 | 3-5 focused hours | ~2.8-3h ✓ |
@@ -43,7 +43,7 @@ must *kill units*, not just soak longer.
 | Gems/day F2P | ~2-3 rolls/day | dailies 15-23👑 + raids ~20-40👑 → 40-60/day @20👑 rolls ✓ |
 
 ## The tuned constants (where they live)
-- `campaign.ts` — stage mult `0.55 × 1.34^(stage-1)`; turret dmg `13 × mult^1.25`; extra turrets at s3/5/7/9/11.
+- `campaign.ts` — stage mult `0.55 × 1.34^(stage-1)`; turret dmg `9 × mult^1.25`; extra turrets at s3/5/7/9/11. Templates PINNED per stage by id (`CAMPAIGN_TEMPLATE_IDS`), decoupled from `ENEMY_BASES` order so adding raid templates never re-shifts campaign difficulty.
 - `battle.ts generateRaidTargets` — base `1.0 + t/300 + (t/750)^1.7`; turret dmg `14 × tier^1.3`; +1 turret per 1.4 tier (cap 5).
 - `battle.ts raidAiMult` — `(0.55 + off/150) × (1 + 0.03×(L-1))` (offline/live defense attacker).
 - `gacha.ts` — roll 20👑; duplicate shards 14-22; star-up 25/50/90/140 (1★→5★ = 305).
