@@ -32,11 +32,17 @@ current source, fixed the real ones (build green via `vite build`):
       turf). Produced via Higgsfield flux_kontext EDIT of the ORIGINAL sprites (footprint/angle
       preserved) + remove_background for clean alpha; 1024² png + 512² webp, same filenames,
       zero code change. Build/test/balance green.
-- [ ] SHIPPED: crimson defense-turret variants for ENEMY bases — jugs/sled/ref/tshirt/
-      gatorade `-rival` skins (same silhouette + crimson accent + night-grounds base, edited
-      from the originals via Higgsfield). assets.ts battleBuildingSprite adds `-rival` suffix
-      only when attacking (rival=true); HOME turrets unchanged via defenseSprite(). Silhouette
-      recognition preserved per the design ruling. Build/test/balance green.
+- [x] Crimson defense-turret variants — TRIED then REVERTED (2026-07-23). The Higgsfield
+      AI background-remover feathered the alpha on the dark-based turrets (ref-tower + sled
+      shipped ghostly); dark night-grounds bases dissolved and couldn't be cleanly recovered.
+      Per design ruling (turrets stay shared for silhouette recognition) reverted all 5
+      `-rival` variants to the shared originals — one-line assets.ts revert + deleted the 10
+      files. Enemy identity carried by the crimson buildings + night field. Build green.
+- [ ] LESSON: Higgsfield `remove_background` is unreliable on these hand-painted sprites
+      (feathers alpha, bleeds matte color). For silhouette-preserving edits, apply the
+      ORIGINAL sprite's binary alpha to the edited RGB (clean). Avoid AI cutout for anything
+      dark-on-dark. Most shipped building sprites came out near-opaque (fine); audit alpha
+      with a faint(<=150) check before shipping AI-cut assets.
 - [ ] Phone-verify owed: browser check this session was BLOCKED (connected Chrome couldn't
       reach localhost:3000). Verify on your device — fresh club → first game shows NO Game
       Plan row; second game shows it with a NEW badge. (Safari cache ritual.)
