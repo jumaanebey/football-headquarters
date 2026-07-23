@@ -31,8 +31,12 @@ current source, fixed the real ones (build green via `vite build`):
       rival-headquarters (wagon→slate-metal Equipment truck), rival-stadium (field→lit night
       turf). Produced via Higgsfield flux_kontext EDIT of the ORIGINAL sprites (footprint/angle
       preserved) + remove_background for clean alpha; 1024² png + 512² webp, same filenames,
-      zero code change. Build/test/balance green. Turret crimson variant still an optional
-      non-blocking follow-up.
+      zero code change. Build/test/balance green.
+- [ ] SHIPPED: crimson defense-turret variants for ENEMY bases — jugs/sled/ref/tshirt/
+      gatorade `-rival` skins (same silhouette + crimson accent + night-grounds base, edited
+      from the originals via Higgsfield). assets.ts battleBuildingSprite adds `-rival` suffix
+      only when attacking (rival=true); HOME turrets unchanged via defenseSprite(). Silhouette
+      recognition preserved per the design ruling. Build/test/balance green.
 - [ ] Phone-verify owed: browser check this session was BLOCKED (connected Chrome couldn't
       reach localhost:3000). Verify on your device — fresh club → first game shows NO Game
       Plan row; second game shows it with a NEW badge. (Safari cache ritual.)
