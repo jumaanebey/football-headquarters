@@ -90,7 +90,10 @@ export const battleBuildingSprite = (kind: string, id: string, rival = false, fl
     // unflavored turrets stay hash-varied so bases feel distinct.
     const slug = (flavor && DEFENSE_FLAVOR_SPRITE[flavor])
       ?? ['jugs-machine', 'tackling-sled', 'ref-tower', 'tshirt-cannon'][h % 4];
-    return `/assets/battle/${slug}.webp`;
+    // RIVAL turrets wear the crimson-accent / night-grounds skin so raids read as away
+    // games. SAME silhouette (recognition holds mid-raid) — only the accent + base recolor.
+    // Home-base defense keeps the originals via defenseSprite(); this path is attack-only.
+    return `/assets/battle/${slug}${rival ? '-rival' : ''}.webp`;
   }
   const pool = rival ? RIVAL_POOL : BATTLE_BUILDING_POOL;
   return `/assets/buildings/${pool[h % pool.length]}.webp`;
