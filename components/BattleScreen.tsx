@@ -1215,8 +1215,6 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             ))}
             {/* sidelines */}
             <polygon points={isoRect(0, 0, 100, 100)} fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="0.55" />
-            {/* midfield ellipse */}
-            <ellipse cx={px(50, 50)} cy={py(50, 50)} rx="6.5" ry={6.5 * (ISO_KY / ISO_KX)} fill="none" stroke="#fff" strokeOpacity="0.3" strokeWidth="0.4" />
             {/* 🏰 MOAT ring + drawbridges (home-base views) */}
             {(isDefense || isReplay) && (
               <>
