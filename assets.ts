@@ -88,12 +88,11 @@ export const battleBuildingSprite = (kind: string, id: string, rival = false, fl
   if (kind === 'defense') {
     // A flavored turret LOOKS like what it does (Ref Tower throws the flags you see);
     // unflavored turrets stay hash-varied so bases feel distinct.
+    // Turrets are SHARED between home and enemy bases by design — silhouette recognition
+    // mid-raid matters more than team color for defensive pieces (design ruling 2026-07-22).
     const slug = (flavor && DEFENSE_FLAVOR_SPRITE[flavor])
       ?? ['jugs-machine', 'tackling-sled', 'ref-tower', 'tshirt-cannon'][h % 4];
-    // RIVAL turrets wear the crimson-accent / night-grounds skin so raids read as away
-    // games. SAME silhouette (recognition holds mid-raid) — only the accent + base recolor.
-    // Home-base defense keeps the originals via defenseSprite(); this path is attack-only.
-    return `/assets/battle/${slug}${rival ? '-rival' : ''}.webp`;
+    return `/assets/battle/${slug}.webp`;
   }
   const pool = rival ? RIVAL_POOL : BATTLE_BUILDING_POOL;
   return `/assets/buildings/${pool[h % pool.length]}.webp`;
