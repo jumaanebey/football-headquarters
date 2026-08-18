@@ -32,10 +32,11 @@ export const TutorialOverlay: React.FC<Props> = ({ initialName, onRerollName, on
                 value={name}
                 onChange={e => setName(e.target.value)}
                 maxLength={24}
+                aria-label="Your club name"
                 className="flex-1 min-w-0 bg-slate-800 border border-slate-600 focus:border-orange-400 outline-none rounded-xl px-4 py-3 text-white font-bold text-center"
                 placeholder="Your club name"
               />
-              <button onClick={() => setName(onRerollName())} title="Random name"
+              <button onClick={() => setName(onRerollName())} title="Random name" aria-label="Random name"
                 className="shrink-0 p-3 rounded-xl bg-slate-800 border border-slate-600 hover:border-orange-400 text-slate-300 hover:text-white transition-colors">
                 <Dices size={20} />
               </button>

@@ -2080,6 +2080,7 @@ function App() {
         onClick={() => setSettingsOpen(true)}
         className="fixed top-2 right-2 z-40 text-slate-400 hover:text-white bg-black/30 p-1.5 rounded-lg transition-colors"
         title="Settings"
+        aria-label="Settings"
       >
         <span className="relative flex">
           <SettingsIcon size={16} />
