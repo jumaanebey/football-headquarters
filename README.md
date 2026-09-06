@@ -44,6 +44,22 @@ in real-time raids to score touchdowns and climb the trophy ladder — all clien
 - **Persistence** — everything autosaves to `localStorage`; offline progress (collectors + rival
   raids) is resolved on load.
 
+## 🏟️ Road Game — the real-time 3D rivalry mode
+
+`public/rts/` holds **Road Game**, a standalone real-time strategy take on the same program: a full
+3D field (Three.js), a home program in the south-west and a rival program in the north-east. Sign
+staffers, collect Fans / Gear / Coins / Turf, build Locker Rooms, Fan Zones, a Weight Room, a Passing
+Camp and a Blitz Camp, recruit Linemen, Skill Players and the Front 7, then go on the road and **sack
+the rival Stadium** before their squad storms yours. Scouting fog, escalating rival road trips per
+difficulty (JV / Varsity / All-Pro), save/load, and the Design Bible vocabulary throughout — footballs
+and t-shirts fly, nothing else; facilities get sacked, players jog off.
+
+- Served with the site at **`/rts/`** (`npm run dev` → http://localhost:3000/rts/, and on Vercel).
+- Standalone: `npm run rts` → http://localhost:3004 (no build step, no extra dependencies; Three.js
+  loads from jsDelivr).
+- Code is plain ES modules in `public/rts/js/` — `config.js` holds every name and number,
+  `game.js` the simulation, `ai.js` the rival program, `models.js` the procedural 3D models.
+
 ## 🛠 Tech stack
 
 - **React 19** + **Vite 6** + **TypeScript**

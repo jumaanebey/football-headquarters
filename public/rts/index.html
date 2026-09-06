@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Football HQ · Road Game</title>
+<meta name="description" content="Real-time 3D rivalry: build your program, recruit your squad, and go on the road to sack the rival Stadium before they storm yours.">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div class="res" data-res="food"><span class="ico">📣</span><span class="amt">0</span><span class="workers"></span></div>
+    <div class="res" data-res="wood"><span class="ico">🏈</span><span class="amt">0</span><span class="workers"></span></div>
+    <div class="res" data-res="gold"><span class="ico">🪙</span><span class="amt">0</span><span class="workers"></span></div>
+    <div class="res" data-res="stone"><span class="ico">🟩</span><span class="amt">0</span><span class="workers"></span></div>
+    <div class="res" id="pop" title="Roster / roster spots. Build Locker Rooms for more."><span class="ico">👥</span><span class="amt">0/0</span></div>
+    <div class="spacer"></div>
+    <div id="clock">00:00</div>
+    <div id="difficultyTag"></div>
+    <div class="spacer"></div>
+    <div class="ctl">
+      <button id="btnSpeed" title="Game speed (- / =)">1×</button>
+      <button id="btnPause" title="Timeout (P)">⏸</button>
+      <button id="btnSave" title="Save season (F5)">💾 Save</button>
+      <button id="btnLoad" title="Load season (F9)">📂 Load</button>
+      <button id="btnSound" title="Toggle sound">🔊</button>
+      <button id="btnMenu" title="Menu (Esc)">☰</button>
+    </div>
+  </div>
+
+  <div id="alerts"></div>
+  <div id="hint" class="hidden"><span id="hintText"></span><button id="hintClose" title="Hide">✕</button></div>
+
+  <div id="minimapWrap"><canvas id="minimap" width="230" height="230"></canvas><div id="minimapLabel">Field map · click to look</div></div>
+
+  <div id="selection">
+    <div id="selInfo"><div class="empty">Nothing selected. Left-click a player or drag a box. Right-click to send them.</div></div>
+    <div id="actions"></div>
+  </div>
+
+  <div id="objectives">
+    <div class="title">Game plan</div>
+    <div class="goal">Sack the rival <b>Stadium</b> in the north-east and silence their crowd. Protect your own house — if it gets sacked, the season is over.</div>
+    <ul id="tutorial"></ul>
+    <div class="quick">
+      <button id="btnIdle" title="Select an idle staffer (.)">💤 Idle staffer <span id="idleCount"></span></button>
+      <button id="btnArmy" title="Select the whole squad (Ctrl+A)">🏈 Select squad <span id="armyCount"></span></button>
+      <button id="btnHome" title="Go to your Stadium (Home)">🏟️ Stadium</button>
+    </div>
+  </div>
+
+  <div id="tooltip" class="hidden"></div>
+  <div id="healthbars"></div>
+  <div id="dragbox" class="hidden"></div>
+  <div id="pausedBanner" class="hidden">TIMEOUT</div>
+</div>
+
+<div id="menu">
+  <div class="panel">
+    <p class="kicker">Football Headquarters presents</p>
+    <h1>Road Game</h1>
+    <p class="tag">Build your program. Recruit your squad. Roll into the rival's house and leave their crowd dead silent.</p>
+    <div class="how">
+      <div><b>1.</b> Select staffers and <b>right-click</b> tailgates, gear pallets, booster tents and turf piles to collect.</div>
+      <div><b>2.</b> Build Locker Rooms, Fan Zones and a Weight Room from the build panel.</div>
+      <div><b>3.</b> Recruit Linemen, Skill Players and the Front 7, then sack the rival Stadium.</div>
+      <div class="warn">📣 The rival program is doing the same thing. Their squad <i>will</i> show up at your house.</div>
+    </div>
+    <div class="diff">
+      <label><input type="radio" name="diff" value="easy"> JV</label>
+      <label><input type="radio" name="diff" value="normal" checked> Varsity</label>
+      <label><input type="radio" name="diff" value="hard"> All-Pro</label>
+    </div>
+    <div class="buttons">
+      <button id="btnNew" class="primary">▶ Kickoff</button>
+      <button id="btnContinue" class="hidden">📂 Continue saved season</button>
+      <button id="btnResume" class="hidden">↩ Back to the game</button>
+    </div>
+    <div class="controls">
+      <div><b>Left click</b> select · <b>drag</b> box select · <b>Right click</b> move / collect / block / build</div>
+      <div><b>Arrows / edge</b> pan · <b>Q E</b> rotate · <b>Wheel</b> zoom · <b>Home</b> your Stadium · <b>Space</b> last alert</div>
+      <div><b>A</b> blitz-move · <b>S</b> stop · <b>Ctrl+1-5</b> groups · <b>F5</b> save · <b>F9</b> load · <b>P</b> timeout</div>
+    </div>
+  </div>
+</div>
+
+<div id="gameover" class="hidden">
+  <div class="panel">
+    <h1 id="goTitle"></h1>
+    <p id="goText"></p>
+    <div id="goStats"></div>
+    <div class="buttons"><button id="btnAgain" class="primary">▶ Run it back</button></div>
+  </div>
+</div>
+
+<div id="loading"><div class="spinner"></div><div>Lining the field…</div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
