@@ -1,3 +1,4 @@
+import { HERO_FOOT_OFFSET } from '../game/heroFootOffsets';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ResourceType, HeroState } from '../types';
@@ -197,12 +198,12 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                     (() => { /* 5.5s cycle: the action beat lands every ~5s instead of hiding in a 7s idle */
                     const rig = HERO_RIG[def.key]; const dly = `-${(heroIdx * 1.45) % 5.5}s`; return (
                     <div className="fhq-hero-puppet relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
-                      <div className="absolute inset-0" style={rig.flipX ? { transform: 'scaleX(-1)' } : undefined}>
+                      <div className="fhq-hero-layers absolute inset-0" style={rig.flipX ? { transform: 'scaleX(-1)' } : undefined}>
                       <img src={rig.body} alt={def.name} draggable={false}
                         onLoad={e => { const med = e.currentTarget.parentElement?.parentElement?.previousElementSibling as HTMLElement | null; if (med) med.style.visibility = 'hidden'; }}
                         onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
                         className="fhq-basebody absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
-                        style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
+                        style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[rig.body] ?? 0}%`, animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
                       {/* LEG LOOP: weight-shift frames replace the static body once BOTH load;
                           any load failure puts the static body back (never a blank card).
                           QB's frames are ARM-LOCKED to the reference (extended empty palm) so
@@ -212,8 +213,10 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                           onLoad={e => {
                             const p = e.currentTarget.parentElement as HTMLElement;
                             p.dataset[`idle${f}`] = '1';
-                            if (p.dataset.idleA === '1' && p.dataset.idleB === '1' && !p.dataset.idlefail)
+                            if (p.dataset.idleA === '1' && p.dataset.idleB === '1' && !p.dataset.idlefail) {
+                              p.dataset.idleready = '1';
                               (p.querySelector('.fhq-basebody') as HTMLElement).style.visibility = 'hidden';
+                            }
                           }}
                           onError={e => {
                             const p = e.currentTarget.parentElement as HTMLElement;
@@ -222,13 +225,13 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                             (p.querySelector('.fhq-basebody') as HTMLElement).style.visibility = 'visible';
                           }}
                           className="fhq-idleframe absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
-                          style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite, fhq-idle${f} 5.5s linear ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
+                          style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[`/assets/heroes/rig/${def.key}-idle${f}.webp`] ?? 0}%`, animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite, fhq-idle${f} 5.5s linear ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
                       ))}
                       <img src={rig.action} alt="" draggable={false}
                         onLoad={e => { e.currentTarget.dataset.ready = '1'; }}
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         className="fhq-action-pose absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
-                        style={{ animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
+                        style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[rig.action] ?? 0}%`, animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
                       </div>
                       {rig.ball && (
                         <img src="/assets/heroes/franchise-rig/ball.webp" alt="" draggable={false}

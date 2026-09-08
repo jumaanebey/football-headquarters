@@ -1,3 +1,4 @@
+import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
 import { spriteFacing } from '../game/spriteFacing';
 import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
@@ -1215,20 +1216,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               ball mark. Everything is one SVG so the plane reads as ONE tilted surface. */}
           <svg className="absolute inset-0 pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
             {/* mowed apron just outside the field — floodlit night turf, grounds into the dark */}
-            <polygon points={isoRect(-4, -4, 104, 104)} fill="#0e2417" opacity="0.55" />
-            {/* mow stripes: alternating bands of constant world-y (night turf, subtle contrast) */}
-            {Array.from({ length: 10 }).map((_, i) => (
-              <polygon key={i} points={isoRect(0, i * 10, 100, i * 10 + 10)} fill={i % 2 ? '#15402a' : '#123522'} />
-            ))}
-            {/* end zones */}
-            <polygon points={isoRect(0, 0, 100, 9)} fill="#b45309" opacity="0.5" />
-            <polygon points={isoRect(0, 91, 100, 100)} fill="#1e293b" opacity="0.6" />
-            {/* chalk yard lines (constant world-y) */}
-            {[9, 19, 29, 39, 50, 61, 71, 81, 91].map(yl => (
-              <line key={yl} x1={px(0, yl)} y1={py(0, yl)} x2={px(100, yl)} y2={py(100, yl)} stroke="#fff" strokeOpacity={yl === 50 ? 0.6 : 0.35} strokeWidth={yl === 50 ? 0.5 : 0.32} />
-            ))}
-            {/* sidelines */}
-            <polygon points={isoRect(0, 0, 100, 100)} fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="0.55" />
+            <polygon points={isoRect(-4, -4, 104, 104)} fill={TURF.apron} opacity="0.65" />
+            <FieldPaint project={(x, y) => ({ x: px(x, y), y: py(x, y) })} x1={0} y1={0} x2={100} y2={100} lineWidth={0.35} />
             {/* 🏰 MOAT ring + drawbridges (home-base views) */}
             {(isDefense || isReplay) && (
               <>

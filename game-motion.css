@@ -223,3 +223,6 @@ body {
   .fhq-hero-puppet :is(.fhq-action-pose, .fhq-hero-ball) { display: none !important; }
   .fhq-hero-puppet .fhq-basebody { animation: none !important; opacity: 1 !important; }
 }
+
+/* Never show one idle layer over the static hero while its partner loads. */
+.fhq-hero-layers:not([data-idleready="1"]) .fhq-idleframe { visibility: hidden; }

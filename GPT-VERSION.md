@@ -131,3 +131,25 @@ alpha validation (RGB, 1254 square, baked checkerboard) and was excluded. Built-
 image generation was used; the prompt preserved the original canopy, table,
 playboard, football crate, flag, camera and footprint while requesting crisper
 edges and genuine alpha. No new gameplay bitmap was integrated.
+
+## Unified field and hero art presentation
+
+The home campus now uses continuous gradient turf instead of repeated diamond
+bitmaps and per-tile shading. Removed the bright campus perimeter seam and matched
+the lawn edge to the surrounding grounds. Home practice and battle fields share
+`FieldPaint`: one turf palette, a 100-yard playing surface, two 10-yard end zones,
+five-yard lines, hash marks and a stronger midfield line. Existing field bounds,
+building positions and combat geometry are unchanged.
+
+Buildings no longer breathe or lift on hover; tighter contact shadows and modest
+saturation reduction help their existing artwork sit on the turf. Hero walk/action
+frames receive per-image vertical placement offsets measured from their alpha
+silhouettes so their visible lower edges share a baseline. Card poses use the same
+alignment except QB/kicker rigs, whose hand/ball attachment geometry is preserved.
+Idle card layers stay hidden until both images have loaded.
+
+`scripts/measure-hero-feet.py` inspects original images and emits the placement
+metadata in `game/heroFootOffsets.ts`; it does not edit any bitmap. This pass improves
+native field rendering and how existing art is presented, rather than claiming new
+transparent replacement art. TypeScript, 68 tests and the production build pass.
+Browser visual acceptance remains blocked and is not claimed.

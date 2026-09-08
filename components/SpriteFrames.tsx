@@ -1,3 +1,4 @@
+import { HERO_FOOT_OFFSET } from '../game/heroFootOffsets';
 import React, { useState } from 'react';
 
 export const WALK_FRAMES = ['walkA', 'walkC', 'walkB', 'walkD'] as const;
@@ -23,6 +24,6 @@ function FrameSequence({ sources, duration = 0.42, style }: Props) {
       onLoad={() => setLoaded(previous => new Set(previous).add(i))}
       onError={() => setFailed(true)}
       className="fhq-rigframe absolute inset-0 w-full h-full object-contain select-none"
-      style={{ ...style, animation: sources.length > 1 ? `fhq-q${i + 1} ${duration}s steps(1, end) infinite` : undefined }} />)}
+      style={{ ...style, top: `${HERO_FOOT_OFFSET[src] ?? 0}%`, animation: sources.length > 1 ? `fhq-q${i + 1} ${duration}s steps(1, end) infinite` : undefined }} />)}
   </span>;
 }
