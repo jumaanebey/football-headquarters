@@ -115,7 +115,7 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
   const hub = stadium
     ? { ...stadium, gridX: Math.round((field.x1 + field.x2) / 2) - 1, gridY: Math.round((field.y1 + field.y2) / 2) - 1 }
     : stadium;
-  const paths: JSX.Element[] = [];
+  const paths: React.JSX.Element[] = [];
   if (hub) {
     const seen = new Set<string>();
     buildings.filter(b => b.id !== hub.id).forEach(b => {
@@ -310,7 +310,7 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
 // (URL flags — EDIT_ON/GRID_ON — are defined above GroundLayer.)
 const GridOverlay: React.FC = () => {
   const LO = -10, HI = 18;
-  const lines: JSX.Element[] = [];
+  const lines: React.JSX.Element[] = [];
   for (let i = LO; i <= HI; i++) {
     const a1 = tileToScreen(i - 0.5, LO - 0.5), a2 = tileToScreen(i - 0.5, HI + 0.5);
     const b1 = tileToScreen(LO - 0.5, i - 0.5), b2 = tileToScreen(HI + 0.5, i - 0.5);
@@ -318,7 +318,7 @@ const GridOverlay: React.FC = () => {
     lines.push(<line key={`gx${i}`} x1={a1.x} y1={a1.y} x2={a2.x} y2={a2.y} stroke={onCampus ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.14)'} strokeWidth={1} strokeDasharray={onCampus ? undefined : '4 6'} />);
     lines.push(<line key={`gy${i}`} x1={b1.x} y1={b1.y} x2={b2.x} y2={b2.y} stroke={onCampus ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.14)'} strokeWidth={1} strokeDasharray={onCampus ? undefined : '4 6'} />);
   }
-  const labels: JSX.Element[] = [];
+  const labels: React.JSX.Element[] = [];
   for (let gx = LO; gx <= HI - 1; gx++) for (let gy = LO; gy <= HI - 1; gy++) {
     const onCampus = gx >= 0 && gx <= 9 && gy >= 0 && gy <= 9;
     if (!onCampus && (gx % 2 !== 0 || gy % 2 !== 0)) continue;

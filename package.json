@@ -10,7 +10,9 @@
     "test": "vitest run",
     "balance": "esbuild balance-sim.ts --bundle --format=esm --platform=node --outfile=dist/balance.mjs && node dist/balance.mjs",
     "shots": "node scripts/marketing-shots.mjs",
-    "funnel": "node scripts/funnel.mjs"
+    "funnel": "node scripts/funnel.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "lucide-react": "^0.554.0",
@@ -19,6 +21,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.5.2",
     "playwright": "^1.61.1",

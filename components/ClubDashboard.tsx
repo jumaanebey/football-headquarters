@@ -1,121 +1,70 @@
 import React from 'react';
-import { GameState, ResourceType, BuildingType } from '../types';
-import { Sheet } from './ui';
+import { Users, Shield, Goal, Trophy, Activity } from 'lucide-react';
+import { GameState, BuildingType } from '../types';
+import { Sheet, RankCrest } from './ui';
 import { clubPower, clubPowerBreakdown, rankFor } from '../ranks';
 import { GROWTH_TIERS, collectorRate } from '../constants';
+import { buildingSprite, BUILDING_ERAS, BUILDING_ART_LEVELS } from '../assets';
 import { candidateOvr } from '../recruiting';
-import { formationDef, masteryLevel } from '../fixedBase';
+import { formationDef } from '../fixedBase';
 
-// ─── 🏙 CLUB DASHBOARD ─────────────────────────────────────────────────────────
-// SimCity's advisor panel for Football HQ: every number here is a stat the game
-// ALREADY tracks (no invented metrics) — fan base + campus growth, Club Power
-// breakdown, competition standing, and day-to-day operations. Opened by tapping
-// the jumbotron on the home board (the club's own big screen IS the dashboard).
+const number = (n: number) => Math.floor(n).toLocaleString();
+function Progress({ value, label }: { value: number; label: string }) {
+  const percent = Math.round(Math.max(0, Math.min(1, value)) * 100);
+  return <div className="fhq-progress" role="progressbar" aria-label={label} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}><div style={{ width: `${percent}%` }} /></div>;
+}
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+  return <div className="fhq-stat-row"><span>{label}</span><strong>{value}</strong></div>;
+}
+interface Props { gs: GameState; onClose: () => void; onRoster: () => void; onGameDay: () => void; onDefense: () => void; }
 
-const fmtNum = (n: number) =>
-  n >= 10000 ? `${(n / 1000).toFixed(1)}K` : Math.floor(n).toLocaleString();
-
-const Bar: React.FC<{ pct: number }> = ({ pct }) => (
-  <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-    <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-500"
-      style={{ width: `${Math.min(100, Math.max(0, pct * 100))}%` }} />
-  </div>
-);
-
-const Card: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="bg-[#111827] border border-slate-800 rounded-2xl p-4">
-    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2.5">{title}</div>
-    {children}
-  </div>
-);
-
-const StatRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
-  <div className="flex items-center justify-between py-1">
-    <span className="text-xs text-slate-400">{label}</span>
-    <span className="text-sm font-display font-bold text-white">{value}</span>
-  </div>
-);
-
-export const ClubDashboard: React.FC<{ gs: GameState; onClose: () => void }> = ({ gs, onClose }) => {
-  const fans = Math.floor(gs.resources[ResourceType.FANS] ?? 0);
-  const energy = Math.floor(gs.resources[ResourceType.ENERGY] ?? 0);
-
-  // Campus growth — same tiers that drive the board's props
-  const tierIdx = GROWTH_TIERS.filter(t => fans >= t.fans).length;
-  const curTier = tierIdx > 0 ? GROWTH_TIERS[tierIdx - 1] : null;
-  const nextTier = GROWTH_TIERS[tierIdx] ?? null;
-  const tierFloor = curTier?.fans ?? 0;
-  const tierProg = nextTier ? (fans - tierFloor) / (nextTier.fans - tierFloor) : 1;
-
-  // Competition
-  const rankInfo = rankFor(gs.trophies);
-  const seasonStars = Object.values(gs.campaign?.stars ?? {}).reduce((s, v) => s + v, 0);
-
-  // Operations
+export function ClubDashboard({ gs, onClose, onRoster, onGameDay, onDefense }: Props) {
+  const fans = gs.resources.FANS;
+  const tierIndex = GROWTH_TIERS.filter(t => fans >= t.fans).length;
+  const tier = GROWTH_TIERS[tierIndex - 1], nextTier = GROWTH_TIERS[tierIndex];
+  const floor = tier?.fans ?? 0;
   const stadium = gs.buildings.find(b => b.type === BuildingType.STADIUM);
-  const coinsPerMin = Math.round(collectorRate(BuildingType.STADIUM, stadium?.level ?? 1) * 60);
-  const avgOvr = gs.roster.length
-    ? Math.round(gs.roster.reduce((s, p) => s + candidateOvr(p), 0) / gs.roster.length)
-    : 0;
-
-  // Defense record — the raid log (held = attacker left with zero game balls)
-  const raids = gs.defenseLog ?? [];
-  const held = raids.filter(r => r.stars === 0).length;
-  const breached = raids.length - held;
-  const mastery = masteryLevel(gs.formationMastery?.[gs.formation] ?? 0);
-
-  const power = clubPower(gs);
-  const breakdown = clubPowerBreakdown(gs);
-
-  return (
-    <Sheet title="Club Dashboard" icon={<span>🏙</span>}
-      subtitle={<span>{gs.teamName} · {rankInfo.rank.name}</span>} onClose={onClose}>
-      <div className="flex flex-col gap-3 p-5">
-
-        <Card title="Fan base & campus">
-          <div className="flex items-baseline justify-between mb-1.5">
-            <span className="text-2xl font-display font-black text-white">👥 {fmtNum(fans)}<span className="text-xs font-bold text-slate-400 ml-1.5">fans</span></span>
-            <span className="text-xs font-bold uppercase tracking-wide text-orange-300">{curTier ? curTier.name : 'Quiet campus'}</span>
-          </div>
-          <Bar pct={tierProg} />
-          <div className="text-[11px] text-slate-500 mt-1.5">
-            {nextTier
-              ? <>Next: <span className="text-slate-300 font-bold">{nextTier.name}</span> at {nextTier.fans.toLocaleString()} fans — the campus builds out as your fan base grows</>
-              : 'Your grounds are a full tailgate city — every campus stage unlocked'}
-          </div>
-        </Card>
-
-        <Card title="Franchise — Club Power">
-          <div className="text-2xl font-display font-black text-white mb-2">👑 {power.toLocaleString()}</div>
-          <div className="flex flex-col divide-y divide-slate-800/60">
-            {breakdown.map(b => (
-              <StatRow key={b.label} label={`${b.emoji} ${b.label}`} value={b.pts.toLocaleString()} />
-            ))}
-          </div>
-        </Card>
-
-        <Card title="Competition">
-          <div className="flex items-baseline justify-between mb-1.5">
-            <span className="text-2xl font-display font-black text-white">🏆 {gs.trophies.toLocaleString()}</span>
-            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: rankInfo.rank.color }}>{rankInfo.rank.name}</span>
-          </div>
-          <Bar pct={rankInfo.progress} />
-          <div className="text-[11px] text-slate-500 mt-1.5 mb-1">
-            {rankInfo.next ? <>Next tier: <span className="text-slate-300 font-bold">{rankInfo.next.name}</span> at {rankInfo.next.min.toLocaleString()} trophies</> : 'Top of the ladder'}
-          </div>
-          <StatRow label="📅 Season stage reached" value={gs.campaign?.unlocked ?? 1} />
-          <StatRow label="🏈 Season game balls" value={seasonStars} />
-        </Card>
-
-        <Card title="Operations">
-          <StatRow label="🎟 Ticket revenue" value={`${coinsPerMin.toLocaleString()} coins/min`} />
-          <StatRow label="⚡ Energy" value={`${energy}/100`} />
-          <StatRow label="👥 Roster" value={`${gs.roster.length} players · ${avgOvr} avg OVR`} />
-          <StatRow label="📋 Scheme" value={`${formationDef(gs.formation).name}${mastery > 0 ? ` ${'★'.repeat(mastery)}` : ''}`} />
-          {raids.length > 0 && <StatRow label="🛡 Raid defense record" value={`${held} held · ${breached} breached`} />}
-        </Card>
-
+  const level = stadium?.level ?? 1;
+  const artIndex = Math.max(0, BUILDING_ART_LEVELS(BuildingType.STADIUM).filter(l => l <= level).length - 1);
+  const rank = rankFor(gs.trophies);
+  const power = clubPower(gs), parts = clubPowerBreakdown(gs);
+  const seasonBalls = Object.values(gs.campaign?.stars ?? {}).reduce((sum, n) => sum + n, 0);
+  const average = gs.roster.length ? Math.round(gs.roster.reduce((sum, p) => sum + candidateOvr(p), 0) / gs.roster.length) : 0;
+  const log = gs.defenseLog ?? [], held = log.filter(r => r.stars === 0).length;
+  return <Sheet title="Your program" icon={<Activity size={23} />} subtitle={gs.teamName} onClose={onClose} maxWidth="max-w-3xl">
+    <div className="fhq-dashboard">
+      <section className="fhq-dashboard-banner">
+        <img src={buildingSprite(BuildingType.STADIUM, level)} alt={`${BUILDING_ERAS[BuildingType.STADIUM][artIndex]} stadium`} width="245" height="190" />
+        <div><span className="fhq-eyebrow">Home field · Level {level}</span><h3>{BUILDING_ERAS[BuildingType.STADIUM][artIndex]}</h3><p>{tier?.name ?? 'Quiet campus'}<br />{number(fans)} fans behind your program.</p></div>
+      </section>
+      <div className="fhq-dashboard-actions">
+        <button onClick={onRoster}><Users size={22} />Manage roster</button>
+        <button onClick={onGameDay}><Goal size={22} />Game Day</button>
+        <button onClick={onDefense}><Shield size={22} />Set defense</button>
       </div>
-    </Sheet>
-  );
-};
+      <div className="fhq-dashboard-grid">
+        <section className="fhq-stat-card"><h3>Club power</h3><div className="fhq-big-stat">{number(power)}</div>
+          {parts.map(part => <Stat key={part.label} label={part.label} value={number(part.pts)} />)}
+        </section>
+        <section className="fhq-stat-card"><h3>Your standing</h3>
+          <div className="flex items-center gap-3"><RankCrest rank={rank.rank} size={54} /><div><span className="fhq-big-stat">{number(gs.trophies)}</span><div className="text-sm text-amber-300">{rank.rank.name}</div></div></div>
+          <Progress value={rank.progress} label="Progress to next rank" />
+          <p>{rank.next ? `${number(rank.next.min - gs.trophies)} trophies to ${rank.next.name}` : 'You have reached the top rank.'}</p>
+          <Stat label="Season stage reached" value={`${gs.campaign?.unlocked ?? 1} / 12`} /><Stat label="Season game balls" value={`${seasonBalls} / 36`} />
+        </section>
+        <section className="fhq-stat-card"><h3>Campus growth</h3><div className="fhq-big-stat">{number(fans)} <span className="text-base font-normal text-slate-300">fans</span></div>
+          <Progress value={nextTier ? (fans - floor) / (nextTier.fans - floor) : 1} label="Progress to next campus stage" />
+          <p>{nextTier ? `${number(nextTier.fans - fans)} more fans unlock ${nextTier.name}.` : 'Your tailgate city is fully unlocked.'}</p>
+          <Stat label="Gate receipts" value={`${number(collectorRate(BuildingType.STADIUM, level) * 60)} / min`} />
+          <Stat label="Builders working" value={`${gs.upgrades.length} / ${gs.builders}`} />
+        </section>
+        <section className="fhq-stat-card"><h3>Team readiness</h3>
+          <Stat label="Roster" value={`${gs.roster.length} players`} /><Stat label="Average rating" value={`${average} OVR`} />
+          <Stat label="Energy" value={`${number(gs.resources.ENERGY)} / 100`} />
+          <Stat label="Defensive scheme" value={formationDef(gs.formation).name} />
+          <Stat label="Recorded home games" value={log.length ? `${held} held · ${log.length - held} stormed` : 'No games yet'} />
+        </section>
+      </div>
+    </div>
+  </Sheet>;
+}
