@@ -1,3 +1,4 @@
+import { spriteMotion } from '../game/spriteMotion';
 import { spriteFacing } from '../game/spriteFacing';
 import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 import React, { useEffect, useRef, useState } from 'react';
@@ -493,6 +494,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         }
       }
 
+      const motionSamples = [...s.troops, ...s.guards].map(actor => ({ actor, x: actor.x, y: actor.y }));
+      for (const { actor } of motionSamples) { actor.moving = false; actor.attacking = false; }
+
       for (const t of s.troops) {
         if (t.dead) continue;
         if (t.hitFlash > 0) t.hitFlash = Math.max(0, t.hitFlash - DT);
@@ -711,6 +715,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             s.fx.push({ type: 'impact', x: g.x, y: g.y, life: 0.3, maxLife: 0.3 });
           }
         }
+      }
+
+      for (const { actor, x, y } of motionSamples) {
+        const motion = spriteMotion({ x, y }, actor, DT, actor.face);
+        actor.moving = !actor.dead && motion.moving;
+        actor.strideSeconds = motion.strideSeconds;
+        if (motion.moving) actor.face = motion.face;
       }
 
       // MOMENTUM: builds on sacks/pancakes, drains on losses, decays over time.
@@ -1542,12 +1553,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const isMascotG = !!(g as BTroop & { isMascot?: boolean }).isMascot;
             // Mascot-hyped defenders play FRENZIED — red glow while the pulse lasts.
             const frenzied = g.rageT > 0;
+            const walking = phase === 'fighting' && !!g.moving;
+            const attacking = phase === 'fighting' && !!g.attacking;
             const gBaseFilter = isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)';
             return (
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${px(g.x, g.y)}%`, top: `${py(g.x, g.y)}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, zIndex: Math.round((g.x + g.y) / 2) + 1 /* unified iso depth: units occlude BEHIND buildings, not float over them */, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {g.hp < g.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
-                <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : g.attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : 'fhq-stepbob 0.21s ease-in-out infinite', rotate: g.attacking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
+                <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : walking ? `fhq-stepbob ${(g.strideSeconds ?? 0.42) / 2}s ease-in-out infinite` : undefined, rotate: !walking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
                   <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
                   {/* Chip fallback hides the moment the sprite loads — no floating bubble. */}
                   {isMascotG ? (
@@ -1565,15 +1578,19 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     onLoad={e => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; }}
                     className="fhq-flat absolute inset-0 w-full h-full object-contain"
                     style={{ transform: `translateZ(0)${((g as BTroop & { face?: number }).face ?? 1) < 0 ? ' scaleX(-1)' : ''}`, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
-                  {/* Hero gate guards WALK too — same two-frame stride, derived from the portrait path */}
-                  {isHeroGuard && !g.attacking && (() => {
+                  {!isHeroGuard && !isMascotG && walking && (
+                    <SpriteFrames sources={WALK_FRAMES.map(fr => `${unitPlayerSprite(g.unit).replace('-player.webp', '')}-${fr}.webp`)} duration={g.strideSeconds}
+                      style={{ transform: (g.face ?? 1) > 0 ? 'scaleX(-1)' : undefined, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
+                  )}
+                  {/* Hero defenders use the same stride and action poses as attackers. */}
+                  {isHeroGuard && (walking || attacking) && (() => {
                     const hk = (art!.match(/heroes\/(\w+)\.(?:webp|png)$/) || [])[1];
                     if (!hk) return null;
                     const gFlip = ((g as BTroop & { face?: number }).face ?? 1) > 0 ? ' scaleX(-1)' : '';
 
                     return (
                       <>
-                        <SpriteFrames sources={WALK_FRAMES.map(fr => `/assets/heroes/rig/${hk}-${fr}.webp`)} duration={0.42} style={{ transform: `translateZ(0)${gFlip}` }} />
+                        <SpriteFrames sources={attacking ? [hk === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${hk}-action.webp`] : WALK_FRAMES.map(fr => `/assets/heroes/rig/${hk}-${fr}.webp`)} duration={g.strideSeconds} style={{ transform: `translateZ(0)${gFlip}` }} />
                       </>
                     ); })()}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
@@ -1593,8 +1610,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             // Alive = animate: crunch-jolt when TAKING a hit, lunge INTO the target on
             // the damage-pop cycle when attacking, else a stride-synced step bob.
             const hf = t.hitFlash > 0;
+            const walking = phase === 'fighting' && !!t.moving;
+            const attacking = phase === 'fighting' && !!t.attacking;
             const faceEarly = (t as BTroop & { face?: number }).face ?? 1;
-            const anim = hf ? 'fhq-hitjolt 0.18s ease-out' : t.attacking ? `fhq-lunge-${faceEarly > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : 'fhq-stepbob 0.21s ease-in-out infinite';
+            const anim = hf ? 'fhq-hitjolt 0.18s ease-out' : attacking ? `fhq-lunge-${faceEarly > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : walking ? `fhq-stepbob ${(t.strideSeconds ?? 0.42) / 2}s ease-in-out infinite` : undefined;
             // Individual players are a touch bigger + clearer than the old clumpy trios.
             const w = heroDef ? '7%' : specialDef ? (isMascot ? '5.5%' : '3.4%') : '4.6%';
             const wmin = heroDef ? 36 : specialDef ? (isMascot ? 30 : 16) : 26;
@@ -1604,7 +1623,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const flip = face < 0 ? ' scaleX(-1)' : '';
             // Runners LEAN into their line of travel (standalone `rotate` property so it
             // composes with the transform-based bob/jolt animations instead of fighting them).
-            const lean = t.attacking ? undefined : face > 0 ? '2.5deg' : '-2.5deg';
+            const lean = !walking ? undefined : face > 0 ? '2.5deg' : '-2.5deg';
             // Fallback chip hides the moment the real sprite loads — units stand on the
             // turf with a shadow, not on a floating bubble.
             const hidePrev = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; };
@@ -1629,18 +1648,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       <span style={{ fontSize: '2.3vmin', lineHeight: 1 }}>{heroDef.emoji}</span>
                     </div>
                     <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${flip}` }} />
-                    {/* HEROES WALK: two-frame stride while moving, action pose while attacking.
+                    {/* HEROES WALK: four-frame stride while moving, action pose while attacking.
                         Walk frames face viewer-LEFT natively → flip when running right. Missing
                         frames self-hide, leaving the flat art underneath. */}
-                    {(() => { const rp = { action: t.heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${t.heroKey}-action.webp`, base: `/assets/heroes/rig/${t.heroKey}` };
+                    {(walking || attacking) && (() => { const rp = { action: t.heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${t.heroKey}-action.webp`, base: `/assets/heroes/rig/${t.heroKey}` };
                       const rigFlip = face > 0 ? ' scaleX(-1)' : '';
 
-                      return t.attacking ? (
+                      return attacking ? (
                         // container carries the pop/jolt — the pose frame just renders
                         <SpriteFrames sources={[rp.action]} style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${rigFlip}` }} />
                       ) : (
                         <>
-                          <SpriteFrames sources={WALK_FRAMES.map(fr => `${rp.base}-${fr}.webp`)} duration={0.42} style={{ transform: `translateZ(0)${rigFlip}`, filter: hf ? `${glow} brightness(1.8)` : glow }} />
+                          <SpriteFrames sources={WALK_FRAMES.map(fr => `${rp.base}-${fr}.webp`)} duration={t.strideSeconds} style={{ transform: `translateZ(0)${rigFlip}`, filter: hf ? `${glow} brightness(1.8)` : glow }} />
                         </>
                       ); })()}
                     {/* Nameplate: full strength for the deploy moment, then fades way down —
@@ -1660,11 +1679,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: st.color, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{t.jersey}</div>
                     </div>
                     <img src={unitPlayerSprite(t.unit)} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ transform: `translateZ(0)${flip}` }} />
-                    {!t.attacking && (() => {
+                    {walking && (() => {
                       const base = unitPlayerSprite(t.unit).replace('-player.webp', '');
                       const uFlip = face > 0 ? ' scaleX(-1)' : '';
 
-                      return <SpriteFrames sources={WALK_FRAMES.map(fr => `${base}-${fr}.webp`)} style={{ transform: `translateZ(0)${uFlip}` }} />; })()}
+                      return <SpriteFrames sources={WALK_FRAMES.map(fr => `${base}-${fr}.webp`)} duration={t.strideSeconds} style={{ transform: `translateZ(0)${uFlip}` }} />; })()}
                     {/* jersey number rides the real sprite — the announcer talks about #23, so show #23 */}
                     <span className="absolute flex items-center justify-center font-black text-white" style={{ right: '-4%', bottom: '-2%', minWidth: '38%', height: '32%', borderRadius: 4, background: st.color, border: '1px solid rgba(0,0,0,0.55)', fontSize: '1.15vmin', boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t.jersey}</span>
                   </div>

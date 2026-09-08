@@ -1,0 +1,14 @@
+import { spriteFacing } from './spriteFacing';
+
+/** Presentation only: observe displacement after a simulation step. Never change
+ * combat speed or consume gameplay RNG to make a character look animated. */
+export function spriteMotion(from: { x: number; y: number }, to: { x: number; y: number }, seconds: number, previousFace = 1) {
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  const moving = seconds > 0 && distance > 0.0001;
+  const speed = moving ? distance / seconds : 0;
+  return {
+    moving,
+    face: moving ? spriteFacing(0, 0, (to.x - from.x) / seconds, (to.y - from.y) / seconds, previousFace) : previousFace,
+    strideSeconds: moving ? Math.max(0.28, Math.min(0.9, 0.42 * 15 / speed)) : 0.42,
+  };
+}

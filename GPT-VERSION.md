@@ -113,3 +113,21 @@ explicitly rejected the authorized preview URL under its security policy. A
 single background-removal edit per building again returned opaque RGB exports
 with baked checkerboards; those candidates were excluded. No browser pass or
 finished building-art refresh is claimed.
+
+## Observed movement follow-up
+
+Battle animation now uses observed displacement from each simulation step, rather
+than assuming every non-attacking character is walking. Waiting defenders hold
+still, stride tempo follows actual speed, and walk/lunge loops stop at the result
+screen. Ordinary defenders use their existing four-frame walk art; hero defenders
+use their existing action poses during contact. Small steps use velocity for
+facing, avoiding a direction threshold that ignored slow runners. Campus players
+keep their last facing when stopping or moving vertically on screen.
+
+These fields are presentation-only: no combat stats, paths, random draws or
+replay actions change. Four new movement tests bring the suite to 68 tests.
+A further headquarters revision from the original transparent sprite also failed
+alpha validation (RGB, 1254 square, baked checkerboard) and was excluded. Built-in
+image generation was used; the prompt preserved the original canopy, table,
+playboard, football crate, flag, camera and footprint while requesting crisper
+edges and genuine alpha. No new gameplay bitmap was integrated.

@@ -1,4 +1,4 @@
-import { spriteFacing } from '../game/spriteFacing';
+import { spriteMotion } from '../game/spriteMotion';
 import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 
 import React, { useState, useEffect } from 'react';
@@ -846,7 +846,13 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
 
   // Real player art on the board (the `*-player.png` singles) — the color chip is only
   // the fallback while the sprite loads. Face the direction of travel.
-  const facingLeft = spriteFacing(player.worldPos.x, player.worldPos.y, player.targetPos.x, player.targetPos.y) < 0;
+  const [motion, setMotion] = useState(() => ({ ...player.worldPos, face: 1 }));
+  let face = motion.face;
+  if (motion.x !== player.worldPos.x || motion.y !== player.worldPos.y) {
+    face = spriteMotion(motion, player.worldPos, 0.2, motion.face).face;
+    setMotion({ ...player.worldPos, face });
+  }
+  const facingLeft = face < 0;
 
   // PATROLLING players are MOVING (between beat points) — they stride exactly like
   // walkers. Only players standing still (training at a facility) hold their pose.
