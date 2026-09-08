@@ -196,7 +196,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                        optional projectile launches. Staggered per hero so cards don't sync. */
                     (() => { /* 5.5s cycle: the action beat lands every ~5s instead of hiding in a 7s idle */
                     const rig = HERO_RIG[def.key]; const dly = `-${(heroIdx * 1.45) % 5.5}s`; return (
-                    <div className="relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
+                    <div className="fhq-hero-puppet relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
                       <div className="absolute inset-0" style={rig.flipX ? { transform: 'scaleX(-1)' } : undefined}>
                       <img src={rig.body} alt={def.name} draggable={false}
                         onLoad={e => { const med = e.currentTarget.parentElement?.parentElement?.previousElementSibling as HTMLElement | null; if (med) med.style.visibility = 'hidden'; }}
@@ -225,14 +225,15 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                           style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite, fhq-idle${f} 5.5s linear ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
                       ))}
                       <img src={rig.action} alt="" draggable={false}
+                        onLoad={e => { e.currentTarget.dataset.ready = '1'; }}
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                        className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
+                        className="fhq-action-pose absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
                         style={{ animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
                       </div>
                       {rig.ball && (
                         <img src="/assets/heroes/franchise-rig/ball.webp" alt="" draggable={false}
                           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                          className="absolute pointer-events-none"
+                          className="fhq-hero-ball absolute pointer-events-none"
                           style={{ width: '30%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 5.5s ease-in-out ${dly} infinite`, opacity: rig.ball.anim === 'fhq-ball-inhand' ? 1 : 0 }} />
                       )}
                     </div>

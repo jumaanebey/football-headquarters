@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { BuildingType, UnitGroup } from '../types';
 import { buildingSprite, unitSprite, unitPlayerSprite, defenseSprite, wallSprite } from '../assets';
 import { RANKS } from '../ranks';
+import { HERO_DEFS } from '../battle';
+import { WALK_FRAMES } from '../components/SpriteFrames';
 
 describe('shipped game art', () => {
   it('provides every facility, defense, roster state and rank used by the resolvers', () => {
@@ -18,6 +20,20 @@ describe('shipped game art', () => {
       paths.add(unitPlayerSprite(group));
     }
     expect([...paths].filter(path => !existsSync(resolve('public', path.slice(1))))).toEqual([]);
+  });
+  it('ships complete walk cycles and action poses for every hero and player group', () => {
+    const paths: string[] = [];
+    for (const hero of HERO_DEFS) {
+      paths.push(hero.art);
+      for (const frame of WALK_FRAMES) paths.push(`/assets/heroes/rig/${hero.key}-${frame}.webp`);
+      paths.push(hero.key === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${hero.key}-action.webp`);
+      for (const frame of ['idleA', 'idleB']) paths.push(`/assets/heroes/rig/${hero.key}-${frame}.webp`);
+    }
+    for (const group of Object.values(UnitGroup)) {
+      const base = unitPlayerSprite(group).replace('-player.webp', '');
+      for (const frame of WALK_FRAMES) paths.push(`${base}-${frame}.webp`);
+    }
+    expect(paths.filter(path => !existsSync(resolve('public', path.slice(1))))).toEqual([]);
   });
   it('ships all literal image references in production source', () => {
     const files = [...readdirSync('.').filter(f => /\.(tsx?|html)$/.test(f)), ...readdirSync('components').filter(f => f.endsWith('.tsx')).map(f => `components/${f}`)];

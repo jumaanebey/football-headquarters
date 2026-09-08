@@ -78,3 +78,38 @@ sprite refresh is unfinished; existing working sprites remain in use.
 `scripts/check-sprites.py` checks sprite dimensions, alpha, and transparent corners
 before integration. It correctly rejects those outputs. It requires Pillow, as
 do the existing art tools. Run `python scripts/check-sprites.py <sprite.png>`.
+
+## Hero and placement pass
+
+Reviewed `DESIGN-BIBLE.md`, `HERO-SPRITES.md`, `FIXED-BASE-PLAN.md`,
+`ART-DIRECTION.md`, and the later handoff/layout notes. No separately named PRD
+was found in the repository. Original hero identities and the exported home
+layout remain canonical.
+
+- Hero guards now resolve WebP portraits to their complete walk cycles.
+- Shared `SpriteFrames` waits for every pose before hiding the portrait. Failed
+  loads retain the portrait; walk/action changes reset readiness together.
+- Four stride frames switch discretely without blended poses. Reduced motion
+  hides the sequence and displays the original character.
+- Campus and battle facing use projected isometric travel, including movement
+  along world Y. Battle attacks also face their target.
+- Hero cards retain their body when the action image is unavailable, and show a
+  single static body with reduced motion.
+- Battle health bars overlay actors instead of changing their height and moving
+  their ground position when damage starts.
+- Facility hitboxes retain their existing footprint alignment and now have
+  keyboard activation, visible focus, and facility/level labels.
+
+Validation: 64 tests, TypeScript and production build pass. Complete dynamic
+hero/player walk cycles, idle frames and action asset paths are checked.
+`npm run balance` passes every documented assertion. Its diagnostic scenarios
+still show an Epic squad underperforming a Common squad on one layout and no QB
+advantage on another; these are playtest targets, not proof of broad imbalance.
+Combat rules were not retuned from those isolated scenarios.
+
+Still incomplete: desktop/phone visual and interaction checks, live cross-device
+cloud-save verification, and the three starter-facility replacements. The browser
+explicitly rejected the authorized preview URL under its security policy. A
+single background-removal edit per building again returned opaque RGB exports
+with baked checkerboards; those candidates were excluded. No browser pass or
+finished building-art refresh is claimed.

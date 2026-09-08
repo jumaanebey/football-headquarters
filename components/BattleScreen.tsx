@@ -1,3 +1,5 @@
+import { spriteFacing } from '../game/spriteFacing';
+import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 import React, { useEffect, useRef, useState } from 'react';
 import { UnitGroup , Player } from '../types';
 import {
@@ -379,7 +381,6 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     sfx.victory();
   };
 
-
   // Kickoff: referee whistle + crowd stir the moment play starts; the crowd BED hums
   // underneath the whole battle and dies with the final whistle.
   useEffect(() => {
@@ -536,12 +537,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           const direct = wp.x === target.x && wp.y === target.y;
           const md = Math.max(0.001, dist(t.x, t.y, wp.x, wp.y));
           const step = direct ? Math.min(speed * DT, d - stopAt) : speed * DT;
-          if (Math.abs(wp.x - t.x) > 0.3) (t as BTroop & { face?: number }).face = wp.x > t.x ? 1 : -1; // sprites face where they run
+          (t as BTroop & { face?: number }).face = spriteFacing(t.x, t.y, wp.x, wp.y, (t as BTroop & { face?: number }).face);
           t.x += ((wp.x - t.x) / md) * step;
           t.y += ((wp.y - t.y) / md) * step;
           if (rand() < 0.05) s.fx.push({ type: 'dust', x: t.x, y: t.y + 1.6, life: 0.4, maxLife: 0.4 });
         } else {
           t.attacking = true;
+          (t as BTroop & { face?: number }).face = spriteFacing(t.x, t.y, target.x, target.y, (t as BTroop & { face?: number }).face);
           target.hp -= dps * DT;
           t.dmg = (t.dmg ?? 0) + dps * DT;
           // Contact sparkle — the block/tackle work on the building is VISIBLE
@@ -650,13 +652,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         for (const t of s.troops) { if (t.dead) continue; const dd = dist(g.x, g.y, t.x, t.y); if (dd < pd) { pd = dd; prey = t; } }
         if (!prey) continue;
         if (pd > 3.2) {
-          if (Math.abs(prey.x - g.x) > 0.3) (g as BTroop & { face?: number }).face = prey.x > g.x ? 1 : -1;
+          (g as BTroop & { face?: number }).face = spriteFacing(g.x, g.y, prey.x, prey.y, (g as BTroop & { face?: number }).face);
           g.x += ((prey.x - g.x) / pd) * g.speed * DT;
           g.y += ((prey.y - g.y) / pd) * g.speed * DT;
           g.attacking = false;
         } else {
           // the tackle: mutual damage — your player fights through at reduced output
           g.attacking = true;
+          (g as BTroop & { face?: number }).face = spriteFacing(g.x, g.y, prey.x, prey.y, (g as BTroop & { face?: number }).face);
           const shieldFactor = (prey.shieldT && prey.shieldT > 0) ? 0.5 : 1;
           const preyOut = prey.dps * (prey.rageT > 0 ? 2 : 1) * 0.55 * DT;
           // OL power: the pocket — QB/RB near a live lineman take reduced damage
@@ -1489,7 +1492,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               return (
                 <div key={b.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${px(b.x, b.y)}%`, top: `${py(b.x, b.y)}%`, width: `${b.size * 1.7}%`, zIndex: Math.round((b.x + b.y) / 2) }}>
                   {/* HP bar only once it's TAKEN damage — 30 full green bars was pure noise */}
-                  {!b.dead && b.hp < b.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%', minWidth: 18 }}><div className="h-full bg-lime-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
+                  {!b.dead && b.hp < b.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%', minWidth: 18 }}><div className="h-full bg-lime-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
                   <img src={b.art ?? '/assets/battle/blocking-sled.webp'} alt="" draggable={false} className="w-full" style={{ height: 'auto', aspectRatio: '1', objectFit: 'contain', opacity: b.dead ? 0.25 : 1, transformOrigin: '50% 90%', animation: !b.dead && ((b as BBuilding & { hitFlash?: number }).hitFlash ?? 0) > 0 ? 'fhq-hitjolt 0.2s ease-out' : undefined, filter: b.dead ? 'grayscale(1) brightness(0.55)' : ((b as BBuilding & { hitFlash?: number }).hitFlash ?? 0) > 0 ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.4)) brightness(1.9)' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }} />
                 </div>
               );
@@ -1543,7 +1546,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             return (
               <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${px(g.x, g.y)}%`, top: `${py(g.x, g.y)}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, zIndex: Math.round((g.x + g.y) / 2) + 1 /* unified iso depth: units occlude BEHIND buildings, not float over them */, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
-                {g.hp < g.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
+                {g.hp < g.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
                 <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : g.attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : 'fhq-stepbob 0.21s ease-in-out infinite', rotate: g.attacking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
                   <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
                   {/* Chip fallback hides the moment the sprite loads — no floating bubble. */}
@@ -1564,16 +1567,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     style={{ transform: `translateZ(0)${((g as BTroop & { face?: number }).face ?? 1) < 0 ? ' scaleX(-1)' : ''}`, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
                   {/* Hero gate guards WALK too — same two-frame stride, derived from the portrait path */}
                   {isHeroGuard && !g.attacking && (() => {
-                    const hk = (art!.match(/heroes\/(\w+)\.png/) || [])[1];
+                    const hk = (art!.match(/heroes\/(\w+)\.(?:webp|png)$/) || [])[1];
                     if (!hk) return null;
                     const gFlip = ((g as BTroop & { face?: number }).face ?? 1) > 0 ? ' scaleX(-1)' : '';
-                    const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
-                    const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+
                     return (
                       <>
-                        {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                          <img key={fr} src={`/assets/heroes/rig/${hk}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${gFlip}`, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }} />
-                        ))}
+                        <SpriteFrames sources={WALK_FRAMES.map(fr => `/assets/heroes/rig/${hk}-${fr}.webp`)} duration={0.42} style={{ transform: `translateZ(0)${gFlip}` }} />
                       </>
                     ); })()}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
@@ -1613,7 +1613,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               <div key={t.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round((t.x + t.y) / 2) + 1, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
-                {t.hp < t.maxHp && <div className="h-0.5 rounded-full bg-black/50 overflow-hidden mb-0.5" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
+                {t.hp < t.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
                 {specialDef ? (
                   // Emoji placeholder shows until the real sprite loads, then hides.
                   <div className="relative w-full" style={{ aspectRatio: '1' }}>
@@ -1634,16 +1634,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                         frames self-hide, leaving the flat art underneath. */}
                     {(() => { const rp = { action: t.heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${t.heroKey}-action.webp`, base: `/assets/heroes/rig/${t.heroKey}` };
                       const rigFlip = face > 0 ? ' scaleX(-1)' : '';
-                      const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
-                      const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+
                       return t.attacking ? (
                         // container carries the pop/jolt — the pose frame just renders
-                        <img src={rp.action} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${rigFlip}` }} />
+                        <SpriteFrames sources={[rp.action]} style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${rigFlip}` }} />
                       ) : (
                         <>
-                          {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                            <img key={fr} src={`${rp.base}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${rigFlip}` }} />
-                          ))}
+                          <SpriteFrames sources={WALK_FRAMES.map(fr => `${rp.base}-${fr}.webp`)} duration={0.42} style={{ transform: `translateZ(0)${rigFlip}`, filter: hf ? `${glow} brightness(1.8)` : glow }} />
                         </>
                       ); })()}
                     {/* Nameplate: full strength for the deploy moment, then fades way down —
@@ -1666,11 +1663,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     {!t.attacking && (() => {
                       const base = unitPlayerSprite(t.unit).replace('-player.webp', '');
                       const uFlip = face > 0 ? ' scaleX(-1)' : '';
-                      const rigOn2 = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
-                      const rigOff2 = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
-                      return (['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                        <img key={fr} src={`${base}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn2} onError={rigOff2} className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite`, transform: `translateZ(0)${uFlip}` }} />
-                      )); })()}
+
+                      return <SpriteFrames sources={WALK_FRAMES.map(fr => `${base}-${fr}.webp`)} style={{ transform: `translateZ(0)${uFlip}` }} />; })()}
                     {/* jersey number rides the real sprite — the announcer talks about #23, so show #23 */}
                     <span className="absolute flex items-center justify-center font-black text-white" style={{ right: '-4%', bottom: '-2%', minWidth: '38%', height: '32%', borderRadius: 4, background: st.color, border: '1px solid rgba(0,0,0,0.55)', fontSize: '1.15vmin', boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t.jersey}</span>
                   </div>

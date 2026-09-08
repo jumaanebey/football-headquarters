@@ -1,3 +1,5 @@
+import { spriteFacing } from '../game/spriteFacing';
+import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 
 import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
@@ -468,8 +470,7 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
 
 const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, dur, delay, rev }) => {
   const a = tileToScreen(gx, gy), b = tileToScreen(gx, gy + dgy);
-  const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
-  const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+
   return (
     <div className="fhq-drillsquad absolute pointer-events-none"
       style={{ left: a.x, top: a.y, zIndex: 2, '--dx': `${b.x - a.x}px`, '--dy': `${b.y - a.y}px`, animation: `fhq-drill ${dur}s linear ${delay}s infinite` } as React.CSSProperties}>
@@ -481,10 +482,7 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
           <img src={`/assets/units/${slug}-player.webp`} alt="" draggable={false}
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             className="fhq-flat absolute inset-0 w-full h-full object-contain" />
-          {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-            <img key={fr} src={`/assets/units/${slug}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff}
-              className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite` }} />
-          ))}
+          <SpriteFrames sources={WALK_FRAMES.map(fr => `/assets/units/${slug}-${fr}.webp`)} duration={0.42} style={{ transform: 'translateZ(0)' }} />
         </div>
       </div>
     </div>
@@ -769,7 +767,7 @@ const BuildingSprite: React.FC<{
 
       {/* Tap hitbox — the building's BODY, aligned to the art's true base (the sprite
           bottoms out at the footprint's low vertex, a full tile below center). */}
-      <div data-fhq-bldg className="absolute cursor-pointer" onClick={handleClick}
+      <button type="button" data-fhq-bldg aria-label={`${info.name}, level ${building.level}`} className="absolute cursor-pointer rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-400" onClick={handleClick}
         style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H, width: SPRITE_W * 0.62, height: SPRITE_W > TILE_W * 3 ? SPRITE_W * 0.8 : TILE_H * 2.3, pointerEvents: 'auto' }} />
 
       {/* Drill status badge */}
@@ -848,7 +846,7 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
 
   // Real player art on the board (the `*-player.png` singles) — the color chip is only
   // the fallback while the sprite loads. Face the direction of travel.
-  const facingLeft = player.targetPos.x < player.worldPos.x;
+  const facingLeft = spriteFacing(player.worldPos.x, player.worldPos.y, player.targetPos.x, player.targetPos.y) < 0;
 
   // PATROLLING players are MOVING (between beat points) — they stride exactly like
   // walkers. Only players standing still (training at a facility) hold their pose.
@@ -869,17 +867,14 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           className="fhq-flat relative w-full h-auto max-w-none select-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]"
           style={{ transform: facingLeft ? 'scaleX(-1)' : undefined }} />
-        {/* Real stride while MOVING: two frames alternate; art faces LEFT natively */}
+        {/* Real stride while MOVING: four frames alternate; art faces LEFT natively */}
         {isMoving && (() => {
           const base = unitPlayerSprite(player.unit).replace('-player.webp', '');
           const wFlip = facingLeft ? undefined : 'scaleX(-1)';
-          const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
-          const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+
           return (
             <>
-              {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                <img key={fr} src={`${base}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: `fhq-q${qi + 1} 0.5s linear infinite`, transform: wFlip }} />
-              ))}
+              <SpriteFrames sources={WALK_FRAMES.map(fr => `${base}-${fr}.webp`)} duration={0.5} style={{ transform: wFlip }} />
             </>
           ); })()}
       </div>

@@ -112,10 +112,10 @@ body {
          at the 50% mark reads as a step, not a blend). */
       @keyframes fhq-stepA { 0%,49.5% { opacity: 1; } 50%,100% { opacity: 0; } }
       /* 4-frame walk: contact-L → passing → contact-R → passing (quarter phases) */
-      @keyframes fhq-q1 { 0%,24.5% { opacity: 1; } 25%,100% { opacity: 0; } }
-      @keyframes fhq-q2 { 0%,24.5% { opacity: 0; } 25%,49.5% { opacity: 1; } 50%,100% { opacity: 0; } }
-      @keyframes fhq-q3 { 0%,49.5% { opacity: 0; } 50%,74.5% { opacity: 1; } 75%,100% { opacity: 0; } }
-      @keyframes fhq-q4 { 0%,74.5% { opacity: 0; } 75%,100% { opacity: 1; } }
+      @keyframes fhq-q1 { 0% { opacity: 1; } 25%,100% { opacity: 0; } }
+      @keyframes fhq-q2 { 0% { opacity: 0; } 25% { opacity: 1; } 50%,100% { opacity: 0; } }
+      @keyframes fhq-q3 { 0% { opacity: 0; } 50% { opacity: 1; } 75%,100% { opacity: 0; } }
+      @keyframes fhq-q4 { 0% { opacity: 0; } 75% { opacity: 1; } 100% { opacity: 0; } }
       @keyframes fhq-stepB { 0%,49.5% { opacity: 0; } 50%,100% { opacity: 1; } }
       /* Hero nameplate: readable at deploy, then drops to a whisper so it stops
          fighting the sprites and hit VFX for screen space. */
@@ -123,7 +123,7 @@ body {
       /* ONE character layer at a time: when a unit's rig frames (walk/action) have
          loaded, the flat portrait fallback underneath goes fully invisible instead of
          peeking out around the frames' edges. */
-      .fhq-unit[data-rig="1"] .fhq-flat { visibility: hidden; }
+      .fhq-unit:has(.fhq-frame-sequence[data-ready="1"]) .fhq-flat { visibility: hidden; }
       /* --- JUICE PASS: gacha reveal, coin arcs, counter pops --- */
       @keyframes fhq-reveal-pulse { 0%,100% { transform: scale(1) rotate(-2.5deg); } 50% { transform: scale(1.09) rotate(2.5deg); } }
       @keyframes fhq-reveal-in { 0% { transform: scale(0.25); opacity: 0; } 55% { transform: scale(1.18); opacity: 1; } 75% { transform: scale(0.96); } 100% { transform: scale(1); opacity: 1; } }
@@ -196,7 +196,7 @@ body {
       @media (prefers-reduced-motion: reduce) {
         /* animated-opacity walk frames freeze as a 4-pose ghost pile — hide them, the flat art stands in */
         .fhq-rigframe { display: none !important; }
-        .fhq-unit[data-rig="1"] .fhq-flat { visibility: visible !important; }
+        .fhq-unit:has(.fhq-frame-sequence[data-ready="1"]) .fhq-flat { visibility: visible !important; }
         *, *::before, *::after {
           animation-duration: 0.01ms !important;
           animation-iteration-count: 1 !important;
@@ -213,3 +213,13 @@ body {
         /* drill runners frozen mid-sprint with stacked frames read broken — hide them */
         .fhq-drillsquad { display: none !important; }
       }
+
+/* A card cannot fade out its body until the alternate pose is available. */
+.fhq-hero-puppet:not(:has(.fhq-action-pose[data-ready="1"])) .fhq-basebody {
+  animation: none !important; visibility: visible !important; opacity: 1 !important;
+}
+.fhq-hero-puppet:not(:has(.fhq-action-pose[data-ready="1"])) :is(.fhq-idleframe, .fhq-action-pose, .fhq-hero-ball) { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .fhq-hero-puppet :is(.fhq-action-pose, .fhq-hero-ball) { display: none !important; }
+  .fhq-hero-puppet .fhq-basebody { animation: none !important; opacity: 1 !important; }
+}
