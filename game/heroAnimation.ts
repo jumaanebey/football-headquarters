@@ -31,3 +31,9 @@ export function keyHeroPixels(pixels: Uint8ClampedArray) {
     }
   }
 }
+
+/** Keep footfall phase continuous when Blitz or a slow changes running speed. */
+export function advanceHeroStride(phase: number, delta: number, cycle = 0.48): number {
+  const duration = Number.isFinite(cycle) && cycle > 0 ? cycle : 0.48;
+  return (phase + Math.max(0, Math.min(delta, 0.05)) / duration) % 1;
+}

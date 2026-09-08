@@ -235,3 +235,7 @@ body {
 button:has(> .fhq-modern-hero[data-ready="1"]) > .fhq-campus-hero-fallback { visibility: hidden; }
 
 @keyframes fhq-modern-breathe { 0%,100% { scale: 1 1; } 50% { scale: 1 1.012; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fhq-modern-hero { animation: none !important; }
+}

@@ -1,5 +1,4 @@
-import { AnimatedHero } from './AnimatedHero';
-import { hasModernHero } from '../game/heroAnimation';
+import { BattleHeroSprite } from './BattleHeroSprite';
 import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
 import { spriteFacing } from '../game/spriteFacing';
@@ -498,7 +497,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       }
 
       const motionSamples = [...s.troops, ...s.guards].map(actor => ({ actor, x: actor.x, y: actor.y }));
-      for (const { actor } of motionSamples) { actor.moving = false; actor.attacking = false; }
+      for (const { actor } of motionSamples) { actor.moving = false; actor.attacking = false; actor.actionPoseT = Math.max(0, (actor.actionPoseT ?? 0) - DT); }
 
       for (const t of s.troops) {
         if (t.dead) continue;
@@ -560,6 +559,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           t.dmgAcc = (t.dmgAcc ?? 0) + dps * DT;
           t.dmgTimer = (t.dmgTimer ?? 0) + DT;
           if (t.dmgTimer >= 0.65) {
+            t.actionPoseT = 0.28;
             // Yards, not damage (Design Bible §9): your plays GAIN YARDS on their building.
             s.fx.push({ type: 'dmg', text: `+${Math.max(1, Math.round(t.dmgAcc))} YDS`, color: '#fde047', x: target.x + (rand() * 4 - 2), y: target.y - target.size * 0.4, life: 0.7, maxLife: 0.7 });
             // Structure FLINCHES on the damage pop — flash + jolt in the renderer
@@ -680,6 +680,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           g.dmgAcc = (g.dmgAcc ?? 0) + g.dps * frenzy * shieldFactor * DT;
           g.dmgTimer = (g.dmgTimer ?? 0) + DT;
           if (g.dmgTimer >= 0.65) {
+            g.actionPoseT = 0.28;
             s.fx.push({ type: 'dmg', text: `${Math.max(1, Math.round(g.dmgAcc))}`, color: '#f87171', x: prey.x + (rand() * 3 - 1.5), y: prey.y - 2.5, life: 0.7, maxLife: 0.7 });
             g.dmgAcc = 0; g.dmgTimer = 0;
           }
@@ -1575,18 +1576,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     <SpriteFrames sources={WALK_FRAMES.map(fr => `${unitPlayerSprite(g.unit).replace('-player.webp', '')}-${fr}.webp`)} duration={g.strideSeconds}
                       style={{ transform: (g.face ?? 1) > 0 ? 'scaleX(-1)' : undefined, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
                   )}
-                  {/* Hero defenders use the same stride and action poses as attackers. */}
-                  {isHeroGuard && (walking || attacking) && (() => {
-                    const hk = (art!.match(/heroes\/(\w+)\.(?:webp|png)$/) || [])[1];
-                    if (!hk) return null;
-                    const gFlip = ((g as BTroop & { face?: number }).face ?? 1) > 0 ? ' scaleX(-1)' : '';
-
-                    return (
-                      <>
-                        <SpriteFrames sources={attacking ? [hk === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${hk}-action.webp`] : WALK_FRAMES.map(fr => `/assets/heroes/rig/${hk}-${fr}.webp`)} duration={g.strideSeconds} style={{ transform: `translateZ(0)${gFlip}` }} />
-                      </>
-                    ); })()}
-                  {(() => { const key = art?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1]; return key && hasModernHero(key) ? <AnimatedHero heroKey={key} mode={attacking ? 'attack' : walking ? 'walk' : 'idle'} facing={g.face} cycle={g.strideSeconds} /> : null; })()}
+                  {(() => { const key = art?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1];
+                    return key ? <BattleHeroSprite heroKey={key} actor={g} fighting={phase === 'fighting'}
+                      filter={frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter} /> : null;
+                  })()}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
                 </div>
               </div>
@@ -1599,7 +1592,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const heroDef = t.isHero ? heroes.find(h => h.key === t.heroKey) : null;
             const specialDef = t.special ? specials.find(sp => sp.key === t.special) : null;
             const isMascot = t.special === 'mascot';
-            const glow = raging ? 'drop-shadow(0 0 7px #ef4444)' : healing ? 'drop-shadow(0 0 7px #22c55e)' : 'drop-shadow(0 0 5px #eab308)';
+            const glow = shielded ? 'drop-shadow(0 0 7px #0ea5e9)' : raging ? 'drop-shadow(0 0 7px #ef4444)' : healing ? 'drop-shadow(0 0 7px #22c55e)' : 'drop-shadow(0 0 5px #eab308)';
             const spGlow = raging ? 'drop-shadow(0 0 6px #f97316)' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))';
             // Alive = animate: crunch-jolt when TAKING a hit, lunge INTO the target on
             // the damage-pop cycle when attacking, else a stride-synced step bob.
@@ -1642,21 +1635,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       <span style={{ fontSize: '2.3vmin', lineHeight: 1 }}>{heroDef.emoji}</span>
                     </div>
                     <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${flip}` }} />
-                    {/* HEROES WALK: four-frame stride while moving, action pose while attacking.
-                        Walk frames face viewer-LEFT natively → flip when running right. Missing
-                        frames self-hide, leaving the flat art underneath. */}
-                    {(walking || attacking) && (() => { const rp = { action: t.heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${t.heroKey}-action.webp`, base: `/assets/heroes/rig/${t.heroKey}` };
-                      const rigFlip = face > 0 ? ' scaleX(-1)' : '';
-
-                      return attacking ? (
-                        // container carries the pop/jolt — the pose frame just renders
-                        <SpriteFrames sources={[rp.action]} style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${rigFlip}` }} />
-                      ) : (
-                        <>
-                          <SpriteFrames sources={WALK_FRAMES.map(fr => `${rp.base}-${fr}.webp`)} duration={t.strideSeconds} style={{ transform: `translateZ(0)${rigFlip}`, filter: hf ? `${glow} brightness(1.8)` : glow }} />
-                        </>
-                      ); })()}
-                    {hasModernHero(t.heroKey ?? '') && <AnimatedHero heroKey={t.heroKey!} mode={(t.abilityPoseT ?? 0) > 0 || attacking ? 'attack' : walking ? 'walk' : 'idle'} facing={face} cycle={t.strideSeconds} />}
+                    <BattleHeroSprite heroKey={t.heroKey!} actor={t} fighting={phase === 'fighting'}
+                      filter={hf ? `${glow} brightness(1.8)` : glow} />
                     {/* Nameplate: full strength for the deploy moment, then fades way down —
                         review flagged clustered pills occluding sprites and hit VFX. */}
                     <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: '-14%', fontSize: '0.95vmin', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(253,224,71,0.35)', animation: 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>

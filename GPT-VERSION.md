@@ -200,3 +200,19 @@ No combat rules, progression or building placement changed.
 
 Validation: 74 tests, production build and TypeScript pass. Browser visual
 acceptance remains outstanding; no new character artwork was generated this pass.
+
+## Battle hero contact and status pass
+
+All nine hero rigs now share one battle presentation component on both teams.
+Throw/contact poses follow the existing yardage/projectile release beat, recover
+to idle, and yield to running when the hero moves again. Ability poses also work
+for the legacy six heroes, and every hero holds idle when the game ends.
+Presentation timers do not change yardage, targets, combat RNG or replay inputs.
+
+The redesigned canvas heroes now retain Blitz, healing, shield and hit-flash
+filters. Defender uniforms retain their team tint. Running sheets accumulate
+normalized stride phase, so speed changes adjust cadence without skipping to an
+unrelated foot pose. Reduced motion explicitly disables modern idle breathing.
+
+Validation: TypeScript, 78 tests and production build pass. Browser visual review
+and new artwork for the remaining six heroes/buildings remain outstanding.

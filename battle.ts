@@ -65,6 +65,7 @@ export interface BTroop {
   isHero?: boolean;
   heroKey?: string;
   ability?: 'hailmary' | 'truckstick' | 'motivation' | 'onside_bomb' | 'burner_dash' | 'field_medic' | 'shield_wall' | 'trick_play' | 'hall_of_fame';
+  actionPoseT?: number; // presentation-only release/contact beat
   abilityPoseT?: number; // visual action beat after an ability
   abilityCd?: number; // seconds until ability ready (0 = ready)
   moving?: boolean; // observed displacement this tick; animation only

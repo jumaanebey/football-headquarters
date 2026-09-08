@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { HeroAnimation, heroFrame, keyHeroPixels } from '../game/heroAnimation';
+import { HeroAnimation, heroFrame, keyHeroPixels, advanceHeroStride } from '../game/heroAnimation';
 
 type Sheet = { canvas: HTMLCanvasElement; cellWidth: number; cellHeight: number; bottoms: number[] };
 const sheets = new Map<string, Promise<Sheet>>();
@@ -33,12 +33,12 @@ function loadSheet(key: string): Promise<Sheet> {
   return sheets.get(key)!;
 }
 
-export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '' }: {
-  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string;
+export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, filter }: {
+  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; filter?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const playback = useRef({ mode, cycle });
-  playback.current = { mode, cycle };
+  const playback = useRef({ mode, cycle, elapsedSeconds });
+  playback.current = { mode, cycle, elapsedSeconds };
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let disposed = false, raf = 0;
@@ -48,14 +48,19 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
       if (disposed) return;
       const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return;
-      let previous = performance.now(), elapsed = 0, previousMode = playback.current.mode;
+      let previous = performance.now(), elapsed = 0, stride = 0, previousMode = playback.current.mode;
       let lastFrame = -1, announced = false;
       const draw = (now: number) => {
         if (disposed) return;
-        if (previousMode !== playback.current.mode) { elapsed = 0; previousMode = playback.current.mode; }
-        if (!document.hidden) elapsed += Math.min((now - previous) / 1000, 0.05);
+        if (previousMode !== playback.current.mode) { elapsed = 0; stride = 0; previousMode = playback.current.mode; }
+        if (!document.hidden) {
+          const delta = Math.min((now - previous) / 1000, 0.05);
+          elapsed += delta;
+          if (playback.current.mode === 'walk') stride = advanceHeroStride(stride, delta, playback.current.cycle);
+        }
         previous = now;
-        const frame = heroFrame(playback.current.mode, elapsed, playback.current.cycle, media.matches);
+        const walking = playback.current.mode === 'walk';
+        const frame = heroFrame(playback.current.mode, playback.current.elapsedSeconds ?? (walking ? stride : elapsed), walking ? 1 : playback.current.cycle, media.matches);
         if (!document.hidden && frame !== lastFrame) {
           ctx.clearRect(0, 0, 384, 384);
           const size = 384 / Math.max(sheet.cellWidth, sheet.cellHeight);
@@ -75,5 +80,5 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
   }, [heroKey]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
-    style={{ opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? 'fhq-modern-breathe 2.8s ease-in-out infinite' : undefined, transform: facing > 0 ? 'scaleX(-1)' : undefined }} />;
+    style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? 'fhq-modern-breathe 2.8s ease-in-out infinite' : undefined, transform: facing > 0 ? 'scaleX(-1)' : undefined }} />;
 }
