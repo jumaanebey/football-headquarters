@@ -1,3 +1,4 @@
+import { HeroTrainingPreview } from './HeroTrainingPreview';
 import { AnimatedHero } from './AnimatedHero';
 import { hasModernHero } from '../game/heroAnimation';
 import { HERO_FOOT_OFFSET } from '../game/heroFootOffsets';
@@ -11,6 +12,7 @@ import { Sheet, HowTo } from './ui';
 import { sfx } from '../sound';
 
 interface Props {
+  initialHero?: string;
   heroes: HeroState[];
   resources: Record<ResourceType, number>;
   stadiumLevel: number;
@@ -53,7 +55,7 @@ const heroHue = (hex: string): number => {
   return h < 0 ? h + 360 : h;
 };
 
-export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
+export const HeroModal: React.FC<Props> = ({ initialHero, heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
   const stateOf = (key: string) => heroes.find(h => h.key === key);
 
   // 🎰 SCOUT SEARCH REVEAL: the roll gets a suspense beat (spinning ring + shaking
@@ -138,6 +140,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
           </div>
         )}
 
+        <HeroTrainingPreview initialHero={initialHero} />
         <div className="px-5 pt-4">
           <HowTo id="heroes" lines={[
             'Heroes are your stars — deploy them in raids and fire their signature abilities mid-drive.',

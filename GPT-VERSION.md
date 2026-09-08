@@ -216,3 +216,18 @@ unrelated foot pose. Reduced motion explicitly disables modern idle breathing.
 
 Validation: TypeScript, 78 tests and production build pass. Browser visual review
 and new artwork for the remaining six heroes/buildings remain outstanding.
+
+## Hero Film Room and signature identity
+
+Added a free animation viewer for all nine heroes, with idle/run/signature/facing
+controls and mechanics-based timing and lineup tips. Campus taps focus the chosen
+hero. The viewer neither simulates ability outcomes nor changes resources,
+unlocks or progression. Hall of Heroes now loads on demand.
+
+Signature activations show a brief named hero/play callout with a portrait,
+respect reduced motion and clear after 1.4 seconds. Ability copy now reflects
+current mechanics, including Onside Bomb's 500-yard primary / 250-yard nearby
+effect, rather than the old inaccurate 600 figure. Combat math is unchanged.
+
+The prioritized follow-up is recorded in docs/HERO-FIRST-ROADMAP.md. TypeScript,
+78 tests and production build pass; browser visual acceptance remains open.

@@ -19,7 +19,7 @@ import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
 
 interface Props {
   heroes?: import('../types').HeroState[];
-  onOpenHeroes?: () => void;
+  onOpenHeroes?: (heroKey?: string) => void;
   buildings: BuildingInstance[];
   players: Player[];
   bonusOrbs: BonusOrb[];
@@ -1241,7 +1241,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
             );
           })}
           {HERO_DEFS.filter(def => heroes.find(h => h.key === def.key)?.unlocked ?? !!def.starter).map(def => def.key).map((key, lane) => (
-            <CampusHero key={key} heroKey={key} lane={lane} field={edit?.field ?? FIELD_RECT} project={tileToScreen} onSelect={onOpenHeroes} />
+            <CampusHero key={key} heroKey={key} lane={lane} field={edit?.field ?? FIELD_RECT} project={tileToScreen} onSelect={() => onOpenHeroes?.(key)} />
           ))}
           {activePlayers.map((p) => (
             <PlayerMarker key={p.id} player={p} />

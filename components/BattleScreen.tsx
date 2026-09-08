@@ -940,7 +940,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⚡ ABILITY FLASH: the screen edges pulse in the caster's color when an ability fires.
-  const [abilityFlash, setAbilityFlash] = useState<{ color: string; key: number } | null>(null);
+  const [abilityFlash, setAbilityFlash] = useState<{ color: string; key: number; name: string; play: string; art: string } | null>(null);
+  useEffect(() => {
+    if (!abilityFlash) return;
+    const timer = window.setTimeout(() => setAbilityFlash(null), 1400);
+    return () => window.clearTimeout(timer);
+  }, [abilityFlash]);
   const useAbility = (heroKey: string) => {
     const s = sim.current;
     const h = s.troops.find(t => t.heroKey === heroKey && !t.dead);
@@ -948,7 +953,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     h.abilityPoseT = 0.8;
     record({ k: 'a', key: heroKey });
     const hDef = heroes.find(hh => hh.key === heroKey);
-    if (hDef) { setAbilityFlash(f => ({ color: hDef.color, key: (f?.key ?? 0) + 1 })); sfx.whoosh(); }
+    if (hDef) { setAbilityFlash(f => ({ color: hDef.color, key: (f?.key ?? 0) + 1, name: hDef.name, play: hDef.abilityName, art: hDef.art })); sfx.whoosh(); }
     if (h.ability === 'hailmary') {
       const tgt = nearestBuilding(h.x, h.y, s.buildings);
       if (tgt) {
@@ -1148,9 +1153,17 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   return (
     <div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
       {/* ⚡ ability cast — edges flash in the caster's color */}
-      {abilityFlash && (
-        <div key={abilityFlash.key} className="absolute inset-0 pointer-events-none z-[250]"
-          style={{ boxShadow: `inset 0 0 12vmin 2vmin ${abilityFlash.color}99`, animation: 'fhq-flashfade 0.7s ease-out forwards' }} />
+      {abilityFlash && phase === 'fighting' && (
+        <React.Fragment key={abilityFlash.key}>
+          <div className="absolute inset-0 pointer-events-none z-[250]"
+            style={{ boxShadow: `inset 0 0 12vmin 2vmin ${abilityFlash.color}99`, animation: 'fhq-flashfade 0.7s ease-out forwards' }} />
+          <div role="status" className="absolute top-20 left-1/2 -translate-x-1/2 z-[251] pointer-events-none flex items-center gap-2 rounded-xl border bg-slate-950/95 px-3 py-2 max-w-[90%]"
+            style={{ borderColor: abilityFlash.color }}>
+            <img src={abilityFlash.art} alt="" className="w-11 h-11 object-contain" />
+            <div><div className="text-xs text-slate-300">{abilityFlash.name}</div>
+              <div className="text-base font-display font-black uppercase" style={{ color: abilityFlash.color }}>{abilityFlash.play}</div></div>
+          </div>
+        </React.Fragment>
       )}
       {/* 🆚 Pre-game matchup card (tap to skip) */}
       {matchup && (
