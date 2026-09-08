@@ -1,3 +1,6 @@
+import { CampusHero } from './CampusHero';
+import { HERO_DEFS } from '../battle';
+import { MODERN_HEROES } from '../game/heroAnimation';
 import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
 import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
@@ -16,6 +19,8 @@ import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
 // geometry (fixedBase.ts): there is no placement, painting, or dragging here.
 
 interface Props {
+  heroes?: import('../types').HeroState[];
+  onOpenHeroes?: () => void;
   buildings: BuildingInstance[];
   players: Player[];
   bonusOrbs: BonusOrb[];
@@ -839,7 +844,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -1236,6 +1241,9 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               </div>
             );
           })}
+          {MODERN_HEROES.filter(key => heroes.find(h => h.key === key)?.unlocked ?? !!HERO_DEFS.find(h => h.key === key)?.starter).map((key, lane) => (
+            <CampusHero key={key} heroKey={key} lane={lane} field={edit?.field ?? FIELD_RECT} project={tileToScreen} onSelect={onOpenHeroes} />
+          ))}
           {activePlayers.map((p) => (
             <PlayerMarker key={p.id} player={p} />
           ))}

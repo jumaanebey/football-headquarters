@@ -153,3 +153,33 @@ metadata in `game/heroFootOffsets.ts`; it does not edit any bitmap. This pass im
 native field rendering and how existing art is presented, rather than claiming new
 transparent replacement art. TypeScript, 68 tests and the production build pass.
 Browser visual acceptance remains blocked and is not claimed.
+
+## Recreated heroes integrated with animation
+
+New generated six-pose sheets for Franchise, Enforcer and Dr. Sloane now render in
+hero cards, live battles and home-campus patrols. Each sheet contains idle, four
+walk poses and an action pose. Movement selects walking; stops select idle;
+attacks and ability activation select the action beat. Hero cards demonstrate the
+sequence. Home heroes respect unlock state and open the Heroes screen on tap.
+
+The sheet renderer removes a deliberately magenta production backdrop once per
+loaded sheet, caches the result, aligns per-cell lower bounds, and corrects QB
+frame facing. It retains legacy art if loading or Canvas access fails. Reduced
+motion uses the idle pose, hidden tabs skip drawing, and component teardown
+cancels animation callbacks. New art is limited to these three approved redesigns;
+the other six heroes retain their existing art and animation.
+
+The approved campus illustration appears as a thematic backdrop in the mature
+club overview (stadium level 9+). It is not substituted for the interactive campus:
+that still uses live buildings, progression, selection and the shared field paint.
+Individual recreated building sprites remain outstanding. Some generated stride
+poses are close together; browser visual/motion acceptance remains unverified due
+to the previously reported preview security block. No full rebuild completion is
+claimed. TypeScript, 71 tests and production build pass.
+
+Art: built-in imagegen, one sheet per hero, referenced the approved three-character
+concept. Prompt required 3 columns × 2 rows, uniform full-body scale, original
+face/costume, sculpted cel style, left-facing idle/walk/contact-action sequence,
+flat magenta, no shadows/text/grid lines. All outputs are 1536×1024. Production
+files: `public/assets/gpt/heroes/{qb,enforcer,medic}-motion.png` and
+`public/assets/gpt/campus-vision.png`.

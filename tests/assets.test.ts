@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { BuildingType, UnitGroup } from '../types';
 import { buildingSprite, unitSprite, unitPlayerSprite, defenseSprite, wallSprite } from '../assets';
 import { RANKS } from '../ranks';
+import { MODERN_HEROES } from '../game/heroAnimation';
 import { HERO_DEFS } from '../battle';
 import { WALK_FRAMES } from '../components/SpriteFrames';
 
@@ -34,6 +35,13 @@ describe('shipped game art', () => {
       for (const frame of WALK_FRAMES) paths.push(`${base}-${frame}.webp`);
     }
     expect(paths.filter(path => !existsSync(resolve('public', path.slice(1))))).toEqual([]);
+  });
+  it('ships a complete six-cell production sheet for every recreated hero', () => {
+    for (const key of MODERN_HEROES) {
+      const png = readFileSync(`public/assets/gpt/heroes/${key}-motion.png`);
+      expect(png.subarray(1, 4).toString()).toBe('PNG');
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1536, 1024]);
+    }
   });
   it('ships all literal image references in production source', () => {
     const files = [...readdirSync('.').filter(f => /\.(tsx?|html)$/.test(f)), ...readdirSync('components').filter(f => f.endsWith('.tsx')).map(f => `components/${f}`)];

@@ -1,3 +1,5 @@
+import { AnimatedHero } from './AnimatedHero';
+import { hasModernHero } from '../game/heroAnimation';
 import { HERO_FOOT_OFFSET } from '../game/heroFootOffsets';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -168,7 +170,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
 
             return (
               <div key={def.key} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
-                <div className="relative shrink-0 flex items-end justify-center h-44 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 40%, ${def.color}44, #0f172a 70%)` }}>
+                <div className="fhq-modern-card relative shrink-0 flex items-end justify-center h-52 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 40%, ${def.color}44, #0f172a 70%)` }}>
                   {/* CARD FLOURISH (unlocked heroes only): the REAL flame-ring sprite
                       (franchise-rig #38) spinning behind the art, hue-shifted from its
                       golden base to each hero's signature color. Glow breathes behind it. */}
@@ -246,6 +248,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                     style={unlocked ? { animation: `fhq-hero-idle ${5.2 + (heroIdx % 3) * 0.6}s ease-in-out ${-(heroIdx * 1.7)}s infinite`, transformOrigin: '50% 100%' } : undefined}
                     className={`relative h-[112%] w-auto max-w-none object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] select-none ${unlocked ? '' : 'grayscale opacity-50'}`} />
                   )}
+                  {unlocked && hasModernHero(def.key) && <AnimatedHero heroKey={def.key} mode="showcase" label={def.name} />}
                   {unlocked ? (
                     <>
                       <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded-full px-2 py-0.5">

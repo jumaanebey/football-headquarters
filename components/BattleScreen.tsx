@@ -1,3 +1,5 @@
+import { AnimatedHero } from './AnimatedHero';
+import { hasModernHero } from '../game/heroAnimation';
 import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
 import { spriteFacing } from '../game/spriteFacing';
@@ -505,6 +507,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         if (t.healT > 0) { t.healT = Math.max(0, t.healT - DT); t.hp = Math.min(t.maxHp, t.hp + HEAL_PER_SEC * DT); }
         if (t.shieldT && t.shieldT > 0) t.shieldT = Math.max(0, t.shieldT - DT);
         if (t.slowT && t.slowT > 0) t.slowT = Math.max(0, t.slowT - DT);
+        if (t.abilityPoseT) t.abilityPoseT = Math.max(0, t.abilityPoseT - DT);
         if (t.abilityCd && t.abilityCd > 0) t.abilityCd = Math.max(0, t.abilityCd - DT);
 
         const raging = t.rageT > 0;
@@ -941,6 +944,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const s = sim.current;
     const h = s.troops.find(t => t.heroKey === heroKey && !t.dead);
     if (!h || (h.abilityCd ?? 0) > 0) return;
+    h.abilityPoseT = 0.8;
     record({ k: 'a', key: heroKey });
     const hDef = heroes.find(hh => hh.key === heroKey);
     if (hDef) { setAbilityFlash(f => ({ color: hDef.color, key: (f?.key ?? 0) + 1 })); sfx.whoosh(); }
@@ -1582,6 +1586,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                         <SpriteFrames sources={attacking ? [hk === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${hk}-action.webp`] : WALK_FRAMES.map(fr => `/assets/heroes/rig/${hk}-${fr}.webp`)} duration={g.strideSeconds} style={{ transform: `translateZ(0)${gFlip}` }} />
                       </>
                     ); })()}
+                  {(() => { const key = art?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1]; return key && hasModernHero(key) ? <AnimatedHero heroKey={key} mode={attacking ? 'attack' : walking ? 'walk' : 'idle'} facing={g.face} cycle={g.strideSeconds} /> : null; })()}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
                 </div>
               </div>
@@ -1651,6 +1656,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                           <SpriteFrames sources={WALK_FRAMES.map(fr => `${rp.base}-${fr}.webp`)} duration={t.strideSeconds} style={{ transform: `translateZ(0)${rigFlip}`, filter: hf ? `${glow} brightness(1.8)` : glow }} />
                         </>
                       ); })()}
+                    {hasModernHero(t.heroKey ?? '') && <AnimatedHero heroKey={t.heroKey!} mode={(t.abilityPoseT ?? 0) > 0 || attacking ? 'attack' : walking ? 'walk' : 'idle'} facing={face} cycle={t.strideSeconds} />}
                     {/* Nameplate: full strength for the deploy moment, then fades way down —
                         review flagged clustered pills occluding sprites and hit VFX. */}
                     <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: '-14%', fontSize: '0.95vmin', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(253,224,71,0.35)', animation: 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>

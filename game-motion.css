@@ -226,3 +226,12 @@ body {
 
 /* Never show one idle layer over the static hero while its partner loads. */
 .fhq-hero-layers:not([data-idleready="1"]) .fhq-idleframe { visibility: hidden; }
+
+/* New generated sheets replace their legacy fallback only once keyed and drawn. */
+.fhq-unit:has(> .fhq-modern-hero[data-ready="1"]) > :is(.fhq-flat, .fhq-frame-sequence) { visibility: hidden !important; }
+.fhq-modern-card:has(> .fhq-modern-hero[data-ready="1"]) .fhq-hero-puppet { display: none; }
+.fhq-modern-card > .fhq-modern-hero { filter: drop-shadow(0 3px 5px #0007); }
+
+button:has(> .fhq-modern-hero[data-ready="1"]) > .fhq-campus-hero-fallback { visibility: hidden; }
+
+@keyframes fhq-modern-breathe { 0%,100% { scale: 1 1; } 50% { scale: 1 1.012; } }

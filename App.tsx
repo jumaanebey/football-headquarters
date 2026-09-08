@@ -1200,6 +1200,8 @@ function App() {
       <TopHUD onOpenClub={() => setDashboardOpen(true)} gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
       <IsometricMap
+        heroes={gameState.heroes}
+        onOpenHeroes={() => setIsHeroOpen(true)}
         buildings={gameState.buildings}
         players={gameState.roster}
         bonusOrbs={gameState.bonusOrbs}
