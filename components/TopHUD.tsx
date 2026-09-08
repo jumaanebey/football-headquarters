@@ -57,7 +57,7 @@ export function TopHUD({ gameState: gs, onRally, onOpenRanks, onOpenClub }: Prop
     <div className="fhq-resources" aria-label="Club resources">
       {resources.map(item => <div key={item.name} id={item.id} className="fhq-resource" style={{ '--resource-color': item.color } as React.CSSProperties} title={`${item.raw.toLocaleString()} ${item.name}. ${item.hint}`}>
         <span className="fhq-resource-icon" aria-hidden="true">{item.icon}</span>
-        <span><small>{item.name}</small><strong>{format(item.value)}</strong></span>
+        <span><small>{item.name}</small><strong>{format(item.value)}{item.name === 'Energy' && <em className="fhq-cap" aria-label="of 100">/100</em>}</strong></span>
         {item.name === 'Energy' && canRally && <button className="fhq-rally" data-tour="rally" onClick={onRally} aria-label={`Rally: spend ${RALLY_CONFIG.fanCost} fans to refill energy`} title={`Refill for ${RALLY_CONFIG.fanCost} fans`}><Megaphone size={16} /></button>}
       </div>)}
     </div>
