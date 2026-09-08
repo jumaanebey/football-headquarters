@@ -183,3 +183,20 @@ face/costume, sculpted cel style, left-facing idle/walk/contact-action sequence,
 flat magenta, no shadows/text/grid lines. All outputs are 1536×1024. Production
 files: `public/assets/gpt/heroes/{qb,enforcer,medic}-motion.png` and
 `public/assets/gpt/campus-vision.png`.
+
+## Continuous hero drills and full unlocked campus roster
+
+Campus patrols now update positions each animation frame without re-rendering the
+React tree at that rate. All unlocked heroes participate, using the three modern
+sheets where available and complete legacy walk/action sequences for the other
+six. Nine separate lanes stay inside the field; three run tempos stagger the
+athletes. Each run ends in an action beat, recovery and a return run, retaining
+facing until the turn. Campus hero markers are larger and remain tappable.
+
+Reduced motion holds position and idle facing. Hidden tabs pause patrol and sheet
+playback instead of jumping ahead on return. Modern action sequences return to
+idle between contact beats; malformed stride durations have a safe fallback.
+No combat rules, progression or building placement changed.
+
+Validation: 74 tests, production build and TypeScript pass. Browser visual
+acceptance remains outstanding; no new character artwork was generated this pass.

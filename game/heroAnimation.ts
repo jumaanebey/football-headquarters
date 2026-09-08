@@ -3,8 +3,15 @@ export const MODERN_HEROES = ['qb', 'enforcer', 'medic'] as const;
 export const hasModernHero = (key: string) => MODERN_HEROES.some(k => k === key);
 export function heroFrame(mode: HeroAnimation, elapsed: number, cycle = 0.48, reduced = false): number {
   if (reduced || mode === 'idle') return 0;
-  if (mode === 'walk') return [1, 2, 3, 4][Math.floor((elapsed % cycle) / cycle * 4)];
-  if (mode === 'attack') return elapsed % 0.7 < 0.18 ? 0 : 5;
+  if (mode === 'walk') {
+    const duration = Number.isFinite(cycle) && cycle > 0 ? cycle : 0.48;
+    const phase = elapsed < 0 ? ((elapsed % duration) + duration) % duration : elapsed % duration;
+    return [1, 2, 3, 4][Math.min(3, Math.floor(phase / duration * 4))];
+  }
+  if (mode === 'attack') {
+    const beat = elapsed % 0.7;
+    return beat >= 0.14 && beat < 0.46 ? 5 : 0;
+  }
   const beat = elapsed % 7;
   return beat < 2 ? 0 : beat < 4.5 ? heroFrame('walk', beat - 2, 0.6) : beat < 5.5 ? 5 : 0;
 }

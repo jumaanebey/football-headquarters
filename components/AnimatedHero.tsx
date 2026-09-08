@@ -48,12 +48,14 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
       if (disposed) return;
       const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return;
-      let start = performance.now(), previousMode = playback.current.mode;
+      let previous = performance.now(), elapsed = 0, previousMode = playback.current.mode;
       let lastFrame = -1, announced = false;
       const draw = (now: number) => {
         if (disposed) return;
-        if (previousMode !== playback.current.mode) { start = now; previousMode = playback.current.mode; }
-        const frame = heroFrame(playback.current.mode, (now - start) / 1000, playback.current.cycle, media.matches);
+        if (previousMode !== playback.current.mode) { elapsed = 0; previousMode = playback.current.mode; }
+        if (!document.hidden) elapsed += Math.min((now - previous) / 1000, 0.05);
+        previous = now;
+        const frame = heroFrame(playback.current.mode, elapsed, playback.current.cycle, media.matches);
         if (!document.hidden && frame !== lastFrame) {
           ctx.clearRect(0, 0, 384, 384);
           const size = 384 / Math.max(sheet.cellWidth, sheet.cellHeight);

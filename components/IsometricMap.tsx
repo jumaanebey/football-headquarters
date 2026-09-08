@@ -1,6 +1,5 @@
 import { CampusHero } from './CampusHero';
 import { HERO_DEFS } from '../battle';
-import { MODERN_HEROES } from '../game/heroAnimation';
 import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
 import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
@@ -1241,7 +1240,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
               </div>
             );
           })}
-          {MODERN_HEROES.filter(key => heroes.find(h => h.key === key)?.unlocked ?? !!HERO_DEFS.find(h => h.key === key)?.starter).map((key, lane) => (
+          {HERO_DEFS.filter(def => heroes.find(h => h.key === def.key)?.unlocked ?? !!def.starter).map(def => def.key).map((key, lane) => (
             <CampusHero key={key} heroKey={key} lane={lane} field={edit?.field ?? FIELD_RECT} project={tileToScreen} onSelect={onOpenHeroes} />
           ))}
           {activePlayers.map((p) => (
