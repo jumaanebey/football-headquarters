@@ -507,7 +507,7 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
     // Every bot RUNS A SCHEME too — the ladder teaches plan-vs-formation counterplay
     // before you ever meet a live rival. Harder tiers call smarter schemes.
     const botFormation = tier >= 2.2 ? 'maxprotect' : tier >= 1.4 ? 'cover3' : 'goalline';
-    const buildings = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage, formation: b.kind === 'hq' ? botFormation : undefined }));
+    const buildings: BattleBuildingDef[] = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage, formation: b.kind === 'hq' ? botFormation : undefined }));
     const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 30], [50, 70], [38, 64]];
     const extras = Math.min(extraSpots.length, 1 + Math.floor(tier / 1.1)); // was min(6,...) with 5 spots — guaranteed TypeError opening the raid picker above ~700 trophies // every bot fields real turret coverage — empty bases read as no game
     const flavors: BattleBuildingDef['flavor'][] = ['tshirt', 'ref', 'sled', 'cooler', 'ref']; // varied looks at higher tiers

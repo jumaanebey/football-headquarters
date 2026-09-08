@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useId, useRef } from 'react';
 import { X, Info, ChevronRight } from 'lucide-react';
 
 // ─── THE DESIGN SYSTEM (POLISH-PLAN D1) ──────────────────────────────────────
@@ -96,24 +96,45 @@ export const Sheet: React.FC<{
   maxWidth?: string;
   scroll?: boolean; // false = workspace mode: children manage their own panes (two-pane layouts)
   children: React.ReactNode;
-}> = ({ title, icon, subtitle, onClose, footer, actions, maxWidth = 'max-w-lg', scroll = true, children }) => (
+}> = ({ title, icon, subtitle, onClose, footer, actions, maxWidth = 'max-w-lg', scroll = true, children }) => {
+  const panel = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const subtitleId = useId();
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const root = panel.current;
+    if (!root) return;
+    root.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
+  }, []);
+  const containFocus = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return;
+    const controls = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]') ?? [])
+      .filter(el => el.getClientRects().length > 0 && !el.closest('[hidden], [inert]'));
+    const first = controls[0], last = controls[controls.length - 1];
+    if (!first) { e.preventDefault(); panel.current?.focus(); return; }
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (document.activeElement === last || document.activeElement === panel.current)) { e.preventDefault(); first.focus(); }
+  };
+  return (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 sm:p-4 animate-fade-in" onClick={onClose}>
     {/* Phones get FULL-SCREEN sheets (every pixel counts); desktop keeps the floating card. */}
     <div
-      className={`bg-[#0b0f1a] w-full ${maxWidth} h-full sm:h-auto max-h-full sm:max-h-[88vh] rounded-none sm:rounded-2xl border-0 sm:border border-slate-800 shadow-2xl flex flex-col overflow-hidden`}
+      ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} tabIndex={-1} onKeyDown={containFocus}
+      className={`fhq-sheet bg-[#0b0f1a] w-full ${maxWidth} h-full sm:h-auto max-h-full sm:max-h-[88vh] rounded-none sm:rounded-2xl border-0 sm:border border-slate-800 shadow-2xl flex flex-col overflow-hidden`}
       style={{ animation: 'fhq-sheet-in 0.26s cubic-bezier(0.22, 1, 0.36, 1)' }}
       onClick={e => e.stopPropagation()}
     >
       {/* Header stacks: title row → full-width subtitle → actions row. Never squeezes
           the subtitle into a one-word column or truncates the title on phones. */}
-      <div className="p-4 sm:p-5 border-b border-slate-800 bg-[#111827] shrink-0">
+      <div className="fhq-sheet-header p-4 sm:p-5 border-b border-slate-800 bg-[#111827] shrink-0">
         <div className="flex justify-between items-center gap-3">
-          <h2 className="text-lg sm:text-xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2.5 min-w-0 flex-wrap">
+          <h2 id={titleId} className="text-lg sm:text-xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2.5 min-w-0 flex-wrap">
             {icon}{title}
           </h2>
-          <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shrink-0"><X size={18} /></button>
+          <button aria-label="Close dialog" onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shrink-0"><X size={18} /></button>
         </div>
-        {subtitle && <p className="text-slate-400 text-[12px] mt-1">{subtitle}</p>}
+        {subtitle && <p id={subtitleId} className="text-slate-400 text-[12px] mt-1">{subtitle}</p>}
         {actions && <div className="mt-2.5 flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
       <div className={scroll ? 'flex-1 overflow-y-auto min-h-0' : 'flex-1 min-h-0 overflow-hidden flex flex-col'}>{children}</div>
@@ -121,6 +142,7 @@ export const Sheet: React.FC<{
     </div>
   </div>
 );
+};
 
 // ─── GAME PLAN ICONS ─────────────────────────────────────────────────────────
 // Drawn stroke icons matching lucide's grammar (viewBox 24, stroke-width 1.8, round

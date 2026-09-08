@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 
 // Drops the CC building bar on ANY press outside it — HUD, nav, empty turf, other
 // screens' chrome. Buildings are excluded so pressing one just switches the bar.
@@ -46,7 +46,10 @@ import { defenseSprite, DEFENSE_ART_GATES, buildingSprite as buildingArtFor, BUI
 
 const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
 const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
-import { BattleScreen, BattleResult, BattleConfig } from './components/BattleScreen';
+import type { BattleResult, BattleConfig } from './components/BattleScreen';
+const BattleScreen = lazy(() => import('./components/BattleScreen').then(m => ({ default: m.BattleScreen })));
+import { GameNavigation } from './components/GameNavigation';
+import { BACKUP_KEYS, createBackup } from './backup';
 import { Sheet, Btn, HowTo } from './components/ui';
 import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase, homeDefenders, gauntletWaves, gauntletReward, GAUNTLET_MAX_TIER } from './battle';
 import { HeroModal } from './components/HeroModal';
@@ -314,17 +317,9 @@ function App() {
   const [importPending, setImportPending] = useState<Record<string, string | null> | null>(null);
 
   // 💾 DATA SAFETY: localStorage is the only home your club has — one cleared browser
-  // and it's gone. Export bundles everything (save + PvP identity) into a file.
+  // and it's gone. Export progress only; sign-in credentials stay on the device.
   const exportSave = () => {
-    const bundle: Record<string, string | null> = {
-      v: '1', exported: new Date().toISOString(),
-      fhq_save_v1: localStorage.getItem(SAVE_KEY),
-      fhq_pid: localStorage.getItem('fhq_pid'),
-      fhq_session_v1: localStorage.getItem('fhq_session_v1'),
-      fhq_pvp_since: localStorage.getItem('fhq_pvp_since'),
-      fhq_tutorial_done_v1: localStorage.getItem(TUTORIAL_KEY),
-      fhq_chalk_intro_v1: localStorage.getItem('fhq_chalk_intro_v1'),
-    };
+    const bundle = createBackup(localStorage);
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -345,7 +340,7 @@ function App() {
   };
   const applyImport = () => {
     if (!importPending) return;
-    const KEYS = ['fhq_save_v1', 'fhq_pid', 'fhq_session_v1', 'fhq_pvp_since', 'fhq_tutorial_done_v1', 'fhq_chalk_intro_v1'];
+    const KEYS = BACKUP_KEYS;
     // Suppress the autosave AND write the bundle immediately — the old listener-order
     // trick relied on beforeunload, which iOS Safari doesn't fire reliably (the
     // import would silently no-op on the platform we actually ship on).
@@ -1518,10 +1513,10 @@ function App() {
   const stadiumLevel = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
 
   return (
-    <div className="relative w-full h-screen bg-slate-900 overflow-hidden font-sans select-none">
+    <div className="fhq-game relative w-full h-screen bg-slate-900 overflow-hidden font-sans select-none">
       {showTutorial && <TutorialOverlay initialName={gameState.teamName} onRerollName={genTeamName} onDone={finishTutorial} />}
 
-      <TopHUD gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
+      <TopHUD onOpenClub={() => setDashboardOpen(true)} gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
       <IsometricMap
         buildings={gameState.buildings}
@@ -1623,7 +1618,7 @@ function App() {
               <CCBtn label="Info" emoji="💬" onClick={() => setBuildingInfoOpen(true)} />
               <CCBtn label="Level Up" emoji="🔨" accent disabled={busy || gated || !canAfford} onClick={() => { handleUpgradeBuilding(b.id, cost); }} />
               {isStadium && <CCBtn label="Defense" emoji="🛡️" onClick={() => { setSelectedBuilding(null); setFrontOfficeOpen(true); }} />}
-              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="⚔️" onClick={() => { setSelectedBuilding(null); setAttackSelectOpen(true); }} />}
+              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="🏈" onClick={() => { setSelectedBuilding(null); setAttackSelectOpen(true); }} />}
             </div>
           </div>
         );
@@ -1639,7 +1634,7 @@ function App() {
       )}
 
       {/* 🏙 Club Dashboard — SimCity advisor panel, opened from the jumbotron */}
-      {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} />}
+      {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} onRoster={() => { setDashboardOpen(false); setIsSquadOpen(true); }} onGameDay={() => { setDashboardOpen(false); openRaid(); }} onDefense={() => { setDashboardOpen(false); setFrontOfficeOpen(true); }} />}
 
       {/* Attack: Season campaign ladder or a live Raid */}
       {attackSelectOpen && (
@@ -1650,13 +1645,17 @@ function App() {
           maxWidth="max-w-md"
         >
           <div className="p-5 pt-3 flex flex-col max-h-full">
+            <div className="fhq-game-day-art">
+              <img src="/assets/gpt/game-day-tunnel.png" alt="Three players head through the tunnel toward the field" width="1536" height="1024" decoding="async" />
+              <div><span>{attackTab === 'season' ? `Season · Stage ${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}` : 'Away games'}</span><strong>{attackTab === 'season' ? CAMPAIGN_STAGES[Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length) - 1].name : 'Take their house'}</strong></div>
+            </div>
             {/* Mode tabs */}
             <div className="flex gap-2 mb-2">
               <button onClick={() => setAttackTab('season')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'season' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                 🏆 Season {(gameState.campaign.stars[CAMPAIGN_STAGES.length] ?? 0) > 0 ? '✓' : `${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length}`}
               </button>
               <button onClick={() => setAttackTab('raid')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'raid' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-                ⚔️ Raid
+                🏈 Away games
               </button>
             </div>
             {/* 🛡 Defend — your side of game day, right where the action lives */}
@@ -1800,7 +1799,7 @@ function App() {
       )}
 
       {battleConfig && (
-        <BattleScreen
+        <Suspense fallback={<div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4" role="status"><img src="/assets/brand/logo.webp" alt="Football Headquarters" width="240" /><p>Getting the field ready…</p></div>}><BattleScreen
           config={battleConfig}
           onFinish={handleBattleFinish}
           onExit={(beforeKickoff) => {
@@ -1813,7 +1812,7 @@ function App() {
             }
             setBattleConfig(null);
           }}
-        />
+        /></Suspense>
       )}
 
       {isHeroOpen && (
@@ -2108,7 +2107,7 @@ function App() {
               </div>
               <div className="pt-2 border-t border-slate-800">
                 <div className="text-sm text-slate-300 mb-0.5">Back up your club</div>
-                <div className="text-[11px] text-slate-500 mb-2">Your save lives only in this browser. Export a file so clearing data can never cost you the club — PvP identity included.</div>
+                <div className="text-[11px] text-slate-500 mb-2">Export a copy of your progress. Sign in on a new device to reconnect your online club; passwords and sessions are never included in a backup.</div>
                 <div className="flex gap-2">
                   <button onClick={exportSave} className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors active:scale-95">💾 Export</button>
                   <label className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold text-center cursor-pointer transition-colors active:scale-95">
@@ -2217,42 +2216,15 @@ function App() {
         </div>
       )}
 
-      {/* Bottom Nav — club chrome: charcoal surface, orange = active (D2 identity) */}
-      <div className="fixed bottom-0 left-0 w-full bg-[#0b0f1a]/95 backdrop-blur border-t border-[#1f2937] pb-safe pt-2 px-4 z-40">
-        <div className="flex justify-between items-center gap-1 max-w-md mx-auto px-1 pb-4">
-          <NavBtn icon={<Users />} label="Coach" active={isSquadOpen} onClick={() => setIsSquadOpen(true)} tourId="coach" />
-
-          <NavBtn icon={<Star />} label="Heroes" active={isHeroOpen} onClick={() => setIsHeroOpen(true)} />
-
-          <div
-             data-tour="trophy"
-             onClick={openRaid}
-             className="relative -mt-10 p-4 sm:p-5 rounded-full border-4 shadow-2xl cursor-pointer hover:scale-105 transition-transform bg-red-600 border-red-400 hover:bg-red-500 shrink-0"
-          >
-             <span className="text-3xl leading-none">🏈</span>
-             {unseenDefenses > 0 && (
-               <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-sky-500 border-2 border-slate-900 text-[11px] font-bold text-white flex items-center justify-center leading-none animate-pulse">{unseenDefenses}</span>
-             )}
-          </div>
-
-          <NavBtn icon={<Calendar />} label="Ranks" onClick={() => setIsStandingsOpen(true)} />
-
-          <NavBtn icon={<Shield />} label="Defense" active={frontOfficeOpen} tourId="design" onClick={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }} />
-        </div>
-      </div>
+      <GameNavigation
+        rosterOpen={isSquadOpen} heroesOpen={isHeroOpen} defenseOpen={frontOfficeOpen}
+        ranksOpen={isStandingsOpen} unseenDefenses={unseenDefenses}
+        onRoster={() => setIsSquadOpen(true)} onHeroes={() => setIsHeroOpen(true)}
+        onGameDay={openRaid} onRanks={() => setIsStandingsOpen(true)}
+        onDefense={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }}
+      />
     </div>
   );
 }
-
-const NavBtn = ({ icon, label, active, onClick, tourId, badge }: any) => (
-  <button data-tour={tourId} onClick={onClick} className={`relative flex flex-col items-center gap-1 transition-all active:scale-90 ${active ? 'text-orange-400' : 'text-slate-500 hover:text-slate-200'}`}>
-    {icon}
-    <span className="text-[12px] uppercase font-bold leading-none">{label}</span>
-    {active && <span className="absolute -bottom-2 w-6 h-0.5 rounded-full bg-orange-500" />}
-    {badge > 0 && (
-      <span className="absolute -top-1.5 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 border-2 border-slate-900 text-[10px] font-bold text-white flex items-center justify-center leading-none">{badge}</span>
-    )}
-  </button>
-);
 
 export default App;
