@@ -49,3 +49,32 @@ close it. The campus layout and game balance should match the original version.
 The large state/controller module in App.tsx remains a follow-up architectural
 opportunity. This change intentionally isolates presentation and loading changes
 instead of replacing a working simulation or migrating save schemas wholesale.
+
+## Deeper engine pass
+
+The campus transition, initial club factory, defense-layout adapter, save migration,
+and save validation now live in `game/` instead of the React root component.
+`advanceCampus(previous, now)` is a deterministic transition with no timers,
+browser storage, sound, or React state setters. This allows direct regression
+checks against the rules that run in the playable game.
+
+- Movement lands exactly at its target instead of oscillating after overshoot.
+  Resuming a suspended tab banks timed progress while limiting visual movement.
+- Hidden tabs stop campus updates and catch up when visible again.
+- Upgrade celebrations run after committed updates, with timer cleanup.
+- Fresh clubs no longer share nested roster objects.
+- Invalid local saves stop boot before autosave starts. Recovery can download the
+  original data, restore the last readable boot backup, or explicitly archive it
+  and start fresh. Imported and cloud saves are validated before replacement.
+- Existing save fields still migrate; the save key is unchanged. Browser storage
+  being unavailable still permits guest play.
+
+The three attempted starter-facility image replacements were rejected: the image
+output contained baked checkerboard backgrounds without alpha transparency and
+was 1254×1254 instead of the requested 1024×1024. They are not in the game or this
+branch. The prior original Game Day illustration remains included. The building
+sprite refresh is unfinished; existing working sprites remain in use.
+
+`scripts/check-sprites.py` checks sprite dimensions, alpha, and transparent corners
+before integration. It correctly rejects those outputs. It requires Pillow, as
+do the existing art tools. Run `python scripts/check-sprites.py <sprite.png>`.

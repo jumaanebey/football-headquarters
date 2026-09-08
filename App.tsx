@@ -15,11 +15,11 @@ const ClickAwayCloser: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   }, [onClose]);
   return null;
 };
-import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, BonusOrb, SeasonPhase, UnitGroup, MatchResult, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { INITIAL_BUILDINGS, DRILLS, INITIAL_ROSTER, VOXEL_CONFIG, RECRUIT_CONFIG, COLLECTOR_CONFIG, collectorRate, collectorCap, RALLY_CONFIG, INITIAL_WALLS, WALL_CAP, INITIAL_BUILDERS, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, energyIntervalMs, trainingYieldMult, warRoomReadinessMult, OPPONENTS, SHIELD_HOURS, DEFENSE_TYPES, maxDefenses, RAID_ENERGY, PARKING_LOT, wallCap, buildingTiles, inFootprint, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
+import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, UnitGroup, Player, UpgradeJob, DefenseLogEntry } from './types';
+import { DRILLS, RECRUIT_CONFIG, COLLECTOR_CONFIG, RALLY_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, trainingYieldMult, warRoomReadinessMult, OPPONENTS, DEFENSE_TYPES, RAID_ENERGY, PARKING_LOT, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
-import { IsometricMap, screenToTile, BOARD_DIMS } from './components/IsometricMap';
+import { IsometricMap } from './components/IsometricMap';
 import { TopHUD } from './components/TopHUD';
 import { SquadModal } from './components/SquadModal';
 import { ActionModal } from './components/ActionModal';
@@ -30,242 +30,39 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { ObjectiveBanner } from './components/ObjectiveBanner';
 import { TourPointer } from './components/TourPointer';
 import { GoalId } from './objectives';
-import { computeDefenseRating, defenseTroopBoost } from './defense';
-import { tendencyFromId, TENDENCIES, TendencyKey, displayAnchorOf } from './constants';
+import { computeDefenseRating } from './defense';
+import { displayAnchorOf } from './constants';
 import { generateRaidTargets, EnemyBase } from './battle';
 import { rankFor, trophiesForRaid, trophiesLostOnDefense, clubPower } from './ranks';
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
 import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, preloadNextCoaches, crestForTeam } from './campaign';
-import { ALL_QUESTS, questsForDate, freshDailies, todayKey, SWEEP_BONUS_GEMS } from './dailies';
+import { questsForDate, todayKey, SWEEP_BONUS_GEMS } from './dailies';
 import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, ProfileInfo } from './pvp';
 import { track, trafficSource } from './analytics';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
-import { RECRUIT_LAST_NAMES } from './constants';
-import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, busTileFor, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor, masteryLevel, masteryDefMult, nextMasteryAt, MASTERY_THRESHOLDS } from './fixedBase';
-import { defenseSprite, DEFENSE_ART_GATES, buildingSprite as buildingArtFor, BUILDING_ART_LEVELS } from './assets';
 
-const TEAM_SUFFIXES = ['Dynasty', 'United', 'Stampede', 'Storm', 'Legion', 'Express'];
-const genTeamName = () => `${RECRUIT_LAST_NAMES[Math.floor(Math.random() * RECRUIT_LAST_NAMES.length)]} ${TEAM_SUFFIXES[Math.floor(Math.random() * TEAM_SUFFIXES.length)]}`;
+import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor, masteryLevel, nextMasteryAt } from './fixedBase';
+import { defenseSprite, DEFENSE_ART_GATES } from './assets';
+
 import type { BattleResult, BattleConfig } from './components/BattleScreen';
 const BattleScreen = lazy(() => import('./components/BattleScreen').then(m => ({ default: m.BattleScreen })));
 import { GameNavigation } from './components/GameNavigation';
 import { BACKUP_KEYS, createBackup } from './backup';
+import { createInitialState, genTeamName } from './game/initialState';
+import { loadState, SAVE_KEY, TUTORIAL_KEY, parseSavedClub } from './game/persistence';
+import { layoutFromFixedBase } from './game/defenseLayout';
+import { advanceCampus } from './game/campus';
+import { useUpgradeCelebrations } from './game/useUpgradeCelebrations';
 import { Sheet, Btn, HowTo } from './components/ui';
-import { ENEMY_BASES, armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroUpgradeCost, heroMaxLevel, defenseLayoutFromBase, defenseAiTroops, specialsForBattle, simulateRaid, raidAiMult, makeRevengeBase, homeDefenders, gauntletWaves, gauntletReward, GAUNTLET_MAX_TIER } from './battle';
+import { armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroMaxLevel, defenseAiTroops, specialsForBattle, raidAiMult, makeRevengeBase, homeDefenders, gauntletWaves, gauntletReward, GAUNTLET_MAX_TIER } from './battle';
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
-import { Trophy, Users, Calendar, Volume2, VolumeX, X, Shield, Star, ClipboardList, Settings as SettingsIcon, Gift } from 'lucide-react';
+import { Volume2, VolumeX, X, Shield, Settings as SettingsIcon } from 'lucide-react';
 
-const INITIAL_STATE: GameState = {
-  resources: {
-    [ResourceType.COINS]: 500,
-    [ResourceType.GEMS]: 10,
-    [ResourceType.ENERGY]: 100,
-    [ResourceType.FANS]: 0
-  },
-  seasonPhase: SeasonPhase.OFF_SEASON,
-  teamReadiness: 0,
-  currentMatch: 1,
-  matchHistory: [],
-  // Snap to the starter formation even for brand-new saves — fresh players never
-  // pass through loadState's migration, so anchor drift here would ship scrambled.
-  buildings: INITIAL_BUILDINGS.map(b => ({ ...b, gridX: anchorsFor('goalline')[b.type].gridX, gridY: anchorsFor('goalline')[b.type].gridY })),
-  roster: INITIAL_ROSTER,
-  bonusOrbs: [],
-  lastTick: Date.now(),
-  timeOfDay: 12, // Noon start
-  recruitSlot: null,
-  walls: INITIAL_WALLS,
-  heroes: HERO_DEFS.map(d => ({ key: d.key, level: 1, unlocked: !!d.starter, stars: 1, shards: 0 })),
-  builders: INITIAL_BUILDERS,
-  upgrades: [],
-  defenseLog: [],
-  trophies: 0,
-  campaign: { unlocked: 1, stars: {}, claimed: [] },
-  teamName: genTeamName(),
-  dailies: freshDailies(),
-  defenses: [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }], // starter JUGS machine
-  inventory: { sleds: 0, defenses: [], bus: false },
-  bus: { gridX: 6, gridY: 9 }, // LEGACY — bus is a fixed fixture at BUS_TILE now
-  parkingLot: 0,
-  bonusDefSlots: 0,
-  defenseSlots: { D1: 1 }, // starter JUGS machine lives in its fixed slot
-  formation: 'goalline',   // starter scheme; Cover 3 @ Stadium L3, Max Protect @ L5
-  heroGates: {},           // gate posts auto-fill with your strongest heroes until assigned
-  formationMastery: {},    // holds per formation — tiers at 3/8/15 (+3% defense each)
-  gauntlet: { best: 0, attempts: 3, date: '' }, // 🛡 attempts refill daily on load
-};
-
-const SAVE_KEY = 'fhq_save_v1';
-const TUTORIAL_KEY = 'fhq_tutorial_done_v1';
-
-// FIXED BASE → battle layout: geometry comes from fixedBase.ts, strength from the
-// save's LEVELS (facilities, emplacements, parking, fans-adjacent roster boost).
-// This is the ONLY path that builds a defense layout — home sim, publish, and test
-// all agree by construction.
-const layoutFromFixedBase = (
-  buildings: BuildingInstance[],
-  roster: Player[],
-  defenseSlots: Record<string, number>,
-  parkingLot: number,
-  formation: FormationKey,
-  mastery = 0, // holds in THIS formation → +3%/tier on the whole defense
-): ReturnType<typeof defenseLayoutFromBase> => {
-  const sl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-  const emplacements = slotsFor(formation)
-    .filter(s => (defenseSlots[s.id] ?? 0) > 0)
-    .map(s => ({ id: s.id, kind: s.kind, gridX: s.gridX, gridY: s.gridY, level: defenseSlots[s.id] }));
-  return defenseLayoutFromBase(buildings, wallsFor(formation, sl), defenseTroopBoost(roster) * masteryDefMult(mastery), emplacements, busTileFor(formation), parkingLot, wallHpFor(sl), formation);
-};
-
-// Load a persisted game, merging over defaults so new fields never come back undefined.
-// Absolute drill finishTimes survive reloads as-is; we only reset the loop's tick clock.
-const loadState = (): GameState => {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) {
-      // Boot backup BEFORE migrations touch anything: if a migration bug ever throws,
-      // the catch below falls back to a fresh club and the autosave overwrites the
-      // save — this key preserves the last good raw save for recovery.
-      try { localStorage.setItem('fhq_save_backup_boot', raw); } catch { /* best effort */ }
-      const saved = JSON.parse(raw) as GameState;
-      const now = Date.now();
-      // Credit passive collectors for time spent away (capped per collector config).
-      const offlineSecs = Math.max(0, (now - (saved.lastTick || now)) / 1000);
-      const buildings = (saved.buildings || INITIAL_BUILDINGS).map(b => {
-        // Pull any off-map building back onto the field (cells 2..8 are safely on the diamond).
-        let gridX = Math.min(8, Math.max(2, b.gridX));
-        let gridY = Math.min(8, Math.max(2, b.gridY));
-        // One-time migrations off bad default spots (old defaults crowded/spilled; only fires
-        // if the building still sits exactly on an old default, so player moves are respected).
-        if (b.id === 'tactics-1' && ((gridX === 3 && gridY === 3) || (gridX === 8 && gridY === 5))) { gridX = 3; gridY = 8; }
-        if (b.id === 'med-1' && ((gridX === 2 && gridY === 6) || (gridX === 3 && gridY === 6))) { gridX = 3; gridY = 5; }
-        const cfg = COLLECTOR_CONFIG[b.type];
-        if (!cfg) return { ...b, gridX, gridY };
-        const secs = Math.min(offlineSecs, cfg.maxOfflineSeconds);
-        const cap = collectorCap(b.type, b.level);
-        const accrued = Math.min(cap, (b.accrued || 0) + collectorRate(b.type, b.level) * secs);
-        return { ...b, gridX, gridY, accrued };
-      });
-      // Backfill buildings added in newer versions (e.g. the Stadium) that older saves lack.
-      const presentIds = new Set(buildings.map(b => b.id));
-      for (const ib of INITIAL_BUILDINGS) {
-        if (!presentIds.has(ib.id)) buildings.push(ib);
-      }
-      // Reset transient player movement state so no one is stuck mid-walk on load.
-      const roster = (saved.roster || INITIAL_ROSTER).map(p => ({ ...p, state: PlayerState.IDLE, targetPos: { ...p.worldPos }, tendency: p.tendency ?? tendencyFromId(p.id) }));
-      // Backfill heroes added in newer versions. Old saves lack `unlocked` → starters
-      // become unlocked, any newly-added unlockable heroes start locked.
-      const heroes = (saved.heroes || []).map((h: any) => ({
-        ...h,
-        unlocked: h.unlocked ?? HERO_DEFS.find(d => d.key === h.key)?.starter ?? false,
-        stars: h.stars ?? 1,
-        shards: h.shards ?? 0,
-      }));
-      const presentHeroKeys = new Set(heroes.map((h: any) => h.key));
-      for (const dh of HERO_DEFS) {
-        if (!presentHeroKeys.has(dh.key)) {
-          heroes.push({ key: dh.key, level: 1, unlocked: !!dh.starter, stars: 1, shards: 0 });
-        }
-      }
-      const campaign = saved.campaign ?? { unlocked: 1, stars: {}, claimed: [] };
-      // Daily quests reset when the calendar day changes; team name backfills once.
-      const dailies = (saved.dailies && saved.dailies.date === todayKey()) ? saved.dailies : freshDailies();
-      const teamName = saved.teamName || genTeamName();
-      const defenses = [...(saved.defenses ?? [{ id: 'def-1', kind: 'jugs', gridX: 5, gridY: 4 }])];
-      const inventory = { ...(saved.inventory ?? { sleds: 0, defenses: [], bus: false }) };
-      inventory.defenses = [...inventory.defenses];
-      // Backfill the Team Bus for old saves (it graduated from decor to a movable blocker).
-      let bus = saved.bus !== undefined ? saved.bus : (inventory.bus ? null : { gridX: 6, gridY: 9 });
-      const parkingLot = saved.parkingLot ?? 0;
-      const bonusDefSlots = saved.bonusDefSlots ?? 0;
-
-      // --- FORMATION: which fixed scheme this club runs (default = starter).
-      //     If the save somehow holds a formation it hasn't unlocked, fall back.
-      const stadiumLvlNow = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-      let formation: FormationKey = (saved.formation as FormationKey) ?? 'goalline';
-      if (!FORMATIONS[formation] || !formationUnlocked(formation, stadiumLvlNow)) formation = 'goalline';
-
-      // --- FIXED BASE: facilities live at the formation's anchors. Positions are
-      //     geometry, not player data — every save snaps to its formation's map.
-      for (const b of buildings) {
-        const a = anchorsFor(formation)[b.type];
-        if (a) { b.gridX = a.gridX; b.gridY = a.gridY; }
-      }
-      var migratedWalls = saved.walls || INITIAL_WALLS; // legacy field (battle still reads it until Stage 4)
-
-      // --- FIXED BASE MIGRATION (one-time): owned defense pieces fill their matching
-      //     fixed emplacements; anything with no free unlocked slot refunds at FULL
-      //     shop price (walls/bus were always free — nothing to refund there).
-      let slotRefund = 0;
-      let defenseSlots: Record<string, number>;
-      if (saved.defenseSlots) {
-        defenseSlots = { ...saved.defenseSlots };
-      } else {
-        defenseSlots = {};
-        const ownedKinds = [...defenses.map(d => d.kind), ...inventory.defenses.map(d => d.kind)];
-        for (const kind of ownedKinds) {
-          const slot = slotsFor(formation).find(s => s.kind === kind && !defenseSlots[s.id] && slotUnlocked(s, stadiumLvlNow, bonusDefSlots));
-          if (slot) defenseSlots[slot.id] = 1;
-          else slotRefund += DEFENSE_TYPES.find(t => t.kind === kind)?.cost ?? 0;
-        }
-      }
-      // "While you were away" — resolve rival raids against your ACTUAL base for the
-      // offline stretch. Base design (levels + Blocking Sleds) changes how they do.
-      const formationMastery: Record<string, number> = { ...(saved.formationMastery ?? {}) };
-      let defenseLog = [...(saved.defenseLog || [])];
-      let coins = (saved.resources?.[ResourceType.COINS] ?? INITIAL_STATE.resources[ResourceType.COINS]) + slotRefund;
-      let shieldUntil = saved.shieldUntil || 0;
-      let trophies = saved.trophies || 0;
-      // A protective shield (earned after a beating) blocks all offline raids until it expires.
-      const shielded = now < shieldUntil;
-      const numAttacks = (shielded || offlineSecs < 1200) ? 0 : Math.min(3, 1 + Math.floor(offlineSecs / 3600)); // 20min→1, 1h→2, 2h+→3
-      if (numAttacks > 0) {
-        const stadiumLvl = buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-        const layout = layoutFromFixedBase(buildings, roster, defenseSlots, parkingLot, formation, (saved.formationMastery ?? {})[formation] ?? 0);
-        let worstPct = 0;
-        for (let a = 0; a < numAttacks; a++) {
-          const opp = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
-          const res = simulateRaid(layout, defenseAiTroops(), raidAiMult(opp.offenseRating, stadiumLvl));
-          const coinsLost = Math.min(coins, Math.round(coins * 0.12 * (res.pct / 100)));
-          coins -= coinsLost;
-          trophies = Math.max(0, trophies + trophiesLostOnDefense(res.pct)); // storming your stadium costs you rank
-          if (res.stars === 0) formationMastery[formation] = (formationMastery[formation] ?? 0) + 1; // HELD → scheme mastery
-          worstPct = Math.max(worstPct, res.pct);
-          defenseLog.unshift({
-            id: `def_${now}_${a}`, attacker: opp.name, at: now - Math.floor(Math.random() * offlineSecs * 1000),
-            stars: res.stars, pct: res.pct, coinsLost, seen: false,
-          });
-        }
-        defenseLog = defenseLog.slice(0, 20); // keep the last 20 raids
-        // Got roughed up (≥50% taken) → grant a protective shield so you're not farmed.
-        if (worstPct >= 50) shieldUntil = now + SHIELD_HOURS * 3600 * 1000;
-      }
-      // Energy regen used to stop dead while the tab was closed: loadState stamps
-      // lastTick = now, so the live ticker saw a zero-length gap and granted nothing.
-      // Coins accrued offline but energy didn't, which is inconsistent — and it meant a
-      // player who quit below the 12⚡ a game costs came back the next day still unable
-      // to play. That is the exact cohort we need to return.
-      const medLvl = (saved.buildings || INITIAL_BUILDINGS).find(b => b.type === 'MEDICAL_CENTER')?.level ?? 1;
-      const offlineEnergy = Math.floor((offlineSecs * 1000) / energyIntervalMs(medLvl));
-      const savedEnergy = (saved.resources || INITIAL_STATE.resources)[ResourceType.ENERGY] ?? 100;
-      const energy = Math.min(100, savedEnergy + offlineEnergy);
-      const resources = { ...INITIAL_STATE.resources, ...(saved.resources || {}), [ResourceType.COINS]: coins, [ResourceType.ENERGY]: energy };
-      // Gauntlet attempts refill with the calendar day (best tier persists).
-      const gauntlet = (saved.gauntlet && saved.gauntlet.date === todayKey())
-        ? saved.gauntlet
-        : { best: saved.gauntlet?.best ?? 0, attempts: 3, date: todayKey() };
-      return { ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, heroGates: saved.heroGates ?? {}, formationMastery, gauntlet, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: now };
-    }
-  } catch (e) {
-    console.warn('Save load failed, starting fresh:', e);
-  }
-  return INITIAL_STATE;
-};
 
 function App() {
-  const [gameState, setGameState] = useState<GameState>(loadState);
+  const [gameState, setGameState] = useState<GameState>(() => loadState());
   const [isSquadOpen, setIsSquadOpen] = useState(false);
   const [isScoutingOpen, setIsScoutingOpen] = useState(false);
   const [isStandingsOpen, setIsStandingsOpen] = useState(false);
@@ -334,7 +131,7 @@ function App() {
     file.text().then(txt => {
       const b = JSON.parse(txt);
       if (!b || b.v !== '1' || !b.fhq_save_v1) throw new Error('bad bundle');
-      JSON.parse(b.fhq_save_v1); // must be valid save JSON
+      parseSavedClub(b.fhq_save_v1); // reject malformed progress before replacing the current club
       setImportPending(b); // in-app confirm (never native dialogs)
     }).catch(() => { sfx.error(); spawnText("That file isn't a Football HQ backup", window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); });
   };
@@ -449,6 +246,7 @@ function App() {
     }
     const cloud = res.save;
     if (!cloud.save) return 'none';
+    try { parseSavedClub(JSON.stringify(cloud.save)); } catch { return 'error'; }
     const cloudTime = Date.parse(cloud.updated_at);
     const localTime = localRecency ?? Date.now();
     if (force || cloudTime > localTime + 90000) { // 90s skew guard — ties keep local
@@ -484,7 +282,6 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const lastUpdateRef = useRef(Date.now());
 
   // Keep a live ref of state so the autosave interval always writes the latest.
   const stateRef = useRef(gameState);
@@ -527,129 +324,13 @@ function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // --- GAME LOOP ---
+  // The transition is deterministic and side-effect free; presentation follows commits.
+  useUpgradeCelebrations(gameState.upgrades, gameState.buildings, setCelebration);
   useEffect(() => {
-    const loop = setInterval(() => {
-      const now = Date.now();
-      const dt = (now - lastUpdateRef.current) / 1000;
-      lastUpdateRef.current = now;
-
-      setGameState(prev => {
-        // 1. Time Cycle (0-24) - 1 real minute = 1 game day
-        const dayProgress = dt / 60;
-        const newTime = (prev.timeOfDay + (dayProgress * 24)) % 24;
-
-        // 2. Update Drill Timers + accrue passive collectors
-        const updatedBuildings = prev.buildings.map(b => {
-          let nb = b;
-          if (b.state === DrillState.ACTIVE && b.finishTime && now >= b.finishTime) {
-            nb = { ...nb, state: DrillState.COMPLETED };
-          }
-          const cfg = COLLECTOR_CONFIG[b.type];
-          if (cfg) {
-            const cap = collectorCap(b.type, b.level);
-            const accrued = Math.min(cap, (nb.accrued || 0) + collectorRate(b.type, b.level) * dt);
-            nb = { ...nb, accrued };
-          }
-          return nb;
-        });
-
-        // 3. Player AI — off-duty DEFENSIVE players visibly patrol the stadium (your
-        //    defense isn't an abstract stat: the guys you recruited walk the beat).
-        // Patrol ORBITS the central practice patch — defenders walk the ring around
-        // it, never across it (July 11, Jumaane: they were strolling straight over
-        // the field). Next beat = a short step AROUND the ring from wherever the
-        // player is now, at a radius outside the chalk (field spans world 38-62 ×
-        // 33-67, so r≥20 keeps both the points and the short arcs between them off
-        // the turf).
-        const patrolPoint = (p: Player) => {
-          const cx = 55, cy = 55; // patch center, world units (tile 5,5)
-          const cur = Math.atan2((p.worldPos.y || cy) - cy, (p.worldPos.x || cx) - cx);
-          const ang = (Number.isFinite(cur) ? cur : Math.random() * Math.PI * 2) + 0.45 + Math.random() * 0.5;
-          const rad = 20 + Math.random() * 5;
-          return {
-            x: Math.min(94, Math.max(6, cx + Math.cos(ang) * rad)),
-            y: Math.min(94, Math.max(6, cy + Math.sin(ang) * rad)),
-            z: 0,
-          };
-        };
-        const updatedRoster = prev.roster.map(p => {
-          // Idle defender → take up a patrol route around the stadium.
-          if (p.state === PlayerState.IDLE && TENDENCIES[p.tendency as TendencyKey]?.side === 'defense') {
-            return { ...p, state: PlayerState.PATROLLING, targetPos: patrolPoint(p) };
-          }
-          let { x, y } = p.worldPos;
-          const { x: tx, y: ty } = p.targetPos;
-
-          const dx = tx - x;
-          const dy = ty - y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          const patrolling = p.state === PlayerState.PATROLLING;
-          const speed = (patrolling ? 6.5 : 15) * dt; // guards amble; trainees hustle
-
-          if (dist > 0.5) {
-            x += (dx / dist) * speed;
-            y += (dy / dist) * speed;
-            return { ...p, worldPos: { x, y, z: 0 }, state: p.targetPos.z === 1 ? PlayerState.TRAINING : patrolling ? PlayerState.PATROLLING : PlayerState.WALKING };
-          } else {
-             // Arrival: walkers-to-pitch train; patrollers pick the next beat; others idle.
-             if (patrolling) return { ...p, targetPos: patrolPoint(p) };
-             if (p.state === PlayerState.WALKING && p.targetPos.z === 1) {
-                return { ...p, state: PlayerState.TRAINING };
-             }
-             if (p.state === PlayerState.WALKING) {
-                return { ...p, state: PlayerState.IDLE };
-             }
-             return p;
-          }
-        });
-
-        // 4. Energy Regen — slow by default so Energy paces coaching drills; the Rehab
-        //    Center (MEDICAL_CENTER) speeds it up, giving that building a real purpose.
-        //    Base +1 per 8s (L1) → +1 per 4.8s (L5). (Was a flat 5s with a dead var.)
-        const medCenter = prev.buildings.find(b => b.type === 'MEDICAL_CENTER');
-        const interval = energyIntervalMs(medCenter ? medCenter.level : 1);
-
-        // Interval-boundary COUNT since the last tick — a phone backgrounded for 30
-        // minutes banks every missed regen on resume (the old boundary check granted
-        // at most +1 no matter how long the gap was).
-        const regenTicks = Math.max(0, Math.floor(now / interval) - Math.floor(prev.lastTick / interval));
-        const newEnergy = regenTicks > 0 ? Math.min(100, prev.resources.ENERGY + regenTicks) : prev.resources.ENERGY;
-
-        // Complete any timed upgrades whose timer elapsed (frees the builder).
-        let finalBuildings = updatedBuildings;
-        let finalHeroes = prev.heroes;
-        let finalUpgrades = prev.upgrades;
-        if (prev.upgrades.some(u => now >= u.finishTime)) {
-          finalUpgrades = prev.upgrades.filter(u => now < u.finishTime);
-          for (const job of prev.upgrades) {
-            if (now < job.finishTime) continue;
-            if (job.kind === 'building') {
-              finalBuildings = finalBuildings.map(b => b.id === job.key ? { ...b, level: job.toLevel } : b);
-              // celebrate at the building: burst + fanfare (outside the reducer)
-              setTimeout(() => { setCelebration({ id: job.key, at: Date.now() }); sfx.sign(); }, 0);
-              setTimeout(() => setCelebration(c => (c && c.id === job.key ? null : c)), 2400);
-            }
-            else finalHeroes = finalHeroes.map(h => h.key === job.key ? { ...h, level: job.toLevel } : h);
-          }
-        }
-
-        return {
-          ...prev,
-          buildings: finalBuildings,
-          roster: updatedRoster,
-          heroes: finalHeroes,
-          upgrades: finalUpgrades,
-          resources: { ...prev.resources, [ResourceType.ENERGY]: newEnergy },
-          dailies: prev.dailies.date !== todayKey() ? freshDailies() : prev.dailies, // midnight rollover
-          gauntlet: prev.gauntlet.date !== todayKey() ? { ...prev.gauntlet, attempts: 3, date: todayKey() } : prev.gauntlet, // Gauntlet nights refill at the same rollover
-          timeOfDay: newTime,
-          lastTick: now
-        };
-      });
-    }, 100);
-
-    return () => clearInterval(loop);
+    const tick = () => { if (document.hidden) return; const now = Date.now(); setGameState(prev => advanceCampus(prev, now)); };
+    const loop = setInterval(tick, 100);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(loop); document.removeEventListener('visibilitychange', tick); };
   }, []);
 
   const spawnText = (text: string, x: number, y: number, color: string = '#fbbf24') => {
@@ -1502,8 +1183,8 @@ function App() {
       // push the empty franchise over the cloud copy with nothing to recover from.
       try { const cur = localStorage.getItem(SAVE_KEY); if (cur) localStorage.setItem('fhq_backup_prereset', cur); } catch { /* best effort */ }
       try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(TUTORIAL_KEY); } catch (e) { /* ignore */ }
-      setGameState({ ...INITIAL_STATE, lastTick: Date.now() });
-      lastUpdateRef.current = Date.now();
+      setGameState(createInitialState());
+
       setSelectedBuilding(null);
       setConfirmingReset(false);
       setShowTutorial(true);
