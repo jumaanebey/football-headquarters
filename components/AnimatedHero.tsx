@@ -56,12 +56,12 @@ function loadSheet(key: string): Promise<Sheet> {
   return sheets.get(key)!;
 }
 
-export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, filter }: {
-  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; filter?: string;
+export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter }: {
+  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const playback = useRef({ mode, cycle, elapsedSeconds });
-  playback.current = { mode, cycle, elapsedSeconds };
+  const playback = useRef({ mode, cycle, elapsedSeconds, elapsedRef });
+  playback.current = { mode, cycle, elapsedSeconds, elapsedRef };
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let disposed = false, raf = 0;
@@ -83,10 +83,11 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
         }
         previous = now;
         const walking = playback.current.mode === 'walk';
-        const frame = heroFrame(playback.current.mode, playback.current.elapsedSeconds ?? (walking ? stride : elapsed), walking ? 1 : playback.current.cycle, media.matches);
+        const frame = heroFrame(playback.current.mode, playback.current.elapsedRef?.current ?? playback.current.elapsedSeconds ?? (walking ? stride : elapsed), walking ? 1 : playback.current.cycle, media.matches);
         if (!document.hidden && frame !== lastFrame) {
           ctx.clearRect(0, 0, 384, 384);
           ctx.drawImage(sheet.frames[frame], 0, 0);
+          canvas.dataset.frame = String(frame);
           lastFrame = frame; if (!announced) { setReady(true); announced = true; }
         }
         raf = requestAnimationFrame(draw);
