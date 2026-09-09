@@ -1,19 +1,20 @@
-export type HeroAnimation = 'idle' | 'walk' | 'attack' | 'showcase';
-export const MODERN_HEROES = ['qb', 'enforcer', 'medic'] as const;
+export type HeroAnimation = 'idle' | 'walk' | 'attack' | 'celebrate' | 'showcase';
+export const MODERN_HEROES = ['qb', 'enforcer', 'coach', 'kicker', 'burner', 'medic', 'captain', 'playmaker', 'legend'] as const;
 export const hasModernHero = (key: string) => MODERN_HEROES.some(k => k === key);
 export function heroFrame(mode: HeroAnimation, elapsed: number, cycle = 0.48, reduced = false): number {
   if (reduced || mode === 'idle') return 0;
   if (mode === 'walk') {
     const duration = Number.isFinite(cycle) && cycle > 0 ? cycle : 0.48;
     const phase = elapsed < 0 ? ((elapsed % duration) + duration) % duration : elapsed % duration;
-    return [1, 2, 3, 4][Math.min(3, Math.floor(phase / duration * 4))];
+    return [1, 2, 3, 4, 5, 6][Math.min(5, Math.floor(phase / duration * 6))];
   }
+  if (mode === 'celebrate') return 8;
   if (mode === 'attack') {
     const beat = elapsed % 0.7;
-    return beat >= 0.14 && beat < 0.46 ? 5 : 0;
+    return beat >= 0.14 && beat < 0.46 ? 7 : 0;
   }
   const beat = elapsed % 7;
-  return beat < 2 ? 0 : beat < 4.5 ? heroFrame('walk', beat - 2, 0.6) : beat < 5.5 ? 5 : 0;
+  return beat < 2 ? 0 : beat < 4.5 ? heroFrame('walk', beat - 2, 0.6) : beat < 5.5 ? 7 : beat < 6.5 ? 8 : 0;
 }
 /** Chroma-key matte for generated production sheets. Preserve orange uniforms,
  * white equipment and dark outlines; remove only saturated magenta backdrop. */

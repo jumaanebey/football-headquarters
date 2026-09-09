@@ -1,13 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { HeroAnimation, heroFrame, keyHeroPixels, advanceHeroStride } from '../game/heroAnimation';
 
-type Sheet = { canvas: HTMLCanvasElement; cellWidth: number; cellHeight: number; bottoms: number[] };
+import { HERO_ATLAS } from '../game/heroAtlas';
+import { heroPixelOwners } from '../game/heroPixelOwners';
+
+type Sheet = { frames: HTMLCanvasElement[] };
 const sheets = new Map<string, Promise<Sheet>>();
 function loadSheet(key: string): Promise<Sheet> {
   if (!sheets.has(key)) sheets.set(key, new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
       try {
+        const bounds = HERO_ATLAS[key];
+        if (!bounds || bounds.length !== 9) throw new Error('Incomplete hero atlas');
         const canvas = document.createElement('canvas');
         canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -15,20 +20,38 @@ function loadSheet(key: string): Promise<Sheet> {
         ctx.drawImage(image, 0, 0);
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
         keyHeroPixels(data.data); ctx.putImageData(data, 0, 0);
-        const cellWidth = canvas.width / 3, cellHeight = canvas.height / 2;
-        const bottoms = Array.from({ length: 6 }, (_, frame) => {
-          let bottom = 0;
-          const x0 = Math.floor((frame % 3) * cellWidth), y0 = Math.floor(Math.floor(frame / 3) * cellHeight);
-          for (let y = 0; y < Math.floor(cellHeight); y++) for (let x = 0; x < Math.floor(cellWidth); x++) {
-            if (data.data[((y0 + y) * canvas.width + x0 + x) * 4 + 3] > 128) bottom = y;
+        const owners = heroPixelOwners(data.data, canvas.width, canvas.height, bounds);
+        // One scale for the whole actor: no size pumping between poses.
+        const scale = Math.min(340 / Math.max(...bounds.map(b => b[2] - b[0])), 346 / Math.max(...bounds.map(b => b[3] - b[1])));
+        const frames = bounds.map((b, frame) => {
+          const out = document.createElement('canvas'); out.width = out.height = 384;
+          const target = out.getContext('2d');
+          if (!target) throw new Error('Canvas unavailable');
+          const [x, y, right, bottom] = b, w = right - x, h = bottom - y;
+          const crop = document.createElement('canvas'); crop.width = w; crop.height = h;
+          const cropCtx = crop.getContext('2d')!;
+          const clean = ctx.getImageData(x, y, w, h);
+          for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+            const owner = owners[(y + yy) * canvas.width + x + xx];
+            if (owner >= 0 && owner !== frame) clean.data[(yy * w + xx) * 4 + 3] = 0;
           }
-          return bottom;
+          cropCtx.putImageData(clean, 0, 0);
+          // Anchor around head/torso, rather than the extremity of a swinging arm.
+          let sum = 0, count = 0;
+          for (let yy = Math.ceil(y + h * .06); yy < y + h * .30; yy++) {
+            for (let xx = x; xx < right; xx++) if (owners[yy * canvas.width + xx] === frame && data.data[(yy * canvas.width + xx) * 4 + 3] > 128) { sum += xx; count++; }
+          }
+          const anchor = count ? sum / count - x : w / 2;
+          const left = Math.max(12, Math.min(372 - w * scale, 192 - anchor * scale));
+          const lift = frame === 3 || frame === 6 ? 5 : 0;
+          target.drawImage(crop, left, 370 - h * scale - lift, w * scale, h * scale);
+          return out;
         });
-        resolve({ canvas, cellWidth, cellHeight, bottoms });
+        resolve({ frames });
       } catch (error) { reject(error); }
     };
-    image.onerror = () => reject(new Error(`Hero art unavailable: ${key}`));
-    image.src = `/assets/gpt/heroes/${key}-motion.png`;
+    image.onerror = () => { sheets.delete(key); reject(new Error(`Hero art unavailable: ${key}`)); };
+    image.src = `/assets/heroes/elite/${key}.webp`;
   }));
   return sheets.get(key)!;
 }
@@ -63,13 +86,7 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
         const frame = heroFrame(playback.current.mode, playback.current.elapsedSeconds ?? (walking ? stride : elapsed), walking ? 1 : playback.current.cycle, media.matches);
         if (!document.hidden && frame !== lastFrame) {
           ctx.clearRect(0, 0, 384, 384);
-          const size = 384 / Math.max(sheet.cellWidth, sheet.cellHeight);
-          const width = sheet.cellWidth * size, height = sheet.cellHeight * size;
-          ctx.save();
-          if (heroKey === 'qb' && frame < 5) { ctx.translate(384, 0); ctx.scale(-1, 1); }
-          ctx.drawImage(sheet.canvas, (frame % 3) * sheet.cellWidth, Math.floor(frame / 3) * sheet.cellHeight, sheet.cellWidth, sheet.cellHeight,
-            (384 - width) / 2, 384 * 0.96 - sheet.bottoms[frame] * size, width, height);
-          ctx.restore();
+          ctx.drawImage(sheet.frames[frame], 0, 0);
           lastFrame = frame; if (!announced) { setReady(true); announced = true; }
         }
         raf = requestAnimationFrame(draw);
@@ -80,5 +97,5 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
   }, [heroKey]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
-    style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? 'fhq-modern-breathe 2.8s ease-in-out infinite' : undefined, transform: facing > 0 ? 'scaleX(-1)' : undefined }} />;
+    style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? 'fhq-modern-breathe 2.8s ease-in-out infinite' : mode === 'celebrate' ? 'fhq-hero-victory 1.2s ease-in-out infinite' : undefined, transform: facing > 0 ? 'scaleX(-1)' : undefined }} />;
 }

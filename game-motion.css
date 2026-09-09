@@ -239,3 +239,10 @@ button:has(> .fhq-modern-hero[data-ready="1"]) > .fhq-campus-hero-fallback { vis
 @media (prefers-reduced-motion: reduce) {
   .fhq-modern-hero { animation: none !important; }
 }
+
+@keyframes fhq-hero-victory {
+  0%, 100% { translate: 0 0; }
+  38% { translate: 0 -4%; }
+  55% { translate: 0 -4%; }
+  76% { translate: 0 0; }
+}

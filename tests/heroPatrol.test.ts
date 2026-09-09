@@ -15,7 +15,7 @@ it('reduced motion holds heroes in place across the entire drill', () => {
 });
 it('gives a deliberate action a recovery instead of holding contact indefinitely', () => {
   expect(heroFrame('attack', 0.05)).toBe(0);
-  expect(heroFrame('attack', 0.25)).toBe(5);
+  expect(heroFrame('attack', 0.25)).toBe(7);
   expect(heroFrame('attack', 0.6)).toBe(0);
-  for (const cycle of [0, -1, NaN, Infinity]) expect(heroFrame('walk', 0.2, cycle)).toBe(2);
+  for (const cycle of [0, -1, NaN, Infinity]) expect(heroFrame('walk', 0.2, cycle)).toBe(3);
 });

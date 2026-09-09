@@ -1,3 +1,4 @@
+import { BuildingArt, isStarterFacility } from './BuildingArt';
 import { CampusHero } from './CampusHero';
 import { HERO_DEFS } from '../battle';
 import { FieldPaint, TURF } from './FieldPaint';
@@ -9,7 +10,7 @@ import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusO
 import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS, GROWTH_TIERS } from '../constants';
 import { buildingSprite, unitPlayerSprite } from '../assets';
 import { sfx } from '../sound';
-import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
+import { Check, Star, Dumbbell, Search, Coins, Hammer, Plus, Minus, Focus } from 'lucide-react';
 
 // ─── BUILD VIEW ────────────────────────────────────────────────────────────────
 // The home board is pure management: facilities, decor, and your players. The
@@ -95,39 +96,12 @@ const GRID_ON = !!URL_PARAMS?.has('grid') || EDIT_ON;
 type GroundRect = { x1: number; y1: number; x2: number; y2: number };
 // The practice patch sits DEAD CENTER on the stadium's original home squares —
 // also the default camera's focus tile (Jumaane's size-swap layout).
-const FIELD_RECT: GroundRect = { x1: 3.8, y1: 3.3, x2: 6.2, y2: 6.7 };
+const FIELD_RECT: GroundRect = { x1: 3.0, y1: 2.9, x2: 6.8, y2: 7.1 };
 const ROAD_RECT: GroundRect = { x1: 9.9, y1: 7.0, x2: 16.5, y2: 8.3 };
 const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = FIELD_RECT, road = ROAD_RECT }) => {
-  // Worn dirt paths: each building walks a manhattan route home to the campus HUB —
-  // the central practice patch (the stadium backdrop lives OFF-campus, and dirt
-  // trails onto the dark rough are exactly the border Jumaane rejected).
-  const stadium = buildings.find(b => b.type === BuildingType.STADIUM);
-  const hub = stadium
-    ? { ...stadium, gridX: Math.round((field.x1 + field.x2) / 2) - 1, gridY: Math.round((field.y1 + field.y2) / 2) - 1 }
-    : stadium;
-  const paths: React.JSX.Element[] = [];
-  if (hub) {
-    const seen = new Set<string>();
-    buildings.filter(b => b.id !== hub.id).forEach(b => {
-      let x = b.gridX, y = b.gridY;
-      let guard = 0;
-      while ((x !== hub.gridX || y !== hub.gridY) && guard++ < 24) {
-        if (x !== hub.gridX) x += x < hub.gridX ? 1 : -1;
-        else y += y < hub.gridY ? 1 : -1;
-        const k = `${x},${y}`;
-        if (seen.has(k) || (x === hub.gridX && y === hub.gridY)) continue;
-        // don't lay dirt ON the practice patch — trails stop at its chalk line
-        if (x >= field.x1 - 0.5 && x <= field.x2 + 0.5 && y >= field.y1 - 0.5 && y <= field.y2 + 0.5) continue;
-        seen.add(k);
-        const pc = tileToScreen(x, y);
-        // HTML <img> (GPU-composited) — NOT an SVG <image>; those rasterize per frame.
-        paths.push(
-          <img key={`p${k}`} src="/assets/ground/dirt-path-tile.webp" alt="" draggable={false}
-            style={{ position: 'absolute', left: pc.x - (TILE_W / 2) * 0.8, top: pc.y - (TILE_H / 2) * 0.8, width: TILE_W * 0.8, height: TILE_H * 0.8, maxWidth: 'none', opacity: 0.85, pointerEvents: 'none' }} />
-        );
-      }
-    });
-  }
+  const hub = { gridX: (field.x1 + field.x2) / 2, gridY: (field.y1 + field.y2) / 2 };
+  const ring = [tileToScreen(field.x1 - .35, field.y1 - .35), tileToScreen(field.x2 + .35, field.y1 - .35), tileToScreen(field.x2 + .35, field.y2 + .35), tileToScreen(field.x1 - .35, field.y2 + .35)];
+  const pathRing = ring.map(p => `${p.x},${p.y}`).join(' ');
 
   // NO MORE FLOATING ISLAND: the campus sits on a wide grounds plane that fades into
   // the night instead of dropping off a cliff into space (user call, July 2026).
@@ -188,6 +162,8 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
         {/* Continuous turf: no repeated tile seams beneath the buildings. */}
         <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#campusTurf)" />
 
+        <polygon points={pathRing} fill="none" stroke="#a6926c" strokeWidth="15" strokeLinejoin="round" opacity=".4" />
+        <polygon points={pathRing} fill="none" stroke="#cec09b" strokeWidth="1" opacity=".25" />
         <FieldPaint project={tileToScreen} x1={field.x1} y1={field.y1} x2={field.x2} y2={field.y2} lineWidth={1.25} />
         {/* soft light pool centered on the Stadium */}
         <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
@@ -196,7 +172,7 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
           trailing off each building's base read as a bad "border"). Buildings
           ground via their art's baked shadows, same as the outer props; the thin
           walking paths to the Stadium stay. */}
-      {paths}
+
     </>
   );
 };
@@ -359,7 +335,7 @@ const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, sc
 // (3.5, -2) per Jumaane's editor layout, July 10 2026. Art: DUAL-DECK board
 // (his pick, July 12) — main screen + ribbon strip on an A-frame, both BLANK
 // in the art so the game renders live stats onto real screen space.
-const BOARD_ANCHOR = { gx: 3.5, gy: -1, w: 1.65 }; // tall art: slimmer + one row lower keeps the crown in frame at the default camera
+const BOARD_ANCHOR = { gx: 3.9, gy: -0.6, w: 1.35 }; // keep both live decks below the resource HUD
 const BOARD_ASPECT = 1.946; // cropped scoreboard-dualdeck.png h/w
 const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number; onOpenStats?: () => void; clickGuard?: React.MutableRefObject<boolean> }> = ({ clubName, trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w, onOpenStats, clickGuard }) => {
   // BOARD diagonal BEHIND THE WAR ROOM (Jumaane): ribbon-board art (wide panel,
@@ -584,7 +560,7 @@ const BuildingSprite: React.FC<{
 }> = ({ building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
   const c = tileToScreen(building.gridX + 0.5, building.gridY + 0.5); // 2×2 footprint center
   const info = BUILDING_INFO[building.type];
-  const src = buildingSprite(building.type, building.level);
+  const starter = isStarterFacility(building.type, building.level);
 
   const isCompleted = building.state === DrillState.COMPLETED;
   const isActive = building.state === DrillState.ACTIVE;
@@ -673,11 +649,11 @@ const BuildingSprite: React.FC<{
         width: SPRITE_W, left: -SPRITE_W / 2, bottom: -TILE_H / 2, transformOrigin: '50% 100%',
 
       }}>
-        <img src={src} alt={info.name} draggable={false}
+        <BuildingArt type={building.type} level={building.level} label={info.name}
           className="select-none transition-[filter]"
-          style={{ display: 'block', width: '100%', maxWidth: 'none', height: 'auto', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+          style={{ width: '100%', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} />
         {/* Scouting HQ chimney smoke — three staggered puffs rising off the roofline */}
-        {isAcademy && [0, 1, 2].map(i => (
+        {isAcademy && !starter && [0, 1, 2].map(i => (
           <img key={i} src="/assets/fx/smoke-puff.webp" alt="" draggable={false} className="absolute select-none" style={{
             width: 14 + i * 4, left: SPRITE_W * 0.44, bottom: SPRITE_W * 0.58,
             opacity: 0, animation: `fhq-smoke 4.5s linear ${i * 1.5}s infinite`,
@@ -685,7 +661,7 @@ const BuildingSprite: React.FC<{
         ))}
         {/* Lit windows — always on (the night never ends here), breathing slowly.
             Screen blend keeps the art underneath readable. */}
-        {(WINDOW_GLOWS[building.type] ?? []).map((g, i) => (
+        {(!starter ? WINDOW_GLOWS[building.type] ?? [] : []).map((g, i) => (
           <img key={`g${i}`} src="/assets/fx/window-glow.webp" alt="" draggable={false} className="absolute select-none" style={{
             width: SPRITE_W * g.w, left: SPRITE_W * g.x, bottom: SPRITE_W * g.y,
             mixBlendMode: 'screen', animation: `fhq-glow ${4 + i}s ease-in-out ${(building.gridX * 3 + i * 2) % 4}s infinite`,
@@ -851,17 +827,10 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   // Interaction math reads getBoundingClientRect, which already reflects the
   // transform — so zooming never breaks taps.
   // Phones open ZOOMED IN (a base you can read, pan to explore) — desktop fits the island.
-  // Phone home zoom fits the WHOLE campus (fort spans tiles ~1..8 ≈ 944px board units;
-  // at 390px that means z ≤ ~1.3 — 1.8 was tuned for the old spread layout and cropped
-  // both edge buildings off-screen).
-  // Desktop now opens PUNCHED IN (1.35 — the campus owns the frame, "bigger" per
-  // Jumaane); phones keep the 1.28 whole-campus fit. Pan/pinch explores the rest.
-  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.28 : 1.35;
-  // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
-  // not the board's geometric middle — so the base reads centered, especially zoomed in.
-  // +150 bias reveals the north grounds (megaboard behind the War Room, stands)
-  // instead of framing dead-center on the stadium — the skyline reads at default.
-  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ) + 150; // stadium center (anchor 4,4 → center tile 5,5)
+  // Phone opens on readable field action; zoom out or pan to explore the campus.
+  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.85 : 1.0;
+  // Keep the practice field just below the viewport center, with room for the HUD.
+  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ) + 35; // stadium center (anchor 4,4 → center tile 5,5)
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
     const z = Math.min(3, Math.max(0.85, c.z)); // floor raised: below ~0.85 the grounds rim could peek in
@@ -876,6 +845,10 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   // not a tap, and BuildingSprite's clickGuard swallows it.
   const panMovedRef = React.useRef(false);
   const resetCam = () => setCam({ z: homeZ, x: 0, y: homeY });
+  const zoomCam = (factor: number) => setCam(c => {
+    const z = Math.min(3, Math.max(.85, c.z * factor)), ratio = z / c.z;
+    return camClamp({ z, x: c.x * ratio, y: (c.y - 35) * ratio + 35 });
+  });
   // Desktop: wheel zooms (native non-passive listener so preventDefault works).
   useEffect(() => {
     const el = boardRef.current;
@@ -1129,7 +1102,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
 
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ background: 'radial-gradient(130% 95% at 50% 42%, #143526 0%, #0e2619 45%, #0b1e14 75%, #081711 100%)' }}
+    <div className="absolute inset-0 overflow-hidden" style={{ background: 'radial-gradient(130% 95% at 50% 42%, #235235 0%, #163c27 45%, #102f20 75%, #0c241a 100%)' }}
       onClick={() => { if (panMovedRef.current) { panMovedRef.current = false; return; } onDeselect?.(); }}>{/* tap empty turf → CC bar closes */}
       {/* Backdrop is GROUNDS, not outer space — every pixel reads as dark grass under
           floodlit haze, so panning/zooming never exposes black void. (Starfield removed
@@ -1229,7 +1202,8 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
             // glassy, one line, level integrated.
             // The backdrop stadium's base vertex is Rehab's block — its sign shifts
             // onto the bowl's own right skirt so it can't read as Rehab's rooftop.
-            const nudge = b.type === BuildingType.STADIUM ? { dx: TILE_W * 0.55, dy: -TILE_H * 0.45 } : { dx: 0, dy: 0 };
+            const nudge = b.type === BuildingType.STADIUM ? { dx: TILE_W * 0.55, dy: -TILE_H * 0.45 }
+              : b.type === BuildingType.TRAINING_PITCH ? { dx: TILE_W * 1.1, dy: -TILE_H * 1.3 } : { dx: 0, dy: 0 };
             return (
               <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x + nudge.dx, top: c.y + TILE_H / 2 + 5 + nudge.dy, zIndex: 46 }}>
                 <div className="flex items-baseline gap-1.5 px-2 py-[3px] rounded-[5px] whitespace-nowrap select-none"
@@ -1286,13 +1260,14 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
         </div>
       </div>
 
-      {/* Camera wandered? One tap home. (Double-tap the board does the same.) */}
-      {(cam.z !== homeZ || cam.x !== 0 || cam.y !== homeY) && (
-        <button onClick={resetCam} title="Recenter the board"
-          className="absolute bottom-24 left-3 z-40 bg-[#111827]/95 border border-slate-700 hover:border-orange-400 text-slate-200 p-2.5 rounded-2xl shadow-xl transition-colors">
-          <span className="block text-[12px] font-bold leading-none">⌖</span>
-        </button>
-      )}
+      <div role="group" aria-label="Campus camera" className="absolute bottom-24 right-3 z-40 flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
+        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomCam(1 / 1.2)} disabled={cam.z <= .85}
+          className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Minus size={18} /></button>
+        <button type="button" aria-label="Recenter campus" title="Recenter campus" onClick={resetCam}
+          className="w-11 h-11 flex items-center justify-center border-x border-slate-700 hover:bg-slate-700 focus-visible:bg-slate-700"><Focus size={18} /></button>
+        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomCam(1.2)} disabled={cam.z >= 3}
+          className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Plus size={18} /></button>
+      </div>
 
       {/* 🏙 stage-up banner — one keyframe owns bounce/hold/fade; unmounts at 4.2s */}
       {growthCeleb !== null && (

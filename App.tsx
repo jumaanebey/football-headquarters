@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 
 // Drops the CC building bar on ANY press outside it — HUD, nav, empty turf, other
 // screens' chrome. Buildings are excluded so pressing one just switches the bar.
@@ -45,7 +45,8 @@ import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnloc
 import { defenseSprite, DEFENSE_ART_GATES } from './assets';
 
 import type { BattleResult, BattleConfig } from './components/BattleScreen';
-const BattleScreen = lazy(() => import('./components/BattleScreen').then(m => ({ default: m.BattleScreen })));
+// Keep play-critical screens with this build: an open game must survive a deployment.
+import { BattleScreen } from './components/BattleScreen';
 import { GameNavigation } from './components/GameNavigation';
 import { BACKUP_KEYS, createBackup } from './backup';
 import { createInitialState, genTeamName } from './game/initialState';
@@ -55,7 +56,7 @@ import { advanceCampus } from './game/campus';
 import { useUpgradeCelebrations } from './game/useUpgradeCelebrations';
 import { Sheet, Btn, HowTo } from './components/ui';
 import { armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroMaxLevel, defenseAiTroops, specialsForBattle, raidAiMult, makeRevengeBase, homeDefenders, gauntletWaves, gauntletReward, GAUNTLET_MAX_TIER } from './battle';
-const HeroModal = lazy(() => import('./components/HeroModal').then(m => ({ default: m.HeroModal })));
+import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
 import { Volume2, VolumeX, X, Shield, Settings as SettingsIcon } from 'lucide-react';

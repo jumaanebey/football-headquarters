@@ -1,0 +1,58 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { BuildingType } from '../types';
+import { BUILDING_ART_LEVELS, buildingSprite } from '../assets';
+import { keyHeroPixels } from '../game/heroAnimation';
+
+const BOUNDS: Partial<Record<BuildingType, readonly number[]>> = {
+  [BuildingType.TACTICS_ROOM]: [138,155,519,512],
+  [BuildingType.YOUTH_ACADEMY]: [743,150,1121,513],
+  [BuildingType.MEDICAL_CENTER]: [129,719,543,1087],
+  [BuildingType.TRAINING_PITCH]: [709,731,1122,1080],
+};
+export const isStarterFacility = (type: BuildingType, level: number) => !!BOUNDS[type] && level < BUILDING_ART_LEVELS(type)[1];
+let prepared: Promise<HTMLCanvasElement> | undefined;
+function loadFacilities() {
+  return prepared ??= new Promise<HTMLCanvasElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      try {
+        const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) throw new Error('Canvas unavailable');
+        ctx.drawImage(image, 0, 0);
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        keyHeroPixels(pixels.data); ctx.putImageData(pixels, 0, 0);
+        resolve(canvas);
+      } catch (error) { prepared = undefined; reject(error); }
+    };
+    image.onerror = () => { prepared = undefined; reject(new Error('Facility art unavailable')); };
+    image.src = '/assets/buildings/starter-campus.webp';
+  });
+}
+
+/** Shared campus / progression art. Later construction eras keep their own silhouettes. */
+export function BuildingArt({ type, level, label = '', className = '', style }: {
+  type: BuildingType; level: number; label?: string; className?: string; style?: React.CSSProperties;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [ready, setReady] = useState(false);
+  const starter = isStarterFacility(type, level);
+  useEffect(() => {
+    let disposed = false; setReady(false);
+    if (starter) loadFacilities().then(sheet => {
+      if (disposed) return;
+      const ctx = ref.current?.getContext('2d'), b = BOUNDS[type];
+      if (!ctx || !b) return;
+      const [x, y, r, bottom] = b, w = r - x, h = bottom - y, scale = 340 / 414;
+      ctx.clearRect(0, 0, 384, 384);
+      ctx.drawImage(sheet, x, y, w, h, (384 - w * scale) / 2, 370 - h * scale, w * scale, h * scale);
+      setReady(true);
+    }).catch(() => {});
+    return () => { disposed = true; };
+  }, [starter, type]);
+  return <span className={`relative block ${className}`} style={style}>
+    <img src={buildingSprite(type, level)} alt={ready ? '' : label} draggable={false} className="block w-full h-auto select-none" style={{ visibility: ready ? 'hidden' : undefined }} />
+    {starter && <canvas ref={ref} width={384} height={384} role="img" aria-label={label || undefined} data-ready={ready ? '1' : '0'}
+      className="fhq-facility absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: ready ? 1 : 0 }} />}
+  </span>;
+}

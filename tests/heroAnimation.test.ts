@@ -1,9 +1,11 @@
 import { expect, it } from 'vitest';
 import { heroFrame, keyHeroPixels, advanceHeroStride } from '../game/heroAnimation';
-it('cycles four distinct walk poses and holds idle for reduced motion', () => {
-  expect([0, .12, .24, .36].map(t => heroFrame('walk', t, .48))).toEqual([1, 2, 3, 4]);
-  expect(heroFrame('attack', .3)).toBe(5);
+it('cycles six distinct walk poses and holds idle for reduced motion', () => {
+  expect([0, .08, .16, .24, .32, .4].map(t => heroFrame('walk', t, .48))).toEqual([1, 2, 3, 4, 5, 6]);
+  expect(heroFrame('attack', .3)).toBe(7);
   expect(heroFrame('walk', .3, .48, true)).toBe(0);
+  expect(heroFrame('celebrate', .3)).toBe(8);
+  expect(heroFrame('showcase', 6)).toBe(8);
 });
 it('removes magenta while preserving team colors and medical whites', () => {
   const pixels = new Uint8ClampedArray([255,0,255,255, 249,115,22,255, 17,24,39,255, 255,255,255,255]);

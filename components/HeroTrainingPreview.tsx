@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { HERO_DEFS } from '../battle';
 import { HERO_PLAYBOOK } from '../game/heroPlaybook';
-import { BattleHeroSprite } from './BattleHeroSprite';
+import { AnimatedHero } from './AnimatedHero';
 
 /** An animation preview only: no currency, unlock or combat state is changed. */
 export function HeroTrainingPreview({ initialHero = 'qb' }: { initialHero?: string }) {
   const [heroKey, setHeroKey] = useState(() => HERO_DEFS.some(h => h.key === initialHero) ? initialHero : 'qb');
-  const [mode, setMode] = useState<'idle' | 'run' | 'signature'>('idle');
+  const [mode, setMode] = useState<'idle' | 'run' | 'signature' | 'celebrate'>('idle');
   const [take, setTake] = useState(0);
-  const [facing, setFacing] = useState(1);
+  const [facing, setFacing] = useState(-1);
   const hero = HERO_DEFS.find(h => h.key === heroKey)!;
   const guide = HERO_PLAYBOOK[heroKey];
   useEffect(() => {
@@ -26,8 +26,8 @@ export function HeroTrainingPreview({ initialHero = 'qb' }: { initialHero?: stri
         <div className="absolute bottom-3 rounded-[50%] w-24 h-4 bg-black/40" />
         <div key={heroKey} className="fhq-unit relative w-48 h-48">
           <img src={hero.art} alt={hero.name} className="fhq-flat absolute inset-0 w-full h-full object-contain" />
-          <BattleHeroSprite heroKey={heroKey} fighting actor={{ moving: mode === 'run', actionPoseT: mode === 'signature' ? .28 : 0, face: facing, strideSeconds: .5 }}
-            filter={`drop-shadow(0 0 ${mode === 'signature' ? 12 : 3}px ${hero.color})`} />
+          <AnimatedHero heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode === 'signature' ? 'attack' : mode} facing={facing} cycle={.58}
+            elapsedSeconds={mode === 'signature' ? .2 : undefined} filter={`drop-shadow(0 0 ${mode === 'signature' ? 12 : 3}px ${hero.color})`} />
         </div>
       </div>
       <div className="min-w-0">
@@ -38,9 +38,9 @@ export function HeroTrainingPreview({ initialHero = 'qb' }: { initialHero?: stri
         <p className="mt-3 font-bold text-white">{guide.identity}</p>
         <p className="mt-1 text-sm leading-relaxed text-slate-300"><strong style={{ color: hero.color }}>{hero.abilityName}:</strong> {hero.abilityDesc}</p>
         <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Preview animation">
-          {(['idle', 'run', 'signature'] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value); setTake(t => t + 1); }}
+          {(['idle', 'run', 'signature', 'celebrate'] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value); setTake(t => t + 1); }}
             className={`rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline focus-visible:outline-orange-400 ${mode === value ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}>
-            {value === 'signature' ? 'Signature play' : value === 'run' ? 'Run' : 'Idle'}
+            {value === 'signature' ? 'Signature play' : value === 'run' ? 'Run' : value === 'celebrate' ? 'Celebrate' : 'Idle'}
           </button>)}
           <button type="button" onClick={() => setFacing(f => -f)} className="rounded-lg px-3 py-2 text-sm text-slate-300 border border-slate-700">Turn</button>
         </div>

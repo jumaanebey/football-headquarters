@@ -43,7 +43,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
   const action = heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `/assets/heroes/rig/${heroKey}-action.webp`;
   return <button ref={button} type="button" aria-label={`Open ${def.name}`} title={def.name} onClick={e => { e.stopPropagation(); onSelect?.(); }}
     className="absolute rounded-full focus-visible:outline focus-visible:outline-orange-400"
-    style={{ left: initial.x, top: initial.y, width: 58, height: 58, transform: 'translate(-50%,-96%)', pointerEvents: 'auto' }}>
+    style={{ left: initial.x, top: initial.y, width: 48, height: 48, transform: 'translate(-50%,-96%)', pointerEvents: 'auto' }}>
     <span className="absolute rounded-[50%] bg-black/30" style={{ left: '25%', bottom: '-2%', width: '50%', height: '10%' }} />
     {modern && <img src={def.art} alt="" className="fhq-campus-hero-fallback absolute inset-0 w-full h-full object-contain" />}
     {modern ? <AnimatedHero heroKey={heroKey} mode={pose.mode} cycle={pose.cycle} facing={pose.facing} /> :
