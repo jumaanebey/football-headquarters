@@ -4,7 +4,7 @@ import { HERO_PLAYBOOK } from '../game/heroPlaybook';
 import { AnimatedHero } from './AnimatedHero';
 
 /** An animation preview only: no currency, unlock or combat state is changed. */
-export function HeroTrainingPreview({ initialHero = 'qb' }: { initialHero?: string }) {
+export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initialHero?: string; onPractice?: (key: string) => void }) {
   const [heroKey, setHeroKey] = useState(() => HERO_DEFS.some(h => h.key === initialHero) ? initialHero : 'qb');
   const [mode, setMode] = useState<'idle' | 'run' | 'signature' | 'celebrate'>('idle');
   const [take, setTake] = useState(0);
@@ -45,6 +45,8 @@ export function HeroTrainingPreview({ initialHero = 'qb' }: { initialHero?: stri
           <button type="button" onClick={() => setFacing(f => -f)} className="rounded-lg px-3 py-2 text-sm text-slate-300 border border-slate-700">Turn</button>
         </div>
         <p className="sr-only" role="status">{hero.name}: {mode === 'signature' ? hero.abilityName : mode}</p>
+        {onPractice && <button type="button" onClick={() => onPractice(heroKey)} className="mt-4 min-h-11 w-full rounded-xl bg-orange-500 px-4 py-3 font-bold text-white hover:bg-orange-400 focus-visible:outline focus-visible:outline-white">Practice {hero.abilityName} · Free</button>}
+        {onPractice && <p className="mt-2 text-xs text-slate-400">Try this hero with a practice partner. No energy cost, rewards, or changes to your roster—even for locked heroes.</p>}
       </div>
     </div>
     <div className="border-t border-slate-800 px-4 py-3 text-sm leading-relaxed text-slate-300">
