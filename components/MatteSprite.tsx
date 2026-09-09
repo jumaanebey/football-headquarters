@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { keyHeroPixels } from '../game/heroAnimation';
+import { keySceneryPixels } from '../game/sceneryMatte';
 
 const sheets = new Map<string, Promise<HTMLCanvasElement>>();
 function loadSheet(src: string) {
@@ -15,7 +15,7 @@ function loadSheet(src: string) {
           if (!ctx) { fail(); return; }
           ctx.drawImage(image, 0, 0);
           const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          keyHeroPixels(pixels.data);
+          keySceneryPixels(pixels.data);
           ctx.putImageData(pixels, 0, 0);
           resolve(canvas);
         } catch { fail(); }
@@ -27,28 +27,38 @@ function loadSheet(src: string) {
   return sheets.get(src)!;
 }
 
-/** Square scenery sheets retain their original framing; only the matte disappears. */
-export function MatteSprite({ src, fallback, alt = '', className, style }: {
+/** A normalized atlas region retains the source sprite's framing and aspect ratio. */
+export function MatteSprite({ src, fallback, alt = '', className, style, region = [0, 0, 1, 1], underlay }: {
   src: string; fallback: string; alt?: string; className?: string; style?: React.CSSProperties;
+  region?: readonly [number, number, number, number];
+  underlay?: React.ReactNode;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [readySource, setReadySource] = useState('');
-  const ready = readySource === src;
+  const [x, y, width, height] = region;
+  // Upgrades can change cells within the same loaded sheet. Never show the old
+  // building while the next cell is preparing, or redraw on unrelated ticks.
+  const sourceKey = `${src}:${x},${y},${width},${height}`;
+  const ready = readySource === sourceKey;
   useEffect(() => {
     let disposed = false;
     loadSheet(src).then(sheet => {
       if (disposed) return;
       const ctx = ref.current?.getContext('2d');
       if (!ctx) return;
-      ctx.clearRect(0, 0, 512, 512);
-      ctx.drawImage(sheet, 0, 0, 512, 512);
-      setReadySource(src);
+      const canvas = ref.current!;
+      canvas.width = 512;
+      canvas.height = Math.round(512 * sheet.height * height / (sheet.width * width));
+      ctx.drawImage(sheet, sheet.width * x, sheet.height * y,
+        sheet.width * width, sheet.height * height, 0, 0, canvas.width, canvas.height);
+      setReadySource(sourceKey);
     }).catch(() => {});
     return () => { disposed = true; };
-  }, [src]);
+  }, [src, sourceKey, x, y, width, height]);
   return <span className={className} style={{ display: 'block', position: 'relative', ...style }}>
     <img src={fallback} alt={ready ? '' : alt} draggable={false}
       style={{ display: 'block', width: '100%', height: 'auto', visibility: ready ? 'hidden' : undefined }} />
+    {ready && underlay}
     <canvas ref={ref} width={512} height={512} role={alt ? 'img' : undefined} aria-label={alt || undefined}
       aria-hidden={!alt || undefined} data-sprite={src} data-ready={ready ? '1' : '0'}
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: ready ? 1 : 0, pointerEvents: 'none' }} />

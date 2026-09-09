@@ -13,6 +13,41 @@ Built-in image-generation edit workflow; two passes. Sources were preserved and 
 
 The published game, rather than the magenta source sheet, is the visual acceptance surface.
 
+## Upgrade and battle coverage
+
+The earlier fix covered starter buildings only. Later construction eras, fan
+tents, tree bases and battle equipment still carried separately colored grass.
+The new floorless atlases extend ground removal to those assets, retaining
+equipment, structures, foliage, structural decks and field paint. New images
+are encoded as lossless WebP; the shared canvas matte reveals the actual turf.
+
+`game/groundArt.ts` maps the existing saved sprite URLs to atlas regions.
+`ScenerySprite` shares these replacements between campus scenery and battles;
+`BuildingSprite` also routes saved home buildings through `BuildingArt`, including
+its starter facilities. Save URLs, construction gates, positions, hitboxes and
+combat rules are preserved. Atlas-cell changes invalidate readiness even when
+the sheet URL stays the same, so upgrades cannot retain the previous building.
+The rectangular fan-tent crop undoes atlas padding to preserve its aspect ratio.
+
+Production atlases:
+- `public/assets/buildings/upgraded-campus-cutouts.webp`
+- `public/assets/battle/field-equipment-cutouts.webp`
+- `public/assets/decor/grounds-cutouts.webp`
+
+The built-in imagegen tool performed the edits. Exact prompts and image
+dimensions are recorded in `ground-atlas-prompts.json`. Visual inspection uses
+the game's actual `keySceneryPixels` matte over `TURF.dark`; it is an asset-level
+check, not a browser playtest. The asset regression guard checks source and
+replacement existence, crop bounds and construction-era coverage.
+
+Scenery uses its own matte thresholds: light steel and fine fence mesh retain
+their opacity while reflected magenta is neutralized. This prevents the stronger
+character matte from punching holes in bleachers. Stadium yard lines use
+`FieldPaint` in markings-only mode behind the cutout; field-line generation
+corrections were rejected because they introduced center circles. The selected
+scenery correction restores natural dark-green leaves after the original
+semi-transparent foliage picked up the production backdrop.
+
 ## Remaining scenery and terrain
 
 The follow-up removes the separately colored campus diamond and its white light pool. One continuous ground plane now uses `TURF.dark`, the same base as `FieldPaint`; only the field's mowing stripes and the distant vignette vary. This removes the hard color edge beneath the rehab and training facilities.

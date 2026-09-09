@@ -1,0 +1,101 @@
+{
+  "generation": {
+    "mode": "built-in image_gen__imagegen edit",
+    "created": "2026-09-09",
+    "assets": [
+      {
+        "name": "upgraded-facilities-floorless.png",
+        "source": "upgraded-facilities-source.png",
+        "generated": "generated_images/exec-f3c63182-b217-469b-8f81-6cde9c1e9422.png",
+        "width": 1254,
+        "height": 1254,
+        "grid": [
+          4,
+          4
+        ],
+        "prompt": "Use case: precise-object-edit.\nAsset type: existing Football Headquarters game sprite atlas, exact 2048 × 2048 pixels, 4 × 4 fixed grid of sixteen 512 × 512 cells.\nInput image: the provided image is the EDIT TARGET. This is a surgical ground removal edit, not a redesign.\nPrimary request: Remove ALL green or olive ground and grass from EVERY sprite, replacing only those ground regions plus the existing background with completely uniform fully opaque pure magenta #ff00ff. Remove grass aprons around buildings, ground tufts, thick grass slab edges, and all green playing turf inside stadiums and practice grounds. Magenta must show through fences, under equipment and tents, between ladder rungs, between cones, and everywhere the underlying green ground was visible. Every object must become a floorless cutout for the shared game field to show through.\nInvariants: Keep the EXACT original 2048 square canvas, the same 4 × 4 arrangement, the original cell centers, all original per-cell 512 canvas object positions, scale, camera, framing, perspective, linework, colors, and styles. Do not move or resize any sprite. Preserve every building, roof, window, door, light, flag, fence, person, seating, equipment, cone, tyre, bench, ball, lettering, chalkboard green, object, and all white field markings. Preserve tree or other object foliage if present. Preserve stadium structures, white field lines, orange end zones, gray walkways, and structural platforms; remove only the green/olive grass or turf underlay. Existing magenta voids remain pure magenta. No new flooring, no paint over objects, no added shadows, no redesign, no labels. Output exact 2048 × 2048."
+      },
+      {
+        "name": "scenery-floorless.png",
+        "source": "scenery-source.png",
+        "generated": "generated_images/exec-4f166fdf-4e6e-48ed-b6bd-8120f5280e59.png",
+        "width": 1774,
+        "height": 887,
+        "grid": [
+          2,
+          1
+        ],
+        "prompt": "Use case: precise-object-edit.\nAsset type: existing Football Headquarters game scenery sprite atlas, exact 1200 × 600 pixels, 2 × 1 fixed grid of two 600 × 600 square cells.\nInput image: the provided image is the EDIT TARGET, with fan tents at left and tree cluster at right. This is a surgical ground removal edit, not a redesign.\nPrimary request: Remove ALL ground under both scenery sprites so they become floorless cutouts. Replace ONLY the ground and existing background with completely uniform fully opaque pure magenta #ff00ff. For the left tents remove the entire tan/olive grass apron/platform, every grass tuft and thick dark slab edge, including all visible ground between tents, under tent openings, below ropes, and around the fire ring. For the right tree cluster remove the entire purple/olive ground disk, grass, and raised slab edge, including the ground between and around the tree roots. Keep tree roots themselves.\nInvariants: Preserve the exact 2:1 canvas aspect ratio and exact original fixed cell centers; output exact 1200 × 600. Do NOT recenter, move, resize, or rescale either sprite. Preserve all tents, tent floors internal to tent structures, fabric, poles, ropes, bunting, fire ring stones and contents, all three trees, dark green/purple foliage, branches, trunks and roots. Preserve every object's original design, original color, scale, framing, perspective and linework. No replacement flooring, no added paint, no shadows, no redesign, no additional objects. All freed ground and existing empty background must be one flat fully opaque pure magenta #ff00ff."
+      },
+      {
+        "name": "battle-facilities-floorless.png",
+        "source": "battle-facilities-source.png",
+        "generated": "generated_images/exec-39e53c03-85a8-494e-81e3-ea47ab37ca57.png",
+        "width": 1254,
+        "height": 1254,
+        "grid": [
+          4,
+          4
+        ],
+        "prompt": "Use case: precise-object-edit.\nAsset type: Football Headquarters game battle-facilities sprite atlas, exact 2048 × 2048 square, 4 × 4 fixed grid of sixteen 512 × 512 cells.\nInput image: the provided image is the EDIT TARGET. Surgical ground removal edit only.\nPrimary request: Remove all ground under every one of the sixteen sprites and replace it with uniform fully opaque pure magenta #ff00ff, matching the existing magenta background. Remove every green or olive grass/turf region, dirt patch, grass tuft, square or beveled raised earth slab, thick tan slab side wall, and gray border framing that belongs only to the ground slab. Remove ground inside both rival field/stadium sprites too. Magenta must show through fence openings and equipment gaps and between every ladder rung. Every sprite must become a floorless cutout for the shared game field to show through.\nInvariants: Keep EXACT original 4 × 4 cell order, positions and proportions. Output exact2048 square preferred, no canvas or object repositioning; don't rescale any object relative to the overall canvas. Preserve all turrets, equipment, stands, structural wooden platforms, legs and metal supports, sandbags, footballs, tyres, people, flags, crates, coolers, cups, hoses, fluid spills, ladders, fencing, stadium structures, white/chalk field markings, text, original colors, linework, framing, camera, scale, and perspective. Remove only ground slabs and turf/dirt, NOT objects or structurally necessary footplates/platforms. Preserve the original objects exactly. Do not add floors or shadows. Do not redesign. Replace all existing background and removed ground with one flat pure opaque magenta #ff00ff."
+      }
+    ],
+    "inspection": "All three edit targets and outputs were visually inspected. No post-generation pixel editing or resizing was applied. Floorless removal succeeded. Thin interior field yard lines were partly removed by generator in upgraded stadiums; battle row 1 col 2 lost field lines. Generated resolutions are scaled from input but proportional grids retained."
+  },
+  "corrections": {
+    "mode": "built-in image_gen__imagegen edit",
+    "created": "2026-09-09",
+    "correctionPassesPerAtlas": 1,
+    "assets": [
+      {
+        "name": "upgraded-facilities-floorless-corrected.png",
+        "target": "upgraded-facilities-floorless.png",
+        "reference": "upgraded-facilities-source.png",
+        "generated": "generated_images/exec-b7e8cdee-d7fe-4c8f-adac-5b647a1c6c40.png",
+        "width": 1254,
+        "height": 1254,
+        "grid": [
+          4,
+          4
+        ],
+        "prompt": "Use case: precise-object-edit.\nAsset type: existing floorless Football Headquarters sprite atlas, square 4 × 4 fixed cell grid.\nInput images: Image 1 is the EDIT TARGET and defines ALL artwork, object positions, sizes, cell order, magenta background, and empty magenta ground. Image 2 is ONLY a reference for white football field markings that were accidentally erased. Match reference coordinates proportionally to Image 1.\nPrimary request: Restore ONLY the missing thin white football field markings, at their original positions and scale, in these exact 8 cells of Image 1: the 4 stadiums at row3col3, row3col4, row4col1, row4col2; and practice fields at row2col3, row2col4, row3col1, row3col2. Rows/columns counted from 1 at top-left. Copy only the thin white/chalk line strokes visible in those corresponding cells of Image 2, including yard lines and center markings. Do not invent additional markings.\nConstraints: Magenta MUST remain visible on BOTH sides of and between every restored white stroke. Keep all previously removed turf, olive ground, grass aprons, dirt, slabs, and green playing surfaces absent. Do NOT restore any green/olive ground pixels. Do NOT restore removed grass shadows or fluids. Preserve all currently present white perimeter strokes and orange endzones. Keep ALL other pixels conceptually unchanged: every structure, equipment object, fence, tree, roof, person, color, proportion, position, size, canvas framing, original target 4 × 4 composition and every other cell. No redesign, no resizing, no moving anything, no added flooring, no added shadows. This is a single surgical restoration of missing white line strokes only. Maintain Image 1 square resolution and precise proportional cell locations.",
+        "inspection": "Restored white markings in eight requested cells. Generator added center circles, so these do not exactly duplicate original linework. All grounds remain magenta. Original magenta contamination in row3col3 stadium2 bleachers remains; owner plans original asset fallback. Proportional framing and object grid preserved."
+      },
+      {
+        "name": "battle-facilities-floorless-corrected.png",
+        "target": "battle-facilities-floorless.png",
+        "reference": "battle-facilities-source.png",
+        "generated": "generated_images/exec-bfc17d8a-4547-40c4-a5a5-106ff305f0b2.png",
+        "width": 1254,
+        "height": 1254,
+        "grid": [
+          4,
+          4
+        ],
+        "prompt": "Use case: precise-object-edit.\nAsset type: existing floorless Football Headquarters battle sprite atlas, square 4 × 4 fixed cell grid.\nInput images: Image 1 is the EDIT TARGET and defines ALL artwork, object positions, sizes, cell order, magenta background, and empty magenta ground. Image 2 is ONLY a reference for white football field markings that were accidentally erased. Match reference coordinates proportionally to Image 1.\nPrimary request: Restore ONLY the missing thin white football field lines inside the small stadium in row1col2 of Image 1 (the second cell of the top row). Copy the thin white strokes from that exact corresponding stadium interior in Image 2, including yard lines and perimeter markings at their original positions and scale. Do not invent additional markings.\nConstraints: Magenta MUST remain visible on BOTH sides of and between every restored white stroke. Keep all previously removed turf, olive ground, dirt, grass aprons, thick earth slabs and green playing surfaces absent. Do NOT restore any green/olive ground pixels, shadows, or fluid spills. Keep ALL other cells and objects exactly as in Image 1, including the field at row1col1 which is already correct. Preserve every structure, equipment object, fence, person, color, proportion, position, size, canvas framing, and original target 4 × 4 composition. No redesign, no resizing, no moving anything, no added flooring, no added shadows. This is a single surgical restoration of missing white line strokes only in row1col2. Maintain Image 1 square resolution and precise proportional cell locations.",
+        "inspection": "White field markings restored in row1col2. Ground remains magenta. Other cells appear visually unchanged; no fluid spills restored."
+      },
+      {
+        "name": "scenery-floorless-corrected.png",
+        "target": "scenery-floorless.png",
+        "reference": "/workspace/scratch/71bd5388cf55/football-headquarters/public/assets/decor/tree-cluster.webp",
+        "generated": "generated_images/exec-c41b11a4-423e-4294-ae30-cee29d432af0.png",
+        "width": 1774,
+        "height": 887,
+        "grid": [
+          2,
+          1
+        ],
+        "prompt": "Use case: precise-object-edit.\nAsset type: existing floorless Football Headquarters scenery sprite atlas, exact 2:1 aspect ratio, two square cells, tents in left cell and a 3-tree cluster in right cell.\nInput images: Image1 is the EDIT TARGET defining the entire atlas composition and ALL object positions, sizes and details. Image2 is ONLY a color and opacity reference for the tree cluster's original dark natural green foliage; do not use Image2's ground or canvas layout.\nPrimary request: In Image1 ONLY repair the tree foliage in the right cell. Replace all purple/pink/magenta contamination within the leaf canopy with fully opaque dark natural green foliage matching Image2: deep #183b2c and #2c4934, charcoal-green shadows, restrained olive highlights. Repair magenta leaf holes that are actually contamination inside solid foliage clumps. Preserve legitimate gaps between separate branches/clumps and magenta background outside the leaf silhouette. Keep leaves and branches naturally shaded and fully opaque, with no magenta spill or transparency.\nInvariants: Keep the exact Image1 composition, 2:1 aspect, fixed cell centers, object sizes, shapes, silhouette, camera, linework and framing. Keep ALL tent artwork in the left cell untouched, including tent colors, cloth, ropes, bunting, poles and fire ring. Keep all tree trunks and roots intact in their exact positions. Retain complete removal of the tree ground disk and campsite slab: do NOT add back any grass, soil, green/olive ground, bases, floors or shadows. Every background and removed-ground region remains fully opaque pure magenta #ff00ff. Do not move or resize any object. This is only a repair of the right-cell canopy's purple contamination to opaque original natural green. Output same 1774 × 887 dimensions if possible, always exact2:1.",
+        "inspection": "Tree canopy purple contamination removed and leaf clumps restored to opaque natural dark green. Ground/base removal preserved, tent artwork and exact2:1 framing preserved."
+      }
+    ],
+    "general": "All edit targets, secondary references, and outputs were visually inspected. Copies saved non-destructively. No post-generation pixel editing or resizing applied. Tolerant magenta chroma key still required due generated near-key RGB variations."
+  },
+  "selected": {
+    "upgraded": "upgraded-facilities-floorless.png",
+    "battle": "battle-facilities-floorless.png",
+    "scenery": "scenery-floorless-corrected.png"
+  },
+  "integration": "Lossless WebP encoding without resizing. Existing image files retained. keySceneryPixels removes magenta and neutralizes reflected key color while preserving steel and fence mesh. Stadium chalk is drawn behind art with the existing FieldPaint in markingsOnly mode. Rejected generated field-line correction atlases because they added center circles."
+}

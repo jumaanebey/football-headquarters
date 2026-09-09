@@ -8,8 +8,25 @@ import { MODERN_HEROES } from '../game/heroAnimation';
 import { HERO_ATLAS } from '../game/heroAtlas';
 import { HERO_DEFS } from '../battle';
 import { WALK_FRAMES } from '../components/SpriteFrames';
+import { GROUND_ART } from '../game/groundArt';
 
 describe('shipped game art', () => {
+  it('ships floorless scenery with valid, isolated atlas regions', () => {
+    for (const [original, art] of Object.entries(GROUND_ART)) {
+      expect(existsSync(resolve('public', original.slice(1))), original).toBe(true);
+      expect(existsSync(resolve('public', art.src.slice(1))), art.src).toBe(true);
+      const [x, y, w, h] = art.region ?? [0, 0, 1, 1];
+      expect(x).toBeGreaterThanOrEqual(0); expect(y).toBeGreaterThanOrEqual(0);
+      expect(w).toBeGreaterThan(0); expect(h).toBeGreaterThan(0);
+      expect(x + w).toBeLessThanOrEqual(1); expect(y + h).toBeLessThanOrEqual(1);
+    }
+    // A new construction era must not silently bring the old grass apron back.
+    for (const type of Object.values(BuildingType)) {
+      for (let level = 3; level <= 12; level++) {
+        expect(GROUND_ART[buildingSprite(type, level)]).toBeDefined();
+      }
+    }
+  });
   it('provides every facility, defense, roster state and rank used by the resolvers', () => {
     const paths = new Set(RANKS.map(rank => rank.art));
     for (let level = 1; level <= 12; level++) {
