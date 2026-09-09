@@ -25,6 +25,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Type safety
+        run: npm run typecheck
+
       - name: Production build
         run: npm run build
 
