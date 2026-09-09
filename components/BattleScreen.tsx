@@ -1215,7 +1215,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             <div key={milestoneKey} className={`font-mono font-bold text-base sm:text-lg leading-none ${isDefense && pct >= 50 ? 'text-red-400' : 'text-white'}`} style={{ animation: milestoneKey ? 'fhq-counter-pop 0.55s ease-out' : undefined, display: 'inline-block' }}>{pct}%</div>
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold ${timeLeft <= 10 ? 'bg-red-900/50 text-red-300' : 'bg-slate-800 text-white'}`}>
-            <Clock size={15} /> 0:{timeLeft.toString().padStart(2, '0')}
+            <Clock size={15} /> {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
           </div>
         </div>
       </div>
