@@ -17,7 +17,7 @@ const ClickAwayCloser: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return null;
 };
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, UnitGroup, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { DRILLS, RECRUIT_CONFIG, COLLECTOR_CONFIG, RALLY_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, trainingYieldMult, warRoomReadinessMult, OPPONENTS, DEFENSE_TYPES, RAID_ENERGY, PARKING_LOT, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
+import { DRILLS, RECRUIT_CONFIG, COLLECTOR_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, trainingYieldMult, warRoomReadinessMult, OPPONENTS, DEFENSE_TYPES, RAID_ENERGY, PARKING_LOT, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap } from './components/IsometricMap';
@@ -38,7 +38,7 @@ import { rankFor, trophiesForRaid, trophiesLostOnDefense, clubPower } from './ra
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
 import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, preloadNextCoaches, crestForTeam } from './campaign';
 import { questsForDate, todayKey, SWEEP_BONUS_GEMS } from './dailies';
-import { pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, ProfileInfo } from './pvp';
+import { subscribeCloudWriteStatus, acceptCloudRevision, type CloudSave, getCloudWriteStatus, retryAttackReports, pendingAttackReports, fetchAttackInbox, fetchAttackInboxBaseline, playerId, pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, ProfileInfo } from './pvp';
 import { track, trafficSource } from './analytics';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 
@@ -53,7 +53,13 @@ import { BACKUP_KEYS, createBackup } from './backup';
 import { createInitialState, genTeamName } from './game/initialState';
 import { loadState, SAVE_KEY, TUTORIAL_KEY, parseSavedClub } from './game/persistence';
 import { layoutFromFixedBase } from './game/defenseLayout';
+import { finishUpgradeNow } from './game/upgrades';
+import { rosterPreparation } from './game/combat/roster';
+import { validateReplay } from './game/combat/replay';
 import { advanceCampus } from './game/campus';
+import { fanMilestoneTotal, nextFanMilestone, rallyFans, rallyPreview } from './game/fanProgress';
+import { applyAttackInbox, establishDefenseInbox, defenseCursor } from './game/online/defenseInbox';
+import { isArchivedAiRaid } from './game/defenseHistory';
 import { useUpgradeCelebrations } from './game/useUpgradeCelebrations';
 import { Sheet, Btn, HowTo } from './components/ui';
 import { armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroMaxLevel, defenseAiTroops, specialsForBattle, raidAiMult, makeRevengeBase, homeDefenders, gauntletWaves, gauntletReward, GAUNTLET_MAX_TIER } from './battle';
@@ -198,7 +204,26 @@ function App() {
   // email upgrades that SAME identity (uid/pid keep, base + raid history carry).
   // Sync rule: newest wins, and the losing local save is backed up first.
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
+  const [cloudSyncPaused,setCloudSyncPaused]=useState(()=>{try{return localStorage.getItem('fhq_cloud_sync_paused')==='1';}catch{return false;}});
+  const cloudSyncPausedRef=useRef(cloudSyncPaused);
+  const pauseCloudSync=(paused:boolean)=>{cloudSyncPausedRef.current=paused;setCloudSyncPaused(paused);try{localStorage.setItem('fhq_cloud_sync_paused',paused?'1':'0');}catch{/* Current session still respects the choice. */}};
+  const [cloudConflict, setCloudConflict] = useState<{ownerId:string;save:CloudSave|null} | undefined>(undefined);
+  const [onlineNotice, setOnlineNotice] = useState<string | null>(null);
   const [cloudMsg, setCloudMsg] = useState<string | null>(null);
+  useEffect(() => subscribeCloudWriteStatus(status => {
+    setCloudMsg(status.status === 'saved' ? 'Club saved to the cloud ✓' : status.message ?? null);
+    if(status.status === 'conflict') { const ownerId=playerId(); void fetchCloudSave().then(result=>{
+      if(result.status !== 'error' && playerId()===ownerId) setCloudConflict({ownerId,save:result.status === 'found' ? result.save : null});
+    }); }
+  }), []);
+  useEffect(() => {
+    const retry = () => { void retryAttackReports().then(()=> {
+      const pending=pendingAttackReports();
+      setOnlineNotice(pending.length ? `${pending.length} game report${pending.length===1?'':'s'} awaiting confirmation. Open Settings for details.` : null);
+    }); };
+    retry(); window.addEventListener('online',retry);
+    return ()=>window.removeEventListener('online',retry);
+  },[]);
   const profileRef = useRef<ProfileInfo | null>(null);
   profileRef.current = profile;
   // Seeded to NOW, not 0. At 0, the very first 2s autosave tick that saw a signed-in
@@ -219,6 +244,7 @@ function App() {
     return out;
   };
   const pushSaveToCloud = async (): Promise<boolean> => {
+    if(cloudSyncPausedRef.current)return false;
     const ok = await pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current));
     if (ok) lastCloudPushRef.current = Date.now();
     return ok;
@@ -237,13 +263,17 @@ function App() {
    *  otherwise push the local club up. force=true always applies cloud (fresh
    *  device sign-in). localRecency = when this device last recorded progress
    *  (boot passes the pre-session stamp; an actively-played session is "now"). */
-  const syncWithCloud = async (force = false, localRecency?: number): Promise<'applied' | 'pushed' | 'error' | 'none'> => {
+  const syncWithCloud = async (force = false, localRecency?: number): Promise<'applied' | 'pushed' | 'error' | 'none' | 'conflict'> => {
+    if(cloudSyncPausedRef.current)return 'none';
+    const ownerId=playerId();
     const res = await fetchCloudSave();
+    if(playerId()!==ownerId || cloudSyncPausedRef.current) return 'error';
     // NEVER push on an error. A timed-out lookup used to be indistinguishable from an
     // empty account, so a network blip during sign-in would overwrite a real club in
     // the cloud with the fresh local one — and then report "saved ✓". Back off instead:
     // the local save is untouched and the next sync can try again.
     if (res.status === 'error') return 'error';
+    if (res.conflict) { setCloudConflict({ownerId,save:res.status === 'found' ? res.save : null});setCloudMsg('Another device changed this club. Choose which progress to keep.');return 'conflict'; }
     if (res.status === 'empty') {
       const pushed = await pushSaveToCloud();
       return pushed ? 'pushed' : 'none';
@@ -259,6 +289,7 @@ function App() {
         try { localStorage.setItem('fhq_backup_precloud', localStorage.getItem(SAVE_KEY) ?? ''); } catch { /* best effort */ }
         localStorage.setItem(SAVE_KEY, JSON.stringify(cloud.save));
         try { localStorage.setItem('fhq_saved_at', String(cloudTime || Date.now())); } catch { /* best effort */ }
+        acceptCloudRevision(cloud.updated_at);
         sessionStorage.setItem('fhq_cloud_applied', '1'); // reload-loop guard
       } catch {
         suppressPersistRef.current = false; // write failed (quota/private mode) — re-enable autosave, do NOT strand the session unsaved
@@ -271,6 +302,27 @@ function App() {
     return pushed ? 'pushed' : 'none';
   };
 
+  const resolveCloudConflict = async (choice:'cloud'|'device') => {
+    if(cloudConflict === undefined) return;
+    if(cloudConflict.ownerId!==playerId()){setCloudConflict(undefined);return;}
+    const chosen=cloudConflict.save;
+    if(choice === 'cloud') {
+      if(!chosen) return;
+      try {
+        parseSavedClub(JSON.stringify(chosen.save));
+        suppressPersistRef.current=true;
+        localStorage.setItem('fhq_backup_precloud',JSON.stringify(stateRef.current));
+        localStorage.setItem(SAVE_KEY,JSON.stringify(chosen.save));
+        localStorage.setItem('fhq_saved_at',String(Date.parse(chosen.updated_at)));
+        sessionStorage.setItem('fhq_cloud_applied','1');
+        acceptCloudRevision(chosen.updated_at);
+        window.location.reload();
+      } catch {suppressPersistRef.current=false;setCloudMsg('Could not load the cloud club. Both versions are preserved.');}
+    } else {
+      acceptCloudRevision(chosen?.updated_at ?? null);
+      if(await pushSaveToCloud()) {setCloudConflict(undefined);setCloudMsg('This device’s club is saved to the cloud.');}
+    }
+  };
   useEffect(() => {
     if (!pvpEnabled()) return;
     const justApplied = sessionStorage.getItem('fhq_cloud_applied');
@@ -303,7 +355,7 @@ function App() {
       }
       // ☁️ linked clubs (active OR pending-confirm — same uid either way) trickle
       // up to the cloud once a minute, quietly
-      if (bootSyncDoneRef.current && (profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
+      if (!cloudSyncPausedRef.current && bootSyncDoneRef.current && (profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
         lastCloudPushRef.current = Date.now(); // set BEFORE the await — no double-fire
         pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current)).catch(() => { /* offline — next tick */ });
       }
@@ -464,27 +516,17 @@ function App() {
   };
 
   const handleFinishNow = (jobId: string) => {
-    setGameState(prev => {
-      const job = prev.upgrades.find(u => u.id === jobId);
-      if (!job) return prev;
-      const gemCost = skipGemCost(Math.max(0, (job.finishTime - Date.now()) / 1000));
-      if (prev.resources.GEMS < gemCost) return prev;
-      return {
-        ...prev,
-        resources: { ...prev.resources, [ResourceType.GEMS]: prev.resources.GEMS - gemCost },
-        buildings: job.kind === 'building' ? prev.buildings.map(b => b.id === job.key ? { ...b, level: job.toLevel } : b) : prev.buildings,
-        heroes: job.kind === 'hero' ? prev.heroes.map(h => h.key === job.key ? { ...h, level: job.toLevel } : h) : prev.heroes,
-        upgrades: prev.upgrades.filter(u => u.id !== jobId),
-      };
-    });
+    const now = Date.now();
+    const before = stateRef.current;
+    const job = before.upgrades.find(upgrade => upgrade.id === jobId);
+    const preview = finishUpgradeNow(before, jobId, now);
+    setGameState(previous => finishUpgradeNow(previous, jobId, now));
+    if (!job || preview.upgrades.some(upgrade => upgrade.id === jobId)) return;
     setSelectedBuilding(null);
     sfx.upgrade();
-    spawnText('Rushed!', window.innerWidth / 2, window.innerHeight / 2, '#a78bfa');
-    const job = gameState.upgrades.find(u => u.id === jobId);
-    if (job) {
-      const gemCost = skipGemCost(Math.max(0, (job.finishTime - Date.now()) / 1000));
-      if (gameState.resources.GEMS >= gemCost) track('upgrade_finish_now', { gems: gemCost, kind: job.kind });
-    }
+    const gems = before.resources.GEMS - preview.resources.GEMS;
+    spawnText(gems > 0 ? 'Rushed!' : 'Upgrade complete!', window.innerWidth / 2, window.innerHeight / 2, '#a78bfa');
+    if (gems > 0) track('upgrade_finish_now', { gems, kind: job.kind });
   };
 
   const handleHireBuilder = () => {
@@ -507,6 +549,7 @@ function App() {
     if (amount <= 0) return;
     setGameState(prev => ({
       ...prev,
+      peakFans: nextFanMilestone(prev, cfg.resource === ResourceType.FANS ? amount : 0),
       resources: { ...prev.resources, [cfg.resource]: prev.resources[cfg.resource] + amount },
       buildings: prev.buildings.map(b => b.id === building.id ? { ...b, accrued: 0 } : b)
     }));
@@ -518,18 +561,10 @@ function App() {
   };
 
   const handleRally = () => {
-    setGameState(prev => {
-      if (prev.resources.ENERGY >= 100 || prev.resources.FANS < RALLY_CONFIG.fanCost) return prev;
-      return {
-        ...prev,
-        resources: {
-          ...prev.resources,
-          [ResourceType.FANS]: prev.resources.FANS - RALLY_CONFIG.fanCost,
-          [ResourceType.ENERGY]: Math.min(100, prev.resources.ENERGY + RALLY_CONFIG.energyGain),
-        }
-      };
-    });
-    spawnText('Fans fired up! +Energy', window.innerWidth/2, window.innerHeight/2, '#f43f5e');
+    const preview = rallyPreview(stateRef.current);
+    if (!preview.canRally) return;
+    setGameState(rallyFans);
+    spawnText(`+${preview.energyGain} Energy · −${preview.fanCost} Fans`, window.innerWidth/2, window.innerHeight/2, '#f43f5e');
     sfx.collect();
   };
 
@@ -614,7 +649,7 @@ function App() {
       setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => ({ ...e, seen: true })) }));
     }
   };
-  const unseenDefenses = gameState.defenseLog.filter(e => !e.seen).length;
+  const unseenDefenses = gameState.defenseLog.filter(e => !e.seen && !isArchivedAiRaid(e)).length;
 
   // Open the raid picker with a fresh set of trophy-scaled rivals (no more farming 2 bases).
   // When Live Rivals is connected, also fetch REAL player bases near your trophy count.
@@ -630,6 +665,7 @@ function App() {
   // Take REVENGE on a rival who raided you — storm their (scaled) base for extra loot.
   const revengeInFlightRef = useRef(false);
   const handleRevenge = async (entry: DefenseLogEntry) => {
+    if (isArchivedAiRaid(entry)) return;
     if (revengeInFlightRef.current) return; // double-tap during the base fetch launched (and charged) twice
     revengeInFlightRef.current = true;
     // Was a fixed 4s timer guarding a fetch with a 10s budget: on mobile data the guard
@@ -664,7 +700,7 @@ function App() {
       specials: specialsForBattle(gameState.resources.FANS),
       // 🔥 FEUD: a rival who's hit you 2+ times pays extra when you finally hit back.
       loot: (() => {
-        const hits = gameState.defenseLog.filter(e => (entry.attackerPid ? e.attackerPid === entry.attackerPid : e.attacker === entry.attacker)).length;
+        const hits = gameState.defenseLog.filter(e => !isArchivedAiRaid(e) && (entry.attackerPid ? e.attackerPid === entry.attackerPid : e.attacker === entry.attacker)).length;
         const feud = hits >= 2 ? 1.5 : 1;
         return { coins: Math.round((Math.round(entry.coinsLost * 1.5) + 200) * feud), fans: Math.round(25 * feud) };
       })(),
@@ -694,7 +730,7 @@ function App() {
     // Respect an explicit attackerName. The tutorial launches the first game in the same
     // tick it sets the club name, so gameState.teamName is still the stale auto-generated
     // one here — the player would watch their first matchup card show a name they didn't pick.
-    setBattleConfig({ ...config, attackerName: config.attackerName ?? gameState.teamName, squad: gameState.roster }); // your club + your INDIVIDUALS
+    setBattleConfig({ ...config, attackerName: config.attackerName ?? gameState.teamName, squad: gameState.roster, preparation: rosterPreparation(gameState.roster,gameState.teamReadiness) }); // your club + your INDIVIDUALS
     return true;
   };
 
@@ -764,8 +800,13 @@ function App() {
 
   // ▶ Watch the ACTUAL attack a live rival ran on your base — every deploy is theirs.
   const handleWatchReplay = (entry: DefenseLogEntry) => {
-    const rep = entry.replay as import('./battle').ReplayData | undefined;
-    if (!rep || rep.v !== 1) return;
+    const rep = validateReplay(entry.replay);
+    if (!rep) {spawnText('This replay is unavailable or uses unsupported rules', window.innerWidth/2,window.innerHeight/2,'#94a3b8');return;}
+    if(rep.v === 2 && rep.snapshot) {
+      setDefenseLogOpen(false);
+      setBattleConfig({...rep.snapshot,replay:{seed:rep.seed,script:rep.script,planKey:rep.plan,version:2,expectedHash:rep.finalHash,expectedTicks:rep.ticks,displayTitle:`${entry.attacker.replace(' ⚡','')} at your stadium`}});
+      return;
+    }
     setDefenseLogOpen(false);
     setBattleConfig({
       mode: 'attack',
@@ -821,6 +862,7 @@ function App() {
             [ResourceType.FANS]: prev.resources.FANS + r.fans,
             [ResourceType.GEMS]: prev.resources.GEMS + gemReward + (firstClear ? stageDef!.firstClear.gems : 0),
           },
+          peakFans: nextFanMilestone(prev, r.fans),
           heroes: firstClear
             ? prev.heroes.map(h => h.key === stageDef!.firstClear.shardHero ? { ...h, shards: h.shards + stageDef!.firstClear.shards } : h)
             : prev.heroes,
@@ -848,7 +890,7 @@ function App() {
         sfx.victory();
       }
       // LIVE rival raided → their defense log hears about it (with the full replay); republish my base.
-      if (r.pvpTarget) reportAttack(r.pvpTarget, gameState.teamName, r.stars, r.pct, r.coins, r.replay);
+      if (r.pvpTarget) void reportAttack(r.pvpTarget, gameState.teamName, r.stars, r.pct, r.coins, r.replay).then(report=>setOnlineNotice(report.status === 'reported' ? null : report.message));
       setTimeout(publishMyBase, 500);
     } else if (r.gauntletTier !== undefined) {
       // 🛡 Gauntlet night: pay per wave held; clearing a NEW night banks gems + raises the tier.
@@ -864,6 +906,7 @@ function App() {
           [ResourceType.GEMS]: prev.resources.GEMS + (r.gauntletCleared && r.gauntletTier! > prev.gauntlet.best ? 5 : 0),
         },
         gauntlet: { ...prev.gauntlet, best: r.gauntletCleared ? Math.max(prev.gauntlet.best, r.gauntletTier!) : prev.gauntlet.best },
+        peakFans: nextFanMilestone(prev, pay.fans),
       }));
       if (pay.coins > 0) spawnText(`Gauntlet purse +${pay.coins} 🪙 +${pay.fans} fans`, window.innerWidth / 2, window.innerHeight / 2, '#fbbf24');
       if (newBest) spawnText(`🛡 NIGHT ${r.gauntletTier} CLEARED — +5 👑`, window.innerWidth / 2, window.innerHeight / 2 + 40, '#a855f7');
@@ -950,36 +993,30 @@ function App() {
     .filter(q => (gameState.dailies.progress[q.id] || 0) >= q.target && !gameState.dailies.claimed.includes(q.id)).length;
 
   // --- LIVE RIVALS (async PvP) ---
-  // On load: pull attacks other players landed on my base while I was away.
+  // Defense consequences and their owner-bound cursor persist as one state update.
   useEffect(() => {
     if (!pvpEnabled()) return;
-    const since = localStorage.getItem('fhq_pvp_since') || new Date(0).toISOString();
-    fetchAttacksOnMe(since).then(attacks => {
-      if (!attacks.length) return;
-      localStorage.setItem('fhq_pvp_since', attacks[attacks.length - 1].created_at);
-      setGameState(prev => {
-        // Idempotent by attack id — StrictMode double-mounts this effect in dev.
-        const fresh = attacks.filter(a => !prev.defenseLog.some(d => d.id === `pvp_${a.id}`));
-        if (!fresh.length) return prev;
-        let coins = prev.resources.COINS;
-        let trophies = prev.trophies;
-        const entries: DefenseLogEntry[] = fresh.map(a => {
-          const coinsLost = Math.min(a.coins_lost, Math.round(coins * 0.12));
-          coins -= coinsLost;
-          trophies = Math.max(0, trophies + trophiesLostOnDefense(a.pct));
-          return { id: `pvp_${a.id}`, attacker: `${a.attacker_name} ⚡`, at: Date.parse(a.created_at), stars: a.stars, pct: a.pct, coinsLost, seen: false, replay: a.replay ?? undefined, attackerPid: a.attacker_pid };
-        });
-        // Every HELD live attack (0 game balls) builds mastery in the scheme you were running
-        const holds = fresh.filter(a => a.stars === 0).length;
-        const fm = holds > 0 ? { ...prev.formationMastery, [prev.formation]: (prev.formationMastery[prev.formation] ?? 0) + holds } : prev.formationMastery;
-        const log = [...entries.reverse(), ...prev.defenseLog].slice(0, 20)
-          // replay blobs run up to 75KB each — keep film on the newest 5 raids only,
-          // or the save (and every 60s cloud push) balloons past the 500KB cloud cap
-          .map((en, i) => (i < 5 || !en.replay) ? en : { ...en, replay: undefined });
-        return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: coins }, trophies, formationMastery: fm, defenseLog: log };
-      });
-    });
-  }, []);
+    let cancelled=false;
+    void (async()=>{
+      await getProfile();
+      const owner=playerId();
+      let cursor=defenseCursor(stateRef.current,owner);
+      if(stateRef.current.defenseInbox?.ownerId!==owner) {
+        const baseline=await fetchAttackInboxBaseline();
+        if(cancelled||baseline.status!=='ok'||baseline.playerId!==owner||playerId()!==owner)return;
+        setGameState(previous=>establishDefenseInbox(previous,owner,baseline.cursor));
+        cursor=baseline.cursor;
+      }
+      for(let pageIndex=0;pageIndex<10;pageIndex++) {
+        const page=await fetchAttackInbox(cursor);
+        if(cancelled||page.status!=='ok'||page.playerId!==owner||playerId()!==owner)return;
+        setGameState(previous=>applyAttackInbox(previous,page,owner));
+        if(!page.hasMore)return;
+        cursor=page.cursor;
+      }
+    })();
+    return ()=>{cancelled=true;};
+  },[]);
 
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
   // Reads stateRef, NOT the render closure. Every caller schedules this with
@@ -989,7 +1026,7 @@ function App() {
   // turret the player had just bought, against the formation they'd just switched off,
   // with trophies one raid stale (which also skewed matchmaking).
   const publishMyBase = () => {
-    if (!pvpEnabled()) return;
+    if (!pvpEnabled() || cloudSyncPausedRef.current) return;
     const s = stateRef.current;
     publishBase(s.teamName, s.trophies, layoutFromFixedBase(s.buildings, s.roster, s.defenseSlots, s.parkingLot, s.formation, s.formationMastery[s.formation] ?? 0));
     track('base_publish', { trophies: s.trophies });
@@ -1222,6 +1259,7 @@ function App() {
         clubName={gameState.teamName}
         trophies={gameState.trophies}
         fans={Math.floor(gameState.resources[ResourceType.FANS] ?? 0)}
+        growthFans={fanMilestoneTotal(gameState)}
         selectedId={selectedBuilding?.id ?? null}
         celebrationId={celebration?.id ?? null}
         onDeselect={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }}
@@ -1529,7 +1567,6 @@ function App() {
       {defenseLogOpen && (
         <DefenseLogModal
           log={gameState.defenseLog}
-          shieldUntil={gameState.shieldUntil}
           onClose={() => setDefenseLogOpen(false)}
           onWatchLive={() => { setDefenseLogOpen(false); startDefense(); }}
           onRevenge={handleRevenge}
@@ -1835,15 +1872,16 @@ function App() {
                           : <>Almost done — we sent a confirmation link to <span className="text-yellow-300 font-bold">{profile.pendingEmail}</span>. Your club already syncs from THIS device; click the link to unlock sign-in from other devices, then tap Sync now.</>}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={async () => { setCloudMsg('Syncing…'); const r = await syncWithCloud(); setCloudMsg(r === 'pushed' ? 'Club saved to the cloud ✓' : r === 'error' || r === 'none' ? "Couldn't reach the cloud — your club is safe on this device. We'll retry." : null); }}
+                        <button onClick={async () => { pauseCloudSync(false);setCloudMsg('Syncing…'); const r = await syncWithCloud(); setCloudMsg(r === 'conflict' ? 'Another device changed this club. Choose which progress to keep below.' : r === 'pushed' ? 'Club saved to the cloud ✓' : r === 'error' || r === 'none' ? "Couldn't reach the cloud — your club is safe on this device. We'll retry." : null); }}
                           className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors active:scale-95">☁️ Sync now</button>
-                        <button onClick={() => { signOutToGuest(); setProfile(null); setCloudMsg('Signed out — this device plays as a new guest.'); }}
+                        <button onClick={() => { setCloudConflict(undefined); signOutToGuest(); setProfile(null); setCloudMsg('Signed out — this device plays as a new guest.'); }}
                           className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Sign out</button>
                       </div>
                       <button onClick={async () => {
                         if (cloudMsg !== 'Delete cloud data? Tap again to confirm.') { setCloudMsg('Delete cloud data? Tap again to confirm.'); return; }
                         const ok = await deleteCloudData();
-                        setCloudMsg(ok ? 'Cloud save and published base deleted. Local club untouched.' : 'Delete failed — try again.');
+                        if(ok){pauseCloudSync(true);setCloudConflict(undefined);}
+                        setCloudMsg(ok ? 'Cloud save and published base deleted. Cloud sync is paused; tap Sync to resume. Your club remains on this device.' : 'Delete failed — try again.');
                       }} className="mt-2 w-full py-1.5 rounded-lg border border-red-900 text-red-400 hover:bg-red-950/50 text-[12px] font-bold transition-colors">Delete my cloud data…</button>
                     </>
                   ) : (
@@ -1858,7 +1896,7 @@ function App() {
                           const email = (document.getElementById('fhq-auth-email') as HTMLInputElement | null)?.value.trim() ?? '';
                           const pass = (document.getElementById('fhq-auth-pass') as HTMLInputElement | null)?.value ?? '';
                           if (!email.includes('@') || pass.length < 8) { setCloudMsg('Enter a valid email and an 8+ character password.'); return; }
-                          setCloudMsg('Creating your account…');
+                          pauseCloudSync(false);setCloudConflict(undefined);setCloudMsg('Creating your account…');
                           const r = await linkAccount(email, pass);
                           if (!r.ok) { setCloudMsg(r.error ?? 'Could not create the account.'); return; }
                           const p = await getProfile(); setProfile(p);
@@ -1871,7 +1909,7 @@ function App() {
                           const email = (document.getElementById('fhq-auth-email') as HTMLInputElement | null)?.value.trim() ?? '';
                           const pass = (document.getElementById('fhq-auth-pass') as HTMLInputElement | null)?.value ?? '';
                           if (!email.includes('@') || !pass) { setCloudMsg('Enter your email and password.'); return; }
-                          setCloudMsg('Signing in…');
+                          pauseCloudSync(false);setCloudConflict(undefined);setCloudMsg('Signing in…');
                           const r = await signInWithPassword(email, pass);
                           if (!r.ok) { setCloudMsg(r.error ?? 'Sign-in failed.'); return; }
                           const p = await getProfile(); setProfile(p);
@@ -1884,6 +1922,18 @@ function App() {
                       </div>
                     </>
                   )}
+                  {cloudConflict !== undefined && cloudConflict.ownerId===playerId() && <div className="mt-3 rounded-xl border border-amber-500 p-3 text-sm" role="alert">
+                    <p className="font-bold text-amber-200">Choose the progress to keep</p>
+                    <p className="mt-1 text-slate-300">{cloudConflict.save ? `Cloud: ${cloudConflict.save.club_name ?? 'Saved club'}. Device: ${gameState.teamName}. Both versions are preserved until you choose.` : 'The cloud club was removed on another device. Your device’s club is still saved here.'}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {cloudConflict.save && <Btn onClick={()=>void resolveCloudConflict('cloud')}>Use cloud club</Btn>}
+                      <Btn onClick={()=>void resolveCloudConflict('device')}>Keep this device’s club</Btn>
+                      <Btn onClick={()=>{setCloudConflict(undefined);setCloudMsg('Both clubs preserved. Cloud uploads are paused until you resolve the conflict.');}}>Decide later</Btn>
+                    </div>
+                  </div>}
+                  {onlineNotice && <p role="status" className="mt-3 text-sm text-amber-200">{onlineNotice}</p>}
+                  {pendingAttackReports().map(report=><p key={report.operationId} className="mt-2 text-xs text-slate-400">{report.message}</p>)}
+                  {cloudSyncPaused && <p className="mt-2 text-sm text-amber-200">Cloud sync is paused. Tap Sync when you want to upload this club again.</p>}
                   {cloudMsg && <div className="mt-2 text-[11px] text-slate-400">{cloudMsg}</div>}
                 </div>
               )}
@@ -1916,7 +1966,7 @@ function App() {
       <GameNavigation
         rosterOpen={isSquadOpen} heroesOpen={isHeroOpen} defenseOpen={frontOfficeOpen}
         ranksOpen={isStandingsOpen} unseenDefenses={unseenDefenses}
-        onRoster={() => setIsSquadOpen(true)} onHeroes={() => setIsHeroOpen(true)}
+        onRoster={() => setIsSquadOpen(true)} onHeroes={() => {setFocusedHero('qb');setIsHeroOpen(true);}}
         onGameDay={openRaid} onRanks={() => setIsStandingsOpen(true)}
         onDefense={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }}
       />

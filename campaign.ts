@@ -94,11 +94,14 @@ const SCHEDULE: [string, string][] = [
   ['THE CHAMPIONSHIP', 'The Dynasty'],
 ];
 
+// Shared-engine calibration: the first two games teach deployment/signatures;
+// Week 4 is the first roster-training check. The remaining season climbs toward
+// the established Championship ceiling without another tutorial difficulty spike.
+const CAMPAIGN_STRENGTH = [0.55, 0.74, 2.8, 4.2, 4.9, 5.7, 6.7, 7.8, 9, 10.5, 12, 13.8];
+
 export const CAMPAIGN_STAGES: CampaignStage[] = SCHEDULE.map(([name, opponent], i) => {
   const stage = i + 1;
-  // Exponential: player power compounds (levels × stars × roster), so the season must too.
-  // Balance-sim tuned: T0 clears ~s1-5, T1 ~s7, T2 ~s9, T3 ~s11, only T4 takes the Championship.
-  const mult = Math.round(0.55 * Math.pow(1.34, i) * 100) / 100; // 0.55 → ~13.8
+  const mult = CAMPAIGN_STRENGTH[i];
   return {
     stage, name, opponent, mult,
     reward: { coins: Math.round(300 + 240 * mult), fans: Math.round(10 + 9 * mult) },
@@ -124,9 +127,8 @@ export const campaignBase = (stage: number): EnemyBase => {
   const st = CAMPAIGN_STAGES[stage - 1];
   const templateId = CAMPAIGN_TEMPLATE_IDS[(stage - 1) % CAMPAIGN_TEMPLATE_IDS.length];
   const template = ENEMY_BASES.find(b => b.id === templateId) ?? ENEMY_BASES[0];
-  // Turret lethality scales superlinearly (attacker power compounds); loot buildings stay linear.
-  // Coeff tuned to 9 (was 13): the Championship pulls the Ridge fortress (5 turrets), so the
-  // per-turret damage is softened to land the T4 boss at ~38% (band 30–62) instead of 15%.
+  // Pressure scales superlinearly; facility grit scales linearly. These values are
+  // measured through createBattleEngine, including signatures and real pathfinding.
   const tDmg = Math.round(9 * Math.pow(st.mult, 1.25));
   const buildings: BattleBuildingDef[] = template.buildings.map(b => ({
     ...b,

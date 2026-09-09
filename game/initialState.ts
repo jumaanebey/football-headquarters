@@ -24,6 +24,8 @@ export const createInitialState = (now = Date.now()): GameState => ({
   roster: structuredClone(INITIAL_ROSTER),
   bonusOrbs: [],
   lastTick: now,
+  energyProgressMs: 0,
+  peakFans: 0,
   timeOfDay: 12, // Noon start
   recruitSlot: null,
   walls: structuredClone(INITIAL_WALLS),

@@ -9,13 +9,14 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
   const [mode, setMode] = useState<'idle' | 'run' | 'signature' | 'celebrate'>('idle');
   const [take, setTake] = useState(0);
   const [facing, setFacing] = useState(-1);
+  const [slowMotion, setSlowMotion] = useState(false);
   const hero = HERO_DEFS.find(h => h.key === heroKey)!;
   const guide = HERO_PLAYBOOK[heroKey];
   useEffect(() => {
     if (mode !== 'signature') return;
-    const timer = window.setTimeout(() => setMode('idle'), 900);
+    const timer = window.setTimeout(() => setMode('idle'), slowMotion ? 1800 : 900);
     return () => window.clearTimeout(timer);
-  }, [mode, take]);
+  }, [mode, take, slowMotion]);
   return <section aria-label="Hero film room" className="m-5 rounded-2xl border border-slate-700 overflow-hidden bg-slate-950">
     <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-lg font-display font-bold text-white">Hero Film Room</h2>
@@ -26,8 +27,8 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
         <div className="absolute bottom-3 rounded-[50%] w-24 h-4 bg-black/40" />
         <div key={heroKey} className="fhq-unit relative w-48 h-48">
           <img src={hero.art} alt={hero.name} className="fhq-flat absolute inset-0 w-full h-full object-contain" />
-          <AnimatedHero heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode === 'signature' ? 'attack' : mode} facing={facing} cycle={.58}
-            elapsedSeconds={mode === 'signature' ? .2 : undefined} filter={`drop-shadow(0 0 ${mode === 'signature' ? 12 : 3}px ${hero.color})`} />
+          <AnimatedHero heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode} facing={facing} cycle={.58} playbackKey={take} playbackRate={slowMotion ? .5 : 1} loadSignatureArt
+            filter={`drop-shadow(0 0 ${mode === 'signature' ? 6 : 3}px ${hero.color})`} />
         </div>
       </div>
       <div className="min-w-0">
@@ -43,8 +44,11 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
             {value === 'signature' ? 'Signature play' : value === 'run' ? 'Run' : value === 'celebrate' ? 'Celebrate' : 'Idle'}
           </button>)}
           <button type="button" onClick={() => setFacing(f => -f)} className="rounded-lg px-3 py-2 text-sm text-slate-300 border border-slate-700">Turn</button>
+          <button type="button" aria-pressed={slowMotion} onClick={() => { setSlowMotion(slow => !slow); setTake(t => t + 1); }}
+            className={`rounded-lg px-3 py-2 text-sm border focus-visible:outline focus-visible:outline-orange-400 ${slowMotion ? 'border-orange-400 bg-orange-500/15 text-orange-200' : 'border-slate-700 text-slate-300'}`}>Half speed</button>
         </div>
         <p className="sr-only" role="status">{hero.name}: {mode === 'signature' ? hero.abilityName : mode}</p>
+        <p className="mt-3 text-xs text-slate-400">Signature sequence: set your feet, load, release, recover. Replay it to study the timing.</p>
         {onPractice && <button type="button" onClick={() => onPractice(heroKey)} className="mt-4 min-h-11 w-full rounded-xl bg-orange-500 px-4 py-3 font-bold text-white hover:bg-orange-400 focus-visible:outline focus-visible:outline-white">Practice {hero.abilityName} · Free</button>}
         {onPractice && <p className="mt-2 text-xs text-slate-400">Try this hero with a practice partner. No energy cost, rewards, or changes to your roster—even for locked heroes.</p>}
       </div>

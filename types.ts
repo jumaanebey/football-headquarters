@@ -168,6 +168,8 @@ export interface GameState {
   roster: Player[];
   bonusOrbs: BonusOrb[];
   lastTick: number;
+  energyProgressMs?: number; // partial regeneration interval; persists across reopen/hidden-tab transitions
+  peakFans?: number; // permanent campus-growth record; a rally cannot remove earned scenery
   timeOfDay: number; // 0-24
   recruitSlot: RecruitSlot | null;
   walls: { gridX: number; gridY: number }[]; // Blocking Sleds — player-placed defensive barriers
@@ -175,8 +177,9 @@ export interface GameState {
   campaign: CampaignProgress; // Season campaign ladder progress
   builders: number;         // how many upgrades can run at once
   upgrades: UpgradeJob[];   // in-progress timed upgrades
+  defenseInbox?: { ownerId: string; createdAt: string; id: number }; // cursor saved atomically with applied live-defense losses
   defenseLog: DefenseLogEntry[]; // record of rival raids on your base (Clash "while you were away")
-  shieldUntil?: number;     // timestamp; while now < this, no offline raids can hit you
+  shieldUntil?: number;     // legacy local shield timestamp; not an enforced online protection guarantee
   trophies: number;         // trophy-ladder standing (drives your Rank)
   teamName: string;         // your club's public name (shown to Live Rivals)
   dailies: import('./dailies').DailiesState; // today's Daily Practice quests

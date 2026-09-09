@@ -37,6 +37,7 @@ interface Props {
   clubName?: string;
   trophies?: number;
   fans?: number;
+  growthFans?: number; // permanent campus record; scoreboard still shows available Fans
   onOpenStats?: () => void;            // tap the jumbotron → Club Dashboard
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -793,7 +794,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -1021,7 +1022,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   // new props bounce in with bursts, a banner stamps over the board, and the
   // crowd roars. Last-seen stage persists per browser, so growth earned while
   // away still gets its moment on the next open — and never repeats.
-  const growthStageIdx = GROWTH_STAGES.filter(s => (fans ?? 0) >= s.minFans).length;
+  const growthStageIdx = GROWTH_STAGES.filter(s => (growthFans ?? 0) >= s.minFans).length;
   const [growthCeleb, setGrowthCeleb] = useState<number | null>(null);
   // Timers live in a ref and are cleared ONLY on unmount — returning them as
   // effect cleanup let a dep-change/double-run cancel the hide timer, which left
@@ -1029,7 +1030,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   const celebTimersRef = React.useRef<number[]>([]);
   useEffect(() => () => celebTimersRef.current.forEach(clearTimeout), []);
   useEffect(() => {
-    if (fans === undefined) return;
+    if (growthFans === undefined) return;
     let seen = 0;
     try { seen = parseInt(localStorage.getItem('fhq_growth_stage_seen_v1') || '0', 10) || 0; } catch { /* unreadable — treat as new */ }
     if (growthStageIdx > seen) {
@@ -1049,7 +1050,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
       try { localStorage.setItem('fhq_growth_stage_seen_v1', String(growthStageIdx)); } catch { /* non-fatal */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [growthStageIdx, fans === undefined]);
+  }, [growthStageIdx, growthFans === undefined]);
 
   // (Day/night ambient tint removed — the board "dimming itself" read as a bug,
   // not atmosphere. The backdrop is permanently stadium-night with floodlights.)
@@ -1111,7 +1112,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
             ? edit.growth.map((d, i) => (
                 <DecorSprite key={`gre${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
               ))
-            : GROWTH_STAGES.filter(s => (fans ?? 0) >= s.minFans).map((s, si) =>
+            : GROWTH_STAGES.filter(s => (growthFans ?? 0) >= s.minFans).map((s, si) =>
                 s.props.map((d, i) => (
                   <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z}
                     reveal={growthCeleb !== null && si === growthCeleb - 1 ? 0.5 + i * 0.35 : undefined} />

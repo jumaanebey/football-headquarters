@@ -7,6 +7,8 @@ import { GROWTH_TIERS, collectorRate } from '../constants';
 import { buildingSprite, BUILDING_ERAS, BUILDING_ART_LEVELS } from '../assets';
 import { candidateOvr } from '../recruiting';
 import { formationDef } from '../fixedBase';
+import { fanMilestoneTotal } from '../game/fanProgress';
+import { isArchivedAiRaid } from '../game/defenseHistory';
 
 const number = (n: number) => Math.floor(n).toLocaleString();
 function Progress({ value, label }: { value: number; label: string }) {
@@ -20,7 +22,8 @@ interface Props { gs: GameState; onClose: () => void; onRoster: () => void; onGa
 
 export function ClubDashboard({ gs, onClose, onRoster, onGameDay, onDefense }: Props) {
   const fans = gs.resources.FANS;
-  const tierIndex = GROWTH_TIERS.filter(t => fans >= t.fans).length;
+  const peakFans = fanMilestoneTotal(gs);
+  const tierIndex = GROWTH_TIERS.filter(t => peakFans >= t.fans).length;
   const tier = GROWTH_TIERS[tierIndex - 1], nextTier = GROWTH_TIERS[tierIndex];
   const floor = tier?.fans ?? 0;
   const stadium = gs.buildings.find(b => b.type === BuildingType.STADIUM);
@@ -30,7 +33,7 @@ export function ClubDashboard({ gs, onClose, onRoster, onGameDay, onDefense }: P
   const power = clubPower(gs), parts = clubPowerBreakdown(gs);
   const seasonBalls = Object.values(gs.campaign?.stars ?? {}).reduce((sum, n) => sum + n, 0);
   const average = gs.roster.length ? Math.round(gs.roster.reduce((sum, p) => sum + candidateOvr(p), 0) / gs.roster.length) : 0;
-  const log = gs.defenseLog ?? [], held = log.filter(r => r.stars === 0).length;
+  const log = (gs.defenseLog ?? []).filter(entry => !isArchivedAiRaid(entry)), held = log.filter(r => r.stars === 0).length;
   return <Sheet title="Your program" icon={<Activity size={23} />} subtitle={gs.teamName} onClose={onClose} maxWidth="max-w-3xl">
     <div className="fhq-dashboard">
       <section className="fhq-dashboard-banner" style={level >= 9 ? { backgroundImage: 'linear-gradient(90deg, #07101855, #071018ee), url(/assets/gpt/campus-vision.png)', backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
@@ -52,9 +55,10 @@ export function ClubDashboard({ gs, onClose, onRoster, onGameDay, onDefense }: P
           <p>{rank.next ? `${number(rank.next.min - gs.trophies)} trophies to ${rank.next.name}` : 'You have reached the top rank.'}</p>
           <Stat label="Season stage reached" value={`${gs.campaign?.unlocked ?? 1} / 12`} /><Stat label="Season game balls" value={`${seasonBalls} / 36`} />
         </section>
-        <section className="fhq-stat-card"><h3>Campus growth</h3><div className="fhq-big-stat">{number(fans)} <span className="text-base font-normal text-slate-300">fans</span></div>
-          <Progress value={nextTier ? (fans - floor) / (nextTier.fans - floor) : 1} label="Progress to next campus stage" />
-          <p>{nextTier ? `${number(nextTier.fans - fans)} more fans unlock ${nextTier.name}.` : 'Your tailgate city is fully unlocked.'}</p>
+        <section className="fhq-stat-card"><h3>Campus growth</h3><div className="fhq-big-stat">{number(peakFans)} <span className="text-base font-normal text-slate-300">record fanbase</span></div>
+          <Progress value={nextTier ? (peakFans - floor) / (nextTier.fans - floor) : 1} label="Progress to next campus stage" />
+          <p>{nextTier ? `Reach ${number(nextTier.fans)} Fans to unlock ${nextTier.name}.` : 'Your tailgate city is fully unlocked.'} Earned campus stages stay unlocked when you rally.</p>
+          <Stat label="Available Fans" value={number(fans)} />
           <Stat label="Gate receipts" value={`${number(collectorRate(BuildingType.STADIUM, level) * 60)} / min`} />
           <Stat label="Builders working" value={`${gs.upgrades.length} / ${gs.builders}`} />
         </section>

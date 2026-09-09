@@ -23,7 +23,7 @@ describe('campus simulation', () => {
     initial.upgrades = [{ id: 'job', kind: 'building', key: stadium.id, toLevel: 2, startTime: now, finishTime: now + 2000 }];
     const next = advanceCampus(initial, now + 86_400_000), upgraded = next.buildings.find(b => b.id === stadium.id)!;
     expect(next.resources.ENERGY).toBe(100); expect(upgraded.state).toBe(DrillState.COMPLETED); expect(upgraded.level).toBe(2);
-    expect(upgraded.accrued).toBeLessThanOrEqual(collectorCap(BuildingType.STADIUM, 1)); expect(next.upgrades).toHaveLength(0);
+    expect(upgraded.accrued).toBe(collectorCap(BuildingType.STADIUM, 2)); expect(next.upgrades).toHaveLength(0);
     expect(next.roster[0].worldPos.x).toBeGreaterThan(10); expect(next.roster[0].worldPos.x).toBeLessThanOrEqual(13.75);
   });
   it('is deterministic and leaves the previous save unchanged when React replays a tick', () => {

@@ -37,12 +37,19 @@ const heroHue = (hex: string): number => {
 
 export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
   const stateOf = (key: string) => heroes.find(h => h.key === key);
+  const scoutButton = useRef<HTMLButtonElement>(null);
+  const revealButton = useRef<HTMLButtonElement>(null);
 
   // 🎰 SCOUT SEARCH REVEAL: the roll gets a suspense beat (spinning ring + shaking
   // mystery card) before the hero bursts out. Only fires on NEW rolls this session —
   // reopening the modal with an old lastRoll stays quiet.
   const [reveal, setReveal] = useState<'idle' | 'suspense' | 'shown'>('idle');
   const seenRoll = useRef(lastRoll);
+  const revealTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const dismissReveal = () => {
+    revealTimers.current.forEach(clearTimeout);
+    setReveal('idle');
+  };
   useEffect(() => {
     if (lastRoll && lastRoll !== seenRoll.current) {
       seenRoll.current = lastRoll;
@@ -50,10 +57,20 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
       const ticks = [0, 350, 700, 1050].map(ms => setTimeout(() => sfx.tick(), ms));
       const t1 = setTimeout(() => { setReveal('shown'); (lastRoll.isNew ? sfx.sign : sfx.sting)(); }, 1400);
       const t2 = setTimeout(() => setReveal('idle'), 4200);
-      return () => { clearTimeout(t1); clearTimeout(t2); ticks.forEach(clearTimeout); };
+      revealTimers.current = [...ticks, t1, t2];
+      return () => { revealTimers.current.forEach(clearTimeout); };
     }
   }, [lastRoll]);
   const revealDef = reveal !== 'idle' && lastRoll ? HERO_DEFS.find(d => d.key === lastRoll.key) : null;
+  useEffect(() => {
+    if (reveal === 'idle') return;
+    revealButton.current?.focus();
+    return () => {
+      const scout = scoutButton.current;
+      const focusTarget = scout?.disabled ? scout.closest<HTMLElement>('[role="dialog"]') : scout;
+      focusTarget?.focus();
+    };
+  }, [reveal]);
   const maxLevel = heroMaxLevel(stadiumLevel);
   const canRoll = resources.GEMS >= ROLL_COST_GEMS;
 
@@ -61,11 +78,11 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
     <Sheet
       title="Hall of Heroes"
       icon={<Star className="text-yellow-400 fill-yellow-400" size={22} />}
-      subtitle="Level with Coins. Scout Searches find new heroes — duplicates become shards for ⭐ star-ups."
+      subtitle="Try every hero for free. Build your roster with unlocks, training and Scout Searches."
       onClose={onClose}
       maxWidth="max-w-3xl"
       actions={
-        <button onClick={onRoll} disabled={!canRoll}
+        <button ref={scoutButton} type="button" onClick={onRoll} disabled={!canRoll || reveal !== 'idle'}
           className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
             ${canRoll ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
           <Sparkles size={16} /> Scout Search
@@ -75,7 +92,8 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
     >
         {/* 🎰 Scout Search reveal overlay */}
         {revealDef && lastRoll && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm animate-fade-in cursor-pointer" onClick={() => setReveal('idle')}>
+          <button ref={revealButton} type="button" aria-label={reveal === 'suspense' ? 'Scouting. Skip reveal' : `${lastRoll.name}. ${lastRoll.isNew ? 'New hero unlocked' : `${lastRoll.shards} shards added`}. Continue`}
+            className="absolute inset-0 z-50 w-full flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm animate-fade-in cursor-pointer" onClick={dismissReveal}>
             <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
               <img src="/assets/heroes/franchise-rig/aura-ring.webp" alt="" draggable={false} className="absolute select-none"
                 style={{ width: 230, height: 230, animation: `fhq-aura ${reveal === 'suspense' ? '0.9s' : '6s'} linear infinite`, opacity: 0.95,
@@ -101,13 +119,14 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
                   {lastRoll.isNew
                     ? <div className="text-sm font-black uppercase tracking-widest mt-1" style={{ color: revealDef.color }}>🎉 New hero unlocked!</div>
                     : <div className="text-sm font-bold text-purple-300 mt-1">Duplicate → +{lastRoll.shards} 🧩 shards</div>}
-                  <div className="text-[10px] text-slate-500 mt-2">tap to continue</div>
+                  <div className="text-xs text-slate-300 mt-2">Tap or press Enter to continue</div>
                 </div>
               )}
             </div>
-          </div>
+          </button>
         )}
 
+        <div inert={revealDef ? true : undefined}>
         {/* Latest Scout Search result */}
         {lastRoll && (
           <div className={`px-5 py-2.5 border-b flex items-center gap-2 text-sm font-bold ${lastRoll.isNew ? 'bg-fuchsia-950/60 border-fuchsia-800 text-fuchsia-200' : 'bg-slate-900/80 border-slate-800 text-slate-200'}`}>
@@ -118,17 +137,18 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
           </div>
         )}
 
-        <HeroTrainingPreview initialHero={initialHero} onPractice={onPractice} />
+        <HeroTrainingPreview key={initialHero ?? 'qb'} initialHero={initialHero} onPractice={onPractice} />
         <div className="px-5 pt-4">
           <HowTo id="heroes" lines={[
-            'Heroes are your stars — deploy them in raids and fire their signature abilities mid-drive.',
+            'Practice any hero for free, including locked heroes. Send them in, then call their signature when it is ready.',
+            'Unlock a hero to take them into road games. Free practice does not unlock or level your roster.',
             'Unlock new heroes with Coins/Crowns or find them in Scout Searches — duplicates become 🧩 shards.',
-            'Shards buy ⭐ star-ups (big power spikes). Level training happens in the COACH tab and takes time.',
+            'Shards buy ⭐ star-ups. Train with Coins here, or find team training in Roster.',
             'Heroes guard your GATES on defense — assign who holds which gate in the Front Office.',
           ]} />
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 content-start auto-rows-max">
-          {HERO_DEFS.map((def, heroIdx) => {
+          {HERO_DEFS.map(def => {
             const st = stateOf(def.key);
             const unlocked = st?.unlocked ?? !!def.starter;
             const lvl = st?.level ?? 1;
@@ -150,7 +170,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
             const canUnlock = resources.COINS >= uCoins && resources.GEMS >= uGems;
 
             return (
-              <div key={def.key} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
+              <article key={def.key} aria-label={`${def.name} · ${unlocked ? 'On your roster' : 'Locked'}`} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
                 <div className="fhq-modern-card relative shrink-0 flex items-end justify-center h-52 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 40%, ${def.color}44, #0f172a 70%)` }}>
                   {/* CARD FLOURISH (unlocked heroes only): the REAL flame-ring sprite
                       (franchise-rig #38) spinning behind the art, hue-shifted from its
@@ -208,6 +228,11 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
                     <span className="text-slate-400"> — {def.abilityDesc}</span>
                   </div>
 
+                  {onPractice && <button type="button" onClick={() => onPractice(def.key)} aria-label={`Practice with ${def.name} for free`}
+                    className="min-h-11 w-full rounded-xl border border-orange-500/60 bg-orange-950/40 px-3 py-2 text-sm font-bold text-orange-200 hover:bg-orange-900/50">
+                    Practice signature · Free
+                  </button>}
+
                   {!unlocked ? (
                     <button onClick={() => onUnlock(def.key)} disabled={!canUnlock}
                       className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95
@@ -257,9 +282,10 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
                     </>
                   )}
                 </div>
-              </div>
+              </article>
             );
           })}
+        </div>
         </div>
     </Sheet>
   );

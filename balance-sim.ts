@@ -1,155 +1,196 @@
-// Headless balance harness — runs the REAL game math (battle/campaign/gacha/economy)
-// across player-progression tiers. Bundled with esbuild, run in node.
-//
-// Doubles as a CI GUARD: after printing the report it asserts the measured curves
-// against the BALANCE.md targets and exits non-zero on regression, so a stray tweak to
-// campaign/battle/gacha/economy constants can't silently break the game's math.
-//
-// RNG is SEEDED (mulberry32) so raid-target selection and the gacha Monte Carlo are
-// reproducible run-to-run — assertions can be tight and CI never flakes.
-const mulberry32 = (seed: number) => () => {
-  seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-};
-Math.random = mulberry32(0x1234abcd);
-
+// Shared-engine balance harness. Combat goes through the same command validation,
+// fixed-step simulation and outcome calculation as live play and v2 replays.
+// This deterministic bot is a regression scenario, not a prediction of human win rate.
+// See docs/BALANCE-SHARED-ENGINE.md for the policy and retired calibration bands.
 import {
-  TROOP_STATS, HERO_DEFS, heroForBattle, heroUpgradeCost, heroLevelMult, heroStarMult,
-  nearestBuilding, nearestTroop, blockingWall, dist, BATTLE_SECONDS,
-  BattleBuildingDef, BBuilding, BTroop, generateRaidTargets, defenseLayoutFromBase, defenseAiTroops, raidAiMult, simulateRaid,
-  effectiveStat, unitCombatStats, ENEMY_BASES, SimAttacker,
+  HERO_DEFS, heroesForBattle, heroUpgradeCost, heroLevelMult, heroStarMult,
+  BATTLE_SECONDS, generateRaidTargets, defenseAiTroops, raidAiMult, homeDefenders,
+  effectiveStat, unitCombatStats, armyFromRoster, UNIT_ORDER, mulberry32,
   gauntletReward, gauntletWaves, GAUNTLET_MAX_TIER,
+  type BattleBuildingDef, type RaidHero, type ReplayAction,
 } from './battle';
 import { CAMPAIGN_STAGES, campaignBase } from './campaign';
-import { UnitGroup, BuildingType, PlayerRarity, PlayerRole } from './types';
-import { rollHero } from './gacha';
-import { UPGRADE_CONFIG, RECRUIT_CONFIG, DRILLS, COLLECTOR_CONFIG, ROLE_UNIT } from './constants';
+import { BuildingType, PlayerRarity, PlayerRole, type Player } from './types';
+import { rollHero, ROLL_COST_GEMS, STAR_UP_COSTS } from './gacha';
+import { UPGRADE_CONFIG, DRILLS, COLLECTOR_CONFIG, ROLE_UNIT, INITIAL_ROSTER, INITIAL_BUILDINGS, tendencyFromId } from './constants';
+import { createBattleEngine, replayMatch, COMBAT_STEP_SECONDS, type BattleEngine } from './game/combat/engine';
+import { COMBAT_RULES_VERSION } from './game/combat/actions';
+import { rosterPreparation } from './game/combat/roster';
+import { layoutFromFixedBase } from './game/defenseLayout';
+import { anchorsFor, gatePostsFor, slotsFor, slotUnlocked, MAX_SLOT_LEVEL } from './fixedBase';
+import type { BattleConfig, BattleResult } from './game/combat/contracts';
 
-// ---------- player progression tiers (the model under test) ----------
-interface Tier { name: string; ovr: number; roster: number; heroLvl: number; stars: number; heroesOwned: number; walls: number; }
-const TIERS: Tier[] = [
-  { name: 'T0 fresh ', ovr: 10, roster: 10, heroLvl: 1,  stars: 1, heroesOwned: 5, walls: 8 },
-  { name: 'T1 early ', ovr: 15, roster: 12, heroLvl: 3,  stars: 1, heroesOwned: 5, walls: 10 },
-  { name: 'T2 mid   ', ovr: 22, roster: 14, heroLvl: 6,  stars: 2, heroesOwned: 6, walls: 12 },
-  { name: 'T3 strong', ovr: 32, roster: 16, heroLvl: 10, stars: 3, heroesOwned: 8, walls: 16 },
-  { name: 'T4 maxed ', ovr: 42, roster: 18, heroLvl: 15, stars: 5, heroesOwned: 9, walls: 20 },
-];
-
-// ---------- army builder (mirrors armyFromRoster + heroesForBattle) ----------
-let uid = 0;
-const ringPos = (i: number, n: number) => ({ x: 50 + Math.cos((i / n) * Math.PI * 2) * 44, y: 50 + Math.sin((i / n) * Math.PI * 2) * 44 });
-const buildArmy = (t: Tier): BTroop[] => {
-  const mult = Math.max(1, Math.min(4.5, (t.ovr / 10) * 1.05)); // incl. avg tendency bonus
-  const troops: BTroop[] = [];
-  const groups = [UnitGroup.OFFENSE_LINE, UnitGroup.OFFENSE_SKILL, UnitGroup.DEFENSE_LINE, UnitGroup.DEFENSE_SECONDARY];
-  for (let i = 0; i < t.roster; i++) {
-    const g = groups[i % 4];
-    const st = TROOP_STATS[g];
-    const p = ringPos(i, t.roster + t.heroesOwned);
-    troops.push({ id: `t${++uid}`, unit: g, x: p.x, y: p.y, hp: Math.round(st.hp * mult), maxHp: 1, dps: st.dps * mult, speed: st.speed, range: st.range, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0 });
-  }
-  HERO_DEFS.slice(0, t.heroesOwned).forEach((def, k) => {
-    const h = heroForBattle(def, t.heroLvl, t.stars);
-    const p = ringPos(t.roster + k, t.roster + t.heroesOwned);
-    troops.push({ id: `h${++uid}`, unit: h.unit, x: p.x, y: p.y, hp: h.hp, maxHp: 1, dps: h.dps, speed: h.speed, range: h.range, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0 });
-  });
-  return troops.map(tr => ({ ...tr, maxHp: tr.hp }));
+const RAID_SAMPLES = Number(process.env.FHQ_BALANCE_SAMPLES ?? 30);
+if (!Number.isInteger(RAID_SAMPLES) || RAID_SAMPLES < 3 || RAID_SAMPLES > 400) throw new Error('FHQ_BALANCE_SAMPLES must be an integer from 3 to 400');
+const LEGEND_PRICE = HERO_DEFS.find(h => h.key === 'legend')!.unlock!.gems!;
+const SHARDS_TO_MAX = Object.values(STAR_UP_COSTS).reduce((sum, amount) => sum + amount, 0);
+const MATCH_SEED = 0x1234abcd;
+const MAX_TICKS = Math.ceil((BATTLE_SECONDS + 10) / COMBAT_STEP_SECONDS);
+const failures: string[] = [];
+const check = (name: string, ok: boolean, detail: string) => {
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name} — ${detail}`);
+  if (!ok) failures.push(`${name}: ${detail}`);
+};
+const seeded = <T,>(seed: number, run: () => T): T => {
+  const previous = Math.random;
+  Math.random = mulberry32(seed);
+  try { return run(); } finally { Math.random = previous; }
 };
 
-// ---------- battle sim (same loop as simulateRaid, but takes prebuilt troops incl. heroes) ----------
-const simBattle = (defs: BattleBuildingDef[], troopsIn: BTroop[]) => {
-  const buildings: BBuilding[] = defs.map(b => ({ ...b, maxHp: b.hp, dead: false, cooldown: 0 }));
-  const troops = troopsIn.map(t => ({ ...t }));
-  const total = buildings.filter(b => b.kind !== 'wall').length || 1;
-  const DT = 0.1;
-  for (let time = 0; time < BATTLE_SECONDS; time += DT) {
-    for (const tr of troops) {
-      if (tr.dead) continue;
-      const goal = nearestBuilding(tr.x, tr.y, buildings);
-      if (!goal) continue;
-      const wall = blockingWall(tr.x, tr.y, tr.range, goal, buildings);
-      const target = wall || goal;
-      const d = dist(tr.x, tr.y, target.x, target.y);
-      const stopAt = tr.range + target.size * 0.5;
-      if (d > stopAt) { const step = Math.min(tr.speed * DT, d - stopAt); tr.x += ((target.x - tr.x) / d) * step; tr.y += ((target.y - tr.y) / d) * step; }
-      else { target.hp -= tr.dps * DT; if (target.hp <= 0) { target.hp = 0; target.dead = true; } }
+// Historical training/roster/hero milestones retained as synthetic scenarios.
+// Every individual keeps a real role, rarity and tendency. Level is held at one so
+// trained stats do not accidentally count progression twice. T0 is INITIAL_ROSTER.
+interface Tier { name: string; ovr: number; roster: number; heroLvl: number; stars: number; heroesOwned: number; stadium: number; }
+const TIERS: Tier[] = [
+  { name: 'T0 fresh ', ovr: 10, roster: 10, heroLvl: 1,  stars: 1, heroesOwned: 5, stadium: 1 },
+  { name: 'T1 early ', ovr: 15, roster: 12, heroLvl: 3,  stars: 1, heroesOwned: 5, stadium: 3 },
+  { name: 'T2 mid   ', ovr: 22, roster: 14, heroLvl: 6,  stars: 2, heroesOwned: 6, stadium: 5 },
+  { name: 'T3 strong', ovr: 32, roster: 16, heroLvl: 10, stars: 3, heroesOwned: 8, stadium: 8 },
+  { name: 'T4 maxed ', ovr: 42, roster: 18, heroLvl: 15, stars: 5, heroesOwned: 9, stadium: 11 },
+];
+const buildRoster = (tier: Tier): Player[] => Array.from({ length: tier.roster }, (_, index) => {
+  const source = INITIAL_ROSTER[index % INITIAL_ROSTER.length];
+  const id = index < INITIAL_ROSTER.length ? source.id : `recruit-${String(index).padStart(2, '0')}`;
+  return { ...structuredClone(source), id, name: index < INITIAL_ROSTER.length ? source.name : `Balance recruit ${index + 1}`,
+    tendency: index < INITIAL_ROSTER.length ? source.tendency : tendencyFromId(id),
+    stats: { strength: tier.ovr, speed: tier.ovr, iq: tier.ovr } };
+});
+const buildHeroes = (tier: Tier): RaidHero[] => heroesForBattle(HERO_DEFS.map((hero, index) => ({
+  key: hero.key, unlocked: index < tier.heroesOwned, level: tier.heroLvl, stars: tier.stars,
+})));
+const attackConfig = (buildings: BattleBuildingDef[], squad: Player[], heroes: RaidHero[] = []): BattleConfig => ({
+  mode: 'attack', title: 'Shared-engine balance scenario', buildings, squad, heroes,
+  playerArmy: armyFromRoster(squad), preparation: rosterPreparation(squad), specials: [],
+  loot: { coins: 0, fans: 0 },
+});
+const tierConfig = (buildings: BattleBuildingDef[], tier: Tier) => attackConfig(buildings, buildRoster(tier), buildHeroes(tier));
+
+// Fixed square-edge candidate positions, independent of total roster size. The
+// engine still validates every deployment. Refused positions are tried clockwise;
+// no state mutation or inside-building placement can bypass the live command gate.
+const edgePoint = (index: number) => {
+  const n = ((index % 32) + 32) % 32, along = 3 + (n % 8) * 94 / 8;
+  if (n < 8) return { x: along, y: 3 };
+  if (n < 16) return { x: 97, y: along };
+  if (n < 24) return { x: 100 - along, y: 97 };
+  return { x: 3, y: 100 - along };
+};
+const stableIndex = (id: string) => [...id].reduce((hash, letter) => (hash * 31 + letter.charCodeAt(0)) >>> 0, 0) % 32;
+const deploy = (engine: BattleEngine, action: ReplayAction, id: string) => {
+  for (let offset = 0; offset < 32; offset++) {
+    if (engine.command({ ...action, tick: engine.state.ticks, ...edgePoint(stableIndex(id) + offset) })) return;
+  }
+  throw new Error(`No legal perimeter deployment for ${id}`);
+};
+interface Scenario { result: BattleResult; engine: BattleEngine; signatures: number; }
+let matchesRun = 0;
+const invalidOutcomes: string[] = [];
+const simBattle = (config: BattleConfig, seed = MATCH_SEED): Scenario => {
+  const engine = createBattleEngine(config, seed, 'balanced');
+  if (config.mode === 'attack') {
+    // Match the engine's stable within-group queue so player identity determines
+    // its landing position even when more recruits join a later tier.
+    for (const unit of UNIT_ORDER) for (const player of [...(config.squad ?? [])].filter(p => p.unit === unit).sort((a, b) => a.id.localeCompare(b.id))) {
+      deploy(engine, { k: 't', u: unit, tick: 0 }, player.id);
     }
-    for (const b of buildings) {
-      if (b.dead || b.kind !== 'defense' || !b.damage || !b.range) continue;
-      b.cooldown -= DT;
-      if (b.cooldown <= 0) {
-        const prey = nearestTroop(b.x, b.y, troops, b.range);
-        if (prey) { prey.hp -= b.damage; if (prey.hp <= 0) { prey.hp = 0; prey.dead = true; } b.cooldown = 0.7; } else b.cooldown = 0.1;
+    for (const hero of config.heroes ?? []) deploy(engine, { k: 'h', key: hero.key, tick: 0 }, `hero:${hero.key}`);
+  }
+  let signatures = 0;
+  for (let tick = 0; tick < MAX_TICKS && !engine.state.ended; tick++) {
+    // Transparent bot policy: request each ready signature every 0.5 simulation
+    // seconds, including kickoff. No targeting foresight, extra plays or reserves.
+    if (engine.state.ticks % 10 === 0 && config.mode === 'attack') {
+      for (const hero of config.heroes ?? []) {
+        const actor = engine.state.troops.find(t => t.heroKey === hero.key);
+        if (actor && !actor.dead && !actor.activeAction && (actor.abilityCd ?? 0) <= 0 && engine.command({ k: 'a', key: hero.key, tick: engine.state.ticks })) signatures++;
       }
     }
-    if (buildings.filter(b => b.kind !== 'wall').every(b => b.dead) || !troops.some(tr => !tr.dead)) break;
+    engine.advance();
+    engine.drainAudio(); // the headless presenter consumes its queue, just like live
   }
-  const destroyed = buildings.filter(b => b.dead && b.kind !== 'wall').length;
-  const pct = Math.round((destroyed / total) * 100);
-  const hqDead = buildings.find(b => b.kind === 'hq')?.dead ?? false;
-  return { pct, stars: (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0) };
+  if (!engine.result) throw new Error(`Battle did not terminate within ${MAX_TICKS} fixed steps: ${config.title}`);
+  const result = engine.result;
+  const valid = Number.isInteger(result.pct) && result.pct >= 0 && result.pct <= 100 &&
+    Number.isInteger(result.stars) && result.stars >= 0 && result.stars <= 3 &&
+    Number.isFinite(result.coins) && result.coins >= 0 && Number.isFinite(result.fans) && result.fans >= 0 &&
+    [...engine.state.troops, ...engine.state.guards, ...engine.state.buildings].every(actor =>
+      [actor.x, actor.y, actor.hp, actor.maxHp].every(Number.isFinite) && actor.hp >= 0 && actor.hp <= actor.maxHp + 1e-6);
+  matchesRun++;
+  if (!valid) invalidOutcomes.push(`${config.title}: seed ${seed}, hash ${engine.hash}`);
+  return { result, engine, signatures };
 };
+
+console.log(`\nShared combat rules: ${COMBAT_RULES_VERSION}. ${RAID_SAMPLES} reproducible raid targets per tier.`);
+console.log('Policy: all roster/hero deployments at kickoff, legal square edge, Balanced plan, ready signatures every 0.5s. No specials, manual plays or full-readiness boost.');
+console.log('Historical BALANCE.md combat percentages used a different loop and no hero signatures. They are not acceptance bands for this report.');
 
 // ---------- 1. CAMPAIGN LADDER ----------
-console.log('\n===== 1. CAMPAIGN — % destroyed (stars) per tier per stage =====');
+console.log('\n===== 1. CAMPAIGN — damage-weighted House Taken % (Game Balls) =====');
 console.log('stage'.padEnd(22) + TIERS.map(t => t.name).join(' '));
-for (const st of CAMPAIGN_STAGES) {
-  const base = campaignBase(st.stage);
-  const row = TIERS.map(t => { const r = simBattle(base.buildings, buildArmy(t)); return `${String(r.pct).padStart(3)}%(${r.stars})`.padEnd(9); }).join(' ');
-  console.log(`${st.stage}. ${st.name}`.padEnd(22).slice(0, 22) + row);
-}
-
-// ---------- 2. RAID LADDER (matchmaking difficulty vs tier) ----------
-console.log('\n===== 2. RAIDS — avg % destroyed / win rate over 400 random targets at tier-typical trophies =====');
-const TIER_TROPHIES = [0, 150, 450, 1000, 1800];
-// 400 samples/tier (not 40): the CI assertion needs the win rate to CONVERGE near its
-// true mean so the band is a stable signal, not a coin-flip on the seed.
-const RAID_SAMPLES = 400;
-const raidWinPct: number[] = [];
-TIERS.forEach((t, i) => {
-  let wins = 0, pctSum = 0, starsSum = 0;
-  for (let k = 0; k < RAID_SAMPLES; k++) {
-    const target = generateRaidTargets(TIER_TROPHIES[i])[Math.floor(Math.random() * 3)];
-    const r = simBattle(target.buildings, buildArmy(t));
-    pctSum += r.pct; starsSum += r.stars; if (r.stars > 0) wins++;
-  }
-  raidWinPct[i] = Math.round(wins / RAID_SAMPLES * 100);
-  console.log(`${t.name} @${String(TIER_TROPHIES[i]).padStart(4)}🏆: win ${raidWinPct[i]}%  avg ${Math.round(pctSum / RAID_SAMPLES)}%  avg⭐ ${(starsSum / RAID_SAMPLES).toFixed(1)}`);
+const campaignResults: Scenario[][] = CAMPAIGN_STAGES.map(stage => {
+  const row = TIERS.map(tier => simBattle(tierConfig(campaignBase(stage.stage).buildings, tier)));
+  console.log(`${stage.stage}. ${stage.name}`.padEnd(22).slice(0, 22) + row.map(({ result }) => `${String(result.pct).padStart(3)}%(${result.stars})`.padEnd(9)).join(' '));
+  return row;
 });
 
-// ---------- 3. DEFENSE (offline raids) with tendency boost ----------
-console.log('\n===== 3. DEFENSE — offline raid vs own-tier attacker (off=65), stars conceded =====');
-const mkBase = (lvl: number, walls: number) => {
-  const cells = [[5,5],[6,5],[7,5],[7,6],[7,7],[6,7],[5,7],[5,6],[4,4],[6,4],[8,4],[8,6],[8,8],[6,8],[4,8],[4,6],[5,4],[7,4],[8,5],[8,7]];
-  const bs: any[] = [
-    { id: 'stadium-1', type: BuildingType.STADIUM, level: lvl, gridX: 6, gridY: 6 },
-    { id: 'pitch-1', type: BuildingType.TRAINING_PITCH, level: lvl, gridX: 2, gridY: 2 },
-    { id: 'academy-1', type: BuildingType.YOUTH_ACADEMY, level: lvl, gridX: 6, gridY: 2 },
-    { id: 'med-1', type: BuildingType.MEDICAL_CENTER, level: lvl, gridX: 3, gridY: 5 },
-    { id: 'tactics-1', type: BuildingType.TACTICS_ROOM, level: lvl, gridX: 3, gridY: 8 },
-  ];
-  return defenseLayoutFromBase(bs, cells.slice(0, walls).map(([gridX, gridY]) => ({ gridX, gridY })), 1.15); // avg tendency defBoost
-};
-const TIER_LVL = [1, 3, 5, 8, 11];
-TIERS.forEach((t, i) => {
-  const layout = mkBase(TIER_LVL[i], t.walls);
-  const r = simulateRaid(layout, defenseAiTroops(), raidAiMult(65, TIER_LVL[i]));
-  console.log(`${t.name} (bldg L${TIER_LVL[i]}, ${t.walls} walls): attacker got ${r.pct}% / ${r.stars}⭐ ${r.stars === 0 ? '→ HELD' : ''}`);
+// ---------- 2. RAID LADDER ----------
+console.log(`\n===== 2. RAIDS — deterministic bot, ${RAID_SAMPLES} targets per tier =====`);
+const TIER_TROPHIES = [0, 150, 450, 1000, 1800];
+const raidWinPct: number[] = [];
+const raidChoiceResults: { samples: number; wins: number; pct: number }[][] = [];
+TIERS.forEach((tier, i) => {
+  let wins = 0, pctSum = 0, ballsSum = 0, signatures = 0;
+  const choices = Array.from({ length: 3 }, () => ({ samples: 0, wins: 0, pct: 0 }));
+  for (let sample = 0; sample < RAID_SAMPLES; sample++) {
+    // Target generation is isolated from combat FX, gacha and sample count.
+    const seed = (MATCH_SEED + sample * 977) >>> 0;
+    const target = seeded(seed, () => generateRaidTargets(TIER_TROPHIES[i])[sample % 3]);
+    const match = simBattle(tierConfig(target.buildings, tier), seed);
+    pctSum += match.result.pct; ballsSum += match.result.stars; signatures += match.signatures;
+    choices[sample % 3].samples++;
+    choices[sample % 3].pct += match.result.pct;
+    if (match.result.won) choices[sample % 3].wins++;
+    if (match.result.won) wins++;
+  }
+  raidWinPct[i] = wins / RAID_SAMPLES * 100;
+  raidChoiceResults[i] = choices;
+  console.log(`${tier.name} @${String(TIER_TROPHIES[i]).padStart(4)} trophies: ${wins}/${RAID_SAMPLES} wins (${raidWinPct[i].toFixed(1)}%), avg ${Math.round(pctSum / RAID_SAMPLES)}% House Taken, ${(ballsSum / RAID_SAMPLES).toFixed(1)} Game Balls, ${(signatures / RAID_SAMPLES).toFixed(1)} signatures`);
+  console.log('  ' + choices.map((choice, index) => `${['easy', 'fair', 'hard'][index]}: ${choice.wins}/${choice.samples} wins, avg ${choice.samples ? Math.round(choice.pct / choice.samples) : 'n/a'}%`).join(' · '));
+});
+
+// ---------- 3. DEFENSE — current fixed-base fixture ----------
+console.log('\n===== 3. DEFENSE — shared engine, Goal Line, purchased available base slots =====');
+TIERS.forEach(tier => {
+  const squad = buildRoster(tier), formation = 'goalline' as const;
+  const buildings = INITIAL_BUILDINGS.map(b => ({ ...b, level: tier.stadium, ...anchorsFor(formation)[b.type] }));
+  const slots = Object.fromEntries(slotsFor(formation).filter(slot => slotUnlocked(slot, tier.stadium, 0)).map(slot => [slot.id, Math.min(MAX_SLOT_LEVEL, tier.stadium)]));
+  const layout = layoutFromFixedBase(buildings, squad, slots, 0, formation);
+  const pool = buildHeroes(tier).sort((a, b) => b.hp * b.dps - a.hp * a.dps);
+  const heroGuards = gatePostsFor(formation).map((post, i) => ({
+    jersey: 0, hp: Math.round(pool[i].hp * .75), dps: Math.round(pool[i].dps * .75 * 10) / 10,
+    name: pool[i].name, art: pool[i].art, unit: pool[i].unit, x: post.gridX * 10 + 5, y: post.gridY * 10 + 5,
+  }));
+  const { result } = simBattle({ mode: 'defense', title: `${tier.name} defense`, buildings: layout,
+    preTroops: defenseAiTroops(), aiMult: raidAiMult(65, tier.stadium),
+    homeGuards: [...homeDefenders(squad), ...heroGuards], fans: 0, parkingLot: 0, masteryTier: 0, loot: { coins: 0, fans: 0 },
+  });
+  console.log(`${tier.name} (facilities L${tier.stadium}, ${Object.keys(slots).length} emplacements, ${layout.filter(b => b.kind === 'wall').length} walls): ${result.pct}% House Taken, ${result.stars} Game Balls conceded — ${result.won ? 'HELD' : 'STORMED'}`);
 });
 
 // ---------- 4. GACHA ECONOMICS (Monte Carlo) ----------
 console.log('\n===== 4. GACHA — Monte Carlo (2000 runs) =====');
 let medRollsToAll = 0, medRollsToLegend = 0;
 {
-  let rollsToAll: number[] = [], rollsToLegend: number[] = [];
+  const rollsToAll: number[] = [], rollsToLegend: number[] = [];
+  const restoreRandom = Math.random;
+  Math.random = mulberry32(0x40ca40ca);
+  try {
   for (let run = 0; run < 2000; run++) {
     const heroes = HERO_DEFS.map(d => ({ key: d.key, level: 1, unlocked: !!d.starter, stars: 1, shards: 0 }));
     let rolls = 0, gotLegend = 0, gotAll = 0;
     while (rolls < 400 && !(gotAll && gotLegend)) {
       rolls++;
-      const res = rollHero(heroes as any);
+      const res = rollHero(heroes);
       const h = heroes.find(x => x.key === res.key)!;
       if (res.isNew) h.unlocked = true; else h.shards += res.shards;
       if (!gotLegend && heroes.find(x => x.key === 'legend')!.unlocked) gotLegend = rolls;
@@ -157,17 +198,19 @@ let medRollsToAll = 0, medRollsToLegend = 0;
     }
     rollsToAll.push(gotAll || 400); rollsToLegend.push(gotLegend || 400);
   }
+  } finally { Math.random = restoreRandom; }
   const med = (a: number[]) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)];
   medRollsToAll = med(rollsToAll);
   medRollsToLegend = med(rollsToLegend);
-  console.log(`median rolls to unlock ALL heroes: ${medRollsToAll}  (=${medRollsToAll * 25} gems)`);
-  console.log(`median rolls to hit The Legend:    ${medRollsToLegend}  (=${medRollsToLegend * 25} gems; direct-buy = 120)`);
-  // shard flow: avg shards per duplicate roll ≈ 13; cost 1→5★ = 25+50+90+140 = 305
-  console.log(`shards needed 1★→5★ per hero: 305 (≈${Math.ceil(305 / 13)} duplicate pulls of THAT hero)`);
+  console.log(`median rolls to unlock ALL heroes: ${medRollsToAll}  (=${medRollsToAll * ROLL_COST_GEMS} gems)`);
+  console.log(`median rolls to hit The Legend:    ${medRollsToLegend}  (=${medRollsToLegend * ROLL_COST_GEMS} gems; direct-buy = ${LEGEND_PRICE})`);
+  // Closed-form shard flow uses the current 14–22 duplicate award range.
+  console.log(`shards needed 1★→5★ per hero: ${SHARDS_TO_MAX} (≈${Math.ceil(SHARDS_TO_MAX / 18)} average duplicate pulls of THAT hero at 14–22 shards per duplicate)`);
 }
 
 // ---------- 5. ECONOMY THROUGHPUT (closed-form) ----------
-console.log('\n===== 5. ECONOMY =====');
+console.log('\n===== 5. ECONOMY — legacy income scenario, current costs =====');
+console.log('Income assumptions: continuous drills, L3 Stadium, 12 road games/hour at 550 Coins each. These are scenarios, not measured player earnings.');
 let hoursToAllL5 = 0, heroTo15Coins = 0;
 {
   const upCost = (l: number) => Math.floor(UPGRADE_CONFIG.baseCost * Math.pow(UPGRADE_CONFIG.costMultiplier, l - 1));
@@ -183,94 +226,66 @@ let hoursToAllL5 = 0, heroTo15Coins = 0;
   const heroTo15 = Array.from({ length: 14 }, (_, i) => heroUpgradeCost(i + 1)).reduce((a, b) => a + b, 0);
   heroTo15Coins = heroTo15;
   console.log(`ONE hero L1→10: ${Math.round(heroTo10).toLocaleString()} coins · L1→15: ${Math.round(heroTo15).toLocaleString()} coins · ×9 heroes L15 = ${Math.round(heroTo15 * 9).toLocaleString()}`);
-  console.log(`gems/day F2P ≈ dailies 15-23 + raids ~20-40 → ~40-60/day → rolls/day ≈ 1.6-2.4 · Legend direct (120) ≈ 2-3 days`);
+  console.log(`Historical income scenario: 40–60 Crowns/day → ${(40 / ROLL_COST_GEMS).toFixed(1)}–${(60 / ROLL_COST_GEMS).toFixed(1)} Scout Searches/day; actual play/collection cadence is not modeled.`);
   const starGain = (heroStarMult(5) / heroStarMult(1) - 1) * 100;
   const lvlGain = (heroLevelMult(15) / heroLevelMult(10) - 1) * 100;
   console.log(`power: 5★ vs 1★ = +${Math.round(starGain)}% · hero L10→15 = +${Math.round(lvlGain)}% for ${Math.round(heroTo15 - heroTo10).toLocaleString()} coins`);
   const gClearCoins = (t: number) => gauntletReward(t, 5, true).coins;
   console.log(`Gauntlet full-clear purse: night-1 ${gClearCoins(1).toLocaleString()} · night-5 ${gClearCoins(5).toLocaleString()} · night-10 ${gClearCoins(10).toLocaleString()} · night-${GAUNTLET_MAX_TIER} ${gClearCoins(GAUNTLET_MAX_TIER).toLocaleString()} coins`);
 }
-// ---------- 6. RARITY & ROLE COMBAT (P0-1 / P1-2 acceptance) ----------
-console.log('\n===== 6. RARITY & ROLES — effectiveStat / unitCombatStats / scripted sims =====');
-{
-  // 6a. Rarity is a real multiplier at equal level (P0-1 accept).
-  const rb = (rarity: PlayerRarity) => ({ role: PlayerRole.RB, rarity, level: 5 });
-  const ratio = effectiveStat(rb(PlayerRarity.EPIC), 'strength') / effectiveStat(rb(PlayerRarity.COMMON), 'strength');
-  console.log(`effectiveStat EPIC/COMMON (RB L5, strength): ${ratio.toFixed(2)}x (expect 1.60)`);
+// ---------- 6. RARITY & ROLE SCENARIOS ----------
+console.log('\n===== 6. RARITY & ROLES — production statlines and shared matches =====');
+const rb = (rarity: PlayerRarity) => ({ role: PlayerRole.RB, rarity, level: 5 });
+const rarityRatio = effectiveStat(rb(PlayerRarity.EPIC), 'strength') / effectiveStat(rb(PlayerRarity.COMMON), 'strength');
+console.log(`effectiveStat EPIC/COMMON (RB L5, strength): ${rarityRatio.toFixed(2)}x`);
+console.log('role'.padEnd(5) + 'grit'.padStart(6) + 'yd/s'.padStart(7) + 'speed'.padStart(7) + 'range'.padStart(6));
+(Object.keys(ROLE_UNIT) as PlayerRole[]).forEach(role => {
+  const stats = unitCombatStats({ role, rarity: PlayerRarity.COMMON, level: 1, unit: ROLE_UNIT[role] });
+  console.log(role.padEnd(5) + String(stats.hp).padStart(6) + stats.dps.toFixed(1).padStart(7) + stats.speed.toFixed(1).padStart(7) + String(stats.range).padStart(6));
+});
+const roles = [PlayerRole.QB, PlayerRole.OL, PlayerRole.OL, PlayerRole.RB, PlayerRole.WR, PlayerRole.WR, PlayerRole.DL, PlayerRole.CB];
+const roleSquad = (rarity: PlayerRarity, positions = roles): Player[] => positions.map((role, i) => ({
+  ...structuredClone(INITIAL_ROSTER[0]), id: `role-${i}`, name: `Role ${role} ${i}`, role, unit: ROLE_UNIT[role], rarity, level: 5,
+}));
+// Week 8 has enough resistance to avoid a 100%/100% ceiling hiding rarity drift.
+const roleBase = campaignBase(8).buildings;
+const common = simBattle(attackConfig(roleBase, roleSquad(PlayerRarity.COMMON))).result;
+const epic = simBattle(attackConfig(roleBase, roleSquad(PlayerRarity.EPIC))).result;
+console.log(`Equal L5 eight-player squad: COMMON ${common.pct}% / ${common.stars} Game Balls; EPIC ${epic.pct}% / ${epic.stars} Game Balls.`);
+const withQB = simBattle(attackConfig(roleBase, roleSquad(PlayerRarity.COMMON, [PlayerRole.QB, PlayerRole.OL, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR]))).result;
+const withoutQB = simBattle(attackConfig(roleBase, roleSquad(PlayerRarity.COMMON, [PlayerRole.LB, PlayerRole.OL, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR]))).result;
+console.log(`Receiver group: with QB ${withQB.pct}% vs LB ${withoutQB.pct}%. This fixture is informational; role interactions are covered by engine tests.`);
 
-  // 6b. Role statlines are DISTINCT (P1-2 accept) — COMMON L1, group × role × stats.
-  console.log('role'.padEnd(5) + 'hp'.padStart(5) + 'dps'.padStart(7) + 'spd'.padStart(7) + 'rng'.padStart(5));
-  (Object.keys(ROLE_UNIT) as PlayerRole[]).forEach(role => {
-    const cs = unitCombatStats({ role, rarity: PlayerRarity.COMMON, level: 1, unit: ROLE_UNIT[role] });
-    console.log(role.padEnd(5) + String(cs.hp).padStart(5) + cs.dps.toFixed(1).padStart(7) + cs.speed.toFixed(1).padStart(7) + String(cs.range).padStart(5));
-  });
+// ---------- 7. REGRESSION GATES ----------
+console.log('\n===== 7. SHARED-ENGINE REGRESSION GATES =====');
+console.log('Historical combat bands (reporting only): passive T4 Championship 30–62%; passive T3/T4 raids 40–85%. Different engine, roster math and scoring: do not compare directly.');
+check('Every scenario terminates with valid outcomes and actor state', invalidOutcomes.length === 0, `${matchesRun} matches; ${invalidOutcomes.join('; ') || 'finite values, bounded grit, House Taken 0–100, Game Balls 0–3'}`);
+const tutorial = campaignResults[0][0];
+check('Actual fresh roster can win the Preseason Opener', tutorial.result.won && tutorial.result.stars >= 1, `${tutorial.result.pct}% / ${tutorial.result.stars} Game Balls; ${tutorial.signatures} signature calls`);
+check('Week 2 remains approachable and Week 4 asks for training', campaignResults[1][0].result.won && !campaignResults[3][0].result.won && campaignResults[3][1].result.won, `fresh Week 2 ${campaignResults[1][0].result.pct}%, fresh Week 4 ${campaignResults[3][0].result.pct}%, trained Week 4 ${campaignResults[3][1].result.pct}%`);
+check('Championship can be fully cleared by the top progression fixture', campaignResults.at(-1)!.at(-1)!.result.stars === 3, `${campaignResults.at(-1)!.at(-1)!.result.pct}% / ${campaignResults.at(-1)!.at(-1)!.result.stars} Game Balls`);
+check('Bot exercises hero signatures', campaignResults.every(row => row.every(match => match.signatures > 0)), 'accepted signature commands in every hero campaign fixture');
+const campaignTotals = TIERS.map((_, index) => campaignResults.reduce((sum, row) => sum + row[index].result.pct, 0));
+check('Progression does not reduce aggregate performance on identical campaign layouts', campaignTotals.every((total, index) => index === 0 || total >= campaignTotals[index - 1]), campaignTotals.map((total, index) => `${TIERS[index].name.trim()}: ${total}`).join(', '));
+check('Progression produces a measurable campaign advantage', campaignTotals.at(-1)! > campaignTotals[0], `T0 total ${campaignTotals[0]} vs T4 ${campaignTotals.at(-1)} across ${CAMPAIGN_STAGES.length} stages`);
+const replay = replayMatch(tutorial.engine.getReplay());
+check('Tutorial recording replays to the same result and final hash', replay.matches && replay.result?.pct === tutorial.result.pct && replay.result.stars === tutorial.result.stars, `${tutorial.engine.hash} live / ${replay.hash} replay`);
+check('Rarity increases derived strength at the same level', rarityRatio > 1, `${rarityRatio.toFixed(2)}x EPIC/COMMON`);
+check('Higher rarity does not weaken the equal-role fixture', epic.pct >= common.pct, `${common.pct}% COMMON → ${epic.pct}% EPIC`);
+check('Every trophy bracket offers a winnable easy choice', raidChoiceResults.every(choices => choices[0].wins > 0), raidChoiceResults.map((choices, i) => `${TIERS[i].name.trim()}: ${choices[0].wins}/${choices[0].samples}`).join(', '));
+check('Hard picks demand more than easy picks at every tier', raidChoiceResults.every(choices => choices[2].pct / choices[2].samples < choices[0].pct / choices[0].samples), 'lower average House Taken against fortress choices than easy choices');
+if (raidWinPct.some(rate => rate === 100)) console.log(`  CALIBRATION REVIEW: ${raidWinPct.filter(rate => rate === 100).length}/${TIERS.length} tiers won every sampled raid. Passing integrity gates does not establish a challenging difficulty curve.`);
 
-  // 6c. Scripted raid: identical squads, COMMON vs EPIC — EPIC must take more of the base.
-  const ROLES: PlayerRole[] = [PlayerRole.QB, PlayerRole.OL, PlayerRole.OL, PlayerRole.RB, PlayerRole.WR, PlayerRole.WR, PlayerRole.DL, PlayerRole.CB];
-  const squad = (rarity: PlayerRarity, roles: PlayerRole[] = ROLES): SimAttacker[] => roles.map((role, i) => {
-    const p = ringPos(i, roles.length);
-    return { unit: ROLE_UNIT[role], x: p.x, y: p.y, role, rarity, level: 5 };
-  });
-  const base = ENEMY_BASES[1].buildings; // Tech University — turrets + wall ring
-  const rCommon = simulateRaid(base, squad(PlayerRarity.COMMON));
-  const rEpic = simulateRaid(base, squad(PlayerRarity.EPIC));
-  console.log(`scripted raid (same squad, L5): COMMON ${rCommon.pct}%/${rCommon.stars}⭐ vs EPIC ${rEpic.pct}%/${rEpic.stars}⭐ ${rEpic.pct > rCommon.pct ? '→ RARITY MATTERS' : '⚠️ EPIC did not outperform!'}`);
-
-  // 6d. Role flags in the headless sim: WRs with a QB out (receiver bonus + pocket) vs without.
-  const wrWithQB = simulateRaid(base, squad(PlayerRarity.COMMON, [PlayerRole.QB, PlayerRole.OL, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR]));
-  const wrNoQB = simulateRaid(base, squad(PlayerRarity.COMMON, [PlayerRole.LB, PlayerRole.OL, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR, PlayerRole.WR]));
-  console.log(`WR corps w/ QB on the field: ${wrWithQB.pct}% vs w/o QB: ${wrNoQB.pct}% ${wrWithQB.pct > wrNoQB.pct ? '→ RECEIVER FLAG LIVE' : '(no edge this layout)'}`);
-}
-console.log('');
-
-// ---------- 6. ASSERTIONS (CI GUARD) ----------
-// Bands are wider than the exact tuned values so ordinary tuning passes, but a curve
-// that drifts out of its BALANCE.md target range fails the build. Ranges — not equality —
-// because the intent ("raids are winnable but not trivial at your own tier") is a band,
-// not a magic number. If you INTEND to move a target, update BALANCE.md and the band here.
-console.log('===== 6. ASSERTIONS (vs BALANCE.md targets) =====');
-const failures: string[] = [];
-const check = (name: string, ok: boolean, detail: string) => {
-  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name} — ${detail}`);
-  if (!ok) failures.push(`${name}: ${detail}`);
-};
-
-// Campaign is deterministic (no RNG): the final boss must demand active play at T4 but
-// never be a walkover, and must wall a fresh (T0) roster well before the endgame.
-const champ = CAMPAIGN_STAGES[CAMPAIGN_STAGES.length - 1];
-const champBase = campaignBase(champ.stage);
-const champT4 = simBattle(champBase.buildings, buildArmy(TIERS[4])).pct;
-const champT0 = simBattle(champBase.buildings, buildArmy(TIERS[0])).pct;
-check('Championship demands actives at T4', champT4 >= 30 && champT4 <= 62, `s${champ.stage} T4 sim = ${champT4}% (target ~38%, band 30–62)`);
-check('Championship walls a fresh roster', champT0 <= 40, `s${champ.stage} T0 sim = ${champT0}% (must be far from a clear)`);
-
-// Raid ladder: generous onboarding, biting-but-winnable at the top. NOTE the bands are
-// on the CONSERVATIVE sim (no plays/mascot/hero abilities) — BALANCE.md notes real play
-// runs +25–40% above sim, so a ~46% sim win rate at T3 ≈ ~60% live. The band's job is to
-// catch DRIFT from today's baseline (T0 100, T3 46, T4 67), not to enforce the live target.
-check('Onboarding raids are generous (T0)', raidWinPct[0] >= 80, `T0 win ${raidWinPct[0]}% (baseline 100)`);
-check('Endgame raids winnable-not-trivial (T3)', raidWinPct[3] >= 40 && raidWinPct[3] <= 85, `T3 win ${raidWinPct[3]}% (sim baseline 46, band 40–85)`);
-check('Endgame raids winnable-not-trivial (T4)', raidWinPct[4] >= 40 && raidWinPct[4] <= 85, `T4 win ${raidWinPct[4]}% (sim baseline 67, band 40–85)`);
-
-// Economy: all buildings to L5 stays a focused-session goal, not a grind wall.
-check('All-L5 is a focused session', hoursToAllL5 >= 1.5 && hoursToAllL5 <= 6, `${hoursToAllL5.toFixed(1)}h (target 3–5, band 1.5–6)`);
-// One hero to L15 stays the long-term coin sink.
-check('Hero L15 is a real coin sink', heroTo15Coins >= 350_000 && heroTo15Coins <= 700_000, `${Math.round(heroTo15Coins).toLocaleString()} coins (target ~503k)`);
-
-// Gacha: direct-buying The Legend (120👑) must stay the smart path vs chasing it in rolls.
-check('Legend direct-buy beats rolling for it', medRollsToLegend * 20 > 200, `median ${medRollsToLegend} rolls ≈ ${medRollsToLegend * 20}👑 vs 120 direct`);
-
-// Gauntlet is pure (no RNG): the purse must keep climbing with tier and the wave-5
-// difficulty ramp must keep climbing too, so pushing further into the ladder always
-// feels like a real step up — band catches drift, not the exact tuned curve.
-const gClear = (t: number) => gauntletReward(t, 5, true).coins;
+// Existing economy bands remain scenario checks; they are not user-income promises.
+check('All-L5 income scenario remains in its historical range', hoursToAllL5 >= 1.5 && hoursToAllL5 <= 6, `${hoursToAllL5.toFixed(1)}h under the stated assumptions (band 1.5–6)`);
+check('Hero L15 remains a substantial Coin sink', heroTo15Coins >= 350_000 && heroTo15Coins <= 700_000, `${Math.round(heroTo15Coins).toLocaleString()} Coins (historical band 350k–700k)`);
+check('Legend direct-buy costs less than median rolling', medRollsToLegend * ROLL_COST_GEMS > LEGEND_PRICE, `median ${medRollsToLegend} rolls × ${ROLL_COST_GEMS} = ${medRollsToLegend * ROLL_COST_GEMS} Crowns vs ${LEGEND_PRICE} direct`);
+const gClear = (tier: number) => gauntletReward(tier, 5, true).coins;
 const gRewardMono = Array.from({ length: GAUNTLET_MAX_TIER - 1 }, (_, i) => gClear(i + 2) > gClear(i + 1)).every(Boolean);
 const gMultMono = Array.from({ length: GAUNTLET_MAX_TIER - 1 }, (_, i) => gauntletWaves(i + 2)[4].mult > gauntletWaves(i + 1)[4].mult).every(Boolean);
 const gMax = gClear(GAUNTLET_MAX_TIER);
-check('Gauntlet purse and ramp scale with tier', gRewardMono && gMultMono && gMax >= 15_000 && gMax <= 21_000, `night-${GAUNTLET_MAX_TIER} full clear = ${gMax.toLocaleString()} coins (baseline 18k, band 15k–21k — tight enough to catch a ~40% swing); reward/difficulty monotonic = ${gRewardMono}/${gMultMono}`);
-
+check('Gauntlet purse and ramp scale with tier', gRewardMono && gMultMono && gMax >= 15_000 && gMax <= 21_000, `night-${GAUNTLET_MAX_TIER}: ${gMax.toLocaleString()} Coins; reward/difficulty monotonic = ${gRewardMono}/${gMultMono}`);
 if (failures.length) {
-  console.error(`\n❌ BALANCE REGRESSION — ${failures.length} target(s) out of band:\n  - ${failures.join('\n  - ')}\n`);
-  process.exit(1);
-}
-console.log('\n✅ All balance targets within band.\n');
+  console.error(`\nBALANCE REGRESSION — ${failures.length} failing gate(s):\n  - ${failures.join('\n  - ')}\n`);
+  process.exitCode = 1;
+} else console.log('\nShared-engine integrity, progression and retained economy gates pass. Human difficulty/retention calibration still requires playtesting.\n');

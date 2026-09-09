@@ -23,7 +23,7 @@ export function parseSavedClub(raw: string): GameState {
   require(object(s.resources) && ['COINS', 'GEMS', 'ENERGY', 'FANS'].every(k => number(s.resources[k])), 'resources');
   require(Array.isArray(s.buildings) && s.buildings.every((b: unknown) => object(b) && text(b.id) && Object.values(BuildingType).includes(b.type) && number(b.level) && b.level >= 1 && Number.isInteger(b.level) && Number.isFinite(b.gridX) && Number.isFinite(b.gridY) && Object.values(DrillState).includes(b.state)), 'facilities');
   require(Array.isArray(s.roster) && s.roster.every((p: unknown) => object(p) && text(p.id) && text(p.name) && number(p.level) && point(p.worldPos) && point(p.targetPos) && Object.values(UnitGroup).includes(p.unit) && Object.values(PlayerRole).includes(p.role) && Object.values(PlayerState).includes(p.state) && object(p.stats) && ['strength', 'speed', 'iq'].every(k => number(p.stats[k]))), 'roster');
-  for (const field of ['lastTick', 'timeOfDay', 'trophies', 'builders', 'parkingLot', 'bonusDefSlots', 'shieldUntil']) {
+  for (const field of ['lastTick', 'timeOfDay', 'trophies', 'builders', 'parkingLot', 'bonusDefSlots', 'shieldUntil', 'energyProgressMs', 'peakFans']) {
     if (field in s) require(number(s[field]), field);
   }
   if (s.teamName != null) require(text(s.teamName), 'team name');
@@ -34,6 +34,7 @@ export function parseSavedClub(raw: string): GameState {
   if (s.gauntlet != null) require(object(s.gauntlet) && text(s.gauntlet.date) && number(s.gauntlet.best) && number(s.gauntlet.attempts), 'Gauntlet');
   for (const field of ['defenseSlots', 'formationMastery']) if (s[field] != null) require(numericMap(s[field]), field);
   for (const field of ['defenseLog', 'walls', 'bonusOrbs', 'matchHistory', 'defenses']) if (field in s) require(Array.isArray(s[field]) && s[field].every(object), field);
+  if (s.defenseInbox != null) require(object(s.defenseInbox) && typeof s.defenseInbox.ownerId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.defenseInbox.ownerId) && typeof s.defenseInbox.createdAt === 'string' && Number.isFinite(Date.parse(s.defenseInbox.createdAt)) && Number.isSafeInteger(s.defenseInbox.id) && s.defenseInbox.id >= 0, 'live defense cursor');
   if (s.inventory != null) require(object(s.inventory) && Array.isArray(s.inventory.defenses), 'inventory');
   if (s.heroGates != null) require(object(s.heroGates) && Object.values(s.heroGates).every(text), 'hero assignments');
   return s as unknown as GameState;
