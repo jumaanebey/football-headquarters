@@ -20,14 +20,19 @@ The live campus showed 14 instances of `grounds-cutouts.webp` with `data-ready="
 - [x] Add type checking to CI and retain the existing balance gate.
 - [x] Pass `npm run check`: TypeScript, 83 tests in 14 files, 527 raster decodes, production build.
 
-## Remaining release checks
+## Release verification
 
-- [ ] Push the focused repair and open a pull request.
-- [ ] Verify preview artwork loads and observe ground integration at starter and upgraded levels and in battle.
-- [ ] Merge after the release checks pass.
-- [ ] Verify the published campus and served critical atlas hashes.
+- [x] Publish the exact validated tree through the connected GitHub app and open PR #22.
+- [x] Confirm GitHub CI passes on repair commit `726aec4` and Vercel preview reports Ready.
+- [x] Inspect the preview campus: all 14 scenery instances report ready and no longer display the old grass bases.
+- [x] Inspect the preview battle: the repaired field-equipment sheet reports ready and its structures render on the field.
+- [x] Verify the served upgraded-campus sheet decodes in the browser at 1254 × 1254 pixels.
+- [x] Merge PR #22 as `b4a1f0c` and confirm the production Vercel deployment succeeds.
+- [x] Refresh https://football-headquarters.vercel.app/ and visually verify the repaired campus; all 14 scenery instances, the stadium cutout, and the tailgate cutout report ready.
+- [ ] Independently compare HTTP-served asset SHA-256 values (source blob hashes were verified; browser decoding and rendering passed).
+- [ ] Complete an in-scene review of every upgraded construction era; the restored sheet decodes, but those progression states were not individually exercised in this repair.
 
-The local preview could not be reached (`ERR_CONNECTION_REFUSED`). Browser visual acceptance is not passed. The existing production JavaScript size warning remains. A terminal attempt to verify served production bytes did not return decodable images; it does not establish new production hashes.
+The local preview connection was unavailable. Visual verification was completed on the Vercel preview and production site instead. The existing production JavaScript size warning remains. No claim is made about independent HTTP-served hashes or every upgraded progression state. The broader reconstruction is not part of this repair.
 
 ## Validated source hashes
 
