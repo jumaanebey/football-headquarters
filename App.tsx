@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { heroPracticeConfig, isNonProgressionBattle, canRefundRaidEnergy } from './game/combat/practice';
 
 // Drops the CC building bar on ANY press outside it — HUD, nav, empty turf, other
 // screens' chrome. Buildings are excluded so pressing one just switches the bar.
@@ -70,6 +71,7 @@ function App() {
   const [standingsTab, setStandingsTab] = useState<'live' | 'ladder' | undefined>(undefined);
   const [attackSelectOpen, setAttackSelectOpen] = useState(false);
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
+  const [practiceTake, setPracticeTake] = useState(0);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
   const [dashboardOpen, setDashboardOpen] = useState(false); // 🏙 Club Dashboard (tap the jumbotron)
   // CC-style tap: the action bar shows first; Info opens the full sheet.
@@ -780,7 +782,11 @@ function App() {
   };
 
   const handleBattleFinish = (r: BattleResult) => {
-    if (r.isReplay) { setBattleConfig(null); return; } // spectating awards nothing
+    if (isNonProgressionBattle(r, battleConfig)) {
+      setBattleConfig(null);
+      if (r.isPractice || battleConfig?.practice) setIsHeroOpen(true);
+      return; // before currencies, counters, progression, analytics, or online reports
+    }
     track('battle_result', {
       mode: r.mode,
       won: r.won,
@@ -1485,17 +1491,20 @@ function App() {
 
       {battleConfig && (
         <Suspense fallback={<div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4" role="status"><img src="/assets/brand/logo.webp" alt="Football Headquarters" width="240" /><p>Getting the field ready…</p></div>}><BattleScreen
+          key={battleConfig.practice ? `practice-${practiceTake}` : 'match'}
           config={battleConfig}
           onFinish={handleBattleFinish}
+          onPracticeAgain={() => { setPracticeTake(take => take + 1); setBattleConfig(heroPracticeConfig(battleConfig.heroes?.[0]?.key ?? 'qb')); }}
           onExit={(beforeKickoff) => {
             // Energy is charged in launchAttack, before the battle mounts. Backing out of
             // the deploy screen used to eat it silently — no game, no loot, no refund, and
             // no analytics event, so the drop-off was invisible in the funnel too.
-            if (beforeKickoff) {
+            if (canRefundRaidEnergy(beforeKickoff, battleConfig)) {
               setGameState(prev => ({ ...prev, resources: { ...prev.resources, [ResourceType.ENERGY]: Math.min(100, prev.resources.ENERGY + RAID_ENERGY) } }));
               track('battle_abandon', { mode: battleConfig?.mode, campaign: !!battleConfig?.campaignStage });
             }
             setBattleConfig(null);
+            if (battleConfig.practice) setIsHeroOpen(true);
           }}
         /></Suspense>
       )}
@@ -1504,6 +1513,7 @@ function App() {
         <Suspense fallback={<Sheet title="Hall of Heroes" icon={<span>🏈</span>} onClose={() => setIsHeroOpen(false)}><p className="p-5 text-slate-300" role="status">Opening the film room…</p></Sheet>}>
         <HeroModal
           initialHero={focusedHero}
+          onPractice={key => { setFocusedHero(key); setIsHeroOpen(false); setBattleConfig(heroPracticeConfig(key)); }}
           heroes={gameState.heroes}
           resources={gameState.resources}
           stadiumLevel={stadiumLevel}

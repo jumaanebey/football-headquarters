@@ -68,10 +68,19 @@ export interface BTroop {
   actionPoseT?: number; // presentation-only release/contact beat
   abilityPoseT?: number; // visual action beat after an ability
   abilityCd?: number; // seconds until ability ready (0 = ready)
+  activeAction?: string; // semantic signature action ID; blocks locomotion during the plant/release
+  signatureFrame?: number; // event-clock pose: set, load, release, recovery
+  sprintT?: number; // continuous jet sweep, resolved through normal pathfinding
+  chargeRate?: number; // IQ-derived route awareness
+  stridePhase?: number; // distance-driven phase, updated only by the simulation
+  deployedAt?: number; // simulation tick; presentation uses this for temporary identification
+  healingDone?: number;
+  healingSource?: string;
+  protectionDone?: number;
+  shieldSource?: string;
   moving?: boolean; // observed displacement this tick; animation only
   face?: number; // projected screen direction
   strideSeconds?: number; // walk cadence from actual speed
-  stridePhase?: number; // presentation-only phase accumulated from displacement
   attacking?: boolean; // true this tick if in range and hitting a target (drives lunge anim)
   special?: SpecialKind; // set for Mascot / Fan-Mob support units
   jersey?: number;     // individual jersey number (each deployed player is their own person)

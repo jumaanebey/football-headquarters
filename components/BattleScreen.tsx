@@ -1,9 +1,12 @@
 import { HeroArt } from './HeroArt';
 import { BuildingSprite } from './BuildingArt';
 import { BattleHeroSprite } from './BattleHeroSprite';
+import { HeroCommandBar } from './HeroCommandBar';
 import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
 import { spriteFacing } from '../game/spriteFacing';
+import { COMBAT_RULES_VERSION, applyBuildingYardage, applyTroopPressure, recover, beginHeroAction, stepHeroActions, actionFinished, actionFlight, type HeroAction, type CombatEvent } from '../game/combat/actions';
+import { rosterTroop, routeRefreshSeconds } from '../game/combat/roster';
 import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 import React, { useEffect, useRef, useState } from 'react';
 import { UnitGroup , Player } from '../types';
@@ -41,6 +44,8 @@ export interface BattleConfig {
   specials?: SpecialDef[];
   preTroops?: { unit: UnitGroup; x: number; y: number }[];
   squad?: Player[];       // the roster as INDIVIDUALS — deploys pull real named players
+  preparation?: Record<UnitGroup, number>;
+  practice?: boolean; // isolated new-rules field: no energy, rewards or online writes
   aiMult?: number;
   loot: { coins: number; fans: number };
   campaignStage?: number; // set when this attack is a Season campaign stage
@@ -66,6 +71,7 @@ export interface BattleResult {
   campaignStage?: number;
   pvpTarget?: string;
   isReplay?: boolean;    // spectated replays award nothing
+  isPractice?: boolean;
   replay?: ReplayData;   // recorded on live-rival attacks so the defender can watch
   gauntletTier?: number; // set when this was a Gauntlet night
   wavesHeld?: number;    // waves survived before the whistle (or the breach)
@@ -78,6 +84,7 @@ interface Props {
   /** `beforeKickoff` = they backed out during deploy, so no game was played and the
    *  energy charged at launch must be handed back. */
   onExit: (beforeKickoff?: boolean) => void;
+  onPracticeAgain?: () => void;
 }
 
 // A defense "shot" is now a football lobbed from a defender to a target — an arcing
@@ -173,9 +180,11 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
   targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, special: def.key,
 });
 
-export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
+export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPracticeAgain }) => {
   const isDefense = config.mode === 'defense';
   const isReplay = !!config.replay;
+  const modernCombat = !!config.practice;
+  const actions = useRef<HeroAction[]>([]);
   const povDefense = isDefense || isReplay; // whose broadcast is this? replays are watched by the DEFENDER
   // 🎓 Onboarding declutter (UX review, July 2026): the FIRST game hides the Game Plan
   // picker + scouting badges so a first-timer sees only dialogue → deploy hint → live raid.
@@ -194,7 +203,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // decision (jerseys, wave picks, FX jitter) replays identically.
   const seedRef = useRef(config.replay?.seed ?? Math.floor(Math.random() * 2 ** 31));
   const rngRef = useRef(mulberry32(seedRef.current));
-  const rand = () => rngRef.current();
+  const fxRngRef = useRef(mulberry32(seedRef.current ^ 0x5f3759df));
+  // Legacy matches retain their consumption order. Practice separates gameplay from FX.
+  const gameRand = () => rngRef.current();
+  const rand = () => modernCombat ? fxRngRef.current() : rngRef.current();
   // Attack recorder: every deploy/play/ability lands here with its tick (live attacks only).
   const recRef = useRef<ReplayAction[]>([]);
   const record = (a: Omit<ReplayAction, 'tick'>) => { if (!isReplay) recRef.current.push({ ...a, tick: sim.current.ticks }); };
@@ -249,7 +261,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const deployedHeroesRef = useRef<Set<string>>(new Set());
   useEffect(() => { deployedHeroesRef.current = new Set(deployedHeroes); }, [deployedHeroes]);
   const specialChargesRef = useRef(specialCharges); useEffect(() => { specialChargesRef.current = specialCharges; }, [specialCharges]);
-  const [pendingHero, setPendingHero] = useState<RaidHero | null>(null);
+  const [pendingHero, setPendingHero] = useState<RaidHero | null>(config.practice ? heroes[0] ?? null : null);
   const [castMode, setCastMode] = useState<PlayDef | null>(null);
   const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense || isReplay ? 'fighting' : 'deploy');
   // DEFENSE AGENCY: when YOUR stadium is under attack you call plays, not just watch.
@@ -292,7 +304,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const [plan, setPlan] = useState<GamePlanDef>(() => GAME_PLANS.find(g => g.key === config.replay?.planKey) ?? GAME_PLANS[1]);
   const planRef = useRef(plan); planRef.current = plan;
   // 🆚 MATCHUP CARD — a 3-second broadcast open before you take the field.
-  const [matchup, setMatchup] = useState(!isDefense && !isReplay);
+  const [matchup, setMatchup] = useState(!isDefense && !isReplay && !config.practice);
   useEffect(() => {
     if (!matchup) return;
     const t = setTimeout(() => setMatchup(false), 3000);
@@ -323,11 +335,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   // so a recorded attack re-creates itself exactly (including RNG consumption order).
   // INDIVIDUALS, not squads: each deploy pulls the next real roster player of that
   // position group (deterministic order → replays stay faithful).
-  const squadQueues = useRef<Record<string, { name: string; role: string }[]>>({});
+  const squadQueues = useRef<Record<string, Player[]>>({});
   useEffect(() => {
-    const q: Record<string, { name: string; role: string }[]> = {};
+    const q: Record<string, Player[]> = {};
     for (const p of [...(config.squad ?? [])].sort((a, b) => a.id.localeCompare(b.id))) {
-      (q[p.unit] = q[p.unit] ?? []).push({ name: p.name, role: p.role });
+      (q[p.unit] = q[p.unit] ?? []).push(p);
     }
     squadQueues.current = q;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -335,7 +347,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   if (import.meta.env.DEV) (window as unknown as { __sim?: unknown }).__sim = sim; // dev-only sim inspection
   const doDeployTroop = (unit: UnitGroup, x: number, y: number) => {
     const player = squadQueues.current[unit]?.shift();
-    sim.current.troops.push(coach(makeTroop(unit, x, y, config.power?.[unit] ?? 1, rand, player)));
+    const troop = modernCombat && player?.stats
+      ? rosterTroop(player, `tr${++troopUid}`, x, y, config.preparation?.[unit] ?? 1, 1 + Math.floor(gameRand() * 98))
+      : makeTroop(unit, x, y, config.power?.[unit] ?? 1, gameRand, player);
+    sim.current.troops.push(coach(troop));
     sim.current.fx.push({ type: 'land', x, y, life: 0.45, maxLife: 0.45 });
     sfx.thud();
     if (player) say(`${player.name.toUpperCase()} (${player.role}) — ${ROLE_COMBAT[player.role]?.power ?? 'in the game'}!`);
@@ -343,7 +358,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
   const doDeployHero = (key: string, x: number, y: number) => {
     const h = heroes.find(hh => hh.key === key);
     if (!h) return;
-    sim.current.troops.push(coach(makeHeroTroop(h, x, y)));
+    sim.current.troops.push(coach({ ...makeHeroTroop(h, x, y), deployedAt: sim.current.ticks }));
     sim.current.fx.push({ type: 'land', x, y, life: 0.55, maxLife: 0.55 });
     sfx.thud();
     say(`${h.name.toUpperCase()} TAKES THE FIELD!`);
@@ -365,10 +380,51 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       if (t.dead) return;
       if (dist(t.x, t.y, x, y) <= p.radius) {
         if (p.key === 'blitz') t.rageT = RAGE_SECONDS;
-        else if (p.key === 'medic') t.healT = HEAL_SECONDS;
+        else if (p.key === 'medic') { t.healT = HEAL_SECONDS; t.healingSource = undefined; }
       }
     });
     sim.current.pulses.push({ x, y, r: p.radius, life: 0.5, maxLife: 0.5, color: p.color });
+  };
+  // The new rules use one result consumer for normal hits AND signatures. The
+  // legacy branch remains frozen until replay/server parity is proven.
+  const consumeCombatEvents = (events: CombatEvent[]) => {
+    const s = sim.current;
+    for (const event of events) {
+      if (event.type === 'yardage') {
+        const target = s.buildings.find(b => b.id === event.targetId);
+        if (!target) continue;
+        (target as BBuilding & { hitFlash?: number }).hitFlash = 0.16;
+        if (!s.goalLine && target.kind === 'hq' && target.hp < target.maxHp * 0.5 && !target.dead) {
+          s.goalLine = true;
+          for (let i = 0; i < 2; i++) s.guards.push(makeTroop(UnitGroup.DEFENSE_LINE, target.x + (i ? 3 : -3), target.y + 2, guardMult, gameRand));
+          say('GOAL-LINE STAND — the defense digs in!');
+        }
+      } else if (event.type === 'sacked' && event.kind !== 'wall') {
+        const scored = event.kind === 'hq';
+        s.fx.push({ type: 'yards', text: scored ? 'TOUCHDOWN!' : 'SACKED!', x: event.x, y: event.y, life: 1.2, maxLife: 1.2 });
+        s.fx.push({ type: 'boom', x: event.x, y: event.y, life: 0.55, maxLife: 0.55 });
+        s.pulses.push({ x: event.x, y: event.y, r: scored ? 15 : 10, life: 0.45, maxLife: 0.45, color: '#fde047' });
+        s.momentum = Math.min(100, s.momentum + (scored ? 25 : 12) * planRef.current.momentum);
+        s.shakeT = scored ? 0.35 : 0.15;
+        s.punchT = scored ? 0.3 : 0.12;
+        say(scored ? 'TOUCHDOWN! Signature or contact — every yard counts.' : 'Another facility SACKED!');
+        sfx.boom();
+        if (scored) { s.freezeT = 0.45; sfx.airhorn(); }
+      } else if (event.type === 'signature-impact') {
+        const def = heroes.find(h => h.key === event.heroKey);
+        const radius = event.ability === 'field_medic' ? 18 : event.ability === 'shield_wall' ? 16 : event.ability === 'motivation' ? 20 : 10;
+        s.pulses.push({ x: event.x, y: event.y, r: radius, life: 0.45, maxLife: 0.45, color: def?.color ?? '#fde047' });
+        say(`${def?.abilityName.toUpperCase() ?? 'SIGNATURE'} — ${event.ability === 'hailmary' || event.ability === 'onside_bomb' ? 'CONTACT!' : 'IN PLAY!'}`);
+        sfx.thud();
+      } else if (event.type === 'recovery') {
+        s.fx.push({ type: 'dmg', text: `+${Math.round(event.amount)} HP`, color: '#86efac', x: event.x, y: event.y - 2, life: 0.8, maxLife: 0.8 });
+      } else if (event.type === 'reinforcements') {
+        for (let i = 0; i < 3; i++) {
+          const angle = i / 3 * Math.PI * 2;
+          s.troops.push(coach(makeTroop(UnitGroup.OFFENSE_SKILL, event.x + Math.cos(angle) * 3, event.y + Math.sin(angle) * 3, config.preparation?.[UnitGroup.OFFENSE_SKILL] ?? 1, gameRand)));
+        }
+      }
+    }
   };
   const [, forceTick] = useState(0);
   const [result, setResult] = useState<BattleResult | null>(null);
@@ -448,7 +504,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       wavesHeld: !held ? Math.max(0, s.nextWave - 1) : naturalEnd ? s.nextWave : Math.max(0, s.nextWave - 1),
       gauntletCleared: held && naturalEnd && s.nextWave >= config.gauntlet.waves.length,
     } : {};
-    setResult({ mode: config.mode, title: config.title, stars, pct, coins: Math.round(config.loot.coins * frac) + s.bonus, fans: Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget, isReplay: isReplay || undefined, replay, ...gauntletBits });
+    setResult({ mode: config.mode, title: config.title, stars, pct, coins: config.practice ? 0 : Math.round(config.loot.coins * frac) + s.bonus, fans: config.practice ? 0 : Math.round(config.loot.fans * frac), won: isDefense ? pct < 50 : stars > 0, campaignStage: config.campaignStage, pvpTarget: config.pvpTarget, isReplay: isReplay || undefined, isPractice: config.practice, replay, ...gauntletBits });
     setPhase('result');
   };
 
@@ -500,28 +556,39 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
       const motionSamples = [...s.troops, ...s.guards].map(actor => ({ actor, x: actor.x, y: actor.y }));
       for (const { actor } of motionSamples) { actor.moving = false; actor.attacking = false; actor.actionPoseT = Math.max(0, (actor.actionPoseT ?? 0) - DT); }
+      if (modernCombat) {
+        consumeCombatEvents(stepHeroActions(actions.current, s.troops, s.buildings, DT));
+        actions.current = actions.current.filter(action => !actionFinished(action));
+      }
 
       for (const t of s.troops) {
         if (t.dead) continue;
         if (t.hitFlash > 0) t.hitFlash = Math.max(0, t.hitFlash - DT);
         if (t.rageT > 0) t.rageT = Math.max(0, t.rageT - DT);
-        if (t.healT > 0) { t.healT = Math.max(0, t.healT - DT); t.hp = Math.min(t.maxHp, t.hp + HEAL_PER_SEC * DT); }
+        if (t.healT > 0) {
+          t.healT = Math.max(0, t.healT - DT);
+          const source = modernCombat && t.healingSource ? s.troops.find(actor => actor.id === t.healingSource) : undefined;
+          if (source) recover(source, t, HEAL_PER_SEC * DT);
+          else t.hp = Math.min(t.maxHp, t.hp + HEAL_PER_SEC * DT);
+        }
         if (t.shieldT && t.shieldT > 0) t.shieldT = Math.max(0, t.shieldT - DT);
         if (t.slowT && t.slowT > 0) t.slowT = Math.max(0, t.slowT - DT);
         if (t.abilityPoseT) t.abilityPoseT = Math.max(0, t.abilityPoseT - DT);
         if (t.abilityCd && t.abilityCd > 0) t.abilityCd = Math.max(0, t.abilityCd - DT);
+        if (t.sprintT) t.sprintT = Math.max(0, t.sprintT - DT);
+        if (modernCombat && t.activeAction) { t.attacking = true; continue; } // plant through release
 
         const raging = t.rageT > 0;
         // WR power: catching — big damage while any thrower (QB player or QB hero) is out
         const rc = t.role ? ROLE_COMBAT[t.role] : undefined;
         const catching = rc?.receiver && s.troops.some(o => !o.dead && (ROLE_COMBAT[o.role ?? '']?.thrower || o.heroKey === 'qb'));
         const dps = t.dps * (raging ? 2 : 1) * (catching ? RECEIVER_BONUS : 1);
-        const speed = t.speed * (raging ? 1.5 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1); // penalty flag = mud in your cleats
+        const speed = t.speed * (raging ? 1.5 : 1) * ((t.sprintT ?? 0) > 0 ? 1.7 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1);
 
         const goal = nearestBuilding(t.x, t.y, s.buildings, t.special ? undefined : UNIT_PREF[t.unit]); // position-group targeting roles
         if (!goal) continue;
         // Wall-aware routing: replan when the goal changes, the route's wall falls, or it goes stale.
-        if (!t.plan || t.plan.goalId !== goal.id || (t.plan.age += DT) > 1.1) t.plan = planPath(t.x, t.y, goal, s.buildings);
+        if (!t.plan || t.plan.goalId !== goal.id || (t.plan.age += DT) > (modernCombat ? routeRefreshSeconds(t) : 1.1)) t.plan = planPath(t.x, t.y, goal, s.buildings);
         const plan = t.plan;
         // Consume reached waypoints and cut any corner we can already see past.
         while (plan.path.length && (dist(t.x, t.y, plan.path[0].x, plan.path[0].y) < 3
@@ -553,8 +620,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         } else {
           t.attacking = true;
           (t as BTroop & { face?: number }).face = spriteFacing(t.x, t.y, target.x, target.y, (t as BTroop & { face?: number }).face);
-          target.hp -= dps * DT;
-          t.dmg = (t.dmg ?? 0) + dps * DT;
+          if (modernCombat) consumeCombatEvents(applyBuildingYardage(t, target, dps * DT));
+          else { target.hp -= dps * DT; t.dmg = (t.dmg ?? 0) + dps * DT; }
           // Contact sparkle — the block/tackle work on the building is VISIBLE
           if (rand() < 0.06) s.fx.push({ type: 'impact', x: (t.x + target.x) / 2, y: (t.y + target.y) / 2 - 1, life: 0.3, maxLife: 0.3 });
           // Floating damage numbers — throttled per player so hits read without spamming.
@@ -574,14 +641,14 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             t.dmgAcc = 0; t.dmgTimer = 0;
           }
           // GOAL-LINE STAND: crack their stadium below half and the defense throws everything at you.
-          if (!s.goalLine && target.kind === 'hq' && target.hp < target.maxHp * 0.5) {
+          if (!modernCombat && !s.goalLine && target.kind === 'hq' && target.hp < target.maxHp * 0.5) {
             s.goalLine = true;
             for (let gi = 0; gi < 2; gi++) s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: target.x + (gi ? 3 : -3), y: target.y + 2, hp: Math.round(150 * guardMult), maxHp: Math.round(150 * guardMult), dps: 12 * guardMult, speed: 13, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 50 + Math.floor(rand() * 49) });
             say(povDefense ? '🚨 GOAL-LINE STAND — your boys dig in at the goal line!' : '🚨 GOAL-LINE STAND — they\'re throwing EVERYBODY at you!');
             s.shakeT = 0.25;
           }
           if (rand() < 0.12) s.fx.push({ type: 'impact', x: target.x, y: target.y - target.size * 0.3, life: 0.22, maxLife: 0.22 });
-          if (target.hp <= 0) {
+          if (!modernCombat && target.hp <= 0) {
             target.hp = 0; target.dead = true; t.targetId = null;
             if (target.kind !== 'wall') {
               const scored = target.kind === 'hq'; // taking their stadium = the score
@@ -626,7 +693,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       const spawnEvery = Math.max(4.5, 8 - (BATTLE_SECONDS - s.time) / 15);
       if (s.guardT >= spawnEvery && aliveDef.length > 0 && aliveGuards.length < 3 && s.troops.some(t => !t.dead)) {
         s.guardT = 0;
-        const src = aliveDef[Math.floor(rand() * aliveDef.length)];
+        const src = aliveDef[Math.floor(gameRand() * aliveDef.length)];
         s.guards.push({ id: `g${++troopUid}`, unit: UnitGroup.DEFENSE_LINE, x: src.x, y: src.y, hp: Math.round(140 * guardMult), maxHp: Math.round(140 * guardMult), dps: 11 * guardMult, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: 40 + Math.floor(rand() * 59) });
         say(povDefense ? 'YOUR defense sends out a linebacker!' : 'The defense sends out a LINEBACKER!');
       }
@@ -671,13 +738,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
           g.attacking = true;
           (g as BTroop & { face?: number }).face = spriteFacing(g.x, g.y, prey.x, prey.y, (g as BTroop & { face?: number }).face);
           const shieldFactor = (prey.shieldT && prey.shieldT > 0) ? 0.5 : 1;
-          const preyOut = prey.dps * (prey.rageT > 0 ? 2 : 1) * 0.55 * DT;
+          const preyOut = modernCombat && prey.activeAction ? 0 : prey.dps * (prey.rageT > 0 ? 2 : 1) * 0.55 * DT;
           // OL power: the pocket — QB/RB near a live lineman take reduced damage
           const pocket = (prey.role === 'QB' || prey.role === 'RB') && s.troops.some(o => !o.dead && ROLE_COMBAT[o.role ?? '']?.protector && dist(o.x, o.y, prey.x, prey.y) < POCKET_RADIUS) ? POCKET_FACTOR : 1;
           const frenzy = g.rageT > 0 ? 1.35 : 1; // mascot-hyped defenders hit harder
-          prey.hp -= g.dps * frenzy * shieldFactor * pocket * DT; prey.hitFlash = 0.12;
-          g.hp -= preyOut; g.hitFlash = 0.12;
-          prey.dmg = (prey.dmg ?? 0) + preyOut;
+          if (modernCombat) applyTroopPressure(prey, g.dps * frenzy * pocket * DT, s.troops);
+          else prey.hp -= g.dps * frenzy * shieldFactor * pocket * DT;
+          prey.hitFlash = 0.12;
+          const effectiveCounter = modernCombat ? Math.min(Math.max(0, g.hp), preyOut) : preyOut;
+          g.hp -= effectiveCounter; g.hitFlash = 0.12;
+          prey.dmg = (prey.dmg ?? 0) + effectiveCounter;
           // Red numbers when the defense is chewing on your player.
           g.dmgAcc = (g.dmgAcc ?? 0) + g.dps * frenzy * shieldFactor * DT;
           g.dmgTimer = (g.dmgTimer ?? 0) + DT;
@@ -786,9 +856,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
 
       // Turrets — each equipment kind FIGHTS differently (the Design-shop choice matters).
       const hitTroop = (t: BTroop, raw: number) => {
-        const hit = Math.round(raw * ((t.shieldT && t.shieldT > 0) ? 0.5 : 1));
-        t.hp -= hit; t.hitFlash = 0.15;
-        s.fx.push({ type: 'dmg', text: `${hit}`, color: '#f87171', x: t.x + (rand() * 3 - 1.5), y: t.y - 2.5, life: 0.7, maxLife: 0.7 });
+        const hit = modernCombat ? applyTroopPressure(t, raw, s.troops) : Math.round(raw * ((t.shieldT && t.shieldT > 0) ? 0.5 : 1));
+        if (!modernCombat) t.hp -= hit;
+        t.hitFlash = 0.15;
+        s.fx.push({ type: 'dmg', text: `${Math.round(hit)}`, color: '#f87171', x: t.x + (rand() * 3 - 1.5), y: t.y - 2.5, life: 0.7, maxLife: 0.7 });
         if (rand() < 0.3) s.fx.push({ type: 'impact', x: t.x, y: t.y - 0.5, life: 0.28, maxLife: 0.28 });
         if (t.hp <= 0) {
           t.hp = 0; t.dead = true; s.lost++; s.momentum = Math.max(0, s.momentum - 6);
@@ -926,7 +997,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         const dmgFrac = nonWallB.length ? nonWallB.reduce((sum, b) => sum + (1 - Math.max(0, b.hp) / (b.maxHp || 1)), 0) / nonWallB.length : 0;
         if (dmgFrac >= 0.5) { endBattle(); return; }
       }
-      if (allDead || s.time <= 0 || (!wavesPending && s.troops.length > 0 && !anyTroopAlive && !anyToDeploy)) endBattle();
+      const ballInPlay = modernCombat && actions.current.some(action => action.released && !action.resolved);
+      if (allDead || s.time <= 0 || (!wavesPending && !ballInPlay && s.troops.length > 0 && !anyTroopAlive && !anyToDeploy)) endBattle();
     };
     const iv = setInterval(() => {
       const now = performance.now();
@@ -953,6 +1025,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
     const s = sim.current;
     const h = s.troops.find(t => t.heroKey === heroKey && !t.dead);
     if (!h || (h.abilityCd ?? 0) > 0) return;
+    if (modernCombat) {
+      const action = beginHeroAction(h, s.buildings, s.ticks);
+      if (!action) return;
+      h.face = spriteFacing(h.x, h.y, action.tx, action.ty, h.face);
+      actions.current.push(action);
+      const def = heroes.find(hero => hero.key === heroKey);
+      if (def) { say(`${def.name.toUpperCase()} — ${def.abilityName.toUpperCase()}!`); sfx.whoosh(); }
+      forceTick(x => x + 1);
+      return;
+    }
     h.abilityPoseT = 0.8;
     record({ k: 'a', key: heroKey });
     const hDef = heroes.find(hh => hh.key === heroKey);
@@ -1222,9 +1304,19 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
         </div>
       </div>
 
+      {config.practice && <div className="shrink-0 px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
+        <p className="text-xs text-slate-300"><strong className="text-amber-300">FREE PRACTICE</strong><br />{pendingHero ? 'Choose a sideline spot, or use Deploy.' : 'Call a ready signature below. Watch its release and contact.'}</p>
+        {pendingHero && <button type="button" className="shrink-0 min-h-11 px-3 py-2 rounded-lg bg-orange-500 text-sm font-bold text-white" onClick={() => {
+          if (deployedHeroesRef.current.has(pendingHero.key)) return;
+          doDeployHero(pendingHero.key, 20 + deployedHeroes.size * 7, 80);
+          deployedHeroesRef.current.add(pendingHero.key);
+          setDeployedHeroes(prev => new Set(prev).add(pendingHero.key));
+          setPendingHero(null); setPhase('fighting');
+        }}>Deploy selected hero</button>}
+      </div>}
       {/* Battlefield */}
       <div className="flex-1 flex items-center justify-center p-3 overflow-hidden bg-gradient-to-b from-emerald-900 to-emerald-950">
-        <div ref={fieldRef} onClick={handleFieldClick}
+        <div ref={fieldRef} onClick={handleFieldClick} aria-label="Battlefield" data-battlefield data-combat-rules={modernCombat ? COMBAT_RULES_VERSION : 'legacy-v1'}
           onPointerDown={() => { pourRef.current.down = true; }}
           onPointerMove={e => { if (pourRef.current.down) tryPour(e); }}
           onPointerUp={() => { pourRef.current.down = false; }}
@@ -1439,6 +1531,16 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             );
           })}
 
+          {/* Signature ball is sampled from the SAME timeline that applies yardage. */}
+          {modernCombat && actions.current.filter(action => !action.resolved && action.travel > 0).map(action => {
+            const flight = actionFlight(action);
+            const x = px(action.sx, action.sy) + (px(action.tx, action.ty) - px(action.sx, action.sy)) * flight;
+            const y = py(action.sx, action.sy) + (py(action.tx, action.ty) - py(action.sx, action.sy)) * flight - Math.sin(flight * Math.PI) * 10 - (1 - flight) * 5;
+            return <React.Fragment key={action.id}>
+              <div data-signature-target={action.heroKey} className="absolute rounded-[50%] border-2 border-amber-200 pointer-events-none" style={{ left: `${px(action.tx, action.ty)}%`, top: `${py(action.tx, action.ty)}%`, width: '10%', height: '5%', transform: 'translate(-50%,-50%)', zIndex: 120, opacity: action.released ? .9 : .45 }} />
+              {action.released && <img data-signature-projectile={action.heroKey} src="/assets/battle/football-proj.webp" alt="" className="absolute pointer-events-none object-contain" style={{ left: `${x}%`, top: `${y}%`, width: 25, height: 25, zIndex: 200, transform: `translate(-50%,-50%) rotate(${flight * 540}deg)`, filter: 'drop-shadow(0 2px 2px #000)' }} />}
+            </React.Fragment>;
+          })}
           {/* Ephemeral FX: dust, impact pops, floating SACKED! */}
           {s.fx.map((f, i) => {
             const k = f.life / f.maxLife; // 1 → 0
@@ -1618,9 +1720,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             const faceEarly = (t as BTroop & { face?: number }).face ?? 1;
             const anim = hf ? 'fhq-hitjolt 0.18s ease-out' : attacking ? `fhq-lunge-${faceEarly > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : walking ? `fhq-stepbob ${(t.strideSeconds ?? 0.42) / 2}s ease-in-out infinite` : undefined;
             // Individual players are a touch bigger + clearer than the old clumpy trios.
-            const w = heroDef ? '7%' : specialDef ? (isMascot ? '5.5%' : '3.4%') : '4.6%';
-            const wmin = heroDef ? 36 : specialDef ? (isMascot ? 30 : 16) : 26;
-            const wmax = heroDef ? 58 : specialDef ? (isMascot ? 48 : 26) : 42;
+            const w = heroDef ? (modernCombat ? '10%' : '7%') : specialDef ? (isMascot ? '5.5%' : '3.4%') : '4.6%';
+            const wmin = heroDef ? (modernCombat ? 52 : 36) : specialDef ? (isMascot ? 30 : 16) : 26;
+            const wmax = heroDef ? (modernCombat ? 88 : 58) : specialDef ? (isMascot ? 48 : 26) : 42;
             const pGlow = shielded ? 'drop-shadow(0 0 6px #0ea5e9)' : raging ? 'drop-shadow(0 0 6px #ef4444)' : healing ? 'drop-shadow(0 0 6px #22c55e)' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))';
             const face = faceEarly;
             const flip = face < 0 ? ' scaleX(-1)' : '';
@@ -1630,10 +1732,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
             // Fallback chip hides the moment the real sprite loads — units stand on the
             // turf with a shadow, not on a floating bubble.
             const hidePrev = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; };
-            const shadow = <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />;
+            const shadow = <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: modernCombat && heroDef ? '0%' : '-5%', width: '58%', height: '13%' }} />;
             return (
-              <div key={t.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round((t.x + t.y) / 2) + 1, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+              <div key={t.id} data-hero={t.heroKey} data-action-state={t.activeAction ? 'signature' : walking ? 'running' : attacking ? 'contact' : 'idle'} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
+                style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, transform: modernCombat && heroDef ? 'translate(-50%, -96%)' : undefined, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round((t.x + t.y) / 2) + 1, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
                 {t.hp < t.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
                 {specialDef ? (
@@ -1644,7 +1746,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                     <img src={specialDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${spGlow} brightness(2.1)` : spGlow, animation: anim, transform: `translateZ(0)${flip}`, rotate: lean }} />
                   </div>
                 ) : heroDef ? (
-                  <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', animation: anim, rotate: lean }}>
+                  <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', animation: modernCombat ? undefined : anim, rotate: modernCombat ? undefined : lean }}>
                     {shadow}
                     {/* fallback badge hides once the portrait loads */}
                     <div className="absolute inset-0 rounded-full flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 38%, ${heroDef.color}e0, #0f172a 88%)`, border: '2px solid #fde047', filter: hf ? `${glow} brightness(1.8)` : glow }}>
@@ -1655,7 +1757,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                       filter={hf ? `${glow} brightness(1.8)` : glow} />
                     {/* Nameplate: full strength for the deploy moment, then fades way down —
                         review flagged clustered pills occluding sprites and hit VFX. */}
-                    <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: '-14%', fontSize: '0.95vmin', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(253,224,71,0.35)', animation: 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>
+                    {(!modernCombat || t.activeAction || s.ticks - (t.deployedAt ?? 0) < 40) && <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: modernCombat ? '-18%' : '-14%', fontSize: modernCombat ? 10 : '0.95vmin', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(253,224,71,0.35)', animation: modernCombat ? undefined : 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>}
                   </div>
                 ) : (
                   // ONE individual player — chip fallback until the sprite loads, then pure sprite.
@@ -1774,6 +1876,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 {phase === 'fighting' && <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle"><PlanGlyph k={plan.key} size={11} className="shrink-0" /> {plan.name}</span>}
                 {instruction}
               </div>
+              {modernCombat && <HeroCommandBar heroes={heroes} troops={s.troops} selected={pendingHero?.key}
+                onSelect={hero => { setPendingHero(hero); setCastMode(null); setPendingSpecial(null); }} onAbility={useAbility} />}
               {/* Phones: ONE scrollable card tray (CC-style) — wrapping 18 cards into
                   4 rows would swallow the field. Desktop: wrap and center. */}
               <div className="flex items-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -1793,7 +1897,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 })}
 
                 {/* Heroes — portrait cards; on the field the card becomes the ability button */}
-                {heroes.map(h => {
+                {!modernCombat && heroes.map(h => {
                   const onField = deployedHeroes.has(h.key);
                   const troop = onField ? s.troops.find(t => t.heroKey === h.key) : null;
                   const alive = troop && !troop.dead;
@@ -1898,7 +2002,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 </div>
               )}
               <div className="text-3xl font-display font-black text-white uppercase mb-3">
-                {result.campaignStage === 12 && result.won ? '💍 League Champions!'
+                {config.practice ? 'Practice Complete' : result.campaignStage === 12 && result.won ? '💍 League Champions!'
                   : result.gauntletTier !== undefined ? (result.gauntletCleared ? `🛡 Night ${result.gauntletTier} Survived!` : 'The House Fell')
                   : isReplay ? (result.won ? 'They Scored On You' : 'Your Defense Held!')
                   : isDefense ? (result.won ? 'Goal-Line Stand!' : 'They Scored!') : (result.won ? 'Crowd Silenced!' : 'Shut Out')}
@@ -1930,11 +2034,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
               )}
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Your base sacked' : 'Rival base sacked'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">{config.practice ? 'Practice targets cleared' : isDefense ? 'Your base sacked' : 'Rival base sacked'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
               {!isDefense && driveStats && (
                 <>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} yds)</span></span></div>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">💥 Defenders flattened</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">💥 Defenders flattened</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{!config.practice && driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Your players knocked out</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
                 </>
               )}
@@ -1943,13 +2047,19 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   <div className="flex justify-between text-sm"><span className="text-slate-400">💰 Night purse</span><span className="font-mono font-bold text-yellow-400">+{pay.coins.toLocaleString()}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">New fans won over</span><span className="font-mono font-bold text-rose-400">+{pay.fans}</span></div>
                 </>
-              ); })() : (
+              ); })() : !config.practice && (
               <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Coins lost' : 'Coins won'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
               )}
-              {!isDefense && <div className="flex justify-between text-sm"><span className="text-slate-400">New fans won over</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
+              {!isDefense && !config.practice && <div className="flex justify-between text-sm"><span className="text-slate-400">New fans won over</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
+              {config.practice && <div className="rounded-lg border border-slate-700 p-3 text-sm" aria-label="Practice contributions">
+                <p className="font-bold text-white mb-2">Your heroes’ contribution</p>
+                {s.troops.filter(actor => actor.isHero).map(actor => <p key={actor.id} className="text-slate-300 mb-1">{heroes.find(hero => hero.key === actor.heroKey)?.name}: {Math.round(actor.dmg ?? 0)} yards · {Math.round(actor.healingDone ?? 0)} recovered · {Math.round(actor.protectionDone ?? 0)} blocked</p>)}
+                <p className="text-xs text-slate-400 mt-2">Practice does not change your club or award rewards.</p>
+              </div>}
               <button onClick={() => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result); }} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
-                {isReplay ? 'Close Replay' : isDefense ? 'Back to Base' : 'Collect Rewards'}
+                {config.practice ? 'Back to Hero Film Room' : isReplay ? 'Close Replay' : isDefense ? 'Back to Base' : 'Collect Rewards'}
               </button>
+              {config.practice && onPracticeAgain && <button type="button" onClick={onPracticeAgain} className="w-full min-h-11 py-3 rounded-xl border border-slate-500 text-white font-bold">Practice again · Free</button>}
             </div>
           </div>
         </div>

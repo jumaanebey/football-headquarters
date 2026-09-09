@@ -12,6 +12,7 @@ import { sfx } from '../sound';
 
 interface Props {
   initialHero?: string;
+  onPractice?: (key: string) => void;
   heroes: HeroState[];
   resources: Record<ResourceType, number>;
   stadiumLevel: number;
@@ -34,7 +35,7 @@ const heroHue = (hex: string): number => {
   return h < 0 ? h + 360 : h;
 };
 
-export const HeroModal: React.FC<Props> = ({ initialHero, heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
+export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
   const stateOf = (key: string) => heroes.find(h => h.key === key);
 
   // 🎰 SCOUT SEARCH REVEAL: the roll gets a suspense beat (spinning ring + shaking
@@ -117,7 +118,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, heroes, resources, sta
           </div>
         )}
 
-        <HeroTrainingPreview initialHero={initialHero} />
+        <HeroTrainingPreview initialHero={initialHero} onPractice={onPractice} />
         <div className="px-5 pt-4">
           <HowTo id="heroes" lines={[
             'Heroes are your stars — deploy them in raids and fire their signature abilities mid-drive.',
