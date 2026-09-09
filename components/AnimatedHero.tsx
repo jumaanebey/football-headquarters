@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { HeroAnimation, heroFrame, keyHeroPixels, advanceHeroStride } from '../game/heroAnimation';
 
 import { HERO_ATLAS } from '../game/heroAtlas';
+import { heroPixelOwners } from '../game/heroPixelOwners';
 
 type Sheet = { frames: HTMLCanvasElement[] };
 const sheets = new Map<string, Promise<Sheet>>();
@@ -19,6 +20,7 @@ function loadSheet(key: string): Promise<Sheet> {
         ctx.drawImage(image, 0, 0);
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
         keyHeroPixels(data.data); ctx.putImageData(data, 0, 0);
+        const owners = heroPixelOwners(data.data, canvas.width, canvas.height, bounds);
         // One scale for the whole actor: no size pumping between poses.
         const scale = Math.min(340 / Math.max(...bounds.map(b => b[2] - b[0])), 346 / Math.max(...bounds.map(b => b[3] - b[1])));
         const frames = bounds.map((b, frame) => {
@@ -26,15 +28,23 @@ function loadSheet(key: string): Promise<Sheet> {
           const target = out.getContext('2d');
           if (!target) throw new Error('Canvas unavailable');
           const [x, y, right, bottom] = b, w = right - x, h = bottom - y;
+          const crop = document.createElement('canvas'); crop.width = w; crop.height = h;
+          const cropCtx = crop.getContext('2d')!;
+          const clean = ctx.getImageData(x, y, w, h);
+          for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+            const owner = owners[(y + yy) * canvas.width + x + xx];
+            if (owner >= 0 && owner !== frame) clean.data[(yy * w + xx) * 4 + 3] = 0;
+          }
+          cropCtx.putImageData(clean, 0, 0);
           // Anchor around head/torso, rather than the extremity of a swinging arm.
           let sum = 0, count = 0;
           for (let yy = Math.ceil(y + h * .06); yy < y + h * .30; yy++) {
-            for (let xx = x; xx < right; xx++) if (data.data[(yy * canvas.width + xx) * 4 + 3] > 128) { sum += xx; count++; }
+            for (let xx = x; xx < right; xx++) if (owners[yy * canvas.width + xx] === frame && data.data[(yy * canvas.width + xx) * 4 + 3] > 128) { sum += xx; count++; }
           }
           const anchor = count ? sum / count - x : w / 2;
           const left = Math.max(12, Math.min(372 - w * scale, 192 - anchor * scale));
           const lift = frame === 3 || frame === 6 ? 5 : 0;
-          target.drawImage(canvas, x, y, w, h, left, 370 - h * scale - lift, w * scale, h * scale);
+          target.drawImage(crop, left, 370 - h * scale - lift, w * scale, h * scale);
           return out;
         });
         resolve({ frames });
