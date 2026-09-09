@@ -21,12 +21,14 @@ Baseline: `303c6d8`, following the live ground and distance-driven movement fixe
 
 ## Release verification
 
-- [ ] TypeScript, production build, and remote CI pass on this release.
-- [ ] Browser: Film Room → practice → deploy → signature → result → retry → return.
-- [ ] Browser: locked hero can practice without joining the owned roster.
-- [ ] Browser: visible resources remain unaffected by practice entry, completion, retry, and exit (ordinary background accrual remains active).
-- [ ] Deploy and verify the live practice entry.
+- [x] TypeScript, production build, and remote CI pass on this release.
+- [x] Browser: Film Room → practice → deploy → signature → result → retry → return.
+- [x] Browser: locked hero can practice without joining the owned roster.
+- [x] Browser: visible resources remain unaffected by practice entry, completion, retry, and exit (ordinary background accrual remains active).
+- [x] Deploy and verify the live practice entry.
 
 ## Remaining limitations
 
 Existing artwork is used. The prepared four-pose prototypes are not included. Truck Stick's physical forward contact, richer direction-specific animation, real-phone acceptance, server authority, and full engine/replay parity remain open. This release is not the full reconstruction. The existing bundle-size warning remains.
+
+Verified on PR #24 (`1decca5`), merged as `8d94193`. Remote CI and Vercel succeeded. Desktop browser exercised locked Dr. Sloane, signature, results, fresh retry, early exit, and return; the Unlock 8000 button remained and balances stayed 100 energy / 500 coins / 0 fans / 10 crowns. QB sampling showed planted windup, delayed projectile appearance, flight completion, and resumed movement. Retry reset to 1:00 and 0% with undeployed heroes. Production practice entry was confirmed with the existing club at 100 energy / 979 coins / 12 fans / 18 crowns. All-nine configuration coverage is automated; browser acceptance covered Medic and QB, not all nine heroes or real phones.
