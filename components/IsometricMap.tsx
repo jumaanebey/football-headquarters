@@ -10,7 +10,7 @@ import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusO
 import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS, GROWTH_TIERS } from '../constants';
 import { buildingSprite, unitPlayerSprite } from '../assets';
 import { sfx } from '../sound';
-import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
+import { Check, Star, Dumbbell, Search, Coins, Hammer, Plus, Minus, Focus } from 'lucide-react';
 
 // ─── BUILD VIEW ────────────────────────────────────────────────────────────────
 // The home board is pure management: facilities, decor, and your players. The
@@ -335,7 +335,7 @@ const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, sc
 // (3.5, -2) per Jumaane's editor layout, July 10 2026. Art: DUAL-DECK board
 // (his pick, July 12) — main screen + ribbon strip on an A-frame, both BLANK
 // in the art so the game renders live stats onto real screen space.
-const BOARD_ANCHOR = { gx: 3.5, gy: -1, w: 1.65 }; // tall art: slimmer + one row lower keeps the crown in frame at the default camera
+const BOARD_ANCHOR = { gx: 3.9, gy: -0.6, w: 1.35 }; // keep both live decks below the resource HUD
 const BOARD_ASPECT = 1.946; // cropped scoreboard-dualdeck.png h/w
 const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number; gx?: number; gy?: number; wMult?: number; onOpenStats?: () => void; clickGuard?: React.MutableRefObject<boolean> }> = ({ clubName, trophies, fans, gx = BOARD_ANCHOR.gx, gy = BOARD_ANCHOR.gy, wMult = BOARD_ANCHOR.w, onOpenStats, clickGuard }) => {
   // BOARD diagonal BEHIND THE WAR ROOM (Jumaane): ribbon-board art (wide panel,
@@ -827,16 +827,9 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   // Interaction math reads getBoundingClientRect, which already reflects the
   // transform — so zooming never breaks taps.
   // Phones open ZOOMED IN (a base you can read, pan to explore) — desktop fits the island.
-  // Phone home zoom fits the WHOLE campus (fort spans tiles ~1..8 ≈ 944px board units;
-  // at 390px that means z ≤ ~1.3 — 1.8 was tuned for the old spread layout and cropped
-  // both edge buildings off-screen).
-  // Desktop now opens PUNCHED IN (1.35 — the campus owns the frame, "bigger" per
-  // Jumaane); phones keep the 1.28 whole-campus fit. Pan/pinch explores the rest.
-  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.08 : 1.0;
-  // Home camera centers the STADIUM (the island's focal point at tile 5,5 → board y 505),
-  // not the board's geometric middle — so the base reads centered, especially zoomed in.
-  // +150 bias reveals the north grounds (megaboard behind the War Room, stands)
-  // instead of framing dead-center on the stadium — the skyline reads at default.
+  // Phone opens on readable field action; zoom out or pan to explore the campus.
+  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.85 : 1.0;
+  // Keep the practice field just below the viewport center, with room for the HUD.
   const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ) + 35; // stadium center (anchor 4,4 → center tile 5,5)
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
@@ -852,6 +845,10 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   // not a tap, and BuildingSprite's clickGuard swallows it.
   const panMovedRef = React.useRef(false);
   const resetCam = () => setCam({ z: homeZ, x: 0, y: homeY });
+  const zoomCam = (factor: number) => setCam(c => {
+    const z = Math.min(3, Math.max(.85, c.z * factor)), ratio = z / c.z;
+    return camClamp({ z, x: c.x * ratio, y: (c.y - 35) * ratio + 35 });
+  });
   // Desktop: wheel zooms (native non-passive listener so preventDefault works).
   useEffect(() => {
     const el = boardRef.current;
@@ -1205,7 +1202,8 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
             // glassy, one line, level integrated.
             // The backdrop stadium's base vertex is Rehab's block — its sign shifts
             // onto the bowl's own right skirt so it can't read as Rehab's rooftop.
-            const nudge = b.type === BuildingType.STADIUM ? { dx: TILE_W * 0.55, dy: -TILE_H * 0.45 } : { dx: 0, dy: 0 };
+            const nudge = b.type === BuildingType.STADIUM ? { dx: TILE_W * 0.55, dy: -TILE_H * 0.45 }
+              : b.type === BuildingType.TRAINING_PITCH ? { dx: TILE_W * 1.1, dy: -TILE_H * 1.3 } : { dx: 0, dy: 0 };
             return (
               <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x + nudge.dx, top: c.y + TILE_H / 2 + 5 + nudge.dy, zIndex: 46 }}>
                 <div className="flex items-baseline gap-1.5 px-2 py-[3px] rounded-[5px] whitespace-nowrap select-none"
@@ -1262,13 +1260,14 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
         </div>
       </div>
 
-      {/* Camera wandered? One tap home. (Double-tap the board does the same.) */}
-      {(cam.z !== homeZ || cam.x !== 0 || cam.y !== homeY) && (
-        <button onClick={resetCam} title="Recenter the board"
-          className="absolute bottom-24 left-3 z-40 bg-[#111827]/95 border border-slate-700 hover:border-orange-400 text-slate-200 p-2.5 rounded-2xl shadow-xl transition-colors">
-          <span className="block text-[12px] font-bold leading-none">⌖</span>
-        </button>
-      )}
+      <div role="group" aria-label="Campus camera" className="absolute bottom-24 right-3 z-40 flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
+        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomCam(1 / 1.2)} disabled={cam.z <= .85}
+          className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Minus size={18} /></button>
+        <button type="button" aria-label="Recenter campus" title="Recenter campus" onClick={resetCam}
+          className="w-11 h-11 flex items-center justify-center border-x border-slate-700 hover:bg-slate-700 focus-visible:bg-slate-700"><Focus size={18} /></button>
+        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomCam(1.2)} disabled={cam.z >= 3}
+          className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Plus size={18} /></button>
+      </div>
 
       {/* 🏙 stage-up banner — one keyframe owns bounce/hold/fade; unmounts at 4.2s */}
       {growthCeleb !== null && (

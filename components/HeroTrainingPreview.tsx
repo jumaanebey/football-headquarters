@@ -8,7 +8,7 @@ export function HeroTrainingPreview({ initialHero = 'qb' }: { initialHero?: stri
   const [heroKey, setHeroKey] = useState(() => HERO_DEFS.some(h => h.key === initialHero) ? initialHero : 'qb');
   const [mode, setMode] = useState<'idle' | 'run' | 'signature' | 'celebrate'>('idle');
   const [take, setTake] = useState(0);
-  const [facing, setFacing] = useState(1);
+  const [facing, setFacing] = useState(-1);
   const hero = HERO_DEFS.find(h => h.key === heroKey)!;
   const guide = HERO_PLAYBOOK[heroKey];
   useEffect(() => {
