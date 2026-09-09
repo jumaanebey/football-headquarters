@@ -1,4 +1,5 @@
 import { HeroArt } from './HeroArt';
+import { BuildingSprite } from './BuildingArt';
 import { BattleHeroSprite } from './BattleHeroSprite';
 import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
@@ -1527,7 +1528,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                 {!b.dead && b.hp < b.maxHp && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
                 {b.dead ? (
                   <div className="relative w-full" style={{ aspectRatio: '1' }}>
-                    <img src={sprite} alt="" draggable={false} className="w-full h-full object-contain" style={{ filter: 'grayscale(1) brightness(0.55)', opacity: 0.5 }} />
+                    <BuildingSprite src={sprite} className="w-full h-full object-contain" style={{ filter: 'grayscale(1) brightness(0.55)', opacity: 0.5 }} />
                     <span className="absolute inset-0 flex items-center justify-center text-2xl">💥</span>
                   </div>
                 ) : (() => {
@@ -1537,7 +1538,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
                   const critical = b.hp < b.maxHp * 0.3;
                   return (
                   <div className="relative w-full" style={{ transformOrigin: '50% 92%', animation: bhf ? 'fhq-hitjolt 0.2s ease-out' : critical ? 'fhq-wobble 0.55s ease-in-out infinite' : undefined }}>
-                    <img src={sprite} alt="" draggable={false} className="w-full" style={{ height: 'auto', filter: bhf ? 'drop-shadow(0 5px 5px rgba(0,0,0,0.45)) brightness(1.9) saturate(0.7)' : 'drop-shadow(0 5px 5px rgba(0,0,0,0.45))' }} />
+                    <BuildingSprite src={sprite} className="w-full" style={{ height: 'auto', filter: bhf ? 'drop-shadow(0 5px 5px rgba(0,0,0,0.45)) brightness(1.9) saturate(0.7)' : 'drop-shadow(0 5px 5px rgba(0,0,0,0.45))' }} />
                     {/* Live crowd in the stadium bowl — breathes normally, does THE WAVE
                         when the drive crosses a 25% milestone (key remount retriggers). */}
                     {b.kind === 'hq' && (

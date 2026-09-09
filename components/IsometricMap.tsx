@@ -1,5 +1,5 @@
 import { BuildingArt, isStarterFacility } from './BuildingArt';
-import { MatteSprite } from './MatteSprite';
+import { ScenerySprite } from './ScenerySprite';
 import { CampusHero } from './CampusHero';
 import { HERO_DEFS } from '../battle';
 import { FieldPaint, TURF } from './FieldPaint';
@@ -180,11 +180,8 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: Math.max(1, Math.round(z ?? gridX + gridY)) }}>
       <div style={reveal !== undefined ? { animation: `fhq-reveal-in 0.6s cubic-bezier(0.34,1.56,0.64,1) ${reveal}s both` } : undefined}>
-        {slug === 'tailgate-tent' ? <MatteSprite src="/assets/decor/tailgate-tent-cutout.webp"
-          fallback={`/assets/decor/${slug}.webp`}
-          style={{ position: 'absolute', width: w, maxWidth: 'none', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} /> : <img src={`/assets/decor/${slug}.webp`} alt="" draggable={false}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />}
+        <ScenerySprite src={`/assets/decor/${slug}.webp`}
+          style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
       </div>
       {reveal !== undefined && (
         <>

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BuildingType } from '../types';
 import { BUILDING_ART_LEVELS, buildingSprite } from '../assets';
 import { keyHeroPixels } from '../game/heroAnimation';
-import { MatteSprite } from './MatteSprite';
+import { ScenerySprite, type ScenerySpriteProps } from './ScenerySprite';
 
 const BOUNDS: Partial<Record<BuildingType, readonly number[]>> = {
   [BuildingType.TACTICS_ROOM]: [76,136,527,560],
@@ -53,12 +53,26 @@ export function BuildingArt({ type, level, label = '', className = '', style }: 
     }).catch(() => {});
     return () => { disposed = true; };
   }, [starter, type]);
-  if (type === BuildingType.STADIUM && level < 2) return <MatteSprite
-    src="/assets/buildings/stadium-1-cutout.webp" fallback={buildingSprite(type, level)}
+  if (!starter) return <ScenerySprite src={buildingSprite(type, level)}
     alt={label} className={className} style={style} />;
   return <span className={`relative block ${className}`} style={style}>
     <img src={buildingSprite(type, level)} alt={ready ? '' : label} draggable={false} className="block w-full h-auto select-none" style={{ visibility: ready ? 'hidden' : undefined }} />
     {starter && <canvas ref={ref} width={384} height={384} role="img" aria-label={label || undefined} data-ready={ready ? '1' : '0'}
       className="fhq-facility absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: ready ? 1 : 0 }} />}
   </span>;
+}
+
+const SPRITE_TYPES: Record<string, BuildingType> = {
+  stadium: BuildingType.STADIUM, 'practice-field': BuildingType.TRAINING_PITCH,
+  headquarters: BuildingType.YOUTH_ACADEMY, 'film-room': BuildingType.TACTICS_ROOM,
+  'weight-room': BuildingType.MEDICAL_CENTER,
+};
+
+/** Battle layouts store URLs, not facility types. Share campus presentation for
+ * those URLs so a home defense never brings back the old grass islands. */
+export function BuildingSprite({ src, alt, className, style }: ScenerySpriteProps) {
+  const match = /^\/assets\/buildings\/(stadium|practice-field|headquarters|film-room|weight-room)-(\d+)\.webp$/.exec(src);
+  return match ? <BuildingArt type={SPRITE_TYPES[match[1]]} level={Number(match[2])}
+    label={alt} className={className} style={style} />
+    : <ScenerySprite src={src} alt={alt} className={className} style={style} />;
 }
