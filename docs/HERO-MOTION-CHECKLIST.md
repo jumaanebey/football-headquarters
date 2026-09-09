@@ -16,10 +16,14 @@ Baseline: `fa560da`, after the verified ground repair. This pass improves existi
 
 ## Release checks
 
-- [ ] Production build and remote CI pass.
-- [ ] Observe preview campus running, braking, planted action, and return trip with changing sprite frames.
-- [ ] Observe a deployed battle hero moving with changing stride frames.
-- [ ] Publish and verify the live release.
+- [x] Production build and remote CI pass (86 tests; GitHub CI run 68).
+- [x] Observe preview campus running, braking, planted action, and return trip with changing sprite frames. Position samples converged to a fixed endpoint during the contact pose; returning samples reversed direction and continued cycling run frames.
+- [x] Deploy the Enforcer in the preview battle and observe all six run frames as its position advances; observe the stationary Franchise retaining an idle pose.
+- [x] Merge PR #23 as `d06dbcf`; Vercel production reports success. Refresh the live site and confirm hero position and sprite frames advance together.
+
+Production: https://football-headquarters.vercel.app/
+
+This verifies the observed desktop browser paths, not real-device performance or complete directional animation quality. The existing JavaScript bundle-size warning remains.
 
 ## Still open in the broader reconstruction
 
