@@ -54,7 +54,7 @@ export function BuildingArt({ type, level, label = '', className = '', style }: 
     return () => { disposed = true; };
   }, [starter, type]);
   if (type === BuildingType.STADIUM && level < 2) return <MatteSprite
-    src="/assets/buildings/stadium-1-emerald.webp" fallback={buildingSprite(type, level)}
+    src="/assets/buildings/stadium-1-cutout.webp" fallback={buildingSprite(type, level)}
     alt={label} className={className} style={style} />;
   return <span className={`relative block ${className}`} style={style}>
     <img src={buildingSprite(type, level)} alt={ready ? '' : label} draggable={false} className="block w-full h-auto select-none" style={{ visibility: ready ? 'hidden' : undefined }} />
