@@ -7,7 +7,7 @@ import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 
 /** Both teams and all nine heroes share action timing and fallback behavior. */
 export function BattleHeroSprite({ heroKey, actor, fighting, filter }: {
-  heroKey: string; actor: Pick<BTroop, 'moving' | 'actionPoseT' | 'abilityPoseT' | 'face' | 'strideSeconds'>; fighting: boolean; filter?: string;
+  heroKey: string; actor: Pick<BTroop, 'moving' | 'actionPoseT' | 'abilityPoseT' | 'face' | 'strideSeconds' | 'stridePhase'>; fighting: boolean; filter?: string;
 }) {
   const mode = heroBattlePose(actor, fighting);
   const base = `/assets/heroes/rig/${heroKey}`;
@@ -17,6 +17,6 @@ export function BattleHeroSprite({ heroKey, actor, fighting, filter }: {
   return <>
     <SpriteFrames sources={sources} duration={actor.strideSeconds} style={{ filter, transform: (actor.face ?? 1) > 0 ? 'scaleX(-1)' : undefined }} />
     {hasModernHero(heroKey) && <AnimatedHero heroKey={heroKey} mode={mode} facing={actor.face} cycle={actor.strideSeconds}
-      elapsedSeconds={mode === 'attack' ? 0.2 : undefined} filter={filter} />}
+      elapsedSeconds={mode === 'attack' ? 0.2 : mode === 'walk' ? actor.stridePhase : undefined} filter={filter} />}
   </>;
 }

@@ -11,6 +11,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
 }) {
   const button = useRef<HTMLButtonElement>(null);
   const [pose, setPose] = useState(() => heroPatrol(lane * 2, lane));
+  const animationTime = useRef(pose.mode === 'walk' ? pose.stridePhase : pose.actionElapsed);
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0, elapsed = lane * 2, previous = performance.now();
@@ -20,6 +21,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
       if (!document.hidden) {
         elapsed += Math.min((now - previous) / 1000, 0.05);
         const next = heroPatrol(elapsed, lane, media.matches);
+        animationTime.current = next.mode === 'walk' ? next.stridePhase : next.actionElapsed;
         const x = field.x1 + (field.x2 - field.x1) * (0.08 + lane * 0.105);
         const y = field.y1 + (field.y2 - field.y1) * (0.15 + next.progress * 0.7);
         const point = project(x, y);
@@ -46,7 +48,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
     style={{ left: initial.x, top: initial.y, width: 48, height: 48, transform: 'translate(-50%,-96%)', pointerEvents: 'auto' }}>
     <span className="absolute rounded-[50%] bg-black/30" style={{ left: '25%', bottom: '-2%', width: '50%', height: '10%' }} />
     {modern && <img src={def.art} alt="" className="fhq-campus-hero-fallback absolute inset-0 w-full h-full object-contain" />}
-    {modern ? <AnimatedHero heroKey={heroKey} mode={pose.mode} cycle={pose.cycle} facing={pose.facing} /> :
+    {modern ? <AnimatedHero heroKey={heroKey} mode={pose.mode} cycle={pose.cycle} facing={pose.facing} elapsedRef={animationTime} /> :
       <span className="fhq-unit absolute inset-0">
         <img src={def.art} alt="" className="fhq-flat absolute inset-0 w-full h-full object-contain" />
         <SpriteFrames sources={pose.mode === 'walk' ? WALK_FRAMES.map(frame => `/assets/heroes/rig/${heroKey}-${frame}.webp`) : [pose.mode === 'attack' ? action : `/assets/heroes/rig/${heroKey}-body.webp`]} duration={pose.cycle} style={{ transform: pose.facing > 0 ? 'scaleX(-1)' : undefined }} />

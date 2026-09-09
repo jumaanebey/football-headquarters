@@ -16,3 +16,13 @@ it('matches stride tempo to speed and bounds unusually fast/slow movement', () =
 it('treats a zero-duration update as stationary', () => {
   expect(spriteMotion({ x: 0, y: 0 }, { x: 2, y: 1 }, 0).moving).toBe(false);
 });
+
+it('preserves footfall across stops and produces the same phase at different tick rates', () => {
+  const whole = spriteMotion({x:0,y:0},{x:2,y:0},.1,1,.2);
+  const first = spriteMotion({x:0,y:0},{x:1,y:0},.05,1,.2);
+  const paused = spriteMotion({x:1,y:0},{x:1,y:0},.05,1,first.stridePhase);
+  const second = spriteMotion({x:1,y:0},{x:2,y:0},.05,1,paused.stridePhase);
+  expect(paused.stridePhase).toBe(first.stridePhase);
+  expect(second.stridePhase).toBeCloseTo(whole.stridePhase);
+  expect(spriteMotion({x:0,y:0},{x:6.3,y:0},.42,1,.2).stridePhase).toBeCloseTo(.2);
+});

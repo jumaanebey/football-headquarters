@@ -725,9 +725,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit }) => {
       }
 
       for (const { actor, x, y } of motionSamples) {
-        const motion = spriteMotion({ x, y }, actor, DT, actor.face);
+        const motion = spriteMotion({ x, y }, actor, DT, actor.face, actor.stridePhase);
         actor.moving = !actor.dead && motion.moving;
         actor.strideSeconds = motion.strideSeconds;
+        actor.stridePhase = motion.stridePhase;
         if (motion.moving) actor.face = motion.face;
       }
 
