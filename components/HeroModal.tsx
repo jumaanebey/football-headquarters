@@ -1,7 +1,6 @@
+import { HeroArt } from './HeroArt';
 import { HeroTrainingPreview } from './HeroTrainingPreview';
-import { AnimatedHero } from './AnimatedHero';
-import { hasModernHero } from '../game/heroAnimation';
-import { HERO_FOOT_OFFSET } from '../game/heroFootOffsets';
+
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ResourceType, HeroState } from '../types';
@@ -23,26 +22,6 @@ interface Props {
   onRoll: () => void;
   onStarUp: (key: string) => void;
 }
-
-// Every hero's two-pose rig: clean body (idle sway + wind-up) and an action pose that
-// swaps in on the beat (fhq-qb-body/body2 keyframes — generic despite the name).
-// Missing files degrade: body falls back to the flat card art, action/ball just hide.
-const HERO_RIG: Record<string, { body: string; action: string; flipX?: boolean; ball?: { left: string; top: string; anim?: string } }> = {
-  // Idle LEG-LOOP frames live at rig/<key>-idleA/B.png (derived below, not listed per
-  // hero). When both load they replace the static body during the pose-A window; if
-  // either is missing the card silently keeps the single-pose body.
-  // QB reads RIGHT-HANDED: art is flipped so the raised hand is on the viewer's right,
-  // the ball sits IN that hand all cycle, and the throw goes downfield to the right.
-  qb:        { body: '/assets/heroes/franchise-rig/body.webp', action: '/assets/heroes/franchise-rig/body-followthrough.webp', flipX: true, ball: { left: '58%', top: '16%', anim: 'fhq-ball-inhand' } },
-  enforcer:  { body: '/assets/heroes/rig/enforcer-body.webp',  action: '/assets/heroes/rig/enforcer-action.webp' },
-  coach:     { body: '/assets/heroes/rig/coach-body.webp',     action: '/assets/heroes/rig/coach-action.webp' },
-  kicker:    { body: '/assets/heroes/rig/kicker-body.webp',    action: '/assets/heroes/rig/kicker-action.webp', ball: { left: '44%', top: '48%' } },
-  burner:    { body: '/assets/heroes/rig/burner-body.webp',    action: '/assets/heroes/rig/burner-action.webp' },
-  medic:     { body: '/assets/heroes/rig/medic-body.webp',     action: '/assets/heroes/rig/medic-action.webp' },
-  captain:   { body: '/assets/heroes/rig/captain-body.webp',   action: '/assets/heroes/rig/captain-action.webp' },
-  playmaker: { body: '/assets/heroes/rig/playmaker-body.webp', action: '/assets/heroes/rig/playmaker-action.webp' },
-  legend:    { body: '/assets/heroes/rig/legend-body.webp',    action: '/assets/heroes/rig/legend-action.webp' },
-};
 
 // Hue (0-360) of a hex color — used to hue-shift the golden flame ring (base hue ≈45°)
 // to each hero's signature color without needing a ring sprite per hero.
@@ -108,9 +87,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, heroes, resources, sta
               ) : (
                 <>
                   <div className="absolute rounded-full border-4 pointer-events-none" style={{ width: 200, height: 200, borderColor: revealDef.color, animation: 'fhq-reveal-burst 0.7s ease-out forwards' }} />
-                  <img src={revealDef.art} alt={revealDef.name} draggable={false} className="relative h-56 w-auto max-w-none object-contain select-none drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]"
-                    style={{ animation: 'fhq-reveal-in 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                  <HeroArt heroKey={revealDef.key} art={revealDef.art} label={revealDef.name} mode="celebrate" className="h-60 w-60" />
                 </>
               )}
             </div>
@@ -191,67 +168,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, heroes, resources, sta
                       className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none"
                       style={{ width: 150, mixBlendMode: 'screen', animation: 'fhq-glow 3s ease-in-out infinite' }} />
                   )}
-                  {/* fallback: a glowing color medallion (covered by the portrait once its art lands) */}
-                  <div className="absolute inset-0 flex items-center justify-center select-none" style={{ opacity: unlocked ? 1 : 0.6 }}>
-                    <div className="rounded-full flex items-center justify-center" style={{ width: 94, height: 94, background: `radial-gradient(circle at 50% 36%, ${def.color}, #0f172a 92%)`, border: `3px solid ${def.color}`, boxShadow: `0 0 22px ${def.color}55` }}>
-                      <span style={{ fontSize: '2.9rem', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>{def.emoji}</span>
-                    </div>
-                  </div>
-                  {HERO_RIG[def.key] && unlocked ? (
-                    /* TWO-POSE RIG: body sways/winds up, action pose snaps in on the beat,
-                       optional projectile launches. Staggered per hero so cards don't sync. */
-                    (() => { /* 5.5s cycle: the action beat lands every ~5s instead of hiding in a 7s idle */
-                    const rig = HERO_RIG[def.key]; const dly = `-${(heroIdx * 1.45) % 5.5}s`; return (
-                    <div className="fhq-hero-puppet relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
-                      <div className="fhq-hero-layers absolute inset-0" style={rig.flipX ? { transform: 'scaleX(-1)' } : undefined}>
-                      <img src={rig.body} alt={def.name} draggable={false}
-                        onLoad={e => { const med = e.currentTarget.parentElement?.parentElement?.previousElementSibling as HTMLElement | null; if (med) med.style.visibility = 'hidden'; }}
-                        onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
-                        className="fhq-basebody absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
-                        style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[rig.body] ?? 0}%`, animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
-                      {/* LEG LOOP: weight-shift frames replace the static body once BOTH load;
-                          any load failure puts the static body back (never a blank card).
-                          QB's frames are ARM-LOCKED to the reference (extended empty palm) so
-                          the in-hand ball keeps riding his hand through the shuffle. */}
-                      {(['A', 'B'] as const).map(f => (
-                        <img key={f} src={`/assets/heroes/rig/${def.key}-idle${f}.webp`} alt="" draggable={false}
-                          onLoad={e => {
-                            const p = e.currentTarget.parentElement as HTMLElement;
-                            p.dataset[`idle${f}`] = '1';
-                            if (p.dataset.idleA === '1' && p.dataset.idleB === '1' && !p.dataset.idlefail) {
-                              p.dataset.idleready = '1';
-                              (p.querySelector('.fhq-basebody') as HTMLElement).style.visibility = 'hidden';
-                            }
-                          }}
-                          onError={e => {
-                            const p = e.currentTarget.parentElement as HTMLElement;
-                            p.dataset.idlefail = '1';
-                            p.querySelectorAll('.fhq-idleframe').forEach(el => { (el as HTMLElement).style.display = 'none'; });
-                            (p.querySelector('.fhq-basebody') as HTMLElement).style.visibility = 'visible';
-                          }}
-                          className="fhq-idleframe absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
-                          style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[`/assets/heroes/rig/${def.key}-idle${f}.webp`] ?? 0}%`, animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite, fhq-idle${f} 5.5s linear ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
-                      ))}
-                      <img src={rig.action} alt="" draggable={false}
-                        onLoad={e => { e.currentTarget.dataset.ready = '1'; }}
-                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                        className="fhq-action-pose absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
-                        style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[rig.action] ?? 0}%`, animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
-                      </div>
-                      {rig.ball && (
-                        <img src="/assets/heroes/franchise-rig/ball.webp" alt="" draggable={false}
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                          className="fhq-hero-ball absolute pointer-events-none"
-                          style={{ width: '30%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 5.5s ease-in-out ${dly} infinite`, opacity: rig.ball.anim === 'fhq-ball-inhand' ? 1 : 0 }} />
-                      )}
-                    </div>
-                    ); })()
-                  ) : (
-                  <img src={def.art} alt={def.name} draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                    style={unlocked ? { animation: `fhq-hero-idle ${5.2 + (heroIdx % 3) * 0.6}s ease-in-out ${-(heroIdx * 1.7)}s infinite`, transformOrigin: '50% 100%' } : undefined}
-                    className={`relative h-[112%] w-auto max-w-none object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] select-none ${unlocked ? '' : 'grayscale opacity-50'}`} />
-                  )}
-                  {unlocked && hasModernHero(def.key) && <AnimatedHero heroKey={def.key} mode="showcase" label={def.name} />}
+                  <HeroArt heroKey={def.key} art={def.art} label={def.name} mode={unlocked ? 'showcase' : 'idle'} className={`h-52 w-52 ${unlocked ? '' : 'grayscale opacity-60'}`} />
                   {unlocked ? (
                     <>
                       <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded-full px-2 py-0.5">

@@ -1,3 +1,4 @@
+import { BuildingArt } from './BuildingArt';
 
 import React from 'react';
 import { BuildingInstance, BuildingType, ResourceType, UpgradeJob } from '../types';
@@ -133,7 +134,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
                     const current = wearing === lvl;
                     return (
                       <div key={lvl} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${reached ? '' : 'opacity-45'}`}>
-                        <img src={buildingSprite(building.type, lvl)} alt={`Level ${lvl}`} draggable={false}
+                        <BuildingArt type={building.type} level={lvl} label={`Level ${lvl}`}
                           className={`w-full h-auto rounded-lg ${current ? 'ring-2 ring-orange-500 bg-orange-500/10' : ''} ${reached ? '' : 'grayscale'}`} />
                         <span className={`text-[9px] font-bold uppercase tracking-tight leading-none text-center ${current ? 'text-orange-300' : reached ? 'text-slate-300' : 'text-slate-600'}`}>{eras[ti] ?? ''}</span>
                         <span className={`text-[10px] font-mono leading-none ${current ? 'text-orange-400' : reached ? 'text-slate-400' : 'text-slate-600'}`}>L{lvl}</span>

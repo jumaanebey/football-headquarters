@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const TURF = { dark: '#19472d', light: '#1d5033', apron: '#123522', chalk: '#e0e8d6' };
+export const TURF = { dark: '#245d37', light: '#2b6a3f', apron: '#1c492d', chalk: '#e0e8d6' };
 interface Props {
   project: (x: number, y: number) => { x: number; y: number };
   x1: number; y1: number; x2: number; y2: number;
@@ -22,6 +22,11 @@ export function FieldPaint({ project, x1, y1, x2, y2, lineWidth }: Props) {
     <polygon points={rect(110, 120)} fill="#182923" opacity={0.7} />
     {Array.from({ length: 21 }, (_, i) => line(0, 10 + i * 5, 1, 10 + i * 5, `yard-${i}`, i === 0 || i === 10 || i === 20))}
     {Array.from({ length: 19 }, (_, i) => [0.37, 0.63].map(x => line(x - 0.012, 15 + i * 5, x + 0.012, 15 + i * 5, `hash-${i}-${x}`, true)))}
+    {[20, 30, 40, 50, 60, 70, 80, 90, 100].map(yard => [0.1, .9].map(x => {
+      const pos = p(x, yard); const across = p(x + .1, yard);
+      const angle = Math.atan2(across.y - pos.y, across.x - pos.x) * 180 / Math.PI;
+      return <text key={`number-${x}-${yard}`} x={pos.x} y={pos.y} fill={TURF.chalk} opacity={.72} textAnchor="middle" dominantBaseline="middle" fontSize={lineWidth * 8} fontFamily="Arial, sans-serif" fontWeight="700" transform={`rotate(${angle},${pos.x},${pos.y})`}>{Math.min(yard - 10, 110 - yard)}</text>;
+    }))}
     <polygon points={rect(0, 120)} fill="none" stroke={TURF.chalk} strokeOpacity={0.6} strokeWidth={lineWidth} />
   </g>;
 }

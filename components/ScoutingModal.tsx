@@ -1,3 +1,4 @@
+import { BuildingArt } from './BuildingArt';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Player, ResourceType, BuildingInstance, RecruitSlot, BuildingType } from '../types';
@@ -235,7 +236,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
                     const current = wearing === lvl;
                     return (
                       <div key={lvl} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${reached ? '' : 'opacity-45'}`}>
-                        <img src={buildingSprite(BuildingType.YOUTH_ACADEMY, lvl)} alt={`Level ${lvl}`} draggable={false}
+                        <BuildingArt type={BuildingType.YOUTH_ACADEMY} level={lvl} label={`Level ${lvl}`}
                           className={`w-full h-auto rounded-xl ${current ? 'ring-2 ring-orange-500 bg-orange-500/10' : ''} ${reached ? '' : 'grayscale'}`} />
                         <span className={`text-[10px] font-bold uppercase tracking-tight leading-none text-center ${current ? 'text-orange-300' : reached ? 'text-slate-300' : 'text-slate-600'}`}>{eras[ti]}</span>
                         <span className={`text-[10px] font-mono leading-none ${current ? 'text-orange-400' : reached ? 'text-slate-400' : 'text-slate-600'}`}>L{lvl}</span>

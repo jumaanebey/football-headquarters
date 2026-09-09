@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Football HQ · Device review</title>
+<style>body{margin:0;background:#080e18;color:#e2e8f0;font:14px system-ui}header{padding:12px;display:flex;gap:16px;align-items:center}select{background:#1e293b;color:white;padding:8px;border:1px solid #475569;border-radius:8px}iframe{display:block;margin:0 auto;border:1px solid #475569;background:#0f172a}</style></head>
+<body><header><strong>Football HQ · Device review</strong><label>Viewport <select id="size"><option value="390,844">Phone · 390 × 844</option><option value="768,1024">Tablet · 768 × 1024</option><option value="1363,936">Desktop · 1363 × 936</option></select></label></header>
+<iframe title="Game viewport" src="/" width="390" height="844"></iframe>
+<script>document.querySelector('select').addEventListener('change',e=>{const [w,h]=e.target.value.split(',');const frame=document.querySelector('iframe');frame.width=w;frame.height=h;});</script></body></html>

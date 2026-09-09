@@ -5,6 +5,7 @@ import { BuildingType, UnitGroup } from '../types';
 import { buildingSprite, unitSprite, unitPlayerSprite, defenseSprite, wallSprite } from '../assets';
 import { RANKS } from '../ranks';
 import { MODERN_HEROES } from '../game/heroAnimation';
+import { HERO_ATLAS } from '../game/heroAtlas';
 import { HERO_DEFS } from '../battle';
 import { WALK_FRAMES } from '../components/SpriteFrames';
 
@@ -36,11 +37,18 @@ describe('shipped game art', () => {
     }
     expect(paths.filter(path => !existsSync(resolve('public', path.slice(1))))).toEqual([]);
   });
-  it('ships a complete six-cell production sheet for every recreated hero', () => {
+  it('ships nine-pose production sheets for the complete hero roster', () => {
+    expect([...MODERN_HEROES].sort()).toEqual(HERO_DEFS.map(h => h.key).sort());
     for (const key of MODERN_HEROES) {
-      const png = readFileSync(`public/assets/gpt/heroes/${key}-motion.png`);
-      expect(png.subarray(1, 4).toString()).toBe('PNG');
-      expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1536, 1024]);
+      const webp = readFileSync(`public/assets/heroes/elite/${key}.webp`);
+      expect(webp.subarray(0,4).toString()).toBe('RIFF');
+      expect(webp.subarray(8,12).toString()).toBe('WEBP');
+      expect(HERO_ATLAS[key]).toHaveLength(9);
+      for (const [x, y, right, bottom] of HERO_ATLAS[key]) {
+        expect(x).toBeGreaterThanOrEqual(0); expect(y).toBeGreaterThanOrEqual(0);
+        expect(right).toBeGreaterThan(x); expect(bottom).toBeGreaterThan(y);
+        expect(right).toBeLessThanOrEqual(1254); expect(bottom).toBeLessThanOrEqual(1254);
+      }
     }
   });
   it('ships all literal image references in production source', () => {
