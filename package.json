@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm run assets:verify",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -12,6 +13,7 @@
     "shots": "node scripts/marketing-shots.mjs",
     "funnel": "node scripts/funnel.mjs",
     "typecheck": "tsc --noEmit",
+    "assets:verify": "node scripts/verify-assets.mjs",
     "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
@@ -27,6 +29,7 @@
     "autoprefixer": "^10.5.2",
     "playwright": "^1.61.1",
     "postcss": "^8.5.18",
+    "sharp": "^0.35.4",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
