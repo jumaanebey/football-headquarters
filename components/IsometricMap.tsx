@@ -1,4 +1,5 @@
 import { BuildingArt, isStarterFacility } from './BuildingArt';
+import { MatteSprite } from './MatteSprite';
 import { CampusHero } from './CampusHero';
 import { HERO_DEFS } from '../battle';
 import { FieldPaint, TURF } from './FieldPaint';
@@ -88,9 +89,8 @@ const URL_PARAMS = typeof window !== 'undefined' ? new URLSearchParams(window.lo
 const EDIT_ON = !!(import.meta as any).env?.DEV && !!URL_PARAMS?.has('edit');
 const GRID_ON = !!URL_PARAMS?.has('grid') || EDIT_ON;
 
-// The ground is a floating turf island (Clash-style): mowed-lawn bands instead of a
-// checkerboard, a thick soil skirt for depth, worn paths to the Stadium, and a soft
-// light pool at the center.
+// Facilities and the field share one continuous grass plane. Mowing stripes and
+// the distant vignette provide variation without a hard campus color boundary.
 // Painted grounds features as CORNER RECTS — the layout editor (?edit=1) drags these
 // corners live, so they're props with the shipped geometry as defaults.
 type GroundRect = { x1: number; y1: number; x2: number; y2: number };
@@ -99,25 +99,15 @@ type GroundRect = { x1: number; y1: number; x2: number; y2: number };
 const FIELD_RECT: GroundRect = { x1: 3.0, y1: 2.9, x2: 6.8, y2: 7.1 };
 const ROAD_RECT: GroundRect = { x1: 9.9, y1: 7.0, x2: 16.5, y2: 8.3 };
 const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = FIELD_RECT, road = ROAD_RECT }) => {
-  const hub = { gridX: (field.x1 + field.x2) / 2, gridY: (field.y1 + field.y2) / 2 };
   const ring = [tileToScreen(field.x1 - .35, field.y1 - .35), tileToScreen(field.x2 + .35, field.y1 - .35), tileToScreen(field.x2 + .35, field.y2 + .35), tileToScreen(field.x1 - .35, field.y2 + .35)];
   const pathRing = ring.map(p => `${p.x},${p.y}`).join(' ');
 
-  // NO MORE FLOATING ISLAND: the campus sits on a wide grounds plane that fades into
-  // the night instead of dropping off a cliff into space (user call, July 2026).
-  // MOWED APRON (Jumaane, July 11 — "I don't like how it sits off the bottom of the
-  // map"): his layout parks Rehab (1,8) and Training (8,8) on the buildable edge,
-  // which dangled their worn-turf wear and stencil labels onto the dark rough. The
-  // mowed campus now extends ONE extra tile past the two south-facing edges (corner
-  // tiles GRID instead of GRID-1) so edge buildings stand on grass with margin.
-  // North/west edges are unchanged — the practice field and scoreboard tuck against
-  // those. Buildable grid, battle geometry, and ?grid=1 labels untouched: pure paint.
+  // These corners size the surrounding plane, not a separately colored island.
+  // Extend far enough to keep every existing facility and legal zoom on turf.
   const cT = tileToScreen(0, 0), cR = tileToScreen(GRID, 0), cB = tileToScreen(GRID, GRID), cL = tileToScreen(0, GRID);
   const T = { x: cT.x, y: cT.y - TILE_H / 2 };
   const L = { x: cL.x - TILE_W / 2, y: cL.y }, B = { x: cB.x, y: cB.y + TILE_H / 2 }, R = { x: cR.x + TILE_W / 2, y: cR.y };
-  const glow = hub ? tileToScreen(hub.gridX, hub.gridY) : tileToScreen(6, 6);
-  // Surrounding grounds: the same diamond scaled up ~2x about its center — reads as
-  // the dark practice fields beyond the mowed campus, vignetting out to the backdrop.
+  // Vignette only the distant grounds; the playable campus stays one turf color.
   const CX = (T.x + B.x) / 2, CY = (T.y + B.y) / 2, K = 4.2; // big enough that the plane owns the whole viewport at any legal zoom
   const OP = [T, R, B, L].map(p => `${CX + (p.x - CX) * K},${CY + (p.y - CY) * K}`).join(' ');
 
@@ -125,23 +115,11 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
     <>
       <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ overflow: 'visible' }}>
         <defs>
-          <radialGradient id="campusTurf" cx="50%" cy="42%" r="70%">
-            <stop offset="0%" stopColor={TURF.light} />
-            <stop offset="65%" stopColor={TURF.dark} />
-            <stop offset="100%" stopColor="#13301d" />
-          </radialGradient>
-          <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
-            <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-          {/* Outer grounds: dark grass near the campus, deepening outward — NEVER
-              transparent (transparent rim = black space, user hated it). The far
-              stop matches the backdrop greens so the rim is invisible. */}
+          {/* The center uses exactly the field's base turf. No transparent rim. */}
           <radialGradient id="outerGround" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#16351f" stopOpacity="1" />
-            <stop offset="30%" stopColor="#122c1d" stopOpacity="1" />
-            <stop offset="65%" stopColor="#0d2316" stopOpacity="1" />
+            <stop offset="0%" stopColor={TURF.dark} stopOpacity="1" />
+            <stop offset="35%" stopColor={TURF.dark} stopOpacity="1" />
+            <stop offset="70%" stopColor={TURF.apron} stopOpacity="1" />
             <stop offset="100%" stopColor="#081711" stopOpacity="1" />
           </radialGradient>
         </defs>
@@ -159,14 +137,11 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
             </g>
           );
         })()}
-        {/* Continuous turf: no repeated tile seams beneath the buildings. */}
-        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#campusTurf)" />
-
+        {/* One grass plane beneath every facility: no brighter campus diamond
+            cutting through their feet. Only the field's mowing stripes vary. */}
         <polygon points={pathRing} fill="none" stroke="#a6926c" strokeWidth="15" strokeLinejoin="round" opacity=".4" />
         <polygon points={pathRing} fill="none" stroke="#cec09b" strokeWidth="1" opacity=".25" />
         <FieldPaint project={tileToScreen} x1={field.x1} y1={field.y1} x2={field.x2} y2={field.y2} lineWidth={1.25} />
-        {/* soft light pool centered on the Stadium */}
-        <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
       </svg>
       {/* Worn-turf pads under buildings REMOVED (Jumaane, July 11: the tan wear
           trailing off each building's base read as a bad "border"). Buildings
@@ -205,9 +180,11 @@ const DecorSprite: React.FC<{ slug: string; gridX: number; gridY: number; scale:
   return (
     <div className="absolute pointer-events-none" style={{ left: c.x, top: c.y, zIndex: Math.max(1, Math.round(z ?? gridX + gridY)) }}>
       <div style={reveal !== undefined ? { animation: `fhq-reveal-in 0.6s cubic-bezier(0.34,1.56,0.64,1) ${reveal}s both` } : undefined}>
-        <img src={`/assets/decor/${slug}.webp`} alt="" draggable={false}
+        {slug === 'tailgate-tent' ? <MatteSprite src="/assets/decor/tailgate-tent-cutout.webp"
+          fallback={`/assets/decor/${slug}.webp`}
+          style={{ position: 'absolute', width: w, maxWidth: 'none', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} /> : <img src={`/assets/decor/${slug}.webp`} alt="" draggable={false}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />
+          style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: flip ? 'scaleX(-1)' : undefined, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,0.3))' }} />}
       </div>
       {reveal !== undefined && (
         <>

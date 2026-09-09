@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BuildingType } from '../types';
 import { BUILDING_ART_LEVELS, buildingSprite } from '../assets';
 import { keyHeroPixels } from '../game/heroAnimation';
+import { MatteSprite } from './MatteSprite';
 
 const BOUNDS: Partial<Record<BuildingType, readonly number[]>> = {
   [BuildingType.TACTICS_ROOM]: [76,136,527,560],
@@ -52,6 +53,9 @@ export function BuildingArt({ type, level, label = '', className = '', style }: 
     }).catch(() => {});
     return () => { disposed = true; };
   }, [starter, type]);
+  if (type === BuildingType.STADIUM && level < 2) return <MatteSprite
+    src="/assets/buildings/stadium-1-cutout.webp" fallback={buildingSprite(type, level)}
+    alt={label} className={className} style={style} />;
   return <span className={`relative block ${className}`} style={style}>
     <img src={buildingSprite(type, level)} alt={ready ? '' : label} draggable={false} className="block w-full h-auto select-none" style={{ visibility: ready ? 'hidden' : undefined }} />
     {starter && <canvas ref={ref} width={384} height={384} role="img" aria-label={label || undefined} data-ready={ready ? '1' : '0'}
