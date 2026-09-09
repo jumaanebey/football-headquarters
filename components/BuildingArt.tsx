@@ -4,10 +4,10 @@ import { BUILDING_ART_LEVELS, buildingSprite } from '../assets';
 import { keyHeroPixels } from '../game/heroAnimation';
 
 const BOUNDS: Partial<Record<BuildingType, readonly number[]>> = {
-  [BuildingType.TACTICS_ROOM]: [138,155,519,512],
-  [BuildingType.YOUTH_ACADEMY]: [743,150,1121,513],
-  [BuildingType.MEDICAL_CENTER]: [129,719,543,1087],
-  [BuildingType.TRAINING_PITCH]: [709,731,1122,1080],
+  [BuildingType.TACTICS_ROOM]: [76,136,527,560],
+  [BuildingType.YOUTH_ACADEMY]: [749,137,1175,587],
+  [BuildingType.MEDICAL_CENTER]: [77,717,547,1148],
+  [BuildingType.TRAINING_PITCH]: [686,725,1163,1104],
 };
 export const isStarterFacility = (type: BuildingType, level: number) => !!BOUNDS[type] && level < BUILDING_ART_LEVELS(type)[1];
 let prepared: Promise<HTMLCanvasElement> | undefined;
@@ -26,7 +26,9 @@ function loadFacilities() {
       } catch (error) { prepared = undefined; reject(error); }
     };
     image.onerror = () => { prepared = undefined; reject(new Error('Facility art unavailable')); };
-    image.src = '/assets/buildings/starter-campus.webp';
+    // Floorless art lets the actual turf show through, including the gaps between
+    // posts and equipment. Grass-colored sprite aprons cannot match its lighting.
+    image.src = '/assets/buildings/starter-campus-cutouts.webp';
   });
 }
 
@@ -43,7 +45,7 @@ export function BuildingArt({ type, level, label = '', className = '', style }: 
       if (disposed) return;
       const ctx = ref.current?.getContext('2d'), b = BOUNDS[type];
       if (!ctx || !b) return;
-      const [x, y, r, bottom] = b, w = r - x, h = bottom - y, scale = 340 / 414;
+      const [x, y, r, bottom] = b, w = r - x, h = bottom - y, scale = 340 / 477;
       ctx.clearRect(0, 0, 384, 384);
       ctx.drawImage(sheet, x, y, w, h, (384 - w * scale) / 2, 370 - h * scale, w * scale, h * scale);
       setReady(true);
