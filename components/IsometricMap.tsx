@@ -1,3 +1,8 @@
+import { CampusHero } from './CampusHero';
+import { HERO_DEFS } from '../battle';
+import { FieldPaint, TURF } from './FieldPaint';
+import { spriteMotion } from '../game/spriteMotion';
+import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 
 import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
@@ -13,6 +18,8 @@ import { Check, Star, Dumbbell, Search, Coins, Hammer } from 'lucide-react';
 // geometry (fixedBase.ts): there is no placement, painting, or dragging here.
 
 interface Props {
+  heroes?: import('../types').HeroState[];
+  onOpenHeroes?: (heroKey?: string) => void;
   buildings: BuildingInstance[];
   players: Player[];
   bonusOrbs: BonusOrb[];
@@ -91,23 +98,6 @@ type GroundRect = { x1: number; y1: number; x2: number; y2: number };
 const FIELD_RECT: GroundRect = { x1: 3.8, y1: 3.3, x2: 6.2, y2: 6.7 };
 const ROAD_RECT: GroundRect = { x1: 9.9, y1: 7.0, x2: 16.5, y2: 8.3 };
 const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = FIELD_RECT, road = ROAD_RECT }) => {
-  const tilePts = (gx: number, gy: number, s = 1) => {
-    const c = tileToScreen(gx, gy);
-    return `${c.x},${c.y - (TILE_H / 2) * s} ${c.x + (TILE_W / 2) * s},${c.y} ${c.x},${c.y + (TILE_H / 2) * s} ${c.x - (TILE_W / 2) * s},${c.y}`;
-  };
-
-  // Painted turf via ONE SVG <pattern> (5 image refs total, engine-tiled) — per-tile
-  // <image> elements rasterize per frame and dropped the page to 2fps. Bands are cheap
-  // flat overlays. (The light turf variant came back speckle-damaged; unused.)
-  const bandShades = [];
-  for (let gx = 0; gx <= GRID; gx++) {     // <= GRID: mow bands cover the apron tiles too
-    for (let gy = 0; gy <= GRID; gy++) {
-      if (Math.floor((gx + gy) / 2) % 2 === 0) {
-        bandShades.push(<polygon key={`b${gx}-${gy}`} points={tilePts(gx, gy)} fill="rgba(255,255,255,0.06)" />);
-      }
-    }
-  }
-
   // Worn dirt paths: each building walks a manhattan route home to the campus HUB —
   // the central practice patch (the stadium backdrop lives OFF-campus, and dirt
   // trails onto the dark rough are exactly the border Jumaane rejected).
@@ -161,15 +151,11 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
     <>
       <svg className="absolute inset-0 pointer-events-none" width={BOARD_W} height={BOARD_H} style={{ overflow: 'visible' }}>
         <defs>
-          {/* Iso turf tiling as ONE pattern (center + 4 half-offset corner copies). */}
-          <pattern id="turfPat" width={TILE_W} height={TILE_H} patternUnits="userSpaceOnUse"
-            x={ORIGIN_X - TILE_W / 2} y={ORIGIN_Y - TILE_H / 2}>
-            <image href="/assets/ground/turf-tile-dark.webp" x={0} y={0} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-            <image href="/assets/ground/turf-tile-dark.webp" x={-TILE_W / 2} y={-TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-            <image href="/assets/ground/turf-tile-dark.webp" x={TILE_W / 2} y={-TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-            <image href="/assets/ground/turf-tile-dark.webp" x={-TILE_W / 2} y={TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-            <image href="/assets/ground/turf-tile-dark.webp" x={TILE_W / 2} y={TILE_H / 2} width={TILE_W} height={TILE_H} preserveAspectRatio="none" />
-          </pattern>
+          <radialGradient id="campusTurf" cx="50%" cy="42%" r="70%">
+            <stop offset="0%" stopColor={TURF.light} />
+            <stop offset="65%" stopColor={TURF.dark} />
+            <stop offset="100%" stopColor="#13301d" />
+          </radialGradient>
           <radialGradient id="fieldGlow" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
             <stop offset="60%" stopColor="#ffffff" stopOpacity="0.03" />
@@ -199,51 +185,10 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
             </g>
           );
         })()}
-        {/* the mowed campus as ONE pattern-filled polygon */}
-        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#turfPat)" />
-        {bandShades}
-        {/* PRACTICE FIELD — real turf, end zones, yard stripes. Paints AFTER the
-            campus turf so it reads on the mowed grass too (size-swap mode parks the
-            small patch ON campus; the classic big field sits on the west rough). */}
-        {(() => {
-          const FX1 = field.x1, FX2 = field.x2, FY1 = field.y1, FY2 = field.y2;
-          // end zones / mow bands as FRACTIONS of the field length, so the rect can
-          // be moved or resized (editor) without the paint drifting off it
-          const fy = (t: number) => FY1 + (FY2 - FY1) * t;
-          const fc = (gy1: number, gy2: number) => {
-            const a = tileToScreen(FX1, gy1), b = tileToScreen(FX2, gy1), c = tileToScreen(FX2, gy2), d = tileToScreen(FX1, gy2);
-            return `${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`;
-          };
-          const fT = tileToScreen(FX1, FY1), fR = tileToScreen(FX2, FY1), fB = tileToScreen(FX2, FY2), fL = tileToScreen(FX1, FY2);
-          const stripes = [];
-          for (let i = 1; i < 8; i++) {
-            const t = i / 8;
-            const ax = fT.x + (fL.x - fT.x) * t, ay = fT.y + (fL.y - fT.y) * t;
-            const bx = fR.x + (fB.x - fR.x) * t, by = fR.y + (fB.y - fR.y) * t;
-            stripes.push(<line key={`pf${i}`} x1={ax} y1={ay} x2={bx} y2={by} stroke="rgba(255,255,255,0.16)" strokeWidth={1.5} />);
-          }
-          // On the dark rough the field needs its own bright turf; ON CAMPUS
-          // (size-swap mode) it reads as chalk lines painted on the existing lawn —
-          // the dark fill there just looked like a stain.
-          const onCampus = FX1 >= -0.5;
-          return (
-            <g>
-              {/* brighter than the rough by a clear step — on real screens the old
-                  #1c4729 read as a black void with lines (prod screenshot, Jul 10) */}
-              <polygon points={fc(FY1, FY2)} fill={onCampus ? 'rgba(255,255,255,0.05)' : '#265934'} />
-              {/* mow bands */}
-              <polygon points={fc(fy(0.18), fy(0.36))} fill="rgba(255,255,255,0.07)" />
-              <polygon points={fc(fy(0.54), fy(0.72))} fill="rgba(255,255,255,0.07)" />
-              {/* end zones */}
-              <polygon points={fc(FY1, fy(0.125))} fill="rgba(249,115,22,0.32)" />
-              <polygon points={fc(fy(0.875), FY2)} fill={onCampus ? 'rgba(17,24,39,0.55)' : 'rgba(17,24,39,0.4)'} />
-              {stripes.map((s, i) => onCampus ? React.cloneElement(s, { stroke: 'rgba(255,255,255,0.35)' }) : s)}
-              <polygon points={fc(FY1, FY2)} fill="none" stroke={onCampus ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.34)'} strokeWidth={2} />
-            </g>
-          );
-        })()}
-        {/* boundary: a groundskeeper's line where the mowed campus meets the rough */}
-        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth={2.5} />
+        {/* Continuous turf: no repeated tile seams beneath the buildings. */}
+        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${B.x},${B.y} ${L.x},${L.y}`} fill="url(#campusTurf)" />
+
+        <FieldPaint project={tileToScreen} x1={field.x1} y1={field.y1} x2={field.x2} y2={field.y2} lineWidth={1.25} />
         {/* soft light pool centered on the Stadium */}
         <ellipse cx={glow.x} cy={glow.y} rx={TILE_W * 4.2} ry={TILE_H * 4.2} fill="url(#fieldGlow)" />
       </svg>
@@ -468,8 +413,7 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
 
 const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, dur, delay, rev }) => {
   const a = tileToScreen(gx, gy), b = tileToScreen(gx, gy + dgy);
-  const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
-  const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+
   return (
     <div className="fhq-drillsquad absolute pointer-events-none"
       style={{ left: a.x, top: a.y, zIndex: 2, '--dx': `${b.x - a.x}px`, '--dy': `${b.y - a.y}px`, animation: `fhq-drill ${dur}s linear ${delay}s infinite` } as React.CSSProperties}>
@@ -481,10 +425,7 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
           <img src={`/assets/units/${slug}-player.webp`} alt="" draggable={false}
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             className="fhq-flat absolute inset-0 w-full h-full object-contain" />
-          {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-            <img key={fr} src={`/assets/units/${slug}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff}
-              className="fhq-rigframe absolute inset-0 w-full h-full object-contain" style={{ animation: `fhq-q${qi + 1} 0.42s linear infinite` }} />
-          ))}
+          <SpriteFrames sources={WALK_FRAMES.map(fr => `/assets/units/${slug}-${fr}.webp`)} duration={0.42} style={{ transform: 'translateZ(0)' }} />
         </div>
       </div>
     </div>
@@ -730,11 +671,11 @@ const BuildingSprite: React.FC<{
           hover/active transforms on the img. Negative delay de-syncs neighbors. */}
       <div className="absolute pointer-events-none" style={{
         width: SPRITE_W, left: -SPRITE_W / 2, bottom: -TILE_H / 2, transformOrigin: '50% 100%',
-        animation: `fhq-breathe ${6 + ((building.gridX + building.gridY) % 3)}s ease-in-out -${(building.gridX * 7 + building.gridY * 13) % 6}s infinite`,
+
       }}>
         <img src={src} alt={info.name} draggable={false}
-          className="select-none transition-transform group-hover:-translate-y-1 group-active:scale-95"
-          style={{ display: 'block', width: '100%', maxWidth: 'none', height: 'auto', filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.35))' }} onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+          className="select-none transition-[filter]"
+          style={{ display: 'block', width: '100%', maxWidth: 'none', height: 'auto', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
         {/* Scouting HQ chimney smoke — three staggered puffs rising off the roofline */}
         {isAcademy && [0, 1, 2].map(i => (
           <img key={i} src="/assets/fx/smoke-puff.webp" alt="" draggable={false} className="absolute select-none" style={{
@@ -769,7 +710,7 @@ const BuildingSprite: React.FC<{
 
       {/* Tap hitbox — the building's BODY, aligned to the art's true base (the sprite
           bottoms out at the footprint's low vertex, a full tile below center). */}
-      <div data-fhq-bldg className="absolute cursor-pointer" onClick={handleClick}
+      <button type="button" data-fhq-bldg aria-label={`${info.name}, level ${building.level}`} className="absolute cursor-pointer rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-400" onClick={handleClick}
         style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H, width: SPRITE_W * 0.62, height: SPRITE_W > TILE_W * 3 ? SPRITE_W * 0.8 : TILE_H * 2.3, pointerEvents: 'auto' }} />
 
       {/* Drill status badge */}
@@ -848,7 +789,13 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
 
   // Real player art on the board (the `*-player.png` singles) — the color chip is only
   // the fallback while the sprite loads. Face the direction of travel.
-  const facingLeft = player.targetPos.x < player.worldPos.x;
+  const [motion, setMotion] = useState(() => ({ ...player.worldPos, face: 1 }));
+  let face = motion.face;
+  if (motion.x !== player.worldPos.x || motion.y !== player.worldPos.y) {
+    face = spriteMotion(motion, player.worldPos, 0.2, motion.face).face;
+    setMotion({ ...player.worldPos, face });
+  }
+  const facingLeft = face < 0;
 
   // PATROLLING players are MOVING (between beat points) — they stride exactly like
   // walkers. Only players standing still (training at a facility) hold their pose.
@@ -869,17 +816,14 @@ const PlayerMarker: React.FC<{ player: Player }> = ({ player }) => {
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           className="fhq-flat relative w-full h-auto max-w-none select-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]"
           style={{ transform: facingLeft ? 'scaleX(-1)' : undefined }} />
-        {/* Real stride while MOVING: two frames alternate; art faces LEFT natively */}
+        {/* Real stride while MOVING: four frames alternate; art faces LEFT natively */}
         {isMoving && (() => {
           const base = unitPlayerSprite(player.unit).replace('-player.webp', '');
           const wFlip = facingLeft ? undefined : 'scaleX(-1)';
-          const rigOn = (e: React.SyntheticEvent<HTMLImageElement>) => { const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.dataset.rig = '1'; };
-          const rigOff = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; const p = e.currentTarget.closest('.fhq-unit') as HTMLElement | null; if (p) p.removeAttribute('data-rig'); };
+
           return (
             <>
-              {(['walkA', 'walkC', 'walkB', 'walkD'] as const).map((fr, qi) => (
-                <img key={fr} src={`${base}-${fr}.webp`} alt="" draggable={false} onLoad={rigOn} onError={rigOff} className="absolute inset-0 w-full h-full object-contain select-none" style={{ animation: `fhq-q${qi + 1} 0.5s linear infinite`, transform: wFlip }} />
-              ))}
+              <SpriteFrames sources={WALK_FRAMES.map(fr => `${base}-${fr}.webp`)} duration={0.5} style={{ transform: wFlip }} />
             </>
           ); })()}
       </div>
@@ -899,7 +843,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -1296,6 +1240,9 @@ export const IsometricMap: React.FC<Props> = ({ buildings, players, bonusOrbs, t
               </div>
             );
           })}
+          {HERO_DEFS.filter(def => heroes.find(h => h.key === def.key)?.unlocked ?? !!def.starter).map(def => def.key).map((key, lane) => (
+            <CampusHero key={key} heroKey={key} lane={lane} field={edit?.field ?? FIELD_RECT} project={tileToScreen} onSelect={() => onOpenHeroes?.(key)} />
+          ))}
           {activePlayers.map((p) => (
             <PlayerMarker key={p.id} player={p} />
           ))}

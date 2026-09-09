@@ -1,3 +1,7 @@
+import { HeroTrainingPreview } from './HeroTrainingPreview';
+import { AnimatedHero } from './AnimatedHero';
+import { hasModernHero } from '../game/heroAnimation';
+import { HERO_FOOT_OFFSET } from '../game/heroFootOffsets';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ResourceType, HeroState } from '../types';
@@ -8,6 +12,7 @@ import { Sheet, HowTo } from './ui';
 import { sfx } from '../sound';
 
 interface Props {
+  initialHero?: string;
   heroes: HeroState[];
   resources: Record<ResourceType, number>;
   stadiumLevel: number;
@@ -50,7 +55,7 @@ const heroHue = (hex: string): number => {
   return h < 0 ? h + 360 : h;
 };
 
-export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
+export const HeroModal: React.FC<Props> = ({ initialHero, heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
   const stateOf = (key: string) => heroes.find(h => h.key === key);
 
   // 🎰 SCOUT SEARCH REVEAL: the roll gets a suspense beat (spinning ring + shaking
@@ -135,6 +140,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
           </div>
         )}
 
+        <HeroTrainingPreview initialHero={initialHero} />
         <div className="px-5 pt-4">
           <HowTo id="heroes" lines={[
             'Heroes are your stars — deploy them in raids and fire their signature abilities mid-drive.',
@@ -167,7 +173,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
 
             return (
               <div key={def.key} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
-                <div className="relative shrink-0 flex items-end justify-center h-44 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 40%, ${def.color}44, #0f172a 70%)` }}>
+                <div className="fhq-modern-card relative shrink-0 flex items-end justify-center h-52 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 40%, ${def.color}44, #0f172a 70%)` }}>
                   {/* CARD FLOURISH (unlocked heroes only): the REAL flame-ring sprite
                       (franchise-rig #38) spinning behind the art, hue-shifted from its
                       golden base to each hero's signature color. Glow breathes behind it. */}
@@ -196,13 +202,13 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                        optional projectile launches. Staggered per hero so cards don't sync. */
                     (() => { /* 5.5s cycle: the action beat lands every ~5s instead of hiding in a 7s idle */
                     const rig = HERO_RIG[def.key]; const dly = `-${(heroIdx * 1.45) % 5.5}s`; return (
-                    <div className="relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
-                      <div className="absolute inset-0" style={rig.flipX ? { transform: 'scaleX(-1)' } : undefined}>
+                    <div className="fhq-hero-puppet relative h-[112%] select-none" style={{ aspectRatio: '1' }}>
+                      <div className="fhq-hero-layers absolute inset-0" style={rig.flipX ? { transform: 'scaleX(-1)' } : undefined}>
                       <img src={rig.body} alt={def.name} draggable={false}
                         onLoad={e => { const med = e.currentTarget.parentElement?.parentElement?.previousElementSibling as HTMLElement | null; if (med) med.style.visibility = 'hidden'; }}
                         onError={e => { (e.currentTarget as HTMLImageElement).src = def.art; (e.currentTarget as HTMLImageElement).onerror = null; }}
                         className="fhq-basebody absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
-                        style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
+                        style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[rig.body] ?? 0}%`, animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%' }} />
                       {/* LEG LOOP: weight-shift frames replace the static body once BOTH load;
                           any load failure puts the static body back (never a blank card).
                           QB's frames are ARM-LOCKED to the reference (extended empty palm) so
@@ -212,8 +218,10 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                           onLoad={e => {
                             const p = e.currentTarget.parentElement as HTMLElement;
                             p.dataset[`idle${f}`] = '1';
-                            if (p.dataset.idleA === '1' && p.dataset.idleB === '1' && !p.dataset.idlefail)
+                            if (p.dataset.idleA === '1' && p.dataset.idleB === '1' && !p.dataset.idlefail) {
+                              p.dataset.idleready = '1';
                               (p.querySelector('.fhq-basebody') as HTMLElement).style.visibility = 'hidden';
+                            }
                           }}
                           onError={e => {
                             const p = e.currentTarget.parentElement as HTMLElement;
@@ -222,17 +230,18 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                             (p.querySelector('.fhq-basebody') as HTMLElement).style.visibility = 'visible';
                           }}
                           className="fhq-idleframe absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
-                          style={{ animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite, fhq-idle${f} 5.5s linear ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
+                          style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[`/assets/heroes/rig/${def.key}-idle${f}.webp`] ?? 0}%`, animation: `fhq-qb-body 5.5s ease-in-out ${dly} infinite, fhq-idle${f} 5.5s linear ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
                       ))}
                       <img src={rig.action} alt="" draggable={false}
+                        onLoad={e => { e.currentTarget.dataset.ready = '1'; }}
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                        className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
-                        style={{ animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
+                        className="fhq-action-pose absolute inset-0 w-full h-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] pointer-events-none"
+                        style={{ top: rig.ball ? undefined : `${HERO_FOOT_OFFSET[rig.action] ?? 0}%`, animation: `fhq-qb-body2 5.5s ease-in-out ${dly} infinite`, transformOrigin: '50% 100%', opacity: 0 }} />
                       </div>
                       {rig.ball && (
                         <img src="/assets/heroes/franchise-rig/ball.webp" alt="" draggable={false}
                           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                          className="absolute pointer-events-none"
+                          className="fhq-hero-ball absolute pointer-events-none"
                           style={{ width: '30%', left: rig.ball.left, top: rig.ball.top, animation: `${rig.ball.anim ?? 'fhq-qb-ball'} 5.5s ease-in-out ${dly} infinite`, opacity: rig.ball.anim === 'fhq-ball-inhand' ? 1 : 0 }} />
                       )}
                     </div>
@@ -242,6 +251,7 @@ export const HeroModal: React.FC<Props> = ({ heroes, resources, stadiumLevel, la
                     style={unlocked ? { animation: `fhq-hero-idle ${5.2 + (heroIdx % 3) * 0.6}s ease-in-out ${-(heroIdx * 1.7)}s infinite`, transformOrigin: '50% 100%' } : undefined}
                     className={`relative h-[112%] w-auto max-w-none object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)] select-none ${unlocked ? '' : 'grayscale opacity-50'}`} />
                   )}
+                  {unlocked && hasModernHero(def.key) && <AnimatedHero heroKey={def.key} mode="showcase" label={def.name} />}
                   {unlocked ? (
                     <>
                       <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded-full px-2 py-0.5">

@@ -33,7 +33,7 @@ export function ClubDashboard({ gs, onClose, onRoster, onGameDay, onDefense }: P
   const log = gs.defenseLog ?? [], held = log.filter(r => r.stars === 0).length;
   return <Sheet title="Your program" icon={<Activity size={23} />} subtitle={gs.teamName} onClose={onClose} maxWidth="max-w-3xl">
     <div className="fhq-dashboard">
-      <section className="fhq-dashboard-banner">
+      <section className="fhq-dashboard-banner" style={level >= 9 ? { backgroundImage: 'linear-gradient(90deg, #07101855, #071018ee), url(/assets/gpt/campus-vision.png)', backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
         <img src={buildingSprite(BuildingType.STADIUM, level)} alt={`${BUILDING_ERAS[BuildingType.STADIUM][artIndex]} stadium`} width="245" height="190" />
         <div><span className="fhq-eyebrow">Home field · Level {level}</span><h3>{BUILDING_ERAS[BuildingType.STADIUM][artIndex]}</h3><p>{tier?.name ?? 'Quiet campus'}<br />{number(fans)} fans behind your program.</p></div>
       </section>

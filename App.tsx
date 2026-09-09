@@ -55,7 +55,7 @@ import { advanceCampus } from './game/campus';
 import { useUpgradeCelebrations } from './game/useUpgradeCelebrations';
 import { Sheet, Btn, HowTo } from './components/ui';
 import { armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroMaxLevel, defenseAiTroops, specialsForBattle, raidAiMult, makeRevengeBase, homeDefenders, gauntletWaves, gauntletReward, GAUNTLET_MAX_TIER } from './battle';
-import { HeroModal } from './components/HeroModal';
+const HeroModal = lazy(() => import('./components/HeroModal').then(m => ({ default: m.HeroModal })));
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
 import { Volume2, VolumeX, X, Shield, Settings as SettingsIcon } from 'lucide-react';
@@ -100,6 +100,7 @@ function App() {
   // no placement anywhere; you upgrade slots, the geometry is shared by every club).
   const [frontOfficeOpen, setFrontOfficeOpen] = useState(false);
   const [isHeroOpen, setIsHeroOpen] = useState(false);
+  const [focusedHero, setFocusedHero] = useState<string | undefined>();
   const [defenseLogOpen, setDefenseLogOpen] = useState(false);
   const [raidTargets, setRaidTargets] = useState<EnemyBase[]>([]);
   const [attackTab, setAttackTab] = useState<'season' | 'raid'>('season');
@@ -1200,6 +1201,8 @@ function App() {
       <TopHUD onOpenClub={() => setDashboardOpen(true)} gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
       <IsometricMap
+        heroes={gameState.heroes}
+        onOpenHeroes={key => { setFocusedHero(key); setIsHeroOpen(true); }}
         buildings={gameState.buildings}
         players={gameState.roster}
         bonusOrbs={gameState.bonusOrbs}
@@ -1497,7 +1500,9 @@ function App() {
       )}
 
       {isHeroOpen && (
+        <Suspense fallback={<Sheet title="Hall of Heroes" icon={<span>🏈</span>} onClose={() => setIsHeroOpen(false)}><p className="p-5 text-slate-300" role="status">Opening the film room…</p></Sheet>}>
         <HeroModal
+          initialHero={focusedHero}
           heroes={gameState.heroes}
           resources={gameState.resources}
           stadiumLevel={stadiumLevel}
@@ -1507,7 +1512,7 @@ function App() {
           onUnlock={handleUnlockHero}
           onRoll={handleRollHero}
           onStarUp={handleStarUpHero}
-        />
+        /></Suspense>
       )}
 
       {defenseLogOpen && (

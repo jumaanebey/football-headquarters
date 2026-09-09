@@ -78,3 +78,156 @@ sprite refresh is unfinished; existing working sprites remain in use.
 `scripts/check-sprites.py` checks sprite dimensions, alpha, and transparent corners
 before integration. It correctly rejects those outputs. It requires Pillow, as
 do the existing art tools. Run `python scripts/check-sprites.py <sprite.png>`.
+
+## Hero and placement pass
+
+Reviewed `DESIGN-BIBLE.md`, `HERO-SPRITES.md`, `FIXED-BASE-PLAN.md`,
+`ART-DIRECTION.md`, and the later handoff/layout notes. No separately named PRD
+was found in the repository. Original hero identities and the exported home
+layout remain canonical.
+
+- Hero guards now resolve WebP portraits to their complete walk cycles.
+- Shared `SpriteFrames` waits for every pose before hiding the portrait. Failed
+  loads retain the portrait; walk/action changes reset readiness together.
+- Four stride frames switch discretely without blended poses. Reduced motion
+  hides the sequence and displays the original character.
+- Campus and battle facing use projected isometric travel, including movement
+  along world Y. Battle attacks also face their target.
+- Hero cards retain their body when the action image is unavailable, and show a
+  single static body with reduced motion.
+- Battle health bars overlay actors instead of changing their height and moving
+  their ground position when damage starts.
+- Facility hitboxes retain their existing footprint alignment and now have
+  keyboard activation, visible focus, and facility/level labels.
+
+Validation: 64 tests, TypeScript and production build pass. Complete dynamic
+hero/player walk cycles, idle frames and action asset paths are checked.
+`npm run balance` passes every documented assertion. Its diagnostic scenarios
+still show an Epic squad underperforming a Common squad on one layout and no QB
+advantage on another; these are playtest targets, not proof of broad imbalance.
+Combat rules were not retuned from those isolated scenarios.
+
+Still incomplete: desktop/phone visual and interaction checks, live cross-device
+cloud-save verification, and the three starter-facility replacements. The browser
+explicitly rejected the authorized preview URL under its security policy. A
+single background-removal edit per building again returned opaque RGB exports
+with baked checkerboards; those candidates were excluded. No browser pass or
+finished building-art refresh is claimed.
+
+## Observed movement follow-up
+
+Battle animation now uses observed displacement from each simulation step, rather
+than assuming every non-attacking character is walking. Waiting defenders hold
+still, stride tempo follows actual speed, and walk/lunge loops stop at the result
+screen. Ordinary defenders use their existing four-frame walk art; hero defenders
+use their existing action poses during contact. Small steps use velocity for
+facing, avoiding a direction threshold that ignored slow runners. Campus players
+keep their last facing when stopping or moving vertically on screen.
+
+These fields are presentation-only: no combat stats, paths, random draws or
+replay actions change. Four new movement tests bring the suite to 68 tests.
+A further headquarters revision from the original transparent sprite also failed
+alpha validation (RGB, 1254 square, baked checkerboard) and was excluded. Built-in
+image generation was used; the prompt preserved the original canopy, table,
+playboard, football crate, flag, camera and footprint while requesting crisper
+edges and genuine alpha. No new gameplay bitmap was integrated.
+
+## Unified field and hero art presentation
+
+The home campus now uses continuous gradient turf instead of repeated diamond
+bitmaps and per-tile shading. Removed the bright campus perimeter seam and matched
+the lawn edge to the surrounding grounds. Home practice and battle fields share
+`FieldPaint`: one turf palette, a 100-yard playing surface, two 10-yard end zones,
+five-yard lines, hash marks and a stronger midfield line. Existing field bounds,
+building positions and combat geometry are unchanged.
+
+Buildings no longer breathe or lift on hover; tighter contact shadows and modest
+saturation reduction help their existing artwork sit on the turf. Hero walk/action
+frames receive per-image vertical placement offsets measured from their alpha
+silhouettes so their visible lower edges share a baseline. Card poses use the same
+alignment except QB/kicker rigs, whose hand/ball attachment geometry is preserved.
+Idle card layers stay hidden until both images have loaded.
+
+`scripts/measure-hero-feet.py` inspects original images and emits the placement
+metadata in `game/heroFootOffsets.ts`; it does not edit any bitmap. This pass improves
+native field rendering and how existing art is presented, rather than claiming new
+transparent replacement art. TypeScript, 68 tests and the production build pass.
+Browser visual acceptance remains blocked and is not claimed.
+
+## Recreated heroes integrated with animation
+
+New generated six-pose sheets for Franchise, Enforcer and Dr. Sloane now render in
+hero cards, live battles and home-campus patrols. Each sheet contains idle, four
+walk poses and an action pose. Movement selects walking; stops select idle;
+attacks and ability activation select the action beat. Hero cards demonstrate the
+sequence. Home heroes respect unlock state and open the Heroes screen on tap.
+
+The sheet renderer removes a deliberately magenta production backdrop once per
+loaded sheet, caches the result, aligns per-cell lower bounds, and corrects QB
+frame facing. It retains legacy art if loading or Canvas access fails. Reduced
+motion uses the idle pose, hidden tabs skip drawing, and component teardown
+cancels animation callbacks. New art is limited to these three approved redesigns;
+the other six heroes retain their existing art and animation.
+
+The approved campus illustration appears as a thematic backdrop in the mature
+club overview (stadium level 9+). It is not substituted for the interactive campus:
+that still uses live buildings, progression, selection and the shared field paint.
+Individual recreated building sprites remain outstanding. Some generated stride
+poses are close together; browser visual/motion acceptance remains unverified due
+to the previously reported preview security block. No full rebuild completion is
+claimed. TypeScript, 71 tests and production build pass.
+
+Art: built-in imagegen, one sheet per hero, referenced the approved three-character
+concept. Prompt required 3 columns × 2 rows, uniform full-body scale, original
+face/costume, sculpted cel style, left-facing idle/walk/contact-action sequence,
+flat magenta, no shadows/text/grid lines. All outputs are 1536×1024. Production
+files: `public/assets/gpt/heroes/{qb,enforcer,medic}-motion.png` and
+`public/assets/gpt/campus-vision.png`.
+
+## Continuous hero drills and full unlocked campus roster
+
+Campus patrols now update positions each animation frame without re-rendering the
+React tree at that rate. All unlocked heroes participate, using the three modern
+sheets where available and complete legacy walk/action sequences for the other
+six. Nine separate lanes stay inside the field; three run tempos stagger the
+athletes. Each run ends in an action beat, recovery and a return run, retaining
+facing until the turn. Campus hero markers are larger and remain tappable.
+
+Reduced motion holds position and idle facing. Hidden tabs pause patrol and sheet
+playback instead of jumping ahead on return. Modern action sequences return to
+idle between contact beats; malformed stride durations have a safe fallback.
+No combat rules, progression or building placement changed.
+
+Validation: 74 tests, production build and TypeScript pass. Browser visual
+acceptance remains outstanding; no new character artwork was generated this pass.
+
+## Battle hero contact and status pass
+
+All nine hero rigs now share one battle presentation component on both teams.
+Throw/contact poses follow the existing yardage/projectile release beat, recover
+to idle, and yield to running when the hero moves again. Ability poses also work
+for the legacy six heroes, and every hero holds idle when the game ends.
+Presentation timers do not change yardage, targets, combat RNG or replay inputs.
+
+The redesigned canvas heroes now retain Blitz, healing, shield and hit-flash
+filters. Defender uniforms retain their team tint. Running sheets accumulate
+normalized stride phase, so speed changes adjust cadence without skipping to an
+unrelated foot pose. Reduced motion explicitly disables modern idle breathing.
+
+Validation: TypeScript, 78 tests and production build pass. Browser visual review
+and new artwork for the remaining six heroes/buildings remain outstanding.
+
+## Hero Film Room and signature identity
+
+Added a free animation viewer for all nine heroes, with idle/run/signature/facing
+controls and mechanics-based timing and lineup tips. Campus taps focus the chosen
+hero. The viewer neither simulates ability outcomes nor changes resources,
+unlocks or progression. Hall of Heroes now loads on demand.
+
+Signature activations show a brief named hero/play callout with a portrait,
+respect reduced motion and clear after 1.4 seconds. Ability copy now reflects
+current mechanics, including Onside Bomb's 500-yard primary / 250-yard nearby
+effect, rather than the old inaccurate 600 figure. Combat math is unchanged.
+
+The prioritized follow-up is recorded in docs/HERO-FIRST-ROADMAP.md. TypeScript,
+78 tests and production build pass; browser visual acceptance remains open.

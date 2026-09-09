@@ -65,7 +65,12 @@ export interface BTroop {
   isHero?: boolean;
   heroKey?: string;
   ability?: 'hailmary' | 'truckstick' | 'motivation' | 'onside_bomb' | 'burner_dash' | 'field_medic' | 'shield_wall' | 'trick_play' | 'hall_of_fame';
+  actionPoseT?: number; // presentation-only release/contact beat
+  abilityPoseT?: number; // visual action beat after an ability
   abilityCd?: number; // seconds until ability ready (0 = ready)
+  moving?: boolean; // observed displacement this tick; animation only
+  face?: number; // projected screen direction
+  strideSeconds?: number; // walk cadence from actual speed
   attacking?: boolean; // true this tick if in range and hitting a target (drives lunge anim)
   special?: SpecialKind; // set for Mascot / Fan-Mob support units
   jersey?: number;     // individual jersey number (each deployed player is their own person)
@@ -245,17 +250,17 @@ export interface HeroDef {
 }
 export const HERO_DEFS: HeroDef[] = [
   // --- Starters (owned from the start) ---
-  { key: 'qb', name: 'The Franchise', role: 'QB', unit: UnitGroup.OFFENSE_SKILL, ability: 'hailmary', abilityName: 'Hail Mary', abilityDesc: 'Bomb a building from range', baseHp: 240, baseDps: 28, speed: 13, range: 9, color: '#f59e0b', emoji: '🎯', art: '/assets/heroes/qb.webp', starter: true },
-  { key: 'enforcer', name: 'The Enforcer', role: 'RB', unit: UnitGroup.DEFENSE_LINE, ability: 'truckstick', abilityName: 'Truck Stick', abilityDesc: 'Rage: 2× damage + full heal', baseHp: 460, baseDps: 24, speed: 10, range: 4, color: '#7c3aed', emoji: '🚛', art: '/assets/heroes/enforcer.webp', starter: true },
-  { key: 'coach', name: 'The General', role: 'HC', unit: UnitGroup.OFFENSE_LINE, ability: 'motivation', abilityName: 'Inspire', abilityDesc: 'Give nearby troops 4s of Rage', baseHp: 380, baseDps: 18, speed: 8, range: 4, color: '#10b981', emoji: '📋', art: '/assets/heroes/coach.webp', starter: true },
-  { key: 'kicker', name: 'The Specialist', role: 'K', unit: UnitGroup.OFFENSE_SKILL, ability: 'onside_bomb', abilityName: 'Onside Bomb', abilityDesc: 'Lob an explosive ball dealing 600 damage', baseHp: 190, baseDps: 35, speed: 12, range: 12, color: '#3b82f6', emoji: '🏈', art: '/assets/heroes/kicker.webp', starter: true },
-  { key: 'burner', name: 'The Burner', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'burner_dash', abilityName: 'Jet Sweep', abilityDesc: 'Teleport to nearest building', baseHp: 220, baseDps: 32, speed: 18, range: 5, color: '#ef4444', emoji: '🔥', art: '/assets/heroes/burner.webp', starter: true },
+  { key: 'qb', name: 'The Franchise', role: 'QB', unit: UnitGroup.OFFENSE_SKILL, ability: 'hailmary', abilityName: 'Hail Mary', abilityDesc: 'Gain 300 + 4× your yardage stat against the closest facility', baseHp: 240, baseDps: 28, speed: 13, range: 9, color: '#f59e0b', emoji: '🎯', art: '/assets/heroes/qb.webp', starter: true },
+  { key: 'enforcer', name: 'The Enforcer', role: 'RB', unit: UnitGroup.DEFENSE_LINE, ability: 'truckstick', abilityName: 'Truck Stick', abilityDesc: 'Refill grit and gain 6 seconds of Blitz: double yardage', baseHp: 460, baseDps: 24, speed: 10, range: 4, color: '#7c3aed', emoji: '🚛', art: '/assets/heroes/enforcer.webp', starter: true },
+  { key: 'coach', name: 'The General', role: 'HC', unit: UnitGroup.OFFENSE_LINE, ability: 'motivation', abilityName: 'Inspire', abilityDesc: 'Give nearby teammates 4 seconds of Blitz', baseHp: 380, baseDps: 18, speed: 8, range: 4, color: '#10b981', emoji: '📋', art: '/assets/heroes/coach.webp', starter: true },
+  { key: 'kicker', name: 'The Specialist', role: 'K', unit: UnitGroup.OFFENSE_SKILL, ability: 'onside_bomb', abilityName: 'Onside Bomb', abilityDesc: 'Gain 500 yards against the closest facility and 250 against nearby facilities', baseHp: 190, baseDps: 35, speed: 12, range: 12, color: '#3b82f6', emoji: '🏈', art: '/assets/heroes/kicker.webp', starter: true },
+  { key: 'burner', name: 'The Burner', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'burner_dash', abilityName: 'Jet Sweep', abilityDesc: 'Dash to the closest facility with 2.5 seconds of Blitz', baseHp: 220, baseDps: 32, speed: 18, range: 5, color: '#ef4444', emoji: '🔥', art: '/assets/heroes/burner.webp', starter: true },
   // --- Unlockable heroes (coin-gated) — distinct support roles, incl. women ---
-  { key: 'medic', name: 'Dr. Sloane', role: 'Team Doc', unit: UnitGroup.DEFENSE_SECONDARY, ability: 'field_medic', abilityName: 'Field Medic', abilityDesc: 'Heal all nearby players for a big chunk + regen', baseHp: 300, baseDps: 10, speed: 13, range: 6, color: '#22c55e', emoji: '⛑️', art: '/assets/heroes/medic.webp', unlock: { coins: 8000 } },
-  { key: 'captain', name: 'The Captain', role: 'S', unit: UnitGroup.DEFENSE_SECONDARY, ability: 'shield_wall', abilityName: 'Shield Wall', abilityDesc: 'Nearby players take half damage for 5s', baseHp: 440, baseDps: 16, speed: 11, range: 4, color: '#0ea5e9', emoji: '🛡️', art: '/assets/heroes/captain.webp', unlock: { coins: 14000 } },
-  { key: 'playmaker', name: 'The Playmaker', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'trick_play', abilityName: 'Trick Play', abilityDesc: 'Summon a burst of skill players onto the field', baseHp: 250, baseDps: 30, speed: 16, range: 7, color: '#ec4899', emoji: '🎩', art: '/assets/heroes/playmaker.webp', unlock: { coins: 20000 } },
+  { key: 'medic', name: 'Dr. Sloane', role: 'Team Doc', unit: UnitGroup.DEFENSE_SECONDARY, ability: 'field_medic', abilityName: 'Field Medic', abilityDesc: 'Restore 35% of nearby teammates’ maximum grit, plus 5 seconds of recovery', baseHp: 300, baseDps: 10, speed: 13, range: 6, color: '#22c55e', emoji: '⛑️', art: '/assets/heroes/medic.webp', unlock: { coins: 8000 } },
+  { key: 'captain', name: 'The Captain', role: 'S', unit: UnitGroup.DEFENSE_SECONDARY, ability: 'shield_wall', abilityName: 'Shield Wall', abilityDesc: 'Nearby teammates take half pressure for 5 seconds', baseHp: 440, baseDps: 16, speed: 11, range: 4, color: '#0ea5e9', emoji: '🛡️', art: '/assets/heroes/captain.webp', unlock: { coins: 14000 } },
+  { key: 'playmaker', name: 'The Playmaker', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'trick_play', abilityName: 'Trick Play', abilityDesc: 'Bring three extra skill players onto the field', baseHp: 250, baseDps: 30, speed: 16, range: 7, color: '#ec4899', emoji: '🎩', art: '/assets/heroes/playmaker.webp', unlock: { coins: 20000 } },
   // --- Premium pay-to-unlock hero (gems) — the GOAT ---
-  { key: 'legend', name: 'The Legend', role: 'GOAT', unit: UnitGroup.OFFENSE_SKILL, ability: 'hall_of_fame', abilityName: 'Hall of Fame', abilityDesc: 'Rage + full heal for your ENTIRE squad', baseHp: 520, baseDps: 40, speed: 14, range: 8, color: '#a855f7', emoji: '👑', art: '/assets/heroes/legend.webp', unlock: { gems: 120 } },
+  { key: 'legend', name: 'The Legend', role: 'GOAT', unit: UnitGroup.OFFENSE_SKILL, ability: 'hall_of_fame', abilityName: 'Hall of Fame', abilityDesc: 'Refill your whole squad’s grit and give them 6 seconds of Blitz', baseHp: 520, baseDps: 40, speed: 14, range: 8, color: '#a855f7', emoji: '👑', art: '/assets/heroes/legend.webp', unlock: { gems: 120 } },
 ];
 export const STARTER_HERO_KEYS = HERO_DEFS.filter(h => h.starter).map(h => h.key);
 export const heroLevelMult = (level: number) => 1 + 0.25 * (level - 1);
