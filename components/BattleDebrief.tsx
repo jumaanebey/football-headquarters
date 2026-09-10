@@ -3,7 +3,7 @@ import { Flag, Trophy, Heart, Shield } from 'lucide-react';
 import { gauntletReward, GAME_PLANS, type BBuilding, type BTroop, type GamePlanKey } from '../battle';
 import { FORMATIONS, type FormationKey } from '../fixedBase';
 import type { BattleConfig, BattleResult } from '../game/combat/contracts';
-import { battleContributions, contributionLeaders, resultPresentation } from '../game/battleDebrief';
+import { battleContributions, contributionLeaders, resultPresentation, type PostBattleDestination } from '../game/battleDebrief';
 import { HeroArt } from './HeroArt';
 import { Sheet } from './ui';
 
@@ -18,7 +18,7 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
   config: BattleConfig; result: BattleResult; actors: BTroop[];
   buildings?: BBuilding[]; guards?: BTroop[]; planKey?: GamePlanKey;
   stats: { pancakes: number; lost: number; bonus: number } | null;
-  modernCombat: boolean; replayVerified: boolean; onContinue: () => void; onPracticeAgain?: () => void;
+  modernCombat: boolean; replayVerified: boolean; onContinue: (destination?: PostBattleDestination) => void; onPracticeAgain?: () => void;
 }) {
   const { viewerWon, headline, eyebrow } = resultPresentation(config, result);
   const replay = !!config.replay;
@@ -35,14 +35,19 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
   const primary = 'w-full min-h-12 rounded-xl bg-orange-500 px-4 py-3 text-base font-bold text-white hover:bg-orange-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
   return <div onKeyDown={event => event.stopPropagation()}>
     <Sheet title={headline} icon={<Flag className={neutral ? 'text-sky-300' : viewerWon ? 'text-emerald-300' : 'text-rose-300'} size={22} />}
-      subtitle={eyebrow} onClose={onContinue} maxWidth="max-w-md"
+      subtitle={eyebrow} onClose={() => onContinue()} maxWidth="max-w-md"
       footer={<div className="space-y-2" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {config.practice && onPracticeAgain && <button type="button" onClick={onPracticeAgain} className={primary}>Practice again · Free</button>}
-        <button type="button" onClick={onContinue} className={config.practice && onPracticeAgain
+        <button type="button" onClick={() => onContinue()} className={config.practice && onPracticeAgain
           ? 'w-full min-h-11 rounded-xl border border-slate-600 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800'
           : primary}>
           {replay ? 'Close replay' : config.practice ? 'Back to Hero Film Room' : defense ? 'Back to base' : 'Collect rewards'}
         </button>
+        {!neutral && <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => onContinue(defense ? 'defense' : 'heroes')} className="min-h-11 rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-white">{defense ? 'Review defense' : 'Collect & train heroes'}</button>
+          <button type="button" onClick={() => onContinue('games')} className="min-h-11 rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-white">{defense ? 'Game Day' : 'Collect & choose next game'}</button>
+        </div>}
+        {!neutral && config.authority && <p className="text-xs text-slate-400">Your next page opens after the server confirms this result.</p>}
       </div>}>
       <div className="space-y-5 p-4 sm:p-5">
         <div className={`rounded-2xl border p-4 ${neutral ? 'border-sky-900 bg-sky-950/40' : viewerWon ? 'border-emerald-900 bg-emerald-950/40' : 'border-rose-900 bg-rose-950/40'}`}>
@@ -61,7 +66,7 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
           <p className="mt-2">{defense ? `Your defense ${result.pct < 50 ? 'kept damage below' : 'allowed damage to reach'} the 50% threshold. You hold the field by staying below 50%.` : 'Game balls: 50% overall damage, taking the Stadium, and 99% damage. Any one wins an attack.'}</p>
           <p className="mt-2">Targets cleared: {buildings.filter(b => b.kind !== 'wall' && b.dead).length} · Stadium {buildings.find(b => b.kind === 'hq')?.dead ? 'taken' : 'standing'}. Partial damage counts; walls do not.</p>
           {formation && <p className="mt-2">Defending formation: <b className="text-white">{formation.name}</b>.</p>}
-          {!defense && selectedPlan && <p className="mt-2">Your plan: <b className="text-white">{selectedPlan.name}</b>. {formation?.counter.weakTo.includes(selectedPlan.key) ? 'This plan exploited the formation’s weakness.' : formation?.counter.strongVs.includes(selectedPlan.key) ? 'The formation countered this plan. Try its vulnerable plan before your next kickoff.' : 'The formation matchup was neutral.'}</p>}
+          {!defense && selectedPlan && <p className="mt-2">{replay ? 'Attacker’s plan' : 'Your plan'}: <b className="text-white">{selectedPlan.name}</b>. {formation?.counter.weakTo.includes(selectedPlan.key) ? 'This plan exploited the formation’s weakness.' : formation?.counter.strongVs.includes(selectedPlan.key) ? 'The formation countered this plan.' : 'The formation matchup was neutral.'}</p>}
           {defense && <p className="mt-2">{guards.filter(g => !g.dead).length}/{guards.length} defenders still on the field · {buildings.filter(b => b.kind === 'defense' && !b.dead).length} emplacements standing.</p>}
           {defense && <p className="mt-2">Next test: adjust one gate assignment or placement, then compare damage and surviving defenses against this result.</p>}
         </section>

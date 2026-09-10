@@ -8,7 +8,7 @@ import { HeroArt } from './HeroArt';
 import { BuildingSprite } from './BuildingArt';
 import { BattleHeroSprite } from './BattleHeroSprite';
 import { BattleDebrief } from './BattleDebrief';
-import { resultPresentation } from '../game/battleDebrief';
+import { resultPresentation, type PostBattleDestination } from '../game/battleDebrief';
 import { battleSeed } from '../game/battleSeed';
 import { HeroCommandBar } from './HeroCommandBar';
 import { FieldPaint, TURF } from './FieldPaint';
@@ -51,7 +51,7 @@ interface Props {
   config: BattleConfig;
   initialPlan?: GamePlanKey;
   openingHero?: string;
-  onFinish: (result: BattleResult) => void;
+  onFinish: (result: BattleResult, destination?: PostBattleDestination) => void;
   /** `beforeKickoff` = they backed out during deploy, so no game was played and the
    *  energy charged at launch must be handed back. */
   onExit: (beforeKickoff?: boolean) => void;
@@ -164,14 +164,6 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
   const resultNotifiedRef = useRef(false);
   const actions = useRef<HeroAction[]>([]);
   const povDefense = isDefense || isReplay; // whose broadcast is this? replays are watched by the DEFENDER
-  // 🎓 Onboarding declutter (UX review, July 2026): the FIRST game hides the Game Plan
-  // picker + scouting badges so a first-timer sees only dialogue → deploy hint → live raid.
-  // Game Plans are introduced with a NEW badge on the 2nd game. Counter is device-local
-  // (fhq_games_played_v1), bumped in App on every FINISHED attack — replays never count.
-  const gamesDone = (() => { try { return parseInt(localStorage.getItem('fhq_games_played_v1') || '0', 10) || 0; } catch { return 0; } })();
-  const isOnboardAttack = config.mode === 'attack' && !isReplay;
-  const hideGamePlan = isOnboardAttack && gamesDone < 1;    // game 1: no picker at all
-  const introGamePlan = isOnboardAttack && gamesDone === 1; // game 2: picker + NEW badge
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
   const battlePanel = useRef<HTMLDivElement>(null);
@@ -1907,16 +1899,18 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
             </div>
           ) : (
             <>
-              {phase === 'deploy' && !hideGamePlan && (
+              {phase === 'deploy' && (
+                <details className="mb-2 rounded-xl border border-slate-700">
+                <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-bold text-white">Game plan: {plan.name} · Change before kickoff</summary>
                 <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
-                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1"><ClipboardList size={11} /> Game Plan{introGamePlan && <span className="ml-1 text-[8px] bg-green-500 text-black px-1 rounded animate-pulse">NEW</span>}</span>
+                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1"><ClipboardList size={11} /> Game Plan</span>
                   {GAME_PLANS.map(gp => {
                     const active = plan.key === gp.key;
                     // Scouting read: how does this call fare against THEIR formation?
                     const cm = counterMultFor(gp.key);
                     return (
-                      <button key={gp.key} onClick={() => setPlan(gp)}
-                        className={`relative flex flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
+                      <button type="button" key={gp.key} aria-pressed={plan.key === gp.key} onClick={() => setPlan(gp)}
+                        className={`relative flex min-h-11 flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
                           ${active ? 'border-yellow-400 bg-orange-900/50' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}
                         style={active ? { boxShadow: '0 0 10px rgba(249,115,22,0.4)' } : undefined}>
                         <span className={`flex items-center gap-1 text-[10px] font-bold uppercase leading-tight ${active ? 'text-orange-300' : 'text-slate-400'}`}><PlanGlyph k={gp.key} size={18} className="shrink-0" /> {gp.name}</span>
@@ -1930,6 +1924,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
                     <span className="w-full flex items-center justify-center gap-1 text-[9px] text-sky-300 font-bold"><ClipboardList size={10} className="shrink-0" /> They're running {FORMATIONS[defFormation].name}</span>
                   )}
                 </div>
+                </details>
               )}
               <div className="text-center text-xs text-orange-300 font-bold mb-2">
                 {phase === 'fighting' && <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle"><PlanGlyph k={plan.key} size={11} className="shrink-0" /> {plan.name}</span>}
@@ -2048,7 +2043,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
         <BattleDebrief config={config} result={result} actors={s.troops} stats={driveStats} modernCombat={modernCombat}
           buildings={s.buildings} guards={s.guards} planKey={plan.key}
           replayVerified={engineRef.current?.hash === config.replay?.expectedHash && engineRef.current?.state.ticks === config.replay?.expectedTicks && engineRef.current?.rejectedCommands === 0 && engineRef.current?.getReplay().script.length === config.replay?.script.length}
-          onContinue={() => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result); }}
+          onContinue={destination => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result, destination); }}
           onPracticeAgain={onPracticeAgain} />
       )}
     </div>
