@@ -9,7 +9,7 @@ import type { EnemyBase, ReplayData } from '../../battle';
 import type { BattleConfig } from '../combat/contracts';
 import { validateReplay } from '../combat/replay';
 import { authorityClient, getProfile, playerId, pvpEnabled } from '../../pvp';
-import { clearAuthorityProtection, enableAuthorityProtection, readAuthorityProtection, setAuthorityProtectionPending } from '../authority/protection';
+import { clearAuthorityProtection, enableAuthorityProtection, preserveLocalClub, readAuthorityProtection, setAuthorityProtectionPending } from '../authority/protection';
 import type { MatchChoice, MatchSubmission } from '../authority/matches';
 import type { AuthorityAnswer, AuthorityDiagnostics, AuthorityMatchView, AuthorityOutcome, AuthorityRivalView } from './authorityClient';
 
@@ -103,6 +103,8 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
       syncPending(known ? who : null); setReady(true); return;
     }
     if (answer.club) {
+      // A device that was not mirroring this account keeps its own club as a backup before adoption.
+      if (record?.viewOwner !== who) preserveLocalClub();
       enableAuthorityProtection(who);
       setOwner(who); setActiveNow(true); setLocked(false);
       adopt(answer, who);
@@ -137,6 +139,7 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
     if (!/^[0-9a-f-]{36}$/i.test(who)) return { ok: false, message: 'Connect to the internet once so this device gets its online identity, then try again.' };
     const answer = await authorityClient.query(who, { kind: 'bootstrap', legacy });
     if (!answer.ok || !answer.club) return { ok: false, message: answer.message ?? 'Online protection could not admit this club. Your local club is unchanged.' };
+    preserveLocalClub();
     enableAuthorityProtection(who);
     setOwner(who); ownerRef.current = who; setActiveNow(true); setLocked(false);
     adopt(answer, who);
