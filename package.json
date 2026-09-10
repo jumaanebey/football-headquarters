@@ -26,7 +26,9 @@
     "perf:waterfall": "node scripts/perf-waterfall.mjs",
     "build:verify": "node scripts/verify-build-assets.mjs",
     "funnel:weekly": "node scripts/funnel-report.mjs --days 7",
-    "pwa:check": "node scripts/pwa-check.mjs"
+    "pwa:check": "node scripts/pwa-check.mjs",
+    "art:cutouts": "esbuild scripts/derive-campus-cutouts.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/derive-campus-cutouts.mjs && node dist/derive-campus-cutouts.mjs",
+    "art:compare": "esbuild scripts/compare-derived-art.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/compare-derived-art.mjs && node dist/compare-derived-art.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.554.0",

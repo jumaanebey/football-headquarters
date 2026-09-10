@@ -4,6 +4,7 @@ import { BUILDING_ART_LEVELS, buildingSprite } from '../assets';
 import { keyHeroPixels } from '../game/heroAnimation';
 import { assetUrl } from '../game/assetUrl';
 import { campusArtReady } from '../game/artGate';
+import { derivedAlphaSource } from '../game/derivedArt';
 import { ScenerySprite, type ScenerySpriteProps } from './ScenerySprite';
 
 const BOUNDS: Partial<Record<BuildingType, readonly number[]>> = {
@@ -13,26 +14,35 @@ const BOUNDS: Partial<Record<BuildingType, readonly number[]>> = {
   [BuildingType.TRAINING_PITCH]: [686,725,1163,1104],
 };
 export const isStarterFacility = (type: BuildingType, level: number) => !!BOUNDS[type] && level < BUILDING_ART_LEVELS(type)[1];
+const STARTER_SHEET = '/assets/buildings/starter-campus-cutouts.webp';
 let prepared: Promise<HTMLCanvasElement> | undefined;
-function loadFacilities() {
-  return prepared ??= new Promise<HTMLCanvasElement>((resolve, reject) => {
+/** The derived alpha atlas needs no keying; the original is keyed with keyHeroPixels (the facility sheet shares the hero backdrop). */
+function decodeFacilities(src: string, keyed: boolean) {
+  return new Promise<HTMLCanvasElement>((resolve, reject) => {
     const image = new Image();
+    image.decoding = 'async';
     image.onload = () => {
       try {
         const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) throw new Error('Canvas unavailable');
         ctx.drawImage(image, 0, 0);
-        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        keyHeroPixels(pixels.data); ctx.putImageData(pixels, 0, 0);
+        if (!keyed) { const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height); keyHeroPixels(pixels.data); ctx.putImageData(pixels, 0, 0); }
         resolve(canvas);
-      } catch (error) { prepared = undefined; reject(error); }
+      } catch (error) { reject(error); }
     };
-    image.onerror = () => { prepared = undefined; reject(new Error('Facility art unavailable')); };
+    image.onerror = () => reject(new Error('Facility art unavailable'));
     // Floorless art lets the actual turf show through, including the gaps between
     // posts and equipment. Grass-colored sprite aprons cannot match its lighting.
-    campusArtReady().then(() => { image.src = assetUrl('/assets/buildings/starter-campus-cutouts.webp'); });
+    campusArtReady().then(() => { image.src = assetUrl(src); });
   });
+}
+function loadFacilities() {
+  if (!prepared) {
+    const derived = derivedAlphaSource(STARTER_SHEET);
+    prepared = (derived ? decodeFacilities(derived.derived, true).catch(() => decodeFacilities(STARTER_SHEET, false)) : decodeFacilities(STARTER_SHEET, false)).catch(error => { prepared = undefined; throw error; });
+  }
+  return prepared;
 }
 
 /** Shared campus / progression art. Later construction eras keep their own silhouettes. */

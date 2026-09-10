@@ -1,0 +1,106 @@
+[
+  {
+    "atlas": "/assets/buildings/starter-campus-cutouts.webp",
+    "keying": "hero",
+    "inBytes": 1205694,
+    "outBytes": 155280,
+    "visible": 401906,
+    "meanDiff": 5.66,
+    "maxDiff": 85,
+    "alphaMismatch": 0,
+    "fringeOriginal": 7862,
+    "fringeDerived": 8613,
+    "sheet": "docs/evidence/derived-art/starter-campus-cutouts.png",
+    "regions": [
+      "film room",
+      "practice field",
+      "rehab"
+    ]
+  },
+  {
+    "atlas": "/assets/buildings/stadium-1-cutout.webp",
+    "keying": "scenery",
+    "inBytes": 1043056,
+    "outBytes": 142466,
+    "visible": 191940,
+    "meanDiff": 5.26,
+    "maxDiff": 70,
+    "alphaMismatch": 0,
+    "fringeOriginal": 0,
+    "fringeDerived": 36,
+    "sheet": "docs/evidence/derived-art/stadium-1-cutout.png",
+    "regions": [
+      "stadium"
+    ]
+  },
+  {
+    "atlas": "/assets/buildings/upgraded-campus-cutouts.webp",
+    "keying": "scenery",
+    "inBytes": 1569608,
+    "outBytes": 281742,
+    "visible": 458097,
+    "meanDiff": 7.43,
+    "maxDiff": 64,
+    "alphaMismatch": 0,
+    "fringeOriginal": 0,
+    "fringeDerived": 230,
+    "sheet": "docs/evidence/derived-art/upgraded-campus-cutouts.png",
+    "regions": [
+      "stadium-3",
+      "headquarters-2",
+      "weight-room-5"
+    ]
+  },
+  {
+    "atlas": "/assets/decor/tailgate-tent-cutout.webp",
+    "keying": "scenery",
+    "inBytes": 1050024,
+    "outBytes": 105668,
+    "visible": 518664,
+    "meanDiff": 2.93,
+    "maxDiff": 34,
+    "alphaMismatch": 0,
+    "fringeOriginal": 0,
+    "fringeDerived": 0,
+    "sheet": "docs/evidence/derived-art/tailgate-tent-cutout.png",
+    "regions": [
+      "tent"
+    ]
+  },
+  {
+    "atlas": "/assets/decor/grounds-cutouts.webp",
+    "keying": "scenery",
+    "inBytes": 926264,
+    "outBytes": 68982,
+    "visible": 236189,
+    "meanDiff": 3.62,
+    "maxDiff": 45,
+    "alphaMismatch": 0,
+    "fringeOriginal": 0,
+    "fringeDerived": 0,
+    "sheet": "docs/evidence/derived-art/grounds-cutouts.png",
+    "regions": [
+      "fan tents",
+      "tree cluster"
+    ]
+  },
+  {
+    "atlas": "/assets/battle/field-equipment-cutouts.webp",
+    "keying": "scenery",
+    "inBytes": 1393640,
+    "outBytes": 221964,
+    "visible": 330162,
+    "meanDiff": 7.04,
+    "maxDiff": 76,
+    "alphaMismatch": 0,
+    "fringeOriginal": 0,
+    "fringeDerived": 112,
+    "sheet": "docs/evidence/derived-art/field-equipment-cutouts.png",
+    "regions": [
+      "rival stadium",
+      "jugs machine",
+      "ref tower",
+      "t-shirt cannon"
+    ]
+  }
+]

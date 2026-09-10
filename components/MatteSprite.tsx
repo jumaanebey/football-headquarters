@@ -2,32 +2,42 @@ import React, { useEffect, useRef, useState } from 'react';
 import { keySceneryPixels } from '../game/sceneryMatte';
 import { assetUrl } from '../game/assetUrl';
 import { campusArtOpen, campusArtReady } from '../game/artGate';
+import { derivedAlphaSource } from '../game/derivedArt';
 
 const sheets = new Map<string, Promise<HTMLCanvasElement>>();
-function loadSheet(src: string) {
-  if (!sheets.has(src)) {
-    sheets.set(src, new Promise<HTMLCanvasElement>((resolve, reject) => {
-      const image = new Image();
-      image.decoding = 'async';
-      const fail = () => { sheets.delete(src); reject(new Error('Sprite unavailable')); };
-      image.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
-          const ctx = canvas.getContext('2d', { willReadFrequently: true });
-          if (!ctx) { fail(); return; }
-          ctx.drawImage(image, 0, 0);
+/** Decode one sheet. The derived alpha-baked atlas (game/derivedArt.ts) needs no keying; the
+ *  original needs keySceneryPixels. A failed derived download falls back to the original. */
+function decodeSheet(src: string, keyed: boolean): Promise<HTMLCanvasElement> {
+  return new Promise<HTMLCanvasElement>((resolve, reject) => {
+    const image = new Image();
+    image.decoding = 'async';
+    const fail = () => reject(new Error('Sprite unavailable'));
+    image.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) { fail(); return; }
+        ctx.drawImage(image, 0, 0);
+        if (!keyed) {
           const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
           keySceneryPixels(pixels.data);
           ctx.putImageData(pixels, 0, 0);
-          resolve(canvas);
-        } catch { fail(); }
-      };
-      image.onerror = fail;
-      // Campus scenery waits for the naming step; battle scenery never does.
-      const gated = !src.includes('/battle/') && !campusArtOpen();
-      (gated ? campusArtReady() : Promise.resolve()).then(() => { image.src = assetUrl(src); });
-    }));
+        }
+        resolve(canvas);
+      } catch { fail(); }
+    };
+    image.onerror = fail;
+    // Campus scenery waits for the naming step; battle scenery never does.
+    const gated = !src.includes('/battle/') && !campusArtOpen();
+    (gated ? campusArtReady() : Promise.resolve()).then(() => { image.src = assetUrl(src); });
+  });
+}
+function loadSheet(src: string) {
+  if (!sheets.has(src)) {
+    const derived = derivedAlphaSource(src);
+    const attempt = derived ? decodeSheet(derived.derived, true).catch(() => decodeSheet(src, false)) : decodeSheet(src, false);
+    sheets.set(src, attempt.catch(error => { sheets.delete(src); throw error; }));
   }
   return sheets.get(src)!;
 }
