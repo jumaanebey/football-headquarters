@@ -52,6 +52,12 @@ export function BattleDebrief({ config, result, actors, stats, modernCombat, rep
           {replay && <p className="mt-3 text-sm text-sky-200">Recorded result. Watching this film does not change your club or award rewards.</p>}
         </div>
 
+        {config.campaignStage === 1 && !neutral && !defense && <section aria-label="Your next improvement" className="rounded-xl border border-orange-800 bg-orange-950/30 p-3 text-sm text-slate-200">
+          <h3 className="font-bold text-orange-300">Next: improve your club</h3>
+          <p className="mt-1">{result.won ? 'You cleared the opener. ' : 'You can retry the opener after preparing. '}Back home, open Heroes to compare a Train upgrade’s cost and stat benefit. If you need Coins, use the Training Field drills. Game Day shows your next match.</p>
+          <p className="mt-2 text-xs text-slate-300">Readiness is a preparation bonus, not a requirement to play. Free hero practice is always available.</p>
+        </section>}
+
         {showContributions && <section aria-label={config.practice ? 'Practice contributions' : replay ? 'Attacking contributions' : 'Drive contributions'}>
           <h3 className="mb-3 font-display text-base font-bold text-white">{replay ? 'The attacking team’s standouts' : 'Your team’s standouts'}</h3>
           <div className="space-y-2">

@@ -1,3 +1,5 @@
+import { HERO_MOVEMENT_STYLE } from '../game/heroMovementStyle';
+import { loadHeroMotion } from './loadHeroMotion';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HeroAnimation, heroFrame, keyHeroPixels, advanceHeroStride } from '../game/heroAnimation';
 
@@ -46,7 +48,7 @@ function loadSheet(key: string): Promise<Sheet> {
           }
           const anchor = count ? sum / count - x : w / 2;
           const left = Math.max(12, Math.min(372 - w * scale, 192 - anchor * scale));
-          const lift = frame === 3 || frame === 6 ? 5 : 0;
+          const lift = frame === 3 || frame === 6 ? (HERO_MOVEMENT_STYLE[key]?.lift ?? 5) : 0;
           target.drawImage(crop, left, 370 - h * scale - lift, w * scale, h * scale);
           return out;
         });
@@ -59,21 +61,23 @@ function loadSheet(key: string): Promise<Sheet> {
   return sheets.get(key)!;
 }
 
-export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete }: {
-  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
+export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame }: {
+  motionFrame?: number; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderNowRef = useRef<(() => void) | null>(null);
-  const playback = useRef({ mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete });
-  playback.current = { mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete };
+  const playback = useRef({ motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete });
+  playback.current = { motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete };
   const [ready, setReady] = useState(false);
   // Event-clock poses and distance-driven footfalls must be painted alongside
   // the new actor position, even if the browser throttles cosmetic RAF work.
-  useLayoutEffect(() => { renderNowRef.current?.(); }, [mode, signatureFrame, elapsedSeconds, playbackKey, contactSeconds, driving]);
+  useLayoutEffect(() => { renderNowRef.current?.(); }, [motionFrame, facing, mode, signatureFrame, elapsedSeconds, playbackKey, contactSeconds, driving]);
   useEffect(() => {
     let disposed = false, raf = 0;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     let signatures: HTMLCanvasElement[] = [];
+    let motion: HTMLCanvasElement[] = [];
+    loadHeroMotion(heroKey).then(frames => { if (!disposed) motion = frames; }).catch(() => {});
     if (loadSignatureArt) loadHeroSignatures(heroKey).then(frames => { if (!disposed) signatures = frames; }).catch(() => { /* Approved base poses remain available. */ });
     setReady(false);
     loadSheet(heroKey).then(sheet => {
@@ -110,21 +114,26 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
         const pose = beat === undefined ? undefined : heroSignaturePose(heroKey, beat, signaturePlayback.seconds, media.matches, signaturePlayback.authored);
         const baseFrame = pose?.frame ?? heroFrame(playback.current.mode, frameElapsed, walking ? 1 : playback.current.cycle, media.matches);
         const signatureCanvas = !media.matches && signaturePlayback.authored && beat !== undefined ? signatures[beat] : undefined;
-        const frame = signatureCanvas ? 100 + beat! : baseFrame;
+        const previewMotion = playback.current.mode === 'walk' ? (playback.current.facing > 0 ? 8 : 0) + 2 + Math.floor((((frameElapsed % 1) + 1) % 1) * 4) : playback.current.mode === 'idle' ? (playback.current.facing > 0 ? 8 : 0) : undefined;
+        const selectedMotion = playback.current.motionFrame ?? previewMotion;
+        const motionCanvas = !media.matches && !signatureCanvas && beat === undefined && selectedMotion !== undefined ? motion[selectedMotion] : undefined;
+        const idleCanvas = !motionCanvas && beat === undefined && playback.current.mode === 'idle' && !['qb','enforcer'].includes(heroKey) ? signatures[0] : undefined;
+        const frame = idleCanvas ? 100 : signatureCanvas ? 100 + beat! : motionCanvas ? 200 + selectedMotion! : baseFrame;
         const drive = walking && playback.current.driving && !media.matches;
         const scaleY = pose?.scaleY ?? (drive ? .96 : 1);
         const lean = pose?.lean ?? (drive ? .035 : 0);
-        const drawKey = `${frame}:${beat}:${scaleY.toFixed(3)}:${lean.toFixed(3)}:${pose?.cueOpacity.toFixed(2)}`;
+        const drawKey = `${playback.current.facing}:${frame}:${beat}:${scaleY.toFixed(3)}:${lean.toFixed(3)}:${pose?.cueOpacity.toFixed(2)}`;
         if (!document.hidden && drawKey !== lastDraw) {
           ctx.clearRect(0, 0, 384, 384);
           ctx.save();
+          if (!motionCanvas && playback.current.facing > 0) { ctx.translate(384, 0); ctx.scale(-1, 1); }
           // Keep the same ground registration through the planted action.
           ctx.translate(192, 370);
           ctx.transform(1, 0, lean, scaleY, 0, 0);
           ctx.translate(-192, -370);
-          ctx.drawImage(signatureCanvas ?? sheet.frames[baseFrame], 0, 0);
-          ctx.restore();
+          ctx.drawImage(signatureCanvas ?? motionCanvas ?? idleCanvas ?? sheet.frames[baseFrame], 0, 0);
           if (pose) paintHeroSignatureCue(ctx, pose);
+          ctx.restore();
           canvas.dataset.frame = String(frame);
           canvas.dataset.signatureBeat = beat === undefined ? 'none' : SIGNATURE_BEATS[beat].toLowerCase();
           canvas.dataset.driving = drive ? '1' : '0';
@@ -140,5 +149,5 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
   }, [heroKey, loadSignatureArt]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
-    style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? 'fhq-modern-breathe 2.8s ease-in-out infinite' : mode === 'celebrate' ? 'fhq-hero-victory 1.2s ease-in-out infinite' : undefined, transform: facing > 0 ? 'scaleX(-1)' : undefined }} />;
+    style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? `fhq-modern-breathe ${HERO_MOVEMENT_STYLE[heroKey]?.breath ?? 2.8}s ease-in-out infinite` : mode === 'celebrate' ? 'fhq-hero-victory 1.2s ease-in-out infinite' : undefined }} />;
 }

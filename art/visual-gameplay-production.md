@@ -1,0 +1,46 @@
+# Visual gameplay art provenance
+
+Lossless WebP encoding; magenta removal occurs at runtime. Original images retained.
+
+## coach
+
+Source: /Users/j.beymacbookpro/.codex/generated_images/01a088da-25ba-7050-8669-27046261a52c/exec-9082df31-0f28-4f03-9e7c-76de0e7cca85.png
+
+Production game sprite atlas, EXACT character identity and rendering style of supplied reference. The General: grey beard, cap/headset and clipboard. Set looking at field; load bringing whistle/hand near mouth; release emphatic pointing with open hand while clipboard held; recover bringing arm down. Tactical commanding personality, no punch. Draw exactly FOUR full-body sequential animation poses in a strict equal 2x2 grid in that order (set upper-left, load upper-right, release lower-left, recover lower-right). All face screen-left three-quarter view. Same head/body proportions, helmet, face, uniform and camera distance in all cells; no size changes. Each whole figure and fingers/toes stays inside its cell with 8% empty margin; sole baseline at same local cell height. Pure flat RGB(255,0,255) magenta background, absolutely no checkerboard, no ground, no shadows, no labels/gridlines, no text except existing jersey insignia. Rich clean stylized 3D painted mobile strategy football hero, black/navy-orange palette. Make the FOUR poses meaningfully different and physically coherent. Square 1254x1254 or higher.
+
+## kicker
+
+Source: /Users/j.beymacbookpro/.codex/generated_images/01a088da-25ba-7050-8669-27046261a52c/exec-7f7861e4-fa64-471c-b703-20f295ca6b62.png
+
+Production game sprite atlas, EXACT character identity and rendering style of supplied reference. The Specialist: lean kicker, K jersey. Set angled planted stance; load kicking leg drawn back, non-kicking foot planted; release full football kicking follow-through; recover balanced return. No floating football baked into sheet. Draw exactly FOUR full-body sequential animation poses in a strict equal 2x2 grid in that order (set upper-left, load upper-right, release lower-left, recover lower-right). All face screen-left three-quarter view. Same head/body proportions, helmet, face, uniform and camera distance in all cells; no size changes. Each whole figure and fingers/toes stays inside its cell with 8% empty margin; sole baseline at same local cell height. Pure flat RGB(255,0,255) magenta background, absolutely no checkerboard, no ground, no shadows, no labels/gridlines, no text except existing jersey insignia. Rich clean stylized 3D painted mobile strategy football hero, black/navy-orange palette. Make the FOUR poses meaningfully different and physically coherent. Square 1254x1254 or higher.
+
+## burner
+
+Source: /Users/j.beymacbookpro/.codex/generated_images/01a088da-25ba-7050-8669-27046261a52c/exec-a1288bb1-3e7f-456e-bc35-02de8d4235dc.png
+
+Production game sprite atlas, EXACT character identity and rendering style of supplied reference. The Burner: lean aerodynamic sprinter, #88, low forward body posture and flame helmet. Set crouched split stance; load coiled into very low sprint start; release explosive long sprint extension; recover balanced low plant. This hero is about straight-line speed. No clones, no glow trails. Draw exactly FOUR full-body sequential animation poses in a strict equal 2x2 grid in that order (set upper-left, load upper-right, release lower-left, recover lower-right). All face screen-left three-quarter view. Same head/body proportions, helmet, face, uniform and camera distance in all cells; no size changes. Each whole figure and fingers/toes stays inside its cell with 8% empty margin; sole baseline at same local cell height. Pure flat RGB(255,0,255) magenta background, absolutely no checkerboard, no ground, no shadows, no labels/gridlines, no text except existing jersey insignia. Rich clean stylized 3D painted mobile strategy football hero, black/navy-orange palette. Make the FOUR poses meaningfully different and physically coherent. Square 1254x1254 or higher.
+
+## medic
+
+Source: /Users/j.beymacbookpro/.codex/generated_images/01a088da-25ba-7050-8669-27046261a52c/exec-b152aa60-eb81-4c1a-9f47-4e7cd9a1dc3a.png
+
+Production game sprite atlas, EXACT character identity and rendering style of supplied reference. Dr. Sloane: brown spiky hair, black orange polo, headset and white medical satchel. Set attentive standing; load reaching into satchel; release crouched forward offering a wrapped bandage with open hands; recover rising back to ready. Same young male face as source, calm rescuer personality. Draw exactly FOUR full-body sequential animation poses in a strict equal 2x2 grid in that order (set upper-left, load upper-right, release lower-left, recover lower-right). All face screen-left three-quarter view. Same head/body proportions, helmet, face, uniform and camera distance in all cells; no size changes. Each whole figure and fingers/toes stays inside its cell with 8% empty margin; sole baseline at same local cell height. Pure flat RGB(255,0,255) magenta background, absolutely no checkerboard, no ground, no shadows, no labels/gridlines, no text except existing jersey insignia. Rich clean stylized 3D painted mobile strategy football hero, black/navy-orange palette. Make the FOUR poses meaningfully different and physically coherent. Square 1254x1254 or higher.
+
+## captain
+
+Source: /Users/j.beymacbookpro/.codex/generated_images/01a088da-25ba-7050-8669-27046261a52c/exec-e21986c9-855c-4990-8372-dd4f162f0ce7.png
+
+Production game sprite atlas, EXACT character identity and rendering style of supplied reference. The Captain: muscular dark-skinned safety #07 captain badge. Set ready broad stance; load lowering knees; release braced forearms together at chest to protect teammates; recover reopening guard. No literal shield, no weapons. Draw exactly FOUR full-body sequential animation poses in a strict equal 2x2 grid in that order (set upper-left, load upper-right, release lower-left, recover lower-right). All face screen-left three-quarter view. Same head/body proportions, helmet, face, uniform and camera distance in all cells; no size changes. Each whole figure and fingers/toes stays inside its cell with 8% empty margin; sole baseline at same local cell height. Pure flat RGB(255,0,255) magenta background, absolutely no checkerboard, no ground, no shadows, no labels/gridlines, no text except existing jersey insignia. Rich clean stylized 3D painted mobile strategy football hero, black/navy-orange palette. Make the FOUR poses meaningfully different and physically coherent. Square 1254x1254 or higher.
+
+## playmaker
+
+Source: /Users/j.beymacbookpro/.codex/generated_images/01a088da-25ba-7050-8669-27046261a52c/exec-7aa64dac-9e78-4d8e-8c3b-adb07f543c4a.png
+
+Production game sprite atlas, EXACT character identity and rendering style of supplied reference. The Playmaker: #88 receiver with visor, same source face/uniform, but distinct tall upright agile silhouette versus the low-sprinting Burner. Set upright palms ready; load deliberate side-step with hips turned; release an unmistakable two-handed high football receiving catch gesture above one shoulder; recover ball tucked at chest. White receiver gloves differentiate him; preserve this glove accent in all four poses. Draw exactly FOUR full-body sequential animation poses in a strict equal 2x2 grid in that order (set upper-left, load upper-right, release lower-left, recover lower-right). All face screen-left three-quarter view. Same head/body proportions, helmet, face, uniform and camera distance in all cells; no size changes. Each whole figure and fingers/toes stays inside its cell with 8% empty margin; sole baseline at same local cell height. Pure flat RGB(255,0,255) magenta background, absolutely no checkerboard, no ground, no shadows, no labels/gridlines, no text except existing jersey insignia. Rich clean stylized 3D painted mobile strategy football hero, black/navy-orange palette. Make the FOUR poses meaningfully different and physically coherent. Square 1254x1254 or higher.
+
+## legend
+
+Source: /Users/j.beymacbookpro/.codex/generated_images/01a088da-25ba-7050-8669-27046261a52c/exec-c29c812c-fcf4-4a5e-8db6-ffcef80dafba.png
+
+Production game sprite atlas, EXACT character identity and rendering style of supplied reference. The Legend: veteran broad-shouldered #21 gold visor and rings. Set stately ready; load drawing arms inward; release arms open shoulder-high rallying whole team; recover confident hand to chest. Upright commanding silhouette, no weapons. Draw exactly FOUR full-body sequential animation poses in a strict equal 2x2 grid in that order (set upper-left, load upper-right, release lower-left, recover lower-right). All face screen-left three-quarter view. Same head/body proportions, helmet, face, uniform and camera distance in all cells; no size changes. Each whole figure and fingers/toes stays inside its cell with 8% empty margin; sole baseline at same local cell height. Pure flat RGB(255,0,255) magenta background, absolutely no checkerboard, no ground, no shadows, no labels/gridlines, no text except existing jersey insignia. Rich clean stylized 3D painted mobile strategy football hero, black/navy-orange palette. Make the FOUR poses meaningfully different and physically coherent. Square 1254x1254 or higher.
+

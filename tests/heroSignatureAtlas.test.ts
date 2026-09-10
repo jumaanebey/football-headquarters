@@ -26,7 +26,7 @@ it('decodes and keys the authored sheets with clear gutters and grounded, bounde
   const { default: sharp } = await import('sharp');
   const { HERO_SIGNATURE_ATLAS } = await import('../game/heroSignatureAtlas');
   const { keyHeroPixels } = await import('../game/heroAnimation');
-  for (const key of ['qb', 'enforcer']) {
+  for (const key of Object.keys(HERO_SIGNATURE_ATLAS)) {
     const { data, info } = await sharp(`public${HERO_SIGNATURE_ATLAS[key].src}`).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const pixels = new Uint8ClampedArray(data);
     keyHeroPixels(pixels);
@@ -34,10 +34,10 @@ it('decodes and keys the authored sheets with clear gutters and grounded, bounde
     expect(frames).toHaveLength(4);
     expect(new Set(frames.map(f => f.scale)).size).toBe(1);
     frames.forEach((frame, i) => {
-      expect(frame.x).toBeGreaterThan(i % 2 * info.width / 2);
-      expect(frame.y).toBeGreaterThan(Math.floor(i / 2) * info.height / 2);
-      expect(frame.x + frame.w).toBeLessThan((i % 2 + 1) * info.width / 2);
-      expect(frame.y + frame.h).toBeLessThan((Math.floor(i / 2) + 1) * info.height / 2);
+      expect(frame.x).toBeGreaterThan((i % 2 ? Math.round(info.width * (HERO_SIGNATURE_ATLAS[key].splitX ?? .5)) : 0));
+      expect(frame.y).toBeGreaterThan((i < 2 ? 0 : Math.round(info.height * (HERO_SIGNATURE_ATLAS[key].splitY ?? .5))));
+      expect(frame.x + frame.w, `${key} frame ${i} horizontal gutter`).toBeLessThan((i % 2 ? info.width : Math.round(info.width * (HERO_SIGNATURE_ATLAS[key].splitX ?? .5))));
+      expect(frame.y + frame.h).toBeLessThan((i < 2 ? Math.round(info.height * (HERO_SIGNATURE_ATLAS[key].splitY ?? .5)) : info.height));
       expect(frame.dy + frame.h * frame.scale).toBeCloseTo(370);
       expect(frame.dx).toBeGreaterThanOrEqual(12);
       expect(frame.dx + frame.w * frame.scale).toBeLessThanOrEqual(372);
@@ -45,5 +45,18 @@ it('decodes and keys the authored sheets with clear gutters and grounded, bounde
     // Background must key out; painted transparency checkerboards fail here.
     expect(pixels[3]).toBe(0);
     if (key === 'enforcer') expect(frames[2].h).toBeLessThan(frames[0].h);
+  }
+});
+
+
+it('keeps all four directional contact reactions whole and grounded', async () => {
+  const { default: sharp } = await import('sharp');
+  const { keyHeroPixels } = await import('../game/heroAnimation');
+  for (const key of ['qb','enforcer']) {
+    const {data,info}=await sharp(`public/assets/heroes/reactions/${key}.webp`).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+    const pixels=new Uint8ClampedArray(data);keyHeroPixels(pixels);
+    const frames=signatureRegistration(key,pixels,info.width,info.height,{src:'',anchorX:[.5,.5,.5,.5],stature:.92});
+    expect(frames).toHaveLength(4);
+    frames.forEach((f,i)=>{expect(f.x).toBeGreaterThan(i%2*info.width/2);expect(f.x+f.w).toBeLessThan((i%2+1)*info.width/2);expect(f.y).toBeGreaterThan(Math.floor(i/2)*info.height/2);expect(f.y+f.h).toBeLessThan((Math.floor(i/2)+1)*info.height/2);expect(f.dy+f.h*f.scale).toBeCloseTo(370);});
   }
 });

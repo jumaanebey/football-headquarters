@@ -2,9 +2,11 @@
 
 Updated September 10, 2026. Published baseline at resumption: `cc1f598` (shared hero combat, replay, free practice, progression and online client integrity). This checklist preserves the approved scope; an unchecked gate is not complete. The earlier 30% figure was an estimate, not a measured completion score.
 
-## Current continuation — Enforcer authored signature
+## Current continuation — five-area visual gameplay pass
 
-See [ENFORCER-SIGNATURE-CHECKLIST.md](ENFORCER-SIGNATURE-CHECKLIST.md) for this bounded continuation: four authored Enforcer poses, grounded contact timing, Franchise/Enforcer registration workbench, and precise release evidence. Seven heroes still need four independently authored signature poses; all-nine directional and physical-device acceptance remains open.
+PR #30 (`1fe9c47`) implements the five requested presentation areas; see [VISUAL-GAMEPLAY-ACCEPTANCE.md](VISUAL-GAMEPLAY-ACCEPTANCE.md). All nine heroes now have four authored signature poses. Franchise/Enforcer have four-direction starts, running, planted turns/stops, contact braces and substitution signals. The other seven retain six-frame locomotion with distinct ready poses and movement presentation. Projected grandstands/foundations and first-match deployment/signature/result-to-training guidance are integrated. Camera work shipped in PR #28.
+
+Release evidence: 264 tests, 540 raster decodes, build, 219-match balance gates, fresh-club preview journey, mobile Film Room and production deployment. This closes the five-area implementation pass, not the full reconstruction: all-nine directional action coverage, physical-device/player acceptance and Claude's authority/defense work remain separate gates.
 
 ## Previous continuation — hero results and defense presentation
 
@@ -32,9 +34,8 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 
 ## Known launch gates requiring further evidence or access
 
-- Superseded 2026-09-10: project `ruzkpbvgzvqrrnexrffz` is ACTIVE_HEALTHY; the authority migration and function were recovered into version control (`docs/AUTHORITY-RECOVERY.md`). The deployed function v2 crashes at startup; the fixed v3 bundle is staged and awaits deploy authorization.
-- Server-authoritative clubs/matches are implemented and unit/acceptance tested; two-account live evidence and the browser journey remain open until v3 is deployed (`docs/AUTHORITY-CONTRACTS.md`).
-- Seven heroes retain one authored contact pose with procedural anticipation/recovery. The full authored directional cast remains open.
+- Backend, 2026-09-10: project `ruzkpbvgzvqrrnexrffz` is ACTIVE_HEALTHY; the authority migration and function sources are in version control (`docs/AUTHORITY-RECOVERY.md`). The deployed v2 function crashed at startup; v3 is deployed and the two-account live evidence passed 57/57 (`docs/AUTHORITY-RECOVERY.md`). Protected-club integration is on PR #29 (`docs/AUTHORITY-CONTRACTS.md`); the browser journey on a preview remains open.
+- All nine authored signature sequences are integrated. Full directional action coverage across the remaining seven heroes, renderer benchmarking and physical-device acceptance remain open.
 - Browser viewport checks do not replace actual iPhone/Android touch, sustained frame pacing, heat/battery and player-observation gates.
 
 ## Milestone 0 — establish and protect the baseline
@@ -69,17 +70,17 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 
 - [ ] Establish actual-play hero, ordinary-player, facility, shadow, and label scale.
 - [ ] Keep heroes readable in groups; reduce persistent full nameplates and effect overlap.
-- [ ] Pin deployed heroes and ready abilities in a phone-friendly command area.
-- [ ] Establish direction, foot-contact anchors, stride-distance, turning, and stop transitions.
-- [ ] Normalize source-frame scale and contact points; document remaining authored-art gaps.
-- [ ] Prototype an editable-source art/animation pipeline using Franchise and Enforcer.
+- [x] Pin deployed heroes and ready abilities in a phone-friendly command area.
+- [x] Establish direction, foot-contact anchors, stride-distance, turning, and stop transitions for the Franchise/Enforcer prototype. Remaining cast-wide coverage is tracked below.
+- [x] Normalize source-frame scale and contact points; document remaining authored-art gaps.
+- [x] Prototype an editable-source art/animation pipeline using Franchise and Enforcer.
 - [ ] Complete directional idle, start, run, plant, action, reaction, recovery, substitution, celebration.
-- [ ] Define individual movement personalities and recognizable silhouettes for all nine heroes.
+- [x] Define individual movement personalities and recognizable ready/signature silhouettes for all nine heroes.
 - [ ] Tie animation/contact/effects/audio to simulation events.
-- [ ] Camera supports tactical overview and readable signature action without stealing control.
+- [x] Camera supports tactical overview and readable signature action without stealing control.
 - [ ] Ground, projection, lighting, scale, contact shadows, and depth ordering are coherent.
 - [ ] Match footprints, approach distances, visible contact points, and facility placement.
-- [ ] Replace ambiguous decorative field dots with intentional stadium boundary presentation.
+- [x] Replace ambiguous decorative field dots with intentional stadium boundary presentation.
 - [ ] Benchmark current scene versus a dedicated sprite renderer before stack migration.
 - [ ] Make reduced-motion and muted play complete, readable experiences.
 
@@ -100,7 +101,7 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 - [ ] Document and preview the cost/effect of every retained currency and support resource.
 - [x] Remove invented rival losses from ordinary save loading; label optional AI defense practice (implemented and regression tested; visual acceptance remains above).
 - [ ] Consistent closed-tab, hidden-tab, reload, offline, and cross-device time advancement.
-- [ ] Free repeatable interactive hero practice, isolated from ranked rewards and owned resources.
+- [x] Free repeatable interactive hero practice, isolated from ranked rewards and owned resources.
 - [ ] Guided first hero signature, result explanation, meaningful upgrade, visible next match.
 - [ ] Consistent navigation names and one main hero-management destination.
 - [ ] Recruiting, comparison, lineup choice, duplicates, and release decisions are understandable.
