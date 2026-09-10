@@ -11,6 +11,7 @@ const response = (value: unknown, status = 200) => new Response(JSON.stringify(v
 let values: Map<string, string>;
 beforeEach(() => {
   vi.resetModules();
+  vi.stubGlobal('navigator',{onLine:true});
   values = new Map();
   vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
   vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'public-test-key');
@@ -83,5 +84,42 @@ describe('signing into an existing account', () => {
     expect(values.get('fhq_session_v1')).toBeUndefined();
     expect(values.get('fhq_save_v1')).toBe('{"club":"mirror"}');
     expect((await pvp.postAuthority({ kind: 'status' })).status).toBe('unauthorized'); // a guest with a previous identity never mints a new one silently
+  });
+});
+
+describe('connection observations follow the active account', () => {
+  it('resets on sign-in and sign-out, but preserves observations for the same owner', async () => {
+    values.set('fhq_session_v1', JSON.stringify(session(uidA)));
+    const pvp = await import('../pvp');
+    const connection = await import('../pwa/connection');
+    pvp.playerId(); connection.reportClubServer('offline');
+    pvp.playerId(); expect(connection.connectionState().consecutiveFailures).toBe(1);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ access_token: 'b', refresh_token: 'r', expires_in: 3600, user: { id: uidB } })));
+    await pvp.signInWithPassword('b@example.invalid', 'longpassword');
+    expect(connection.connectionState()).toMatchObject({account:uidB,clubServer:'unknown',consecutiveFailures:0});
+    connection.reportClubServer('ok'); pvp.signOutToGuest();
+    expect(connection.connectionState()).toMatchObject({account:null,clubServer:'unknown',lastOkAt:null});
+  });
+  it.each([500,502,503])('reports HTTP %s as reached but unavailable even without JSON', async status => {
+    values.set('fhq_session_v1', JSON.stringify(session(uidA)));
+    vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('maintenance',{status})));
+    const pvp=await import('../pvp');
+    const answer=await pvp.authorityClient.query(uidA,{kind:'status'});
+    expect(answer).toMatchObject({ok:false,code:'unavailable'});
+    const {connectionState}=await import('../pwa/connection');
+    expect(connectionState()).toMatchObject({account:uidA,assessment:'server-unavailable',action:'wait'});
+  });
+  it('does not report an old account failure after switching', async () => {
+    values.set('fhq_session_v1',JSON.stringify(session(uidA)));
+    let release!:(r:Response)=>void;
+    vi.stubGlobal('fetch',vi.fn().mockImplementationOnce(()=>new Promise<Response>(r=>{release=r;})).mockResolvedValueOnce(response({access_token:'b',refresh_token:'r',expires_in:3600,user:{id:uidB}})));
+    const pvp=await import('../pvp'); pvp.playerId();
+    const pending=pvp.authorityClient.query(uidA,{kind:'status'});
+    await new Promise(r=>setTimeout(r,0));
+    await pvp.signInWithPassword('b@example.invalid','longpassword');
+    release(new Response('maintenance',{status:503}));
+    expect(await pending).toMatchObject({ok:false,code:'other-account'});
+    const {connectionState}=await import('../pwa/connection');
+    expect(connectionState()).toMatchObject({account:uidB,clubServer:'unknown',consecutiveFailures:0});
   });
 });

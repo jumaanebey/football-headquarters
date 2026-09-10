@@ -1,3 +1,4 @@
+import { connectionState, resetConnectionForAccount } from './pwa/connection';
 // --- LIVE RIVALS: real asynchronous PvP, the Clash way. ---
 // You never fight a live-controlled opponent — you raid a REAL player's published base
 // layout, and your attack lands in THEIR defense log next time they open the game.
@@ -44,11 +45,12 @@ const loadSession = (): Session | null => {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     const stored: unknown = raw ? JSON.parse(raw) : null;
-    if (isSession(stored)) return stored;
+    if (isSession(stored)) { if (connectionState().account !== stored.uid) resetConnectionForAccount(stored.uid); return stored; }
   } catch { /* In-memory sessions also support restricted browser storage. */ }
   return memorySession;
 };
 const saveSession = (s: Session | null) => {
+  if (connectionState().account !== (s?.uid ?? null)) resetConnectionForAccount(s?.uid ?? null);
   memorySession = s;
   try {
     if (s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); localStorage.setItem('fhq_pid', s.uid); }
@@ -418,7 +420,8 @@ export const postAuthority = async (body: unknown): Promise<AuthorityTransportRe
   if (!context) return { status: 'unauthorized' };
   try {
     const res = await tfetch(`${URL_}/functions/v1/club-authority`, { method: 'POST', headers: context.headers, body: JSON.stringify(body) });
-    if (res.status === 401) return { status: 'unauthorized' };
+    if (res.status === 401 || res.status === 403) return { status: 'unauthorized' };
+    if (res.status >= 500) return { status: 'unavailable' };
     const json: unknown = await res.json().catch(() => null);
     if (!isCurrentContext(context) || !isRecord(json) || typeof json.ok !== 'boolean') return { status: 'offline' };
     return { status: 'ok', owner: context.uid, body: json };
