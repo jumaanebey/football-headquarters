@@ -34,3 +34,13 @@ it('observes completed growth across reloads without counting the initial club o
   observeGrowth('account-a', {stadium: 2, enforcer: 2}, true);
   expect(emit).toHaveBeenCalledExactlyOnceWith('funnel_upgrade_meaningful', {kind:'hero', toLevel:2, protected:true});
 });
+it('keeps export and account backup distinct and emits requests separately from completed growth', () => {
+  productFunnel('backup_completed',{method:'export'});
+  productFunnel('backup_completed',{method:'account'});
+  productFunnel('backup_completed',{method:'account'});
+  observeGrowth('account-a',{stadium:1},true);
+  productFunnel('upgrade_requested',{kind:'building'});
+  expect(emit.mock.calls.filter(c=>c[0]==='funnel_upgrade_meaningful')).toHaveLength(0);
+  observeGrowth('account-a',{stadium:2},true);
+  expect(emit.mock.calls.map(c=>c[0])).toEqual(['funnel_backup_completed','funnel_backup_completed','funnel_upgrade_requested','funnel_upgrade_meaningful']);
+});

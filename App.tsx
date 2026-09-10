@@ -346,8 +346,9 @@ function App() {
   };
   const pushSaveToCloud = async (): Promise<boolean> => {
     if(cloudSyncPausedRef.current || authorityRef.current.active)return false;
+    const backupOwner = playerId();
     const ok = await pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current));
-    if (ok) lastCloudPushRef.current = Date.now();
+    if (ok) { lastCloudPushRef.current = Date.now(); if (profileRef.current?.email && playerId() === backupOwner) productFunnel('backup_completed', {method:'account'}, backupOwner); }
     return ok;
   };
 
@@ -396,6 +397,7 @@ function App() {
         suppressPersistRef.current = false; // write failed (quota/private mode) — re-enable autosave, do NOT strand the session unsaved
         return 'none';
       }
+      if (profileRef.current?.email) productFunnel('backup_completed', {method:'account'}, ownerId);
       window.location.reload();
       return 'applied';
     }
@@ -462,7 +464,8 @@ function App() {
       // up to the cloud once a minute, quietly
       if (!cloudSyncPausedRef.current && !authorityRef.current.active && bootSyncDoneRef.current && (profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
         lastCloudPushRef.current = Date.now(); // set BEFORE the await — no double-fire
-        pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current)).catch(() => { /* offline — next tick */ });
+        const backupOwner = playerId();
+        pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current)).then(ok => { if (ok && profileRef.current?.email && playerId() === backupOwner) productFunnel('backup_completed', {method:'account'}, backupOwner); }).catch(() => { /* offline — next tick */ });
       }
     };
     const saveLoop = setInterval(persist, 2000);
@@ -621,7 +624,7 @@ function App() {
   const handleUpgradeBuilding = (buildingId: string, cost: number) => {
     const building = gameState.buildings.find(b => b.id === buildingId);
     if (!building) return;
-    if (protectedAction({ type: 'facility.upgrade', buildingId }, receipt => { sfx.click(); centerText('Under construction…', '#60a5fa'); track('building_upgrade', { type: building.type, toLevel: Number(receipt?.toLevel ?? building.level + 1), protected: true }); })) return;
+    if (protectedAction({ type: 'facility.upgrade', buildingId }, receipt => { sfx.click(); centerText('Under construction…', '#60a5fa'); productFunnel('upgrade_requested', {kind:'building'}); track('building_upgrade', { type: building.type, toLevel: Number(receipt?.toLevel ?? building.level + 1), protected: true }); })) return;
     if (gameState.upgrades.length >= gameState.builders) { spawnText('All builders busy!', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); sfx.error(); return; }
     if (gameState.upgrades.some(u => u.kind === 'building' && u.key === buildingId)) return;
     if (gameState.resources.COINS < cost) { sfx.error(); return; }
@@ -638,7 +641,7 @@ function App() {
     });
     sfx.click();
     spawnText('Under construction…', window.innerWidth / 2, window.innerHeight / 2, '#60a5fa');
-    track('building_upgrade', { type: building.type, toLevel });
+    productFunnel('upgrade_requested', {kind:'building'}); track('building_upgrade', { type: building.type, toLevel });
   };
 
   const handleFinishNow = (jobId: string) => {
@@ -1119,7 +1122,7 @@ function App() {
   const bumpLocalRankCelebration = () => { const after = rankFor(stateRef.current.trophies); if (after.index > rankFor(gameState.trophies).index) { centerText(`RANK UP! ${after.rank.emoji} ${after.rank.name.toUpperCase()}`, after.rank.color, -60); } };
   const heroTrainSecs = (toLevel: number) => Math.round(upgradeDurationSecs(toLevel) * 3);
   const handleUpgradeHero = (key: string, cost: number) => {
-    if (protectedAction({ type: 'hero.train', heroKey: key }, receipt => { sfx.upgrade(); centerText('Training session started 🏋️', '#facc15'); track('hero_upgrade', { key, toLevel: Number(receipt?.toLevel ?? 0), protected: true }); })) return;
+    if (protectedAction({ type: 'hero.train', heroKey: key }, receipt => { sfx.upgrade(); centerText('Training session started 🏋️', '#facc15'); productFunnel('upgrade_requested', {kind:'hero'}); track('hero_upgrade', { key, toLevel: Number(receipt?.toLevel ?? 0), protected: true }); })) return;
     const h0 = gameState.heroes.find(h => h.key === key);
     const stadLvl0 = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
     const busy = gameState.upgrades.some(u => u.kind === 'hero' && u.key === key);
@@ -1143,7 +1146,7 @@ function App() {
       bumpDaily('train_hero');
       sfx.upgrade();
       spawnText('Training session started 🏋️', window.innerWidth / 2, window.innerHeight / 2, '#facc15');
-      track('hero_upgrade', { key, toLevel: (h0?.level ?? 0) + 1 });
+      productFunnel('upgrade_requested', {kind:'hero'}); track('hero_upgrade', { key, toLevel: (h0?.level ?? 0) + 1 });
     }
   };
 
@@ -1248,7 +1251,8 @@ function App() {
     const levels = Object.fromEntries([...gameState.buildings.filter(b => b.type === BuildingType.STADIUM).map(b => ['stadium', b.level] as const), ...gameState.heroes.map(h => [h.key, h.level] as const)]);
     observeGrowth(owner, levels, authority.active);
   }, [gameState.buildings, gameState.heroes, authority.ready, authority.owner, authority.locked]);
-  useEffect(() => { if (profile?.email) productFunnel('backup_completed', {method:'account'}); }, [profile?.email]);
+  useEffect(() => { if (profile?.email && authority.active && authority.ready && !authority.locked) productFunnel('backup_completed', {method:'account'}); }, [profile?.email, authority.active, authority.ready, authority.locked]);
+  useEffect(() => { if (settingsOpen && !profile?.email) productFunnel('backup_prompt_viewed', {reason:'settings'}); }, [settingsOpen, profile?.email]);
 
   // One session_start per load — the denominator for every retention/funnel metric.
   useEffect(() => {

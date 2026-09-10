@@ -335,6 +335,16 @@
 },
 {
 "pid": "p01000000-0000-4000-8000-000000000001",
+"event": "funnel_upgrade_requested",
+"props": {
+"kind": "building",
+"toLevel": 2,
+"protected": false
+},
+"ts": "2026-09-05T12:06:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
 "event": "funnel_backup_prompt_viewed",
 "props": {
 "reason": "first_upgrade"
@@ -356,6 +366,14 @@
 "daysSinceFirst": 1
 },
 "ts": "2026-09-05T14:00:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "funnel_backup_completed",
+"props": {
+"method": "account"
+},
+"ts": "2026-09-05T14:05:00Z"
 },
 {
 "pid": "p01000000-0000-4000-8000-000000000001",
@@ -484,19 +502,13 @@
 },
 {
 "pid": "p00000000-0000-4000-8000-000000000000",
-"event": "session_start",
+"event": "funnel_upgrade_meaningful",
 "props": {
-"returning": true
+"kind": "building",
+"toLevel": 2,
+"protected": false
 },
-"ts": "2026-09-08T12:00:00Z"
-},
-{
-"pid": "p00000000-0000-4000-8000-000000000000",
-"event": "funnel_return_visit",
-"props": {
-"daysSinceFirst": 1
-},
-"ts": "2026-09-08T12:00:00Z"
+"ts": "2026-09-07T12:00:00Z"
 },
 {
 "pid": "e786415f-bc5a-48c4-a006-17e7955884b0",
@@ -521,6 +533,22 @@
 "event": "session_start",
 "props": {
 "returning": true
+},
+"ts": "2026-09-08T12:00:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "session_start",
+"props": {
+"returning": true
+},
+"ts": "2026-09-08T12:00:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "funnel_return_visit",
+"props": {
+"daysSinceFirst": 1
 },
 "ts": "2026-09-08T12:00:00Z"
 },
