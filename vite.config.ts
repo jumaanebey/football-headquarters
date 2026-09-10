@@ -13,5 +13,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: { '@': path.resolve(__dirname, '.') },
     },
+    // Authority acceptance tests simulate several full matches each; under parallel workers they
+    // can exceed vitest's 5 s default. Thirty seconds keeps a hang visible without false failures.
+    test: { testTimeout: 30_000 },
   };
 });
