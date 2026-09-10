@@ -27,3 +27,7 @@ export const editorProject = (x: number, y: number) => ({ x: 500 + (x - y) * 46,
 export function editorTile(x: number, y: number) {
   return [[x,y],[x+1,y],[x+1,y+1],[x,y+1]].map(([gx,gy]) => { const p=editorProject(gx,gy);return `${p.x},${p.y}`; }).join(' ');
 }
+
+export function campusPlacementMessage(message: string) {
+  return Object.entries(BUILDING_INFO).reduce((text, [type, info]) => text.split(type.replace(/_/g, ' ')).join(info.name), message);
+}

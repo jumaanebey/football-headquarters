@@ -3,7 +3,7 @@ import { BuildingType, type GameState } from '../types';
 import { buildingSprite } from '../assets';
 import { FORMATION_ORDER, formationDef, formationUnlocked, type FormationKey } from '../fixedBase';
 import { campusLayoutForState, campusLayoutId, templateCampusLayout, validateCampusLayout, type CampusLayout } from '../game/campusLayout';
-import { campusItems, campusItemTiles, editorProject, editorTile, moveCampusItem } from '../game/campusEditor';
+import { campusPlacementMessage, campusItems, campusItemTiles, editorProject, editorTile, moveCampusItem } from '../game/campusEditor';
 import { Sheet, Btn } from './ui';
 
 export function CampusEditor({ state, blocked, onApply, onClose, onTest }: {
@@ -72,7 +72,7 @@ export function CampusEditor({ state, blocked, onApply, onClose, onTest }: {
         {candidate&&<Btn variant="ghost" disabled={busy} onClick={()=>setCandidate(null)}>Clear preview</Btn>}
       </div>
       <div role="status" aria-live="polite" className="text-sm rounded-lg bg-slate-800 p-3 text-slate-200">
-        {validation.valid?<p>{candidate?'This placement is valid. Place here to update your draft.':message}</p>:<><p className="font-bold text-rose-300">Fix these placement issues before applying:</p><ul className="list-disc pl-5 mt-2">{[...new Set(validation.issues.map(i=>i.message))].map(text=><li key={text}>{text}</li>)}</ul></>}
+        {validation.valid?<p>{candidate?'This placement is valid. Place here to update your draft.':message}</p>:<><p className="font-bold text-rose-300">Fix these placement issues before applying:</p><ul className="list-disc pl-5 mt-2">{[...new Set(validation.issues.map(i=>campusPlacementMessage(i.message)))].map(text=><li key={text}>{text}</li>)}</ul></>}
         {blocked&&<p className="mt-2 text-amber-200">Saving is unavailable while your club is connecting or has an unconfirmed operation. Your draft is safe here; check Settings for recovery.</p>}
         <p className="mt-2 text-slate-400">{state.campusLayout?'Your saved placement is used on campus and in defense tests.':'Applying a layout connects the campus view to these defensive positions.'} Unprotected rival publishing still uses formation templates; Online protection uses the full saved layout.</p>
       </div>

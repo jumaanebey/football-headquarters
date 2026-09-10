@@ -16,7 +16,8 @@ Buildings fade when their art covers a hero behind them. Repeated cosmetic effec
 - Local accessibility harness forces reduced-motion JS/CSS and 200% root text sizing. Editor and Settings remain scrollable; keyboard operations and fixed hero close-up work. This is not an OS/device accessibility certification.
 - Connected journey against live authority: campus move confirmed online; keyboard-deployed five heroes and squad; 100% Season win settled from 500 to 932 coins, 10 to 18 crowns (revision 4). Collected gate receipts, started the 1,400-coin Stadium upgrade, reloaded to Stadium level 2 and revision 9 / everything confirmed, then opened the editor at saved scouting position column 8 / row 3 and tested that defense. QA club: Campus QA FC, created via local production preview on 2026-09-10 around 05:07 UTC; retain for deferred QA cleanup.
 - Integrated Claude PR #31 (9e90341), including its decided new-club auto-protection behavior. Fixed an observed reload-time local mutation before authority detection, compacted custom-layout Stadium art/hitboxes, and included defending heroes in occlusion/substitution presentation.
-- Deployment verification: in progress.
+- Vercel PR #32 preview: 390×844 editor save/reload, invalid boundary rejection, Undo and saved positions passed. Preview has no online environment configured, so this was a local-club test; the live-authority journey above ran from the production-mode build. Preview club Campus Preview QA is local only.
+- Production deployment verification: in progress.
 
 ## Boundaries
 
