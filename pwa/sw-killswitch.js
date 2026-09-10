@@ -1,11 +1,24 @@
-// Rollback worker. Deploying this file as /sw.js (FHQ_SW_KILLSWITCH=1 npm run build) makes every
-// installed worker replace itself with one that deletes all fhq-* caches, unregisters, and
-// reloads open pages onto the plain network — no player is stranded on obsolete cached code.
+// Emergency rollback only (FHQ_SW_KILLSWITCH=1). Normal builds still use sw.ts.
+// Claim controlled windows before navigating, and navigate only after deleting old app
+// caches. Otherwise a fresh registration can continuously reload a network-only page.
+// Preserve unrelated feature caches and all club storage.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    for (const name of await caches.keys()) if (/^fhq-(shell|art)-/.test(name)) await caches.delete(name);
+    let removed = false;
+    for (const name of await caches.keys()) {
+      if (/^fhq-(shell|art)-/.test(name) || name === 'fhq-meta') {
+        removed = (await caches.delete(name)) || removed;
+      }
+    }
+    let windows = [];
+    if (removed) {
+      await self.clients.claim();
+      windows = await self.clients.matchAll({ type: 'window' });
+    }
     await self.registration.unregister();
-    for (const client of await self.clients.matchAll({ type: 'window' })) client.navigate(client.url);
+    for (const client of windows) {
+      try { await client.navigate(client.url); } catch { /* Closed windows need no navigation. */ }
+    }
   })());
 });

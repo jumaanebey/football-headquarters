@@ -26,12 +26,29 @@ describe('bundled worker runtime fault cases',()=>{
  it('does not intercept auth, analytics or club requests',async()=>{const r=await runtime();expect(await r.run('fetch',new Request('https://server.test/functions/v1/club-authority',{method:'POST'}))).toBeUndefined();expect(r.network).not.toHaveBeenCalled();});
 });
 
-it('kill-switch cleanup leaves other origin caches and saved club data untouched',async()=>{
- const {readFileSync}=await import('node:fs');const callbacks:Record<string,(event:any)=>void>={};const deleted:string[]=[];const navigate=vi.fn();let completion:Promise<unknown>|undefined;
- const store=new Map([['fhq_save_v1','confirmed club']]);
- vm.runInNewContext(readFileSync('pwa/sw-killswitch.js','utf8'),{self:{addEventListener:(k:string,f:(e:any)=>void)=>callbacks[k]=f,registration:{unregister:vi.fn()},clients:{matchAll:async()=>[{url:'https://game.test',navigate}]}},caches:{keys:async()=>['fhq-shell-old','fhq-art-old','fhq-other-feature','unrelated'],delete:async(k:string)=>{deleted.push(k);}},localStorage:store});
- callbacks.activate({waitUntil:(p:Promise<unknown>)=>completion=p});await completion;
- expect(deleted).toEqual(['fhq-shell-old','fhq-art-old']);expect(store.get('fhq_save_v1')).toBe('confirmed club');expect(navigate).toHaveBeenCalledWith('https://game.test');
+describe('rollback worker lifecycle',()=>{
+ async function rollback(names:string[],failFirst=false){
+  const {readFileSync}=await import('node:fs');const callbacks:Record<string,(event:any)=>void>={};
+  const order:string[]=[],remaining=new Set(names);let completion:Promise<unknown>|undefined;
+  const store=new Map([['fhq_save_v1','confirmed club']]);
+  vm.runInNewContext(readFileSync('pwa/sw-killswitch.js','utf8'),{
+   self:{addEventListener:(k:string,f:(e:any)=>void)=>callbacks[k]=f,registration:{unregister:async()=>{order.push('unregister');}},clients:{claim:async()=>{order.push('claim');},matchAll:async()=>[0,1].map(i=>({url:`https://game.test/${i}`,navigate:async()=>{order.push(`navigate${i}`);if(i===0&&failFirst)throw Error('closed');}}))}},
+   caches:{keys:async()=>[...remaining],delete:async(k:string)=>remaining.delete(k)},localStorage:store});
+  callbacks.activate({waitUntil:(p:Promise<unknown>)=>completion=p});await completion;
+  return {order,remaining:[...remaining],store};
+ }
+ it('claims before navigating and preserves foreign caches and club data',async()=>{
+  const r=await rollback(['fhq-shell-old','fhq-art-old','fhq-meta','fhq-other-feature','unrelated']);
+  expect(r.order).toEqual(['claim','unregister','navigate0','navigate1']);
+  expect(r.remaining).toEqual(['fhq-other-feature','unrelated']);expect(r.store.get('fhq_save_v1')).toBe('confirmed club');
+ });
+ it('does not navigate again on a fresh visit after cleanup',async()=>{
+  const first=await rollback(['fhq-shell-old','unrelated']);const second=await rollback(first.remaining);
+  expect(second.order).toEqual(['unregister']);expect(second.remaining).toEqual(['unrelated']);
+ });
+ it('continues to other windows if one closes during navigation',async()=>{
+  expect((await rollback(['fhq-shell-old'],true)).order).toEqual(['claim','unregister','navigate0','navigate1']);
+ });
 });
 it('prefers refreshed current art over retained copies and activates despite denied storage',async()=>{
  const r=await runtime();await (await r.open('fhq-art-previous')).put('/assets/ball.webp',new Response('old'));
