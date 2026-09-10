@@ -1,3 +1,4 @@
+import { buildAuthorityDiagnosticsReport, serializeAuthorityDiagnostics } from './diagnosticsExport';
 // React integration for protected clubs. The hook owns: detecting whether the signed-in
 // account has a server club (which makes the account protected on every device), bootstrap
 // (opt-in), the status refresh, retries of pending operations, and the match lifecycle.
@@ -35,6 +36,7 @@ export interface AuthorityHook {
   resync(): Promise<void>;
   refresh(): Promise<void>;
   diagnostics(): AuthorityDiagnostics;
+  exportDiagnostics(): string;
   retry(): Promise<void>;
   dispatch(action: Record<string, unknown>): Promise<AuthorityOutcome>;
   reserve(choice: MatchChoice): Promise<{ matchId: string; config: BattleConfig } | { error: string }>;
@@ -190,7 +192,8 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
   }, []);
 
   const isActiveNow = useCallback(() => activeRef.current, []);
+  const exportDiagnostics = useCallback(() => serializeAuthorityDiagnostics(buildAuthorityDiagnosticsReport(authorityClient, { owner: ownerRef.current })), []);
   const diagnostics = useCallback(() => authorityClient.diagnostics(ownerRef.current ?? undefined), []);
-  return useMemo(() => ({ active, locked, ready, owner, revision, pendingCount, notice, match, rivals, roadTargets, isActiveNow, enable, resync, refresh, retry, dispatch, reserve, begin, cancel, finish, film, diagnostics, setNotice }),
-    [active, locked, ready, owner, revision, pendingCount, notice, match, rivals, roadTargets, isActiveNow, enable, resync, refresh, retry, dispatch, reserve, begin, cancel, finish, film, diagnostics]);
+  return useMemo(() => ({ active, locked, ready, owner, revision, pendingCount, notice, match, rivals, roadTargets, isActiveNow, enable, resync, refresh, retry, dispatch, reserve, begin, cancel, finish, film, diagnostics, exportDiagnostics, setNotice }),
+    [active, locked, ready, owner, revision, pendingCount, notice, match, rivals, roadTargets, isActiveNow, enable, resync, refresh, retry, dispatch, reserve, begin, cancel, finish, film, diagnostics, exportDiagnostics]);
 }
