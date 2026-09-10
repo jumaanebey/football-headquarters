@@ -1,7 +1,10 @@
+import { heroMovementStyle } from './heroMovementStyle';
 /** Presentation-only drills. Pauses and turns never touch simulation state. */
-export function heroPatrol(time: number, lane: number, reduced = false) {
-  const travel = [5.5, 7, 4.6][lane % 3];
-  const rest = 2.2;
+export function heroPatrol(time: number, lane: number, reduced = false, heroKey?: string) {
+  const profile = heroKey ? heroMovementStyle(heroKey) : undefined;
+  const travel = profile?.travel ?? [5.5, 7, 4.6][lane % 3];
+  const rest = profile?.rest ?? 2.2;
+  const cycle = profile ? .58 / profile.cadence : [0.58, 0.72, 0.46][lane % 3];
   const leg = travel + rest;
   const phase = ((time % (leg * 2)) + leg * 2) % (leg * 2);
   const outward = phase < leg;
@@ -18,8 +21,8 @@ export function heroPatrol(time: number, lane: number, reduced = false) {
     progress: reduced ? 0.35 : outward ? progress : 1 - progress,
     facing: reduced ? -1 : outward ? -1 : 1,
     mode: reduced ? 'idle' as const : beat < travel ? 'walk' as const : beat < travel + 0.9 ? 'attack' as const : 'idle' as const,
-    cycle: [0.58, 0.72, 0.46][lane % 3],
-    stridePhase: reduced ? 0 : (progress * travel / [0.58, 0.72, 0.46][lane % 3]) % 1,
+    cycle,
+    stridePhase: reduced ? 0 : (progress * travel / cycle) % 1,
     actionElapsed: Math.min(.69, Math.max(0, beat - travel)),
   };
 }

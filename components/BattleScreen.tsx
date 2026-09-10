@@ -1753,7 +1753,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
                     <SpriteFrames sources={WALK_FRAMES.map(fr => `${unitPlayerSprite(g.unit).replace('-player.webp', '')}-${fr}.webp`)} duration={g.strideSeconds}
                       style={{ transform: (g.face ?? 1) > 0 ? 'scaleX(-1)' : undefined, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
                   )}
-                  {guardHeroKey && <BattleHeroSprite heroKey={guardHeroKey} actor={g} fighting={phase === 'fighting'}
+                  {guardHeroKey && <BattleHeroSprite heroKey={guardHeroKey} actor={g} fighting={phase === 'fighting'} simulationTime={BATTLE_SECONDS-s.time}
                     filter={frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter} />}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
                 </div>
@@ -1811,7 +1811,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
                       <span style={{ fontSize: '2.3vmin', lineHeight: 1 }}>{heroDef.emoji}</span>
                     </div>
                     <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${flip}` }} />
-                    <BattleHeroSprite heroKey={t.heroKey!} actor={t} fighting={phase === 'fighting'}
+                    <BattleHeroSprite heroKey={t.heroKey!} actor={t} fighting={phase === 'fighting'} simulationTime={BATTLE_SECONDS-s.time}
                       filter={hf ? `${glow} brightness(1.8)` : glow} />
                     {/* Modern hero names live in the command tray and camera selector, not over the action. */}
                     {(!modernCombat) && <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: modernCombat ? '-18%' : '-14%', fontSize: modernCombat ? 10 : '0.95vmin', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(253,224,71,0.35)', animation: modernCombat ? undefined : 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>}
