@@ -9,7 +9,7 @@ import type { GameState } from '../../types';
 import { parseSavedClub } from '../saveValidation';
 import { canonicalJson } from '../combat/canonical';
 import { isPlayerId, isRecord } from './validation';
-import { reportClubServer } from '../../pwa/connection';
+import { connectionState, reportClubServer } from '../../pwa/connection';
 
 export interface AuthorityClubView { owner: string; state: GameState; revision: number; activeMatch: string | null; origin: string }
 export interface AuthorityMatchView { id: string; owner: string; status: 'reserved' | 'started' | 'settled' | 'cancelled'; config: Record<string, unknown>; seed: number; issuedAt: number; expiresAt: number; metadata: Record<string, unknown> }
@@ -19,7 +19,7 @@ export interface AuthorityAnswer {
   club?: AuthorityClubView | null; match?: AuthorityMatchView | null; result?: unknown;
   rivals?: AuthorityRivalView[]; roadTargets?: unknown[]; leaderboard?: AuthorityRivalView[];
 }
-export type AuthorityTransportResult = { status: 'ok'; owner: string; body: unknown } | { status: 'unauthorized' } | { status: 'offline' };
+export type AuthorityTransportResult = { status: 'ok'; owner: string; body: unknown } | { status: 'unauthorized' } | { status: 'offline' } | { status: 'unavailable' };
 export type AuthorityTransport = (body: unknown) => Promise<AuthorityTransportResult>;
 
 export type AuthorityOperationKind = 'action' | 'match.reserve' | 'match.begin' | 'match.cancel' | 'match.finish';
@@ -39,7 +39,7 @@ export type AuthorityOutcome =
 export interface AuthorityDiagnosticEvent { at: number; kind: string; operationId?: string; outcome: 'confirmed' | 'failed' | 'pending' | 'query'; code?: string; latencyMs?: number; revision?: number }
 export interface AuthorityDiagnostics {
   events: AuthorityDiagnosticEvent[];
-  availability: { status: 'ok' | 'offline' | 'unauthorized' | 'unknown'; at: number | null };
+  availability: { status: 'ok' | 'offline' | 'unavailable' | 'unauthorized' | 'unknown'; at: number | null };
   pending: number; failed: number; confirmed: number; averageConfirmLatencyMs: number | null;
 }
 
@@ -139,8 +139,10 @@ export class AuthorityClient {
     };
   }
 
-  private async send(body: Record<string, unknown>, owner: string): Promise<{ status: 'ok'; answer: AuthorityAnswer } | { status: 'offline' | 'unauthorized' | 'other-account' }> {
+  private async send(body: Record<string, unknown>, owner: string): Promise<{ status: 'ok'; answer: AuthorityAnswer } | { status: 'offline' | 'unavailable' | 'unauthorized' | 'other-account' }> {
+    const accountAtStart = connectionState().account;
     const sent = await this.transport(body);
+    if (connectionState().account !== accountAtStart && connectionState().account !== owner) return { status: 'other-account' };
     if (sent.status !== 'ok') { this.availability = { status: sent.status, at: this.now() }; reportClubServer(sent.status); return sent; }
     if (sent.owner !== owner) return { status: 'other-account' };
     const answer = parseAuthorityAnswer(sent.body);
@@ -151,12 +153,12 @@ export class AuthorityClient {
     return { status: 'ok', answer };
   }
   /** Read-only requests: no ledger entry, nothing to retry. */
-  async query(owner: string, body: { kind: 'bootstrap'; legacy?: unknown } | { kind: 'status' } | { kind: 'leaderboard' } | { kind: 'film'; matchId: string }): Promise<AuthorityAnswer | { ok: false; code: 'offline' | 'unauthorized' | 'other-account'; message: string }> {
+  async query(owner: string, body: { kind: 'bootstrap'; legacy?: unknown } | { kind: 'status' } | { kind: 'leaderboard' } | { kind: 'film'; matchId: string }): Promise<AuthorityAnswer | { ok: false; code: 'offline' | 'unavailable' | 'unauthorized' | 'other-account'; message: string }> {
     const started = this.now();
     const sent = await this.send(body, owner);
     this.record({ kind: body.kind, outcome: 'query', code: sent.status === 'ok' ? (sent.answer.ok ? undefined : sent.answer.code) : sent.status, latencyMs: this.now() - started });
     if (sent.status === 'ok') return sent.answer;
-    return { ok: false, code: sent.status, message: sent.status === 'unauthorized' ? 'Reconnect your club to continue.' : sent.status === 'offline' ? 'Online protection is unreachable right now. Your club has been kept.' : 'The signed-in account changed.' };
+    return { ok: false, code: sent.status, message: sent.status === 'unauthorized' ? 'Reconnect your club to continue.' : sent.status === 'unavailable' ? 'The club server is temporarily unavailable. Your club has been kept.' : sent.status === 'offline' ? 'Online protection is unreachable right now. Your club has been kept.' : 'The signed-in account changed.' };
   }
   private enqueue<T>(owner: string, task: () => Promise<T>): Promise<T> {
     const previous = this.queues.get(owner) ?? Promise.resolve();
