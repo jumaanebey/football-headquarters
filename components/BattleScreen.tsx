@@ -8,7 +8,8 @@ import { HeroArt } from './HeroArt';
 import { BuildingSprite } from './BuildingArt';
 import { BattleHeroSprite } from './BattleHeroSprite';
 import { BattleDebrief } from './BattleDebrief';
-import { resultPresentation } from '../game/battleDebrief';
+import { resultPresentation, type PostBattleDestination } from '../game/battleDebrief';
+import { battleSeed } from '../game/battleSeed';
 import { HeroCommandBar } from './HeroCommandBar';
 import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
@@ -48,7 +49,9 @@ import { createBattleEngine, type BattleEngine } from '../game/combat/engine';
 
 interface Props {
   config: BattleConfig;
-  onFinish: (result: BattleResult) => void;
+  initialPlan?: GamePlanKey;
+  openingHero?: string;
+  onFinish: (result: BattleResult, destination?: PostBattleDestination) => void;
   /** `beforeKickoff` = they backed out during deploy, so no game was played and the
    *  energy charged at launch must be handed back. */
   onExit: (beforeKickoff?: boolean) => void;
@@ -152,7 +155,8 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
   targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, special: def.key,
 });
 
-export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPracticeAgain, onKickoff }) => {
+export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onKickoff }) => {
+  const [showThreats, setShowThreats] = useState(false);
   const isDefense = config.mode === 'defense';
   const isReplay = !!config.replay;
   const modernCombat = !config.replay || config.replay.version === 2;
@@ -160,14 +164,6 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   const resultNotifiedRef = useRef(false);
   const actions = useRef<HeroAction[]>([]);
   const povDefense = isDefense || isReplay; // whose broadcast is this? replays are watched by the DEFENDER
-  // 🎓 Onboarding declutter (UX review, July 2026): the FIRST game hides the Game Plan
-  // picker + scouting badges so a first-timer sees only dialogue → deploy hint → live raid.
-  // Game Plans are introduced with a NEW badge on the 2nd game. Counter is device-local
-  // (fhq_games_played_v1), bumped in App on every FINISHED attack — replays never count.
-  const gamesDone = (() => { try { return parseInt(localStorage.getItem('fhq_games_played_v1') || '0', 10) || 0; } catch { return 0; } })();
-  const isOnboardAttack = config.mode === 'attack' && !isReplay;
-  const hideGamePlan = isOnboardAttack && gamesDone < 1;    // game 1: no picker at all
-  const introGamePlan = isOnboardAttack && gamesDone === 1; // game 2: picker + NEW badge
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
   const battlePanel = useRef<HTMLDivElement>(null);
@@ -207,7 +203,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   const [cameraHero, setCameraHero] = useState<{ id: string; x: number; y: number } | null>(null);
   // Deterministic battle RNG — a replay re-seeds with the recorded seed and every random
   // decision (jerseys, wave picks, FX jitter) replays identically.
-  const seedRef = useRef(config.replay?.seed ?? Math.floor(Math.random() * 2 ** 31));
+  const [seed] = useState(() => battleSeed(config, () => Math.floor(Math.random() * 2 ** 31)));
+  const seedRef = useRef(seed);
   const rngRef = useRef(mulberry32(seedRef.current));
   const fxRngRef = useRef(mulberry32(seedRef.current ^ 0x5f3759df));
   // Legacy matches retain their consumption order. Practice separates gameplay from FX.
@@ -250,7 +247,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
     momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0, mascotOut: false, mascotT: 0, nextWave: 0, banner: null,
   });
   if (modernCombat) {
-    if (!engineRef.current) engineRef.current = createBattleEngine(config, seedRef.current, config.replay?.planKey ?? 'balanced');
+    if (!engineRef.current) engineRef.current = createBattleEngine(config, seedRef.current, config.replay?.planKey ?? initialPlan);
     sim.current = engineRef.current.state;
     actions.current = engineRef.current.actions.current;
   }
@@ -279,7 +276,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   const deployedHeroesRef = useRef<Set<string>>(new Set());
   useEffect(() => { deployedHeroesRef.current = new Set(deployedHeroes); }, [deployedHeroes]);
   const specialChargesRef = useRef(specialCharges); useEffect(() => { specialChargesRef.current = specialCharges; }, [specialCharges]);
-  const [pendingHero, setPendingHero] = useState<RaidHero | null>(modernCombat && !isReplay ? heroes[0] ?? null : null);
+  const [pendingHero, setPendingHero] = useState<RaidHero | null>(modernCombat && !isReplay ? heroes.find(h => h.key === openingHero) ?? heroes[0] ?? null : null);
   const [castMode, setCastMode] = useState<PlayDef | null>(null);
   const [phase, setPhase] = useState<'deploy' | 'fighting' | 'result'>(isDefense || isReplay ? 'fighting' : 'deploy');
   // DEFENSE AGENCY: when YOUR stadium is under attack you call plays, not just watch.
@@ -322,7 +319,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   };
   // Pre-snap coaching call — locks once the first player is on the field.
   // Replays restore the exact plan the attacker locked in.
-  const [plan, setPlan] = useState<GamePlanDef>(() => GAME_PLANS.find(g => g.key === config.replay?.planKey) ?? GAME_PLANS[1]);
+  const [plan, setPlan] = useState<GamePlanDef>(() => GAME_PLANS.find(g => g.key === (config.replay?.planKey ?? initialPlan)) ?? GAME_PLANS[1]);
   const planRef = useRef(plan); planRef.current = plan;
   // 🆚 MATCHUP CARD — a 3-second broadcast open before you take the field.
   const [matchup, setMatchup] = useState(!isDefense && !isReplay && !config.practice);
@@ -1255,7 +1252,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   // Restore the sideline while selecting another deployment or a field play.
   const cameraPoint = followedHero && !pendingHero && !pendingSpecial && !castMode ? (reducedBattleMotion ? cameraHero! : followedHero) : undefined;
   const heroCamera = heroCameraFrame(cameraPoint);
-  const lesson = config.campaignStage === 1 && !isReplay && !isDefense ? firstMatchLesson(deployedHeroes.has('qb'),calledSignatures.includes('qb'),!!s.troops.find(t=>t.heroKey==='qb'&&t.dead)) : undefined;
+  const lessonHero = heroes.find(h => h.key === openingHero) ?? heroes[0];
+  const lesson = config.campaignStage === 1 && !isReplay && !isDefense && lessonHero ? firstMatchLesson(deployedHeroes.has(lessonHero.key),calledSignatures.includes(lessonHero.key),!!s.troops.find(t=>t.heroKey===lessonHero.key&&t.dead),lessonHero) : undefined;
   const destroyed = s.buildings.filter(b => b.dead && b.kind !== 'wall').length;
   // Drive = DAMAGE dealt, not just demolitions — the meter moves within seconds of
   // first contact instead of sitting at 0% until a whole building falls (TASK-4).
@@ -1375,6 +1373,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
         }}>Deploy selected hero</button>}
       </div>}
       {/* Battlefield */}
+      <div className="flex shrink-0 items-center justify-between gap-2 bg-slate-900 px-3 py-1 text-xs text-slate-300">
+        <span>{defFormation && FORMATIONS[defFormation] ? FORMATIONS[defFormation].name : 'Defense'}{!isDefense && !isReplay ? ` · ${plan.name}` : ''}</span>
+        <button type="button" aria-pressed={showThreats} onClick={() => setShowThreats(value => !value)} className="min-h-11 rounded-lg border border-slate-600 px-3 text-white">{showThreats ? 'Hide' : 'Show'} defense ranges</button>
+      </div>
       <div className="relative flex-1 flex items-center justify-center p-3 overflow-hidden bg-gradient-to-b from-emerald-900 to-emerald-950">
           {/* 📣 Play-by-play announcer */}
           {s.commentary.text && !(s.banner && s.time > s.banner.until) && phase === 'fighting' && (
@@ -1513,7 +1515,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
           )}
 
           {/* 🎙️ Rival coach trash talk — the pre-game presser, gone at the snap */}
-          {!isDefense && phase === 'deploy' && config.rival && (
+          {!isDefense && phase === 'deploy' && config.rival && !showThreats && (
             <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: '6%', zIndex: 225, width: '86%', maxWidth: 380 }}>
               <div className="flex items-start gap-2.5">
                 <div className="relative shrink-0 w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-2xl shadow-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>
@@ -1540,7 +1542,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
 
           {/* Range rings — iso ellipses on the ground plane */}
           {s.buildings.filter(b => b.kind === 'defense' && !b.dead && b.range).map(b => (
-            <div key={`r-${b.id}`} className="absolute rounded-[50%] border border-red-400/20 bg-red-500/5 pointer-events-none"
+            <div key={`r-${b.id}`} className={`absolute rounded-[50%] border pointer-events-none ${showThreats ? 'border-rose-300 bg-red-500/20' : 'border-red-400/20 bg-red-500/5'}`}
               style={{ left: `${px(b.x, b.y) - b.range! * ISO_KX * 1.414}%`, top: `${py(b.x, b.y) - b.range! * ISO_KY * 1.414}%`, width: `${b.range! * ISO_KX * 2.828}%`, height: `${b.range! * ISO_KY * 2.828}%` /* √2-correct projected extent — rings now show TRUE range */ }} />
           ))}
 
@@ -1897,16 +1899,18 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             </div>
           ) : (
             <>
-              {phase === 'deploy' && !hideGamePlan && (
+              {phase === 'deploy' && (
+                <details className="mb-2 rounded-xl border border-slate-700">
+                <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-bold text-white">Game plan: {plan.name} · Change before kickoff</summary>
                 <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
-                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1"><ClipboardList size={11} /> Game Plan{introGamePlan && <span className="ml-1 text-[8px] bg-green-500 text-black px-1 rounded animate-pulse">NEW</span>}</span>
+                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1"><ClipboardList size={11} /> Game Plan</span>
                   {GAME_PLANS.map(gp => {
                     const active = plan.key === gp.key;
                     // Scouting read: how does this call fare against THEIR formation?
                     const cm = counterMultFor(gp.key);
                     return (
-                      <button key={gp.key} onClick={() => setPlan(gp)}
-                        className={`relative flex flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
+                      <button type="button" key={gp.key} aria-pressed={plan.key === gp.key} onClick={() => setPlan(gp)}
+                        className={`relative flex min-h-11 flex-col items-start px-2.5 py-1 rounded-lg border-2 transition-all active:scale-95 text-left
                           ${active ? 'border-yellow-400 bg-orange-900/50' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}
                         style={active ? { boxShadow: '0 0 10px rgba(249,115,22,0.4)' } : undefined}>
                         <span className={`flex items-center gap-1 text-[10px] font-bold uppercase leading-tight ${active ? 'text-orange-300' : 'text-slate-400'}`}><PlanGlyph k={gp.key} size={18} className="shrink-0" /> {gp.name}</span>
@@ -1920,6 +1924,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
                     <span className="w-full flex items-center justify-center gap-1 text-[9px] text-sky-300 font-bold"><ClipboardList size={10} className="shrink-0" /> They're running {FORMATIONS[defFormation].name}</span>
                   )}
                 </div>
+                </details>
               )}
               <div className="text-center text-xs text-orange-300 font-bold mb-2">
                 {phase === 'fighting' && <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle"><PlanGlyph k={plan.key} size={11} className="shrink-0" /> {plan.name}</span>}
@@ -2036,8 +2041,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
       {/* Result overlay */}
       {phase === 'result' && result && !celeb && (
         <BattleDebrief config={config} result={result} actors={s.troops} stats={driveStats} modernCombat={modernCombat}
+          buildings={s.buildings} guards={s.guards} planKey={plan.key}
           replayVerified={engineRef.current?.hash === config.replay?.expectedHash && engineRef.current?.state.ticks === config.replay?.expectedTicks && engineRef.current?.rejectedCommands === 0 && engineRef.current?.getReplay().script.length === config.replay?.script.length}
-          onContinue={() => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result); }}
+          onContinue={destination => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result, destination); }}
           onPracticeAgain={onPracticeAgain} />
       )}
     </div>

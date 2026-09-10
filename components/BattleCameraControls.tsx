@@ -14,7 +14,7 @@ export function useReducedBattleMotion() {
 export function BattleCameraControls({ heroes, selected, reduced, onSelect }: {
   heroes: { id: string; name: string }[]; selected: string | null; reduced: boolean; onSelect: (id: string | null) => void;
 }) {
-  return <div aria-label="Battle camera" className="absolute bottom-2 left-2 right-2 z-[250] flex items-center gap-2 rounded-xl bg-slate-950/90 p-2 text-white shadow-lg">
+  return <div aria-label="Battle camera" className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[calc(100%-1rem)] max-w-md z-[250] flex items-center gap-2 rounded-xl bg-slate-950/90 p-2 text-white shadow-lg">
     <button type="button" aria-pressed={!selected} onClick={() => onSelect(null)} className={`min-h-11 shrink-0 rounded-lg px-3 text-xs font-bold ${!selected ? 'bg-orange-500' : 'bg-slate-700'}`}>Full field</button>
     <label className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wide text-slate-300">
       {reduced ? 'Hero close-up · fixed camera' : 'Follow a hero'}

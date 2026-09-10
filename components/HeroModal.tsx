@@ -3,17 +3,20 @@ import { HeroTrainingPreview } from './HeroTrainingPreview';
 
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ResourceType, HeroState } from '../types';
+import { ResourceType, HeroState, UpgradeJob } from '../types';
 import { HERO_DEFS, heroLevelMult, heroStarMult, heroUpgradeCost, heroMaxLevel } from '../battle';
 import { ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS, RollResult } from '../gacha';
 import { Star, ArrowUpCircle, Coins, Dumbbell, Lock, Crown, Sparkles } from 'lucide-react';
 import { Sheet, HowTo } from './ui';
 import { sfx } from '../sound';
+import { upgradeDurationSecs } from '../constants';
 
 interface Props {
   initialHero?: string;
   onPractice?: (key: string) => void;
   heroes: HeroState[];
+  upgrades?: UpgradeJob[];
+  blocked?: boolean;
   resources: Record<ResourceType, number>;
   stadiumLevel: number;
   lastRoll: RollResult | null;
@@ -35,7 +38,7 @@ const heroHue = (hex: string): number => {
   return h < 0 ? h + 360 : h;
 };
 
-export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
+export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, upgrades = [], blocked = false, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
   const stateOf = (key: string) => heroes.find(h => h.key === key);
   const scoutButton = useRef<HTMLButtonElement>(null);
   const revealButton = useRef<HTMLButtonElement>(null);
@@ -82,7 +85,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
       onClose={onClose}
       maxWidth="max-w-3xl"
       actions={
-        <button ref={scoutButton} type="button" onClick={onRoll} disabled={!canRoll || reveal !== 'idle'}
+        <button ref={scoutButton} type="button" onClick={onRoll} disabled={blocked || !canRoll || reveal !== 'idle'}
           className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
             ${canRoll ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
           <Sparkles size={16} /> Scout Search
@@ -160,14 +163,15 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
             const dps = Math.round(def.baseDps * m);
             const cost = heroUpgradeCost(lvl);
             const capped = lvl >= maxLevel;
-            const canAfford = resources.COINS >= cost;
+            const training = upgrades.find(job => job.kind === 'hero' && job.key === def.key);
+            const canAfford = !blocked && !training && resources.COINS >= cost;
             const starCost = STAR_UP_COSTS[strs]; // undefined at MAX_STARS
-            const canStarUp = unlocked && strs < MAX_STARS && !!starCost && shards >= starCost;
+            const canStarUp = !blocked && unlocked && strs < MAX_STARS && !!starCost && shards >= starCost;
 
             // Unlock affordability
             const uCoins = def.unlock?.coins ?? 0;
             const uGems = def.unlock?.gems ?? 0;
-            const canUnlock = resources.COINS >= uCoins && resources.GEMS >= uGems;
+            const canUnlock = !blocked && resources.COINS >= uCoins && resources.GEMS >= uGems;
 
             return (
               <article key={def.key} aria-label={`${def.name} · ${unlocked ? 'On your roster' : 'Locked'}`} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
@@ -266,6 +270,13 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
                         <div className="text-center text-[11px] font-bold text-amber-400">★ MAX EVOLUTION ★</div>
                       )}
 
+                      {strs < MAX_STARS && <p className="text-xs text-slate-300">Next star · {starCost} shards: Grit {hp} → {Math.round(def.baseHp * heroLevelMult(lvl) * heroStarMult(strs + 1))}; Yardage {dps} → {Math.round(def.baseDps * heroLevelMult(lvl) * heroStarMult(strs + 1))}.</p>}
+                      {training ? <p role="status" className="rounded-xl border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-200">Training to level {training.toLevel} · {Math.max(0, Math.ceil((training.finishTime - Date.now()) / 1000))}s remaining. The new stats apply when training completes.</p> : !capped && <div className="rounded-xl border border-slate-700 p-3 text-sm text-slate-300">
+                        <p className="font-bold text-white">Next level: {lvl} → {lvl + 1}</p>
+                        <p>Grit {hp} → {Math.round(def.baseHp * nextM)} · Yardage {dps} → {Math.round(def.baseDps * nextM)}</p>
+                        <p className="mt-1">{cost.toLocaleString()} Coins · {Math.round(upgradeDurationSecs(lvl + 1) * 3)}s training · No builder needed.</p>
+                        {resources.COINS < cost && <p className="mt-1 text-amber-300">Need {(cost - resources.COINS).toLocaleString()} more Coins.</p>}
+                      </div>}
                       {capped ? (
                         <div className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-400 text-sm font-bold flex items-center justify-center gap-2 border border-slate-700">
                           <Lock size={15} /> Max level — upgrade Stadium
@@ -274,7 +285,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, re
                         <button onClick={() => onUpgrade(def.key, cost)} disabled={!canAfford}
                           className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95
                             ${canAfford ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                          <ArrowUpCircle size={16} /> Train to Lv {lvl + 1}
+                          <ArrowUpCircle size={16} /> {training ? 'Training in progress' : `Train to Lv ${lvl + 1}`}
                           <span className="text-[11px] text-slate-300">(+{Math.round((nextM / m - 1) * 100)}%)</span>
                           <span className="flex items-center gap-0.5 text-xs bg-black/20 px-1.5 py-0.5 rounded"><Coins size={11} /> {cost}</span>
                         </button>

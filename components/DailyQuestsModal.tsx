@@ -41,10 +41,10 @@ export const DailyQuestsModal: React.FC<Props> = ({ dailies, onClaim, onClose })
                 {claimed ? (
                   <span className="shrink-0 text-green-400 flex items-center gap-1 text-xs font-bold"><Check size={14} /> DONE</span>
                 ) : (
-                  <button onClick={() => onClaim(q.id)} disabled={!done}
+                  <button onClick={() => onClaim(q.id)} disabled={!done} aria-label={`${done ? 'Claim' : 'Complete task to earn'} ${q.reward.gems ?? q.reward.coins} ${q.reward.gems ? 'Crowns' : 'Coins'}: ${q.text}`}
                     className={`shrink-0 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 transition-all active:scale-95
                       ${done ? 'bg-amber-500 hover:bg-amber-400 text-black animate-pulse' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                    {q.reward.gems ? <><Crown size={12} className="fill-current" /> {q.reward.gems}</> : <><Coins size={12} /> {q.reward.coins}</>}
+                    {done ? 'Claim' : 'Reward'} {q.reward.gems ? <><Crown size={12} className="fill-current" /> {q.reward.gems}</> : <><Coins size={12} /> {q.reward.coins}</>}
                   </button>
                 )}
               </div>
