@@ -3,7 +3,7 @@
 // retention of two previous versions (not per-client acknowledgement eviction).
 // Browser result remains unverified until this script is actually run successfully.
 import { chromium } from 'playwright';
-import { copyFile, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:4191/';
 const parsedBase=new URL(base);
@@ -72,7 +72,7 @@ try {
 
   // ----- Simulated deploy of build 2 in dist/ -----
   await writeFile(`dist${newJs}`,(await readFile(`dist${oldJs}`,'utf8')).split(chunk.split('/').pop()).join(newChunk.split('/').pop()));
-  await copyFile(`dist${chunk}`,`dist${newChunk}`);
+  await writeFile(`dist${newChunk}`,(await readFile(`dist${chunk}`,'utf8')).split(oldJs.split('/').pop()).join(newJs.split('/').pop()));
   await writeFile(htmlPath, originalHtml.split(oldJs).join(newJs));
   await writeFile(swPath, originalSw.split(v1).join(NEW_VERSION).split(oldJs).join(newJs).split(chunk).join(newChunk));
   await removeFromDist(campusSheet); await removeFromDist(battleSheet); await removeFromDist(chunk);
