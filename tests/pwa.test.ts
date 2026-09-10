@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { ART_CACHE_LIMIT, artCache, artEvictions, classify, isSwMessage, shellCache, staleCaches } from '../pwa/swPolicy';
 import { armInstallCapture, detectPlatform, installSupport, onInstallSupportChange, promptInstall, resetInstallForTests, IOS_INSTRUCTIONS } from '../pwa/install';
-import { armConnectionTracking, connectionState, onConnectionChange, reportClubServer, resetConnectionForTests } from '../pwa/connection';
+import { armConnectionTracking, assess, connectionState, onConnectionChange, reportClubServer, resetConnectionForAccount, resetConnectionForTests, SUMMARIES } from '../pwa/connection';
 import { PUBLIC_GAME_URL, shareUrl } from '../game/publicUrl';
 
 const origin = 'https://football-headquarters.vercel.app';
@@ -74,17 +74,68 @@ describe('install helpers', () => {
 });
 
 describe('connection state', () => {
-  beforeEach(() => { resetConnectionForTests(); });
+  const fakeWindow = () => { const handlers: Record<string, Set<() => void>> = {}; return { handlers, fire: (t: string) => { for (const h of handlers[t] ?? []) h(); }, addEventListener: (t: string, h: () => void) => { (handlers[t] ??= new Set()).add(h); }, removeEventListener: (t: string, h: () => void) => { handlers[t]?.delete(h); } }; };
+  let clock = 1_000;
+  beforeEach(() => { clock = 1_000; resetConnectionForTests(() => clock); });
   it('combines browser online state with club-server reachability and never claims offline settlement', () => {
-    const handlers: Record<string, () => void> = {};
-    armConnectionTracking({ addEventListener: (type: string, h: unknown) => { handlers[type] = h as () => void; } } as unknown as Window);
+    const w = fakeWindow();
+    armConnectionTracking(w as unknown as Window);
     const seen: string[] = []; onConnectionChange(s => seen.push(`${s.online}/${s.clubServer}`));
     reportClubServer('ok'); reportClubServer('ok');
-    handlers.offline(); handlers.online(); reportClubServer('unauthorized');
+    w.fire('offline'); w.fire('online'); reportClubServer('unauthorized');
     expect(seen).toEqual(['true/unknown', 'true/ok', 'false/ok', 'true/ok', 'true/unauthorized']);
     expect(connectionState().settlesOffline).toBe(false);
-    handlers.offline();
+    w.fire('offline');
     expect(connectionState().summary).toMatch(/Offline: local play continues/);
+  });
+  it('keeps transport failure, expired sign-in and server unavailability apart, with accurate summaries and actions', () => {
+    expect(assess(true, 'ok')).toBe('connected'); expect(assess(true, 'unknown')).toBe('unchecked');
+    expect(assess(true, 'offline')).toBe('transport-failure'); expect(assess(true, 'unauthorized')).toBe('auth-expired'); expect(assess(true, 'unavailable')).toBe('server-unavailable');
+    expect(assess(false, 'ok')).toBe('browser-offline'); // the browser's "definitely offline" wins over a stale OK
+    reportClubServer('offline');
+    expect(connectionState()).toMatchObject({ online: true, assessment: 'transport-failure', action: 'wait', consecutiveFailures: 1, lastFailureAt: 1_000, lastOkAt: null });
+    expect(connectionState().summary).toMatch(/device reports a connection, but the club server could not be reached/);
+    clock = 2_000; reportClubServer('unauthorized');
+    expect(connectionState()).toMatchObject({ assessment: 'auth-expired', action: 'sign-in', consecutiveFailures: 2, lastFailureAt: 2_000 });
+    expect(connectionState().summary).toMatch(/sign in again/);
+    clock = 3_000; reportClubServer('unavailable');
+    expect(connectionState()).toMatchObject({ assessment: 'server-unavailable', action: 'wait', consecutiveFailures: 3 });
+    expect(connectionState().summary).toMatch(/club server is unavailable/);
+    clock = 4_000; reportClubServer('ok');
+    expect(connectionState()).toMatchObject({ assessment: 'connected', action: null, consecutiveFailures: 0, lastOkAt: 4_000, lastFailureAt: 3_000 });
+    for (const key of Object.keys(SUMMARIES) as Array<keyof typeof SUMMARIES>) expect(SUMMARIES[key]).not.toMatch(/settle|saved online/i); // no summary promises offline settlement
+  });
+  it('navigator.onLine is a hint: online=true with a failing transport is not "connected", and online=false overrides everything', () => {
+    const w = fakeWindow(); armConnectionTracking(w as unknown as Window);
+    reportClubServer('ok');
+    w.fire('offline');
+    expect(connectionState()).toMatchObject({ online: false, clubServer: 'ok', assessment: 'browser-offline' });
+    w.fire('online');
+    reportClubServer('offline'); reportClubServer('offline');
+    expect(connectionState()).toMatchObject({ online: true, assessment: 'transport-failure', consecutiveFailures: 2 });
+  });
+  it('repeated identical reports update counters without re-notifying; subscriptions and tracking clean up', () => {
+    const w = fakeWindow(); const stop = armConnectionTracking(w as unknown as Window);
+    expect(armConnectionTracking(w as unknown as Window)).toBe(stop); // idempotent
+    const seen: string[] = []; const off = onConnectionChange(s => seen.push(s.assessment));
+    reportClubServer('offline'); reportClubServer('offline'); reportClubServer('offline');
+    expect(seen).toEqual(['unchecked', 'transport-failure']); expect(connectionState().consecutiveFailures).toBe(3);
+    off(); reportClubServer('ok'); w.fire('offline');
+    expect(seen).toEqual(['unchecked', 'transport-failure']); // unsubscribed
+    stop();
+    expect(w.handlers.online.size + w.handlers.offline.size).toBe(0); // listeners removed
+    w.fire('online'); expect(connectionState().online).toBe(false); // nothing listens any more
+  });
+  it('an account change resets the server status so the previous owner\'s failures never describe the next one', () => {
+    const seen: Array<[string, string | null, number]> = []; onConnectionChange(s => seen.push([s.assessment, s.account, s.consecutiveFailures]));
+    reportClubServer('unauthorized'); reportClubServer('unauthorized');
+    expect(connectionState()).toMatchObject({ assessment: 'auth-expired', consecutiveFailures: 2, account: null });
+    resetConnectionForAccount('owner-b');
+    expect(connectionState()).toMatchObject({ assessment: 'unchecked', clubServer: 'unknown', consecutiveFailures: 0, lastFailureAt: null, lastOkAt: null, account: 'owner-b' });
+    expect(seen).toEqual([['unchecked', null, 0], ['auth-expired', null, 1], ['unchecked', 'owner-b', 0]]);
+    resetConnectionForAccount(null); // signed out to guest
+    expect(connectionState().account).toBeNull();
+    expect(seen.length).toBe(4); // always notified on an account change, even when the assessment did not change
   });
 });
 
