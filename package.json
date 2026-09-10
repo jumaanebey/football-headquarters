@@ -18,7 +18,10 @@
     "determinism:corpus": "esbuild scripts/write-determinism-corpus.ts --bundle --platform=node --format=esm --define:import.meta.env={} --outfile=dist/write-determinism-corpus.mjs && node dist/write-determinism-corpus.mjs",
     "determinism:browser": "node scripts/determinism-browser.mjs",
     "authority:evidence": "esbuild scripts/authority-evidence.ts --bundle --format=esm --platform=node --outfile=dist/authority-evidence.mjs && node --env-file=.env.production dist/authority-evidence.mjs",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "authority:rehearsal": "esbuild scripts/restore-rehearsal.ts --bundle --format=esm --platform=node --define:import.meta.env={} --outfile=dist/restore-rehearsal.mjs && node dist/restore-rehearsal.mjs",
+    "art:verify": "esbuild scripts/verify-hero-atlases.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/verify-hero-atlases.mjs && node dist/verify-hero-atlases.mjs",
+    "release:verify": "node scripts/release-verify.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.554.0",

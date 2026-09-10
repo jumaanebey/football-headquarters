@@ -1,0 +1,194 @@
+{
+  "heroes": {
+    "qb": {
+      "files": {
+        "motion/qb.webp": {
+          "sha256": "e7cbacc660d2a2666e8b76b5417b9e3670849da4b699efadb2aeabf7352206a0",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/qb.webp": {
+          "sha256": "6eaf744d93c681de36a7075067e169d9c19fe28f1e1098579ed1a10799143d52",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/qb.webp": {
+          "sha256": "a3a947c8e22355ea3d82d7641dda9d49a795b5a2e5f3a0c4211e495f204be14c",
+          "width": 1254,
+          "height": 1254
+        },
+        "reactions/qb.webp": {
+          "sha256": "83cdab11da4d47f73a54be817939ec7a24c8cc1a51fd798b4c12622e8c2242e1",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "8449194b1e45c374"
+    },
+    "enforcer": {
+      "files": {
+        "motion/enforcer.webp": {
+          "sha256": "2fe8a045bba6728c12630689010efa906e1f3221761774b60846671316d03bf9",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/enforcer.webp": {
+          "sha256": "0fbe18a4007df566ce7a455d968d8ed9905b8163908a38d2c3dec3141a3a12b3",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/enforcer.webp": {
+          "sha256": "99b718001475a5417d70e14c69f8e6b6e0fcd4616666f814e9346ee8879e63a5",
+          "width": 1254,
+          "height": 1254
+        },
+        "reactions/enforcer.webp": {
+          "sha256": "260a2b96c99a4c3f8f743d74bc7ba66942f234b937bb149e988904260a9f108d",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "ec9d97de8a847f3d"
+    },
+    "coach": {
+      "files": {
+        "motion/coach.webp": {
+          "sha256": "2e99867bd748425053caad08fef1905678fbef1b812c50ee1ddd72491d3be7ca",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/coach.webp": {
+          "sha256": "4619b692462d226a1437aff96448c8de0307a3457c3b4e6201c15d4e7eea4d79",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/coach.webp": {
+          "sha256": "c5228458f148dcc8ce2ad7d41b9791629e599ed3527ca6350fd0a1532c0124cf",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "23bd0a95c6a608b1"
+    },
+    "kicker": {
+      "files": {
+        "motion/kicker.webp": {
+          "sha256": "f70e934157c3a785fd245a62f634ddef2569f505406d04311ee082c494fc88b2",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/kicker.webp": {
+          "sha256": "5ab48c06832f32fa5f739e7b897852243e2c301100bf8c8b55c74c4a26b7ccd8",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/kicker.webp": {
+          "sha256": "3490eaa49bf0131cfe83021fd8df6448a44f51abfbe5fdeb825f8c6b8bb7e495",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "f59dc2557c1cf745"
+    },
+    "burner": {
+      "files": {
+        "motion/burner.webp": {
+          "sha256": "2585880c16b78c466fde19bfd9b3f5fb653c06bf25890e75ba8d426515e5a89d",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/burner.webp": {
+          "sha256": "9304d570c9bf15a2c608405c2615eccc0d04f96f5128b0d4207793885dc10263",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/burner.webp": {
+          "sha256": "a32c1207ecafc8f1eeee754c1eb0be885732c45bfa3bb9b3f69023bfbdd063e6",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "28b9879723aeae30"
+    },
+    "medic": {
+      "files": {
+        "motion/medic.webp": {
+          "sha256": "75fa80dc0ea63afda531cac03263c98c1d6bd2b99c781eb32d4194cc77c9dbe1",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/medic.webp": {
+          "sha256": "c34ad1d3dad027358d2db9f18c05b0bb58f49519da91ed8a818a52833a9c1864",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/medic.webp": {
+          "sha256": "9abb76995231c27d92e70e7cb63db949e1daad1dfff10294341cbeedb4880cc5",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "bbfa96f8c5447fc2"
+    },
+    "captain": {
+      "files": {
+        "motion/captain.webp": {
+          "sha256": "13a4a18e699e5d16c0a32335ac62d421ab760b1503be25cff222bc771f0dab3a",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/captain.webp": {
+          "sha256": "150435f3c8f2350980027716bea0a37a151100603e30ced429317c010184a917",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/captain.webp": {
+          "sha256": "ef9585702623f0bfcb7cd954ffbe811090114bb7a8485924fb03b7094541b46f",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "a5f04cb913c5d256"
+    },
+    "playmaker": {
+      "files": {
+        "motion/playmaker.webp": {
+          "sha256": "bc950c3223297deed1b7ec637f135e949ad74eb74723467b55ca23016d23c287",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/playmaker.webp": {
+          "sha256": "e0af865ccf9cb7e9b32f05274cfd6f068d2611bb266dc3b5d793e0323cf2aa6f",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/playmaker.webp": {
+          "sha256": "f1558670919740f19814fea8a1f61b63bbfcba474749706497b19dcae05bbf7b",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "f8a14132b64612e1"
+    },
+    "legend": {
+      "files": {
+        "motion/legend.webp": {
+          "sha256": "786c622d46a5bfcce478a7e1c6854bd76a9a231c3e7712dec2041e28cae5c73a",
+          "width": 1774,
+          "height": 887
+        },
+        "elite/legend.webp": {
+          "sha256": "cb87a99d04cd20d737b7d402873545950a363c857c39eaf5f73aee86c45dd50f",
+          "width": 1254,
+          "height": 1254
+        },
+        "signatures/legend.webp": {
+          "sha256": "7006b6f181ef43a350a09464a01def98ac1cd0992dfc1a226934bf0cbd1d5a24",
+          "width": 1254,
+          "height": 1254
+        }
+      },
+      "regions": "b263749f4653acfb"
+    }
+  }
+}

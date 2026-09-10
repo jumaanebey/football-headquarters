@@ -88,6 +88,12 @@ Rollback (tested in principle by the v2→v3 replacement; not drilled in product
 
 Operational signals: Supabase `function_logs` (`event loop error` lines mean a startup crash, as in v2), `function_edge_logs` status codes, and on the client Settings › Online protection › Connection details (availability, confirmation latency, pending/refused counts).
 
+### Guards and rehearsal (added 2026-09-10, tranche 5)
+
+- `supabase/recovery/deployed.json` records what is deployed (v3: artifact, sha256, pinned commit, rules, entry) and what is staged (v4). `npm run authority:build -- --check` verifies sources ↔ `index.ts` ↔ staged artifact ↔ deployed artifact ↔ pinned commit ↔ rules, scans generated output for token-shaped strings, and reports deployment lag (`--require-deployed-current` makes it a failure). After every deploy, update the `deployed` block (version, sha256, commit, `deployedAt`) and run the check.
+- Restore rehearsal: `npm run authority:rehearsal` restores a synthetic backup of the four tables into an isolated memory store and replays a device's pending requests (exactly-once verified). A real restore follows the same shapes: `server/authoritySnapshot.ts` exports rows with the tables' column names (`fhq_authority_clubs(pid, state, revision, active_match, origin, updated_at)`, `fhq_authority_matches(id, owner, status, config, seed, issued_at, expires_at, metadata, result)`, `fhq_authority_operations(owner, operation_id, request_hash, result)`, `fhq_authority_configuration(activation_at)`); insert matches before clubs (the active-match foreign key), then operations; clients replay their ledgers on the next load and the operation rows answer already-applied requests with their original receipts. Never restore over production without a fresh backup taken first; never copy production rows into repository fixtures.
+- `npm run release:verify` composes the offline checks; `--live` adds the credentialed evidence (owner-run).
+
 ## Release: what deploying the fix involves
 
 1. `npm run authority:build` (already run; `supabase/functions/club-authority/index.ts` sha256 `10df7c51…`).
@@ -100,4 +106,5 @@ No new migration is required for this package. The legacy (unprotected) publish 
 ## Deferred, unchanged
 
 - QA record cleanup and analytics exclusions (owner: "build everything else and come back to this later"). The evidence script's test accounts (`fhq-authority-evidence-A/B/C` club names, anonymous users) will join that cleanup list once it runs against a working deployment.
+- Consolidated inventory of every QA and evidence account (ids where known, club names otherwise): `docs/AUTHORITY-HARDENING.md` › "Consolidated deferred QA cleanup inventory".
 - `fhq_authority_configuration.activation_at` stays `2026-09-10 00:47:31 UTC`.

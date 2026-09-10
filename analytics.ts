@@ -8,10 +8,12 @@
 
 import { pvpEnabled, playerId } from './pvp';
 
-const env = (import.meta as any).env || {};
-const URL_ = env.VITE_SUPABASE_URL as string | undefined;
-const ANON = env.VITE_SUPABASE_ANON_KEY as string | undefined;
-const DEV = !!env.DEV;
+// Read like pvp.ts does: Vite replaces `import.meta.env.X` statically in the build, and the
+// test runner's transform only rewrites this direct form (a parenthesized `(import.meta as any).env`
+// left the module inert under tests, which is why delivery was never covered before).
+const URL_ = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const DEV = !!import.meta.env.DEV;
 
 // A random id for THIS page load — lets us stitch a single play session together
 // without any cross-session tracking. Regenerated every reload; never persisted.
