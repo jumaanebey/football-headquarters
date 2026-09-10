@@ -1,6 +1,10 @@
 # Football Headquarters — full reconstruction checklist
 
-Updated September 9, 2026. Published baseline: `3056988` (ground, distance-driven hero motion and free hero practice). User authorized full implementation, publication and delegated work. This checklist preserves the approved scope; an unchecked gate is not complete. The earlier 30% figure was an estimate, not a measured completion score.
+Updated September 10, 2026. Published baseline at resumption: `cc1f598` (shared hero combat, replay, free practice, progression and online client integrity). This checklist preserves the approved scope; an unchecked gate is not complete. The earlier 30% figure was an estimate, not a measured completion score.
+
+## Current continuation — hero results and defense presentation
+
+See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed implementation and release gates. Category standouts credit measured recovery and protection alongside yardage; result controls use a scrolling sheet with a persistent footer; replay messaging reflects the defending viewer; both sides share modern hero size and foot anchors. The deferred database cleanup and broader authored-art work remain open.
 
 ## Current implementation checkpoint
 
@@ -138,4 +142,3 @@ Updated September 9, 2026. Published baseline: `3056988` (ground, distance-drive
 Place a facility → choose a favorite hero → run a timed signature → see the correct result → receive one confirmed reward → improve and save the club → watch the same layout defend under the same rules.
 
 Two heroes establish the production method. They do not reduce the final scope of nine heroes and the complete shipping asset inventory.
-

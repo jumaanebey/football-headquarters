@@ -1,6 +1,8 @@
 import { HeroArt } from './HeroArt';
 import { BuildingSprite } from './BuildingArt';
 import { BattleHeroSprite } from './BattleHeroSprite';
+import { BattleDebrief } from './BattleDebrief';
+import { resultPresentation } from '../game/battleDebrief';
 import { HeroCommandBar } from './HeroCommandBar';
 import { FieldPaint, TURF } from './FieldPaint';
 import { spriteMotion } from '../game/spriteMotion';
@@ -57,6 +59,8 @@ interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'de
 
 const TICK_MS = 50;
 const DT = TICK_MS / 1000;
+// The same hero size and foot anchor on both sides of the stadium.
+const HERO_FIELD_SIZE = { width: '10%', minWidth: 52, maxWidth: 88, transform: 'translate(-50%, -96%)' };
 let troopUid = 0;
 
 // 🔷 ISO PROJECTION — the sim runs on a flat 0-100 square (pathing, ranges, replays all
@@ -245,7 +249,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
       else (sfx as unknown as Record<string, (()=>void)|undefined>)[cue.name]?.();
     }
   };
-  const [driveStats, setDriveStats] = useState<{ mvp: string; mvpDmg: number; pancakes: number; lost: number; bonus: number } | null>(null);
+  const [driveStats, setDriveStats] = useState<{ pancakes: number; lost: number; bonus: number } | null>(null);
 
   // Play-by-play announcer — every big moment gets a line.
   const say = (text: string) => { sim.current.commentary = { text, t: sim.current.time }; };
@@ -463,7 +467,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
       crowdBedStop(); // dead silence — their crowd is gone
       if (result) {
         if (celebRef.current) { sfx.airhorn(); sfx.fightSong(); } // the band takes the field; victory sting lands with the card
-        else { if (result.won && !povDefense) sfx.airhorn(); (result.won ? sfx.victory : sfx.defeat)(); }
+        else { const won = resultPresentation(config, result).viewerWon; if (won && !povDefense) sfx.airhorn(); (won ? sfx.victory : sfx.defeat)(); }
       }
     }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -485,14 +489,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
     const hqDead = s.buildings.find(b => b.kind === 'hq')?.dead ?? false;
     const stars = (pct >= 50 ? 1 : 0) + (hqDead ? 1 : 0) + (pct >= 99 ? 1 : 0);
     const frac = pct / 100;
-    // Drive summary: who was your MVP, what did the defense cost you, what did you take.
+    // Category leaders are derived from measured contributions in the debrief.
     if (!isDefense) {
-      const best = [...s.troops].sort((a, b) => (b.dmg ?? 0) - (a.dmg ?? 0))[0];
-      const mvpName = !best ? '—'
-        : best.isHero ? (heroes.find(h => h.key === best.heroKey)?.name ?? 'Hero')
-        : best.special ? (best.special === 'mascot' ? 'The Mascot' : 'The Fan Mob')
-        : `#${best.jersey} ${TROOP_STATS[best.unit].label}`;
-      setDriveStats({ mvp: mvpName, mvpDmg: Math.round(best?.dmg ?? 0), pancakes: s.pancakes, lost: s.lost, bonus: s.bonus });
+      setDriveStats({ pancakes: s.pancakes, lost: s.lost, bonus: s.bonus });
     }
     // Live-rival attack? Package the full recording so the defender can WATCH this drive.
     const replay: ReplayData | undefined = modernCombat && !isReplay ? engineRef.current!.getReplay() : (!isReplay && config.pvpTarget) ? {
@@ -1692,7 +1691,9 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             const stripe = isDefense ? '#f97316' : '#b91c1c';
             const jersey = isDefense ? '#1f2937' : '#b91c1c';
             const art = (g as BTroop & { guardArt?: string }).guardArt; // hero defenders carry their portrait
-            const isHeroGuard = !!art;
+            const guardHeroKey = art?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1];
+            const isHeroGuard = !!guardHeroKey;
+            const modernHeroGuard = modernCombat && isHeroGuard;
             const isMascotG = !!(g as BTroop & { isMascot?: boolean }).isMascot;
             // Mascot-hyped defenders play FRENZIED — red glow while the pulse lasts.
             const frenzied = g.rageT > 0;
@@ -1700,11 +1701,11 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             const attacking = phase === 'fighting' && !!g.attacking;
             const gBaseFilter = isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)';
             return (
-              <div key={g.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${px(g.x, g.y)}%`, top: `${py(g.x, g.y)}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, zIndex: Math.round((g.x + g.y) / 2) + 1 /* unified iso depth: units occlude BEHIND buildings, not float over them */, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+              <div key={g.id} data-defending-hero={guardHeroKey} data-action-state={walking ? 'running' : attacking ? 'contact' : 'idle'} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
+                style={{ left: `${px(g.x, g.y)}%`, top: `${py(g.x, g.y)}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, ...(modernHeroGuard ? HERO_FIELD_SIZE : {}), zIndex: Math.round((g.x + g.y) / 2) + 1 /* unified iso depth: units occlude BEHIND buildings, not float over them */, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {g.hp < g.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%' }}><div className={`h-full ${isDefense ? 'bg-lime-400' : 'bg-red-400'}`} style={{ width: `${(g.hp / g.maxHp) * 100}%` }} /></div>}
-                <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : walking ? `fhq-stepbob ${(g.strideSeconds ?? 0.42) / 2}s ease-in-out infinite` : undefined, rotate: !walking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
-                  <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: '-5%', width: '58%', height: '13%' }} />
+                <div className="fhq-unit relative w-full" style={{ aspectRatio: '1', filter: g.hitFlash > 0 ? 'brightness(2.1)' : undefined, animation: modernHeroGuard ? undefined : g.hitFlash > 0 ? 'fhq-hitjolt 0.18s ease-out' : attacking ? `fhq-lunge-${((g as BTroop & { face?: number }).face ?? 1) > 0 ? 'r' : 'l'} 0.65s ease-in-out infinite` : walking ? `fhq-stepbob ${(g.strideSeconds ?? 0.42) / 2}s ease-in-out infinite` : undefined, rotate: modernHeroGuard || !walking ? undefined : ((g as BTroop & { face?: number }).face ?? 1) > 0 ? '2.5deg' : '-2.5deg' }}>
+                  <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: modernHeroGuard ? '0%' : '-5%', width: '58%', height: '13%' }} />
                   {/* Chip fallback hides the moment the sprite loads — no floating bubble. */}
                   {isMascotG ? (
                     <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '3.2vmin' }}>🐯</span>
@@ -1725,10 +1726,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
                     <SpriteFrames sources={WALK_FRAMES.map(fr => `${unitPlayerSprite(g.unit).replace('-player.webp', '')}-${fr}.webp`)} duration={g.strideSeconds}
                       style={{ transform: (g.face ?? 1) > 0 ? 'scaleX(-1)' : undefined, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
                   )}
-                  {(() => { const key = art?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1];
-                    return key ? <BattleHeroSprite heroKey={key} actor={g} fighting={phase === 'fighting'}
-                      filter={frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter} /> : null;
-                  })()}
+                  {guardHeroKey && <BattleHeroSprite heroKey={guardHeroKey} actor={g} fighting={phase === 'fighting'}
+                    filter={frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter} />}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
                 </div>
               </div>
@@ -1766,7 +1765,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             const shadow = <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-black/30 pointer-events-none" style={{ bottom: modernCombat && heroDef ? '0%' : '-5%', width: '58%', height: '13%' }} />;
             return (
               <div key={t.id} data-hero={t.heroKey} data-action-state={t.activeAction ? 'signature' : walking ? 'running' : attacking ? 'contact' : 'idle'} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, transform: modernCombat && heroDef ? 'translate(-50%, -96%)' : undefined, width: w, minWidth: wmin, maxWidth: wmax, zIndex: Math.round((t.x + t.y) / 2) + 1, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, width: w, minWidth: wmin, maxWidth: wmax, ...(modernCombat && heroDef ? HERO_FIELD_SIZE : {}), zIndex: Math.round((t.x + t.y) / 2) + 1, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
                 {t.hp < t.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
                 {specialDef ? (
@@ -2017,84 +2016,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
 
       {/* Result overlay */}
       {phase === 'result' && result && !celeb && (
-        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-10 animate-fade-in overflow-hidden">
-          {/* Confetti on a win */}
-          {result.won && Array.from({ length: 40 }).map((_, i) => (
-            <div key={i} className="absolute top-0 pointer-events-none" style={{ left: `${(i * 137) % 100}%`, width: 8, height: 12, background: ['#f59e0b', '#3b82f6', '#ef4444', '#22c55e', '#e2e8f0'][i % 5], borderRadius: 2, animation: `fhq-confetti ${1.8 + (i % 5) * 0.25}s linear ${(i % 7) * 0.13}s infinite` }} />
-          ))}
-          <div className="relative bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl overflow-hidden" style={{ animation: 'fhq-reveal-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-            <div className={`py-6 text-center ${config.practice ? 'bg-gradient-to-b from-sky-800 to-slate-950' : result.won ? 'bg-gradient-to-b from-green-700 to-green-900' : 'bg-gradient-to-b from-red-800 to-red-950'}`}>
-              {/* Say WON or LOST first. Every headline here was pure flavour — a first-timer
-                  read "Shut Out" or "Goal-Line Stand!" and could not tell what had happened
-                  to them. Flavour is kept, but the verdict leads. */}
-              {!(result.campaignStage === 12 && result.won) && (
-                <div className={`text-sm font-display font-black uppercase tracking-widest mb-1 ${config.practice ? 'text-sky-300' : result.won ? 'text-green-300' : 'text-red-300'}`}>
-                  {config.practice ? 'Free hero practice' : result.won ? 'You won' : 'You lost'}
-                </div>
-              )}
-              <div className="text-3xl font-display font-black text-white uppercase mb-3">
-                {config.practice ? 'Practice Complete' : result.campaignStage === 12 && result.won ? '💍 League Champions!'
-                  : result.gauntletTier !== undefined ? (result.gauntletCleared ? `🛡 Night ${result.gauntletTier} Survived!` : 'The House Fell')
-                  : isReplay ? (result.won ? 'They Scored On You' : 'Your Defense Held!')
-                  : isDefense ? (result.won ? 'Goal-Line Stand!' : 'They Scored!') : (result.won ? 'Crowd Silenced!' : 'Shut Out')}
-              </div>
-              {result.gauntletTier !== undefined && (
-                <div className="flex justify-center gap-1.5 mb-1">
-                  {[0, 1, 2, 3, 4].map(i => (
-                    <span key={i} className="text-xl" style={{ opacity: i < (result.wavesHeld ?? 0) ? 1 : 0.25, filter: i < (result.wavesHeld ?? 0) ? 'none' : 'grayscale(1)', display: 'inline-block', animation: i < (result.wavesHeld ?? 0) ? `fhq-reveal-in 0.4s cubic-bezier(0.34,1.56,0.64,1) ${0.3 + i * 0.16}s both` : undefined }}>🛡</span>
-                  ))}
-                </div>
-              )}
-              {result.gauntletTier === undefined && (
-                <>
-                  <div className="flex justify-center gap-3 text-4xl">
-                    {[0, 1, 2].map(i => <span key={i} style={{ opacity: i < result.stars ? 1 : 0.25, filter: i < result.stars ? 'none' : 'grayscale(1)', display: 'inline-block', animation: i < result.stars ? `fhq-reveal-in 0.45s cubic-bezier(0.34,1.56,0.64,1) ${0.35 + i * 0.28}s both` : undefined }}>🏈</span>)}
-                  </div>
-                  <div className="text-[11px] uppercase tracking-widest text-white/60 font-bold mt-2">Game Balls</div>
-                </>
-              )}
-              {result.gauntletTier !== undefined && <div className="text-[11px] uppercase tracking-widest text-white/60 font-bold mt-1">Waves held — {result.wavesHeld}/5</div>}
-              {!isDefense && config.rival && (
-                <div className="mx-6 mt-3 flex items-center justify-center gap-2 text-left">
-                  <span className="relative shrink-0 w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>
-                    <span className="absolute inset-0 flex items-center justify-center">{config.rival.emoji}</span>
-                    <img src={config.rival.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-cover" />
-                  </span>
-                  <span className="text-[11px] italic text-white/85 leading-snug">“{result.won ? config.rival.win : config.rival.loss}”</span>
-                </div>
-              )}
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{config.practice ? 'Practice targets cleared' : isDefense ? 'Your base sacked' : 'Rival base sacked'}</span><span className="font-mono font-bold text-white">{result.pct}%</span></div>
-              {!isDefense && driveStats && (
-                <>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} yds)</span></span></div>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">{config.practice ? 'Practice defenders stopped' : '💥 Defenders flattened'}</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{!config.practice && driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">{config.practice ? 'Players subbed out' : '🩹 Your players knocked out'}</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
-                </>
-              )}
-              {result.gauntletTier !== undefined ? (() => { const pay = gauntletReward(result.gauntletTier, result.wavesHeld ?? 0, !!result.gauntletCleared); return (
-                <>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">💰 Night purse</span><span className="font-mono font-bold text-yellow-400">+{pay.coins.toLocaleString()}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">New fans won over</span><span className="font-mono font-bold text-rose-400">+{pay.fans}</span></div>
-                </>
-              ); })() : !config.practice && (
-              <div className="flex justify-between text-sm"><span className="text-slate-400">{isDefense ? 'Coins lost' : 'Coins won'}</span><span className={`font-mono font-bold ${isDefense ? 'text-red-400' : 'text-yellow-400'}`}>{isDefense ? '−' : '+'}{result.coins}</span></div>
-              )}
-              {!isDefense && !config.practice && <div className="flex justify-between text-sm"><span className="text-slate-400">New fans won over</span><span className="font-mono font-bold text-rose-400">+{result.fans}</span></div>}
-              {modernCombat && <div className="rounded-lg border border-slate-700 p-3 text-sm" aria-label={config.practice ? "Practice contributions" : "Hero contributions"}>
-                <p className="font-bold text-white mb-2">Your heroes’ contribution</p>
-                {s.troops.filter(actor => actor.isHero).map(actor => <p key={actor.id} className="text-slate-300 mb-1">{heroes.find(hero => hero.key === actor.heroKey)?.name}: {Math.round(actor.dmg ?? 0)} yards · {Math.round(actor.healingDone ?? 0)} recovered · {Math.round(actor.protectionDone ?? 0)} blocked</p>)}
-                {config.practice && <p className="text-xs text-slate-400 mt-2">Practice does not change your club or award rewards.</p>}
-              </div>}
-              {isReplay && modernCombat && <p role="status" className="text-xs text-slate-300">{engineRef.current?.hash === config.replay?.expectedHash && engineRef.current?.state.ticks === config.replay?.expectedTicks && engineRef.current?.rejectedCommands === 0 && engineRef.current?.getReplay().script.length === config.replay?.script.length ? 'Replay matches the recorded drive.' : 'Replay could not be verified against the recording.'}</p>}
-              <button onClick={() => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result); }} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95">
-                {config.practice ? 'Back to Hero Film Room' : isReplay ? 'Close Replay' : isDefense ? 'Back to Base' : 'Collect Rewards'}
-              </button>
-              {config.practice && onPracticeAgain && <button type="button" onClick={onPracticeAgain} className="w-full min-h-11 py-3 rounded-xl border border-slate-500 text-white font-bold">Practice again · Free</button>}
-            </div>
-          </div>
-        </div>
+        <BattleDebrief config={config} result={result} actors={s.troops} stats={driveStats} modernCombat={modernCombat}
+          replayVerified={engineRef.current?.hash === config.replay?.expectedHash && engineRef.current?.state.ticks === config.replay?.expectedTicks && engineRef.current?.rejectedCommands === 0 && engineRef.current?.getReplay().script.length === config.replay?.script.length}
+          onContinue={() => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result); }}
+          onPracticeAgain={onPracticeAgain} />
       )}
     </div>
   );
