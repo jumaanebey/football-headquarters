@@ -1,3 +1,6 @@
+import { useClubStyle } from './ClubStyle';
+import { defaultClubStyle } from '../game/clubStyle';
+import { DefenseShot } from './DefenseShot';
 import { BattleFieldReport } from './BattleFieldReport';
 import { buildingObscuresHero, visibleBattleEffects, moveBattleCursor, heroKeyForPresentation } from '../game/battleReadability';
 import { HeroSubstitutions } from './HeroSubstitutions';
@@ -50,6 +53,7 @@ import { createBattleEngine, type BattleEngine } from '../game/combat/engine';
 
 interface Props {
   config: BattleConfig;
+  clubName?: string;
   initialPlan?: GamePlanKey;
   openingHero?: string;
   onFinish: (result: BattleResult, destination?: PostBattleDestination) => void;
@@ -158,7 +162,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
   targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, special: def.key,
 });
 
-export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff, onResultViewed }) => {
+export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff, onResultViewed }) => {
   const [showThreats, setShowThreats] = useState(false);
   const [showPlayerLabels, setShowPlayerLabels] = useState(false);
   const [replayPaused, setReplayPaused] = useState(false);
@@ -1231,6 +1235,9 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
     deployTroopAt(wx, wy);
   };
 
+  const teamStyle=useClubStyle(clubName??config.attackerName??'Home club');
+  const opponentStyle=defaultClubStyle(config.title);
+  const modeLabel=config.practice?'Practice':config.gauntlet?'Gauntlet':config.campaignStage?'Season':config.pvpTarget?'Rival game':config.mode==='defense'?'Defense test':'Away game';
   const s = sim.current;
   // CAMERA DRIFT: focus on whoever is trading blows right now (fall back to the
   // advancing pack), ease a small translate toward them. Capped at ±4% of the field
@@ -1294,7 +1301,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
     : 'Pick your offense — players, heroes, or plays';
 
   return (
-    <div ref={battlePanel} data-replay-paused={isReplay && replayPaused ? 'true' : undefined} role="dialog" aria-modal="true" aria-label={config.practice ? 'Free hero practice' : config.replay?.displayTitle ?? config.title} tabIndex={-1} onKeyDown={containBattleFocus} className="fhq-battle fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
+    <div ref={battlePanel} data-replay-paused={isReplay && replayPaused ? 'true' : undefined} role="dialog" aria-modal="true" aria-label={config.practice ? 'Free hero practice' : config.replay?.displayTitle ?? config.title} tabIndex={-1} onKeyDown={containBattleFocus} className="fhq-battle fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none" style={{'--fhq-home-paint':teamStyle.primary,'--fhq-away-paint':opponentStyle.primary===teamStyle.primary?opponentStyle.secondary:opponentStyle.primary,'--fhq-mode-color':config.gauntlet?'#a78bfa':config.practice?'#67e8f9':config.campaignStage?'#fbbf24':'#fb7185'} as React.CSSProperties}>
       {/* ⚡ ability cast — edges flash in the caster's color */}
       {abilityFlash && phase === 'fighting' && (
         <React.Fragment key={abilityFlash.key}>
@@ -1343,7 +1350,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
           <div className="min-w-0">
             {/* Phone: ONE line, truncated — the two-line wrap crushed the whole bar */}
             <div className="font-display font-bold text-white uppercase tracking-tight leading-none flex items-center gap-1.5 sm:gap-2 text-[13px] sm:text-base min-w-0">
-              {isDefense && <Shield size={14} className="text-blue-400 shrink-0" />}<span className="truncate">{config.replay?.displayTitle ?? config.title}</span>
+              {isDefense && <Shield size={14} className="text-blue-400 shrink-0" />}<span className="fhq-mode-tag">{modeLabel}</span><span className="truncate">{config.replay?.displayTitle ?? config.title}</span>
               {isReplay && <span className="text-[9px] font-black bg-red-600 text-white px-1.5 py-0.5 rounded animate-pulse shrink-0">● REPLAY</span>}
             </div>
             <div className="flex items-center gap-1 mt-0.5 text-sm sm:text-base leading-none">
@@ -1556,27 +1563,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
             <div key={i} className="absolute rounded-[50%] border-2 pointer-events-none" style={{ left: `${px(p.x, p.y) - p.r * ISO_KX * 1.414}%`, top: `${py(p.x, p.y) - p.r * ISO_KY * 1.414}%`, width: `${p.r * ISO_KX * 2.828}%`, height: `${p.r * ISO_KY * 2.828}%`, borderColor: p.color, backgroundColor: `${p.color}22`, opacity: p.life / p.maxLife }} />
           ))}
 
-          {/* Defense "shots" arc through the air — footballs, penalty flags, or t-shirts. Never bullets. */}
-          {s.shots.map((sh, i) => {
-            const u = Math.max(0, sh.t / sh.dur); // volleys stagger via negative t — hold at the muzzle until their turn
-            // travel in WORLD space, arc in SCREEN space (lob height is a screen illusion)
-            const wx0 = sh.sx + (sh.tx - sh.sx) * u;
-            const wy0 = sh.sy + (sh.ty - sh.sy) * u;
-            const x = px(wx0, wy0);
-            const y = py(wx0, wy0) - Math.sin(Math.PI * u) * 7;
-            const proj = sh.flavor === 'ref' ? '🚩' : sh.flavor === 'tshirt' ? '👕' : sh.flavor === 'cooler' ? '🥤' : '🏈';
-            const ang = Math.atan2(py(sh.tx, sh.ty) - py(sh.sx, sh.sy), px(sh.tx, sh.ty) - px(sh.sx, sh.sy)) * 180 / Math.PI;
-            return (
-              <React.Fragment key={i}>
-                {/* motion streak behind the ball — reads as SPEED */}
-                <div className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '5vmin', height: 2, zIndex: 94, transformOrigin: '100% 50%', transform: `translate(-100%,-50%) rotate(${ang}deg)`, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.55))', opacity: 0.5 + u * 0.3 }} />
-                <div className="absolute pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, width: '3vmin', height: '3vmin', zIndex: 95, transform: `translate(-50%,-50%) rotate(${sh.rot + u * 540}deg)`, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>
-                  <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: '2.4vmin', lineHeight: 1 }}>{proj}</span>
-                  {proj === '🏈' && <img src="/assets/battle/football-proj.webp" alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-contain" />}
-                </div>
-              </React.Fragment>
-            );
-          })}
+          {s.shots.map((sh,i)=><DefenseShot key={i} flavor={sh.flavor} u={sh.t/sh.dur} sx={px(sh.sx,sh.sy)} sy={py(sh.sx,sh.sy)} tx={px(sh.tx,sh.ty)} ty={py(sh.tx,sh.ty)} rotation={sh.rot} />)}
 
           {/* Signature ball is sampled from the SAME timeline that applies yardage. */}
           {modernCombat && actions.current.filter(action => !action.resolved && action.travel > 0).map(action => {

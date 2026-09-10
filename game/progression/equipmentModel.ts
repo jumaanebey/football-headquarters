@@ -68,7 +68,7 @@ export const DEFENSE_BEHAVIOUR: Record<EquipmentKind, DefenseBehaviour> = {
   cooler: {
     kind: 'cooler', range: 22, cooldownSeconds: 2.6, hitDamageMult: 1, targeting: 'nearest-single', splash: null, slow: null, puddle: { radius: 7, lifeSeconds: 3.5, slowSecondsWhileInside: 0.3 }, slowSpeedMult: 0.55,
     signature: { name: 'Flood Zone', unlockLevel: 10, everySeconds: 10, searchRangeMult: 1.25, effect: 'One 13-unit puddle that lasts 5 s.' },
-    correctedDescription: 'Lobs a cooler every 2.6 s: the nearest runner takes full damage and a 7-unit puddle soaks the turf for 3.5 s — every attacker inside it runs at 55% speed (the slow ends about 0.3 s after they leave). Range 22.',
+    correctedDescription: 'Sprays water every 2.6 s: the nearest runner takes full damage and a 7-unit puddle soaks the turf for 3.5 s — every attacker inside it runs at 55% speed (the slow ends about 0.3 s after they leave). Range 22.',
     sources: ['game/combat/engine.ts turret loop (cooler: puddle r 7, life 3.5, cooldown 2.6)', 'game/combat/engine.ts puddle step (slowT ≥ 0.3 while inside)', 'game/combat/engine.ts FLOOD ZONE (level ≥ 10)'],
   },
 };

@@ -1,12 +1,9 @@
-import { FacilityOverview } from './FacilityOverview';
+import React, { useState } from 'react';
 import { BuildingArt } from './BuildingArt';
 import { Sheet } from './ui';
-
-import React from 'react';
 import { BuildingInstance, BuildingType, DrillState, GameState, ResourceType, UpgradeJob } from '../types';
-import { BUILDING_INFO, UPGRADE_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, buildingEffect } from '../constants';
-import { buildingSprite, BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
-import { X, ArrowUpCircle, Coins, Hammer, Lock, Clock, Crown, Zap } from 'lucide-react';
+import { BUILDING_INFO, UPGRADE_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, buildingEffect, collectorCap, collectorRate } from '../constants';
+import { BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
 
 interface Props {
   building: BuildingInstance | null;
@@ -26,152 +23,55 @@ interface Props {
   onHireBuilder: () => void;
 }
 
-const fmt = (secs: number) => {
-  const s = Math.max(0, Math.ceil(secs));
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-};
 
-export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect, club, onDefense, blocked = false }) => {
-  if (!building) return null;
-
-  const info = BUILDING_INFO[building.type];
-  const cost = Math.floor(UPGRADE_CONFIG.baseCost * Math.pow(UPGRADE_CONFIG.costMultiplier, building.level - 1));
-  const canAfford = resources.COINS >= cost;
-
-  const isStadium = building.type === BuildingType.STADIUM;
-  const gated = !isStadium && building.level >= stadiumLevel;
-
-  const job = upgrades.find(u => u.kind === 'building' && u.key === building.id);
-  const buildersFree = builders - upgrades.length;
-  const dur = upgradeDurationSecs(building.level + 1);
-
-  const remaining = job ? Math.max(0, (job.finishTime - Date.now()) / 1000) : 0;
-  const progress = job ? Math.max(0, Math.min(1, (Date.now() - job.startTime) / (job.finishTime - job.startTime))) : 0;
-  const gemCost = skipGemCost(remaining);
-
-  const hireCost = builderHireCost(builders);
-
-  return (
-    <Sheet title={info.name} subtitle={`Level ${building.level}${job ? ` → ${job.toLevel}` : ''}`} onClose={onClose} maxWidth="max-w-lg">
-      <div className="bg-slate-900">
-        <div className={`h-28 ${info.color} bg-opacity-20 relative flex items-center justify-center overflow-hidden`}>
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
-          <BuildingArt type={building.type} level={building.level} label={info.name} className="absolute right-2 w-40 h-40 object-contain" />
-          <div className="absolute bottom-4 left-4">
-            <h2 className="text-2xl font-bold text-white drop-shadow-md">{info.name}</h2>
-            <div className="text-xs font-bold bg-black/50 px-2 py-1 rounded text-white/80 w-fit">LVL {building.level}{job ? ` → ${job.toLevel}` : ''}</div>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <p className="text-slate-300 text-sm mb-5">{info.description}</p>
-          {blocked && <p role="status" className="mb-3 rounded-xl bg-blue-950 p-3 text-sm text-blue-200">Confirming your club change…</p>}
-          {club && <FacilityOverview building={building} club={club} />}
-          {onDefense && building.type === BuildingType.STADIUM && <button onClick={onDefense} className="mb-3 min-h-11 w-full rounded-xl border border-blue-500 px-3 font-bold text-blue-200">Manage home defense</button>}
-          {onCollect && (building.state === DrillState.COMPLETED || (building.accrued ?? 0) >= 30) && <button disabled={blocked} onClick={() => onCollect(building)} className="mb-3 w-full rounded-xl bg-amber-400 p-3 font-bold text-slate-950">{building.state === DrillState.COMPLETED ? 'Collect completed training' : `Collect ${Math.floor(building.accrued ?? 0)} Coins`}</button>}
-          {building.state === DrillState.ACTIVE && <p className="mb-4 text-sm text-blue-300">Training in progress · {fmt(Math.max(0, ((building.finishTime ?? Date.now()) - Date.now()) / 1000))} remaining</p>}
-          {onVisit && <button onClick={onVisit} className="mb-6 w-full rounded-xl bg-blue-600 p-3 font-bold text-white">{visitLabel} →</button>}
-
-          {(() => {
-            // Show the REAL wired effect (income / drill XP / regen / roster cap / readiness).
-            const eff = buildingEffect(building.type, building.level);
-            const nextEff = buildingEffect(building.type, building.level + 1);
-            return (
-              <div className="mb-6">
-                <div className="text-center text-[11px] uppercase tracking-wide text-slate-500 font-bold mb-2">{eff.label}</div>
-                <div className="flex items-center justify-between">
-                  <div className="text-center">
-                    <div className="text-xs text-slate-500 uppercase font-bold mb-1">Current</div>
-                    <div className="text-2xl font-mono text-white">{eff.value}</div>
-                  </div>
-                  <ArrowUpCircle className="text-green-500" size={24} />
-                  <div className="text-center">
-                    <div className="text-xs text-green-500 uppercase font-bold mb-1">Next Level</div>
-                    <div className="text-2xl font-mono text-green-400">{nextEff.value}</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {job ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-blue-300 font-bold"><Clock size={15} /> Under construction…</span>
-                <span className="font-mono font-bold text-white">{fmt(remaining)}</span>
-              </div>
-              <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-                <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300" style={{ width: `${progress * 100}%` }} />
-              </div>
-              <button onClick={() => onFinishNow(job.id)} disabled={blocked || resources.GEMS < gemCost}
-                className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95
-                  ${resources.GEMS >= gemCost ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                <Crown size={16} className="fill-current" /> Finish Now
-                <span className="text-sm bg-black/20 px-2 py-0.5 rounded">{gemCost} Crowns</span>
-              </button>
-            </div>
-          ) : gated ? (
-            <div className="w-full py-3 rounded-xl font-bold text-sm bg-slate-800 text-slate-400 flex items-center justify-center gap-2 border border-slate-700">
-              <Lock size={16} className="text-slate-500" /> Upgrade Stadium to Lv {building.level + 1} to unlock
-            </div>
-          ) : (
-            <>
-              <button onClick={() => onUpgrade(building.id, cost)} disabled={blocked || !canAfford || buildersFree <= 0}
-                className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95
-                  ${canAfford && buildersFree > 0 ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                {buildersFree <= 0 ? 'ALL BUILDERS BUSY' : canAfford ? 'UPGRADE' : 'NEED COINS'}
-                <div className="flex items-center gap-1 text-sm bg-black/20 px-2 py-0.5 rounded"><Coins size={14} /> {cost}</div>
-              </button>
-              <div className="text-center text-[11px] text-slate-500 mt-2 flex items-center justify-center gap-1"><Clock size={11} /> Takes {fmt(dur)}</div>
-            </>
-          )}
-
-          {/* 📸 THE STORY — the facility's real era-by-era progression photos. Only the
-              UNIQUE art tiers show (no duplicate frames on 3-tier arcs), each with its
-              era name, so players see exactly what they're building toward. */}
-          {(() => {
-            const tiers = BUILDING_ART_LEVELS(building.type);
-            const eras = BUILDING_ERAS[building.type] ?? [];
-            const maxTier = tiers[tiers.length - 1];
-            // "current" = the tier whose art the building wears right now
-            const wearing = [...tiers].filter(l => l <= building.level).pop() ?? tiers[0];
-            return (
-              <div className="mt-5 pt-4 border-t border-slate-800">
-                <div className="text-[12px] uppercase tracking-wide text-slate-500 font-bold mb-2">The story of your {info.name}</div>
-                <div className="flex items-end justify-between gap-1.5">
-                  {tiers.map((lvl, ti) => {
-                    const reached = building.level >= lvl;
-                    const current = wearing === lvl;
-                    return (
-                      <div key={lvl} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${reached ? '' : 'opacity-45'}`}>
-                        <BuildingArt type={building.type} level={lvl} label={`Level ${lvl}`}
-                          className={`w-full h-auto rounded-lg ${current ? 'ring-2 ring-orange-500 bg-orange-500/10' : ''} ${reached ? '' : 'grayscale'}`} />
-                        <span className={`text-[9px] font-bold uppercase tracking-tight leading-none text-center ${current ? 'text-orange-300' : reached ? 'text-slate-300' : 'text-slate-600'}`}>{eras[ti] ?? ''}</span>
-                        <span className={`text-[10px] font-mono leading-none ${current ? 'text-orange-400' : reached ? 'text-slate-400' : 'text-slate-600'}`}>L{lvl}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {building.level > maxTier && <div className="text-[11px] text-slate-500 mt-1.5 text-center">Final form reached — levels keep boosting {buildingEffect(building.type, building.level).label.toLowerCase()}</div>}
-              </div>
-            );
-          })()}
-
-          {/* Builders status */}
-          <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm text-slate-300">
-              <Hammer size={15} className="text-amber-400" /> Builders <span className="font-mono font-bold">{buildersFree}/{builders}</span> free
-            </div>
-            {builders < MAX_BUILDERS && (
-              <button onClick={onHireBuilder} disabled={resources.GEMS < hireCost}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors ${resources.GEMS >= hireCost ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                <Zap size={12} /> Hire ({hireCost} Crowns)
-              </button>
-            )}
-          </div>
+const fmt = (secs: number) => { const s=Math.max(0,Math.ceil(secs)); return s<60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`; };
+export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect, club, onDefense, blocked=false }) => {
+  const [tab,setTab]=useState<'overview'|'upgrade'|'growth'>('overview');
+  const [era,setEra]=useState<number|null>(null);
+  if(!building) return null;
+  const info=BUILDING_INFO[building.type], level=building.level;
+  const cost=Math.floor(UPGRADE_CONFIG.baseCost*Math.pow(UPGRADE_CONFIG.costMultiplier,level-1));
+  const job=upgrades.find(u=>u.kind==='building'&&u.key===building.id);
+  const remaining=job ? Math.max(0,(job.finishTime-Date.now())/1000) : 0;
+  const gated=building.type!==BuildingType.STADIUM&&level>=stadiumLevel;
+  const free=builders-upgrades.length, hire=builderHireCost(builders);
+  const current=buildingEffect(building.type,level), next=buildingEffect(building.type,level+1);
+  const tiers=BUILDING_ART_LEVELS(building.type), chosen=era??([...tiers].filter(l=>l<=level).pop()??tiers[0]);
+  const collect=building.state===DrillState.COMPLETED||(building.accrued??0)>=30;
+  const status=building.type===BuildingType.STADIUM
+    ? `${Math.floor(building.accrued??0)} / ${collectorCap(building.type,level)} Coins stored · ${Math.round(collectorRate(building.type,level)*60)} Coins/min`
+    : building.type===BuildingType.MEDICAL_CENTER ? `${club?.resources.ENERGY??resources.ENERGY}/100 Energy · recovery continues while away`
+    : building.type===BuildingType.YOUTH_ACADEMY ? (club?.recruitSlot ? `Recruit ${Date.now()>=club.recruitSlot.finishTime?'ready to sign':`arrives in ${fmt((club.recruitSlot.finishTime-Date.now())/1000)}`}` : 'Compare prospects, then scout with Coins')
+    : building.state===DrillState.ACTIVE ? `Training · ${fmt(((building.finishTime??Date.now())-Date.now())/1000)} remaining`
+    : building.state===DrillState.COMPLETED ? 'Training complete · collect your squad’s progress' : `Team readiness ${club?.teamReadiness??0}/100`;
+  return <Sheet title={info.name} subtitle={`Level ${level} · ${resources.COINS.toLocaleString()} Coins available`} onClose={onClose} maxWidth="max-w-3xl">
+    <div className="fhq-facility-panel">
+      <div className="fhq-facility-tabs" role="group" aria-label="Facility sections">{(['overview','upgrade','growth'] as const).map(t=><button key={t} aria-pressed={tab===t} onClick={()=>setTab(t)}>{t==='growth'?'Building styles':t}</button>)}</div>
+      <div className="fhq-facility-content">
+        <div className="fhq-facility-art"><BuildingArt type={building.type} level={tab==='growth'?chosen:level} label={info.name} className="w-full h-full" /></div>
+        <div className="fhq-facility-detail">
+          {blocked && <p role="status" className="text-blue-300">Confirming club change…</p>}
+          {tab==='overview' && <>
+            <h3>{current.label}: {current.value}</h3><p>{status}</p>
+            {job && <p className="text-amber-300">Level {job.toLevel} upgrade · {fmt(remaining)}</p>}
+            {onCollect&&collect&&<button disabled={blocked} className="fhq-facility-primary" onClick={()=>onCollect(building)}>{building.state===DrillState.COMPLETED?'Collect training':`Collect ${Math.floor(building.accrued??0)} Coins`}</button>}
+            {onVisit&&<button onClick={onVisit} className="fhq-facility-primary">{visitLabel} →</button>}
+            {onDefense&&building.type===BuildingType.STADIUM&&<button onClick={onDefense}>Home defense · equipment & schemes</button>}
+          </>}
+          {tab==='upgrade' && <>
+            <h3>{current.label}</h3><p className="fhq-facility-comparison">{current.value} → <strong>{next.value}</strong></p>
+            {job ? <><p>Level {job.toLevel} · {fmt(remaining)} remaining</p><button disabled={blocked||resources.GEMS<skipGemCost(remaining)} onClick={()=>onFinishNow(job.id)}>Finish now · {skipGemCost(remaining)} Crowns</button></>
+              : gated ? <p>Requires Stadium level {level+1}</p>
+              : <><button className="fhq-facility-primary" disabled={blocked||resources.COINS<cost||free<=0} onClick={()=>onUpgrade(building.id,cost)}>{free<=0?'Builders busy':resources.COINS<cost?'Need Coins':'Upgrade'} · {cost.toLocaleString()} Coins</button><p>Takes {fmt(upgradeDurationSecs(level+1))} · {free}/{builders} builders free</p></>}
+            {builders<MAX_BUILDERS&&<button disabled={blocked||resources.GEMS<hire} onClick={onHireBuilder}>Hire builder · {hire} Crowns</button>}
+          </>}
+          {tab==='growth' && <>
+            <h3>{BUILDING_ERAS[building.type]?.[tiers.indexOf(chosen)]??info.name}</h3><p>Level {chosen} appearance · {chosen<=level?'Unlocked':'Reach this level to unlock'}</p>
+            <div className="fhq-facility-eras" role="group" aria-label="Building appearances">{tiers.map(l=><button key={l} aria-pressed={chosen===l} onClick={()=>setEra(l)}>L{l}</button>)}</div>
+            <p>Appearance changes with building level. Upgrades improve {current.label.toLowerCase()}.</p>
+          </>}
         </div>
       </div>
-    </Sheet>
-  );
+    </div>
+  </Sheet>;
 };

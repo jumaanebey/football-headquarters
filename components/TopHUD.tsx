@@ -1,5 +1,6 @@
+import { ClubCrest } from './ClubStyle';
 import React, { useEffect, useRef, useState } from 'react';
-import { Crown, Users, Megaphone, Trophy, ChevronRight, Zap } from 'lucide-react';
+import { Crown, Users, Megaphone, Trophy, ChevronRight, Zap, Coins } from 'lucide-react';
 import { GameState } from '../types';
 import { rallyPreview } from '../game/fanProgress';
 import { RESOURCE_ICON } from '../assets';
@@ -49,14 +50,14 @@ export function TopHUD({ gameState: gs, onRally, onOpenRanks, onOpenClub }: Prop
   const rally = rallyPreview(gs);
   const resources = [
     { name: 'Energy', value: r.ENERGY, raw: r.ENERGY, icon: <img src={RESOURCE_ICON.energy} alt="" />, color: '#70caff', hint: 'Used for drills and away games. Refills over time.' },
-    { name: 'Coins', value: coins, raw: r.COINS, icon: <img src={RESOURCE_ICON.coins} alt="" />, color: '#ffd16d', id: 'hud-coins', hint: 'Gate receipts for facilities, equipment and player upgrades.' },
+    { name: 'Coins', value: coins, raw: r.COINS, icon: <Coins size={19} />, color: '#ffd16d', id: 'hud-coins', hint: 'Gate receipts for facilities, equipment and player upgrades.' },
     { name: 'Fans', value: fans, raw: r.FANS, icon: <Users size={19} />, color: '#ff9fbd', hint: 'Your available home crowd. Rally costs Fans; earned campus stages stay unlocked.' },
     { name: 'Crowns', value: crowns, raw: r.GEMS, icon: <Crown size={19} />, color: '#c9adff', hint: 'Scout Searches, extra builders and finishing upgrades.' },
   ];
   return <><header className="fhq-hud">
     <div className="fhq-club-identity">
       <button className="fhq-club-button" onClick={onOpenClub} aria-label={`Open ${gs.teamName} club overview`}>
-        <img src="/assets/brand/app-icon.webp" width="44" height="44" alt="" />
+        <ClubCrest name={gs.teamName} />
         <span><small>FOOTBALL HEADQUARTERS</small><strong>{gs.teamName}{gs.campaign?.claimed?.includes(12) ? ' · Champions' : ''}</strong></span>
         <ChevronRight size={17} aria-hidden="true" />
       </button>

@@ -178,3 +178,42 @@ button { touch-action:manipulation; }
 @media(max-width:700px) { .fhq-objectives { max-width:146px; } }
 
 @media(orientation:landscape) and (max-height:500px) { .fhq-campus-actions { display:none; } }
+
+/* Facility entry is a compact workspace: primary actions never sit below a story gallery. */
+.fhq-facility-panel { padding:12px; display:flex; flex-direction:column; gap:12px; min-height:0; }
+.fhq-facility-tabs { display:flex; gap:8px; flex-shrink:0; }
+.fhq-facility-tabs button { flex:1; border-radius:10px; background:#1e293b; color:#cbd5e1; font-weight:700; text-transform:capitalize; padding:8px; }
+.fhq-facility-tabs button[aria-pressed=true] { background:#2563eb; color:white; }
+.fhq-facility-content { display:grid; grid-template-columns:180px minmax(0,1fr); gap:16px; align-items:center; }
+.fhq-facility-art { width:100%; height:200px; }
+.fhq-facility-detail { display:flex; flex-direction:column; gap:10px; color:#cbd5e1; font-size:14px; min-width:0; }
+.fhq-facility-detail h3 { font-weight:800; color:white; font-size:17px; }
+.fhq-facility-detail button { border-radius:10px; background:#1e293b; color:white; padding:8px 12px; font-weight:700; }
+.fhq-facility-detail button:disabled { opacity:.5; }
+.fhq-facility-detail .fhq-facility-primary { background:#fbbf24; color:#1c1408; }
+.fhq-facility-eras { display:flex; flex-wrap:wrap; gap:5px; }
+.fhq-facility-eras button[aria-pressed=true] { background:#b45309; }
+.fhq-facility-comparison strong { color:#6ee7b7; }
+@media(max-width:600px) and (orientation:portrait) {
+ .fhq-facility-content { grid-template-columns:1fr; gap:4px; }
+ .fhq-facility-art { height:125px; max-width:180px; margin:auto; }
+ .fhq-resource small { display:block; font-size:9px; line-height:1; }
+ .fhq-resource { gap:3px; padding-inline:4px; }
+}
+@media(max-height:500px) and (orientation:landscape) {
+ .fhq-sheet { height:100dvh; max-height:100dvh; max-width:100%; border-radius:0; }
+ .fhq-sheet-header { padding:4px max(12px,env(safe-area-inset-right)) 4px max(12px,env(safe-area-inset-left)); }
+ .fhq-sheet-header h2 { font-size:16px; }
+ .fhq-facility-panel { padding:8px max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left)); gap:8px; }
+ .fhq-facility-content { grid-template-columns:25% minmax(0,1fr); gap:16px; }
+ .fhq-facility-art { height:155px; }
+ .fhq-facility-detail { gap:5px; font-size:12px; }
+ .fhq-facility-detail h3 { font-size:15px; }
+ .fhq-facility-tabs { max-width:70%; margin-left:27%; }
+}
+
+.fhq-team-crest { display:flex; align-items:center; justify-content:center; width:40px; height:44px; flex-shrink:0; border:2px solid; border-radius:8px 8px 16px 16px; font-weight:900; font-size:16px; }
+.fhq-club-button>.fhq-team-crest { min-width:32px; }
+.fhq-mode-tag { font-size:10px; text-transform:uppercase; color:var(--fhq-mode-color,#fbbf24); border:1px solid currentColor; border-radius:5px; padding:2px 5px; white-space:nowrap; }
+@media(max-width:700px) { .fhq-team-crest { width:32px; height:34px; font-size:12px; } }
+@media(max-height:500px) and (orientation:landscape) { .fhq-resource small { display:block; font-size:9px; line-height:1; } }

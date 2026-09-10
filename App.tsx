@@ -1,3 +1,6 @@
+import { ClubStylePicker } from './components/ClubStyle';
+import { LandscapePlay } from './components/LandscapePlay';
+import { DEFENSE_MATCHUPS } from './game/defensePresentation';
 import { nextSeasonMatch } from './game/seasonRecommendation';
 import { BuildingSprite } from './components/BuildingArt';
 import { ClubConnectionControl } from './components/ClubConnectionControl';
@@ -99,7 +102,7 @@ import { armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroMaxLevel,
 import { HeroModal } from './components/HeroModal';
 import { DefenseLogModal } from './components/DefenseLogModal';
 import { FloatingTextLayer } from './components/FloatingTextLayer';
-import { Volume2, VolumeX, X, Shield, Settings as SettingsIcon } from 'lucide-react';
+import { Volume2, VolumeX, X, Coins, Shield, Settings as SettingsIcon } from 'lucide-react';
 
 
 function App() {
@@ -1506,8 +1509,7 @@ function App() {
         onDeselect={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }}
         onOpenStats={() => { sfx.click(); setDashboardOpen(true); }}
         onBuildingClick={(b) => {
-          if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
-          else { setSelectedBuilding(b); setBuildingInfoOpen(true); sfx.click(); }
+          setSelectedBuilding(b); setBuildingInfoOpen(true); sfx.click();
         }}
         onCollect={handleCollect}
         onCollectResource={handleCollectResource}
@@ -1523,7 +1525,7 @@ function App() {
       {/* coin flights: outer = X easing, inner = Y easing → curved arc to the HUD */}
       {coinFlights.map(f => (
         <span key={f.id} className="fixed pointer-events-none" style={{ left: f.x, top: f.y, zIndex: 95, animation: `fhq-coin-x 0.75s cubic-bezier(0.55,0,1,0.45) ${f.delay}ms forwards` , ['--dx' as string]: `${f.dx}px` } as React.CSSProperties}>
-          <img src="/assets/icons/coins.webp" alt="" draggable={false} className="w-5 h-5 select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
+          <Coins aria-hidden="true" className="w-5 h-5 text-amber-300 fill-amber-600"
             style={{ animation: `fhq-coin-y 0.75s cubic-bezier(0,0.55,0.45,1) ${f.delay}ms forwards`, ['--dy' as string]: `${f.dy}px` } as React.CSSProperties} />
         </span>
       ))}
@@ -1561,8 +1563,8 @@ function App() {
              onFinishNow={handleFinishNow}
              onHireBuilder={handleHireBuilder}
              onCollect={building => { const point = {x:window.innerWidth/2,y:window.innerHeight/2}; if (building.state === DrillState.COMPLETED) handleCollect(building, point); else handleCollectResource(building, point); }}
-             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.TRAINING_PITCH) {setRosterInitialView('training');setIsSquadOpen(true);} else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
-             visitLabel={selectedBuilding.type === BuildingType.TRAINING_PITCH ? 'Open roster & training' : selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
+             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true); else if (type === BuildingType.TRAINING_PITCH) {setRosterInitialView('training');setIsSquadOpen(true);} else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
+             visitLabel={selectedBuilding.type === BuildingType.YOUTH_ACADEMY ? 'Compare & scout players' : selectedBuilding.type === BuildingType.TRAINING_PITCH ? 'Open roster & training' : selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
           />
       )}
 
@@ -1791,7 +1793,7 @@ function App() {
         plan={preparedPlan} onPlan={setPreparedPlan} openingHero={openingHero} onHero={setOpeningHero} onClose={() => setPreparedMatch(null)}
         onStart={() => { if (launchAttack(preparedMatch.config, preparedMatch.choice, true)) setPreparedMatch(null); }} />}
       {battleConfig && (
-        <Suspense fallback={<div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4" role="status"><img src="/assets/brand/logo.webp" alt="Football Headquarters" width="240" /><p>Getting the field ready…</p></div>}><BattleScreen
+        <Suspense fallback={<div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4" role="status"><img src="/assets/brand/logo.webp" alt="Football Headquarters" width="240" /><p>Getting the field ready…</p></div>}><BattleScreen clubName={gameState.teamName}
           key={battleConfig.practice ? `practice-${practiceTake}` : battleConfig.replay ? `replay-${replayTake}` : 'match'}
           config={battleConfig}
           initialPlan={battleConfig.practice ? 'balanced' : preparedPlan}
@@ -1966,6 +1968,7 @@ function App() {
               </div>
               </>}
               {defenseTab === 'equipment' && <>
+              <p className="rounded-xl bg-amber-950/30 p-3 text-sm text-amber-100">Equipment uses Coins · {gameState.resources.COINS.toLocaleString()} available. Extra slots use Crowns · {gameState.resources.GEMS} available.</p>
               {/* Emplacements */}
               <div>
                 <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">🛡 Defense Emplacements</div>
@@ -1991,7 +1994,8 @@ function App() {
                             {t.name} {lvl > 0 && <span className="text-yellow-300">L{lvl}</span>}
                             {lvl > 1 && <span className="text-[10px] text-green-400 font-mono ml-1.5">+{Math.round((slotHpMult(lvl) - 1) * 100)}% Grit · +{Math.round((slotDmgMult(lvl) - 1) * 100)}% yards</span>}
                           </div>
-                          <div className="text-sm text-slate-300 mt-1">{slot.covers} · {t.desc}</div>
+                          <div className="text-sm text-slate-300 mt-1">{slot.covers} · {DEFENSE_MATCHUPS[slot.kind]?.action ?? t.desc}</div>
+                          <p className="mt-2 text-xs text-amber-200">{DEFENSE_MATCHUPS[slot.kind]?.strong}</p><p className="mt-1 text-xs text-sky-200">Counter: {DEFENSE_MATCHUPS[slot.kind]?.counter}</p>
                           {lvl > 0 && !maxed && <p className="mt-2 text-sm text-emerald-300">Next level: +{Math.round((slotHpMult(lvl+1)/slotHpMult(lvl)-1)*100)}% Grit · +{Math.round((slotDmgMult(lvl+1)/slotDmgMult(lvl)-1)*100)}% output.</p>}
                           <EquipmentDetails club={gameState} slotId={slot.id} />
                           {/* 🛣 THE ROAD TO LEVELS — the gear itself visibly upgrades at L4 and L8 */}
@@ -2016,7 +2020,7 @@ function App() {
                         {!unlocked ? (
                           isCrown ? (
                             <Btn size="sm" variant="secondary" disabled={gameState.resources.GEMS < crownCost} onClick={handleBuySlot}
-                              title="Crown slots unlock in order">🔓 {crownCost}👑</Btn>
+                              title="Crown slots unlock in order">Unlock slot · {crownCost} Crowns</Btn>
                           ) : (
                             <span className="text-[11px] text-slate-500 font-bold shrink-0">🔒 Stadium L{slot.stadiumReq}</span>
                           )
@@ -2026,7 +2030,7 @@ function App() {
                           <span className="text-[11px] text-slate-500 font-bold shrink-0" title="Emplacement level can't pass your Stadium level">🔒 Stadium L{lvl + 1}</span>
                         ) : (
                           <Btn size="sm" onClick={() => handleUpgradeSlot(slot.id)} disabled={gameState.resources.COINS < cost}>
-                            {lvl === 0 ? 'Install' : `Upgrade to L${lvl + 1}`}  · {cost >= 1000 ? `${(cost / 1000).toFixed(1)}k` : cost}🪙
+                            {lvl === 0 ? 'Install' : `Upgrade to L${lvl + 1}`}  · {cost.toLocaleString()} Coins
                           </Btn>
                         )}
                       </div>
@@ -2044,7 +2048,7 @@ function App() {
                 </div>
                 {gameState.parkingLot < PARKING_LOT.maxLevel ? (
                   <Btn size="sm" onClick={handlePaveParkingLot} disabled={gameState.resources.COINS < PARKING_LOT.costs[gameState.parkingLot]}>
-                    Pave L{gameState.parkingLot + 1} · {(PARKING_LOT.costs[gameState.parkingLot] / 1000).toFixed(0)}k🪙
+                    Pave L{gameState.parkingLot + 1} · {PARKING_LOT.costs[gameState.parkingLot].toLocaleString()} Coins
                   </Btn>
                 ) : <span className="text-[11px] text-green-400 font-bold shrink-0">MAX</span>}
               </div>
@@ -2122,7 +2126,7 @@ function App() {
       {settingsOpen && (
         <div className="relative z-[70]">
           <Sheet title="Settings" maxWidth="max-w-sm" onClose={() => setSettingsOpen(false)}>
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4"><LandscapePlay /><ClubStylePicker name={gameState.teamName} />
               <div className="flex items-center justify-between">
                 <div><div className="text-sm font-bold text-white">{gameState.teamName}</div><div className="text-[11px] text-slate-500">your club</div></div>
                 <span className="text-2xl">🏈</span>
