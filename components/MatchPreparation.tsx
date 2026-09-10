@@ -1,3 +1,4 @@
+import { DefenseCounterGuide } from './DefenseCounterGuide';
 import { GAME_PLANS, type GamePlanKey } from '../battle';
 import { FORMATIONS, COUNTER_STRONG_MULT, COUNTER_WEAK_MULT, type FormationKey } from '../fixedBase';
 import type { BattleConfig } from '../game/combat/contracts';
@@ -20,6 +21,7 @@ export function MatchPreparation({ config, energy, cost, plan, openingHero, onHe
         <p className="mt-2 text-sm text-slate-300">Deploy from the outside. Protect your heroes with support players, then break through to the Stadium.</p>
         {config.pvpTarget && <p className="mt-2 text-xs text-slate-400">Rival preview. Reserving loads the current defense; check its formation again before deploying.</p>}
       </section>
+      <DefenseCounterGuide buildings={config.buildings} rules={config.authority?.rules} />
       <fieldset className="space-y-2"><legend className="mb-2 font-bold text-white">Choose your game plan</legend>
         {GAME_PLANS.map(p => {
           const multiplier = formation?.counter.weakTo.includes(p.key) ? COUNTER_WEAK_MULT : formation?.counter.strongVs.includes(p.key) ? COUNTER_STRONG_MULT : 1;

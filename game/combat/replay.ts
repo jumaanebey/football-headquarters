@@ -1,3 +1,4 @@
+import { supportsCombatRules } from './defenseCounters';
 import { canonicalJson } from './canonical';
 import { GAME_PLANS, HERO_DEFS, PLAYBOOK, SPECIALS, type ReplayData, type ReplayAction } from '../../battle';
 import { UnitGroup } from '../../types';
@@ -28,7 +29,8 @@ export function validateReplay(value: unknown): ReplayData | null {
     if(v.v===2) {
       if(v.script.some((a:ReplayAction)=>a.tick>v.ticks)) return null;
       const c=v.snapshot;
-      if(v.rules!==COMBAT_RULES_VERSION||!text(v.finalHash,8)||!/^[0-9a-f]{8}$/.test(v.finalHash)||!Number.isInteger(v.ticks)||!finite(v.ticks,0,1400)||!record(c)||!['attack','defense'].includes(c.mode)||!text(c.title,160)||c.replay!==undefined||!layout(c.buildings)||!heroes(c.heroes??[])||!specials(c.specials??[])||!squad(c.squad,true)||!multiplier(c.power)||!multiplier(c.preparation)||!multiplier(c.playerArmy)||!record(c.loot)||!finite(c.loot.coins,0,1000000)||!finite(c.loot.fans,0,1000000)) return null;
+      if(!supportsCombatRules(v.rules)||!text(v.finalHash,8)||!/^[0-9a-f]{8}$/.test(v.finalHash)||!Number.isInteger(v.ticks)||!finite(v.ticks,0,1400)||!record(c)||!['attack','defense'].includes(c.mode)||!text(c.title,160)||c.replay!==undefined||!layout(c.buildings)||!heroes(c.heroes??[])||!specials(c.specials??[])||!squad(c.squad,true)||!multiplier(c.power)||!multiplier(c.preparation)||!multiplier(c.playerArmy)||!record(c.loot)||!finite(c.loot.coins,0,1000000)||!finite(c.loot.fans,0,1000000)) return null;
+      if(c.authority?.rules!==undefined && c.authority.rules!==v.rules)return null;
       if(c.aiMult!==undefined&&!finite(c.aiMult,0.1,20))return null;
       if(c.fans!==undefined&&!finite(c.fans,0,100000000))return null;
       if(c.masteryTier!==undefined&&!finite(c.masteryTier,0,3))return null;

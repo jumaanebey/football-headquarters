@@ -229,6 +229,49 @@ var PlayerState = /* @__PURE__ */ ((PlayerState2) => {
   return PlayerState2;
 })(PlayerState || {});
 
+// game/combat/defenseCounters.ts
+var LEGACY_COMBAT_RULES = "hero-actions-3";
+var DEFENSE_COUNTER_RULES = "defense-counters-4";
+var supportsCombatRules = (v) => v === LEGACY_COMBAT_RULES || v === DEFENSE_COUNTER_RULES;
+var EQUIPMENT_COUNTERS = {
+  jugs: { name: "JUGS", cooldown: 0.55, windup: 0, damage: 1, radius: 0, duration: 0, counter: "Deploy blockers first. Nearby offensive linemen absorb pressure for vulnerable players." },
+  sled: { name: "Sled", cooldown: 1.1, windup: 0.3, damage: 1.8, radius: 0, duration: 0.6, counter: "Linemen brace against the impact. Ranged players can attack from outside its reach." },
+  ref: { name: "Ref Tower", cooldown: 1.5, windup: 0.55, damage: 1.6, radius: 0, duration: 1.4, counter: "Higher IQ shortens the flag. Leave its range during the warning to avoid the call." },
+  tshirt: { name: "T-Shirt Cannon", cooldown: 1.15, windup: 0.3, damage: 1.4, radius: 7, duration: 0.9, counter: "Spread out. Damage and entanglement fall to 35% at the edge of the marked area." },
+  cooler: { name: "Water Station", cooldown: 3.2, windup: 0.4, damage: 0, radius: 7, duration: 3.5, counter: "Water controls turf without direct damage. RB, WR and CB retain 80% speed; other roles retain 60%." }
+};
+function counterRole(t) {
+  if (t.role) return t.role;
+  const heroes2 = { qb: "QB", enforcer: "OL", captain: "OL", burner: "WR", playmaker: "WR", kicker: "QB", coach: "S", medic: "S", legend: "LB" };
+  return heroes2[t.heroKey ?? ""] ?? { ["OFFENSE_LINE" /* OFFENSE_LINE */]: "OL", ["OFFENSE_SKILL" /* OFFENSE_SKILL */]: "WR", ["DEFENSE_LINE" /* DEFENSE_LINE */]: "DL", ["DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */]: "CB" }[t.unit];
+}
+function defenseResistance(t) {
+  const role = counterRole(t), heavy = ["OL", "DL"].includes(role);
+  return {
+    brace: heavy ? 0.35 : role === "LB" ? 0.65 : 1,
+    traction: ["RB", "WR", "CB"].includes(role) ? 0.8 : 0.6,
+    discipline: 1 / Math.max(0.7, Math.min(1.6, t.chargeRate ?? 1))
+  };
+}
+var splashFalloff = (distance, radius) => distance > radius ? 0 : 1 - 0.65 * Math.max(0, distance) / radius;
+function counterSpeed(t) {
+  return Math.min((t.wetT ?? 0) > 0 ? defenseResistance(t).traction : 1, (t.flagT ?? 0) > 0 ? 0.75 : 1, (t.braceT ?? 0) > 0 ? 0.65 : 1);
+}
+function tickCounterEffects(t, dt) {
+  if (Math.max(t.wetT ?? 0, t.flagT ?? 0, t.braceT ?? 0) > 0) t.defenseControlSeconds = (t.defenseControlSeconds ?? 0) + dt;
+  for (const key of ["wetT", "flagT", "braceT"]) t[key] = Math.max(0, (t[key] ?? 0) - dt);
+}
+function displaceFrom(t, b, distance, buildings) {
+  const length = Math.hypot(t.x - b.x, t.y - b.y) || 1, dx = (t.x - b.x) / length, dy = (t.y - b.y) / length;
+  for (let moved = 0; moved < distance; moved += 0.25) {
+    const step = Math.min(0.25, distance - moved), x = t.x + dx * step, y = t.y + dy * step;
+    if (x < 2 || x > 98 || y < 2 || y > 98 || buildings.some((o) => !o.dead && o.id !== b.id && Math.hypot(x - o.x, y - o.y) < o.size * 0.5 + 0.5)) break;
+    t.x = x;
+    t.y = y;
+  }
+  t.plan = void 0;
+}
+
 // constants.ts
 var DRILLS = {
   // OFFENSE LINE DRILLS
@@ -426,10 +469,10 @@ var CROWD_PULSE = {
 };
 var DEFENSE_TYPES = [
   { kind: "jugs", name: "JUGS Machine", sprite: "/assets/battle/jugs-machine.webp", emoji: "\u{1F3C8}", desc: "Rapid-fire football launcher", cost: 2500, hp: 260, damage: 16, range: 24 },
-  { kind: "sled", name: "Tackling Sled", sprite: "/assets/battle/tackling-sled.webp", emoji: "\u{1F6F7}", desc: "Short range, hits like a truck (+35%)", cost: 1800, hp: 340, damage: 22, range: 14 },
-  { kind: "ref", name: "Ref Tower", sprite: "/assets/battle/ref-tower.webp", emoji: "\u{1F6A9}", desc: "Penalty flags SLOW runners, longest range", cost: 3200, hp: 220, damage: 13, range: 30 },
-  { kind: "tshirt", name: "T-Shirt Cannon", sprite: "/assets/battle/tshirt-cannon.webp", emoji: "\u{1F455}", desc: "Splash \u2014 blasts the whole cluster", cost: 2200, hp: 240, damage: 18, range: 20 },
-  { kind: "cooler", name: "Gatorade Station", sprite: "/assets/battle/gatorade-station.webp", emoji: "\u{1F964}", desc: "Soaks the turf \u2014 puddle zones SLOW everyone crossing", cost: 2800, hp: 250, damage: 8, range: 22 }
+  { kind: "sled", name: "Tackling Sled", sprite: "/assets/battle/tackling-sled.webp", emoji: "\u{1F6F7}", desc: "Knocks runners back; linemen resist", cost: 1800, hp: 340, damage: 22, range: 14 },
+  { kind: "ref", name: "Ref Tower", sprite: "/assets/battle/ref-tower.webp", emoji: "\u{1F6A9}", desc: "Warns, then disrupts; IQ shortens flags", cost: 3200, hp: 220, damage: 13, range: 30 },
+  { kind: "tshirt", name: "T-Shirt Cannon", sprite: "/assets/battle/tshirt-cannon.webp", emoji: "\u{1F455}", desc: "Area pressure \u2014 spread out to resist", cost: 2200, hp: 240, damage: 18, range: 20 },
+  { kind: "cooler", name: "Gatorade Station", sprite: "/assets/battle/gatorade-station.webp", emoji: "\u{1F964}", desc: "Water slows lanes; agile players retain more speed", cost: 2800, hp: 250, damage: 8, range: 22 }
 ];
 var EXTRA_SLOT_COSTS = [40, 80, 120];
 var buildingTiles = (gx, gy) => [[gx, gy], [gx + 1, gy], [gx, gy + 1], [gx + 1, gy + 1]];
@@ -1278,138 +1321,75 @@ var campaignBase = (stage) => {
 // ranks.ts
 var trophiesForRaid = (won, stars) => won ? 6 + stars * 7 : -8;
 
-// game/combat/actionTiming.ts
-function signatureFrameAt(elapsed, windup, recovery) {
-  if (elapsed < windup * 0.5) return 0;
-  if (elapsed + 1e-9 < windup) return 1;
-  if (elapsed + 1e-9 < windup + recovery * 0.5) return 2;
-  if (elapsed + 1e-9 < windup + recovery) return 3;
-  return void 0;
-}
-
-// game/combat/actions.ts
-var COMBAT_RULES_VERSION = "hero-actions-3";
-function applyBuildingYardage(actor, target, requested) {
-  if (target.dead || !Number.isFinite(requested) || requested <= 0) return [];
-  const amount = Math.min(Math.max(0, target.hp), requested);
-  target.hp = Math.max(0, target.hp - amount);
-  actor.dmg = (actor.dmg ?? 0) + amount;
-  const events = [{ type: "yardage", actorId: actor.id, targetId: target.id, amount, x: target.x, y: target.y }];
-  if (target.hp <= 0) {
-    target.dead = true;
-    actor.targetId = null;
-    events.push({ type: "sacked", actorId: actor.id, targetId: target.id, kind: target.kind, x: target.x, y: target.y });
+// game/combat/defenseCounterStep.ts
+function stepCounterEquipment(b, s, dt, hit) {
+  const flavor = b.flavor ?? "jugs", rule = EQUIPMENT_COUNTERS[flavor];
+  b.cooldown -= dt;
+  if ((b.level ?? 0) >= 10) b.counterSignatureT = (b.counterSignatureT ?? 5) - dt;
+  let attack = b.counterAttack;
+  if (!attack) {
+    if (b.cooldown > 0) return;
+    const target2 = nearestTroop(b.x, b.y, s.troops, b.range);
+    if (!target2) return;
+    const signature2 = (b.level ?? 0) >= 10 && (b.counterSignatureT ?? 1) <= 0;
+    attack = b.counterAttack = { targetId: target2.id, x: target2.x, y: target2.y, remaining: rule.windup, signature: signature2 };
+    if (rule.windup) {
+      s.pulses.push({ x: attack.x, y: attack.y, r: rule.radius || 3, life: rule.windup, maxLife: rule.windup, color: "#fef08a" });
+      s.fx.push({ type: "yards", text: `${signature2 ? "POWER " : ""}${rule.name.toUpperCase()} \u2192`, x: b.x, y: b.y - 4, life: rule.windup, maxLife: rule.windup, color: "#fef08a" });
+      return;
+    }
   }
-  return events;
-}
-function beginHeroAction(actor, buildings, tick) {
-  if (actor.dead || !actor.ability || (actor.abilityCd ?? 0) > 0 || actor.activeAction) return null;
-  const projectile = actor.ability === "hailmary" || actor.ability === "onside_bomb";
-  const target = projectile || actor.ability === "burner_dash" || actor.ability === "truckstick" ? nearestBuilding(actor.x, actor.y, buildings) : void 0;
-  if ((projectile || actor.ability === "burner_dash") && !target) return null;
-  const action = {
-    id: `${actor.id}:signature:${tick}`,
-    actorId: actor.id,
-    heroKey: actor.heroKey ?? "",
-    ability: actor.ability,
-    elapsed: 0,
-    windup: projectile ? 0.35 : 0.2,
-    travel: projectile && target ? Math.max(0.45, Math.min(0.85, dist(actor.x, actor.y, target.x, target.y) / 65)) : 0,
-    recovery: projectile ? 0.3 : 0.25,
-    released: false,
-    resolved: false,
-    sx: actor.x,
-    sy: actor.y,
-    tx: target?.x ?? actor.x,
-    ty: target?.y ?? actor.y,
-    targetId: target?.id
-  };
-  actor.activeAction = action.id;
-  actor.signatureFrame = 0;
-  actor.abilityCd = ABILITY_CD;
-  actor.abilityPoseT = 0;
-  return action;
-}
-function recover(actor, target, amount, events = []) {
-  if (target.dead || !Number.isFinite(amount) || amount <= 0) return;
-  const actual = Math.min(Math.max(0, target.maxHp - target.hp), amount);
-  if (actual <= 0) return;
-  target.hp += actual;
-  actor.healingDone = (actor.healingDone ?? 0) + actual;
-  events.push({ type: "recovery", actorId: actor.id, targetId: target.id, amount: actual, x: target.x, y: target.y });
-}
-function applyTroopPressure(target, raw, troops) {
-  if (target.dead || !Number.isFinite(raw) || raw <= 0) return 0;
-  const shield = (target.shieldT ?? 0) > 0;
-  const amount = Math.min(target.hp, raw * (shield ? 0.5 : 1));
-  if (shield && target.shieldSource) {
-    const source = troops.find((t) => t.id === target.shieldSource);
-    if (source) source.protectionDone = (source.protectionDone ?? 0) + Math.max(0, Math.min(target.hp, raw) - amount);
-  }
-  target.hp = Math.max(0, target.hp - amount);
-  return amount;
-}
-function stepHeroActions(actions, troops, buildings, dt) {
-  const events = [];
-  for (const action of actions) {
-    const actor = troops.find((t) => t.id === action.actorId);
-    if (!actor) {
-      action.elapsed = 99;
-      continue;
+  attack.remaining -= dt;
+  if (attack.remaining > 0) return;
+  b.counterAttack = void 0;
+  b.cooldown = rule.cooldown;
+  const target = s.troops.find((t) => t.id === attack.targetId && !t.dead);
+  const signature = attack.signature;
+  if (signature) b.counterSignatureT = flavor === "sled" ? 8 : flavor === "ref" ? 11 : flavor === "jugs" ? 9 : 10;
+  if (!["cooler", "tshirt"].includes(flavor) && (!target || Math.hypot(target.x - b.x, target.y - b.y) > b.range)) return;
+  const radius = rule.radius * (signature ? 1.6 : 1);
+  if (flavor === "cooler") {
+    s.puddles.push({ x: attack.x, y: attack.y, r: radius, life: signature ? 5 : rule.duration, maxLife: signature ? 5 : rule.duration });
+  } else if (flavor === "tshirt") {
+    for (const t of s.troops) {
+      if (t.dead) continue;
+      const falloff = splashFalloff(Math.hypot(t.x - attack.x, t.y - attack.y), radius);
+      if (!falloff) continue;
+      hit(t, b.damage * rule.damage * falloff * (signature ? 1.4 : 1));
+      t.braceT = Math.max(t.braceT ?? 0, rule.duration * falloff);
+      t.lastDefenseEffect = "Shirt entanglement";
     }
-    if (actor.dead && !action.released) {
-      actor.activeAction = void 0;
-      actor.signatureFrame = void 0;
-      action.elapsed = 99;
-      continue;
-    }
-    action.elapsed += dt;
-    actor.signatureFrame = actor.dead ? void 0 : signatureFrameAt(action.elapsed, action.windup, action.recovery);
-    if (!action.released && action.elapsed + 1e-9 >= action.windup) {
-      action.released = true;
-      if (!actor.dead) actor.actionPoseT = action.recovery;
-      events.push({ type: "signature-release", actorId: actor.id, heroKey: action.heroKey, ability: action.ability, x: action.sx, y: action.sy });
-    }
-    if (!action.resolved && action.elapsed + 1e-9 >= action.windup + action.travel) {
-      action.resolved = true;
-      const target = buildings.find((b) => b.id === action.targetId);
-      if (action.ability === "hailmary" && target) events.push(...applyBuildingYardage(actor, target, 300 + actor.dps * 4));
-      else if (action.ability === "onside_bomb" && target) {
-        events.push(...applyBuildingYardage(actor, target, 500));
-        for (const b of buildings) if (b.id !== target.id && dist(target.x, target.y, b.x, b.y) <= 12) events.push(...applyBuildingYardage(actor, b, 250));
-      } else if (action.ability === "truckstick") {
-        actor.rageT = 6;
-        actor.truckT = 1.8;
-        recover(actor, actor, actor.maxHp, events);
-      } else if (action.ability === "burner_dash") {
-        actor.sprintT = 2.5;
-        actor.rageT = 2.5;
-      } else if (action.ability === "trick_play") events.push({ type: "reinforcements", actorId: actor.id, x: actor.x, y: actor.y });
-      else for (const t of troops) {
-        if (t.dead) continue;
-        const distance = dist(actor.x, actor.y, t.x, t.y);
-        if (action.ability === "motivation" && distance <= 20) t.rageT = Math.max(t.rageT, 4);
-        if (action.ability === "field_medic" && distance <= 18) {
-          recover(actor, t, t.maxHp * 0.35, events);
-          t.healT = Math.max(t.healT, 5);
-          t.healingSource = actor.id;
-        }
-        if (action.ability === "shield_wall" && distance <= 16) {
-          t.shieldT = Math.max(t.shieldT ?? 0, 5);
-          t.shieldSource = actor.id;
-        }
-        if (action.ability === "hall_of_fame") {
-          t.rageT = Math.max(t.rageT, 6);
-          recover(actor, t, t.maxHp, events);
-        }
+    s.pulses.push({ x: attack.x, y: attack.y, r: radius, life: 0.35, maxLife: 0.35, color: "#f472b6" });
+  } else if (target) {
+    const resist = defenseResistance(target);
+    if (flavor === "sled") {
+      hit(target, b.damage * rule.damage * (0.65 + 0.35 * resist.brace) * (signature ? 1.4 : 1));
+      displaceFrom(target, b, (signature ? 5 : 1.6) * resist.brace, s.buildings);
+      target.braceT = Math.max(target.braceT ?? 0, rule.duration * resist.brace);
+      target.lastDefenseEffect = resist.brace < 1 ? "Braced sled impact" : "Sled knockback";
+    } else if (flavor === "ref") {
+      const targets = signature ? s.troops.filter((t) => !t.dead && Math.hypot(t.x - b.x, t.y - b.y) <= b.range) : [target];
+      for (const t of targets) {
+        hit(t, b.damage * rule.damage);
+        t.flagT = Math.max(t.flagT ?? 0, rule.duration * defenseResistance(t).discipline);
+        t.lastDefenseEffect = "Flag: movement and attack disrupted";
       }
-      events.push({ type: "signature-impact", actorId: actor.id, heroKey: action.heroKey, ability: action.ability, x: action.tx, y: action.ty });
+    } else {
+      const raw = b.damage * (signature ? 2.2 : 1);
+      const blocker = s.troops.find((t) => !t.dead && t.id !== target.id && counterRole(t) === "OL" && Math.hypot(t.x - target.x, t.y - target.y) <= 5);
+      if (blocker) {
+        const intercepted = Math.min(blocker.hp, raw * 0.35);
+        const prevented = Math.min(target.hp, raw) - Math.min(target.hp, raw - intercepted);
+        hit(blocker, intercepted);
+        hit(target, raw - intercepted);
+        blocker.protectionDone = (blocker.protectionDone ?? 0) + prevented;
+        blocker.lastDefenseEffect = "Intercepted JUGS pressure";
+      } else hit(target, raw);
+      target.lastDefenseEffect = blocker ? "Protected from JUGS" : "JUGS pressure";
     }
-    if (action.elapsed + 1e-9 >= action.windup + action.recovery) actor.activeAction = void 0;
   }
-  return events;
+  s.shots.push({ sx: b.x, sy: b.y, tx: rule.radius ? attack.x : target?.x ?? attack.x, ty: rule.radius ? attack.y : target?.y ?? attack.y, t: 0, dur: 0.3, rot: 0, flavor });
 }
-var actionFinished = (action) => action.elapsed + 1e-9 >= action.windup + action.travel + action.recovery;
 
 // fixedBase.ts
 var FORMATION_ORDER = ["goalline", "cover3", "maxprotect"];
@@ -1703,6 +1683,139 @@ function spriteMotion(from, to, seconds, previousFace = 1, previousStride = 0) {
   };
 }
 
+// game/combat/actionTiming.ts
+function signatureFrameAt(elapsed, windup, recovery) {
+  if (elapsed < windup * 0.5) return 0;
+  if (elapsed + 1e-9 < windup) return 1;
+  if (elapsed + 1e-9 < windup + recovery * 0.5) return 2;
+  if (elapsed + 1e-9 < windup + recovery) return 3;
+  return void 0;
+}
+
+// game/combat/actions.ts
+var COMBAT_RULES_VERSION = "defense-counters-4";
+function applyBuildingYardage(actor, target, requested) {
+  if (target.dead || !Number.isFinite(requested) || requested <= 0) return [];
+  const amount = Math.min(Math.max(0, target.hp), requested);
+  target.hp = Math.max(0, target.hp - amount);
+  actor.dmg = (actor.dmg ?? 0) + amount;
+  const events = [{ type: "yardage", actorId: actor.id, targetId: target.id, amount, x: target.x, y: target.y }];
+  if (target.hp <= 0) {
+    target.dead = true;
+    actor.targetId = null;
+    events.push({ type: "sacked", actorId: actor.id, targetId: target.id, kind: target.kind, x: target.x, y: target.y });
+  }
+  return events;
+}
+function beginHeroAction(actor, buildings, tick) {
+  if (actor.dead || !actor.ability || (actor.abilityCd ?? 0) > 0 || actor.activeAction) return null;
+  const projectile = actor.ability === "hailmary" || actor.ability === "onside_bomb";
+  const target = projectile || actor.ability === "burner_dash" || actor.ability === "truckstick" ? nearestBuilding(actor.x, actor.y, buildings) : void 0;
+  if ((projectile || actor.ability === "burner_dash") && !target) return null;
+  const action = {
+    id: `${actor.id}:signature:${tick}`,
+    actorId: actor.id,
+    heroKey: actor.heroKey ?? "",
+    ability: actor.ability,
+    elapsed: 0,
+    windup: projectile ? 0.35 : 0.2,
+    travel: projectile && target ? Math.max(0.45, Math.min(0.85, dist(actor.x, actor.y, target.x, target.y) / 65)) : 0,
+    recovery: projectile ? 0.3 : 0.25,
+    released: false,
+    resolved: false,
+    sx: actor.x,
+    sy: actor.y,
+    tx: target?.x ?? actor.x,
+    ty: target?.y ?? actor.y,
+    targetId: target?.id
+  };
+  actor.activeAction = action.id;
+  actor.signatureFrame = 0;
+  actor.abilityCd = ABILITY_CD;
+  actor.abilityPoseT = 0;
+  return action;
+}
+function recover(actor, target, amount, events = []) {
+  if (target.dead || !Number.isFinite(amount) || amount <= 0) return;
+  const actual = Math.min(Math.max(0, target.maxHp - target.hp), amount);
+  if (actual <= 0) return;
+  target.hp += actual;
+  actor.healingDone = (actor.healingDone ?? 0) + actual;
+  events.push({ type: "recovery", actorId: actor.id, targetId: target.id, amount: actual, x: target.x, y: target.y });
+}
+function applyTroopPressure(target, raw, troops) {
+  if (target.dead || !Number.isFinite(raw) || raw <= 0) return 0;
+  const shield = (target.shieldT ?? 0) > 0;
+  const amount = Math.min(target.hp, raw * (shield ? 0.5 : 1));
+  if (shield && target.shieldSource) {
+    const source = troops.find((t) => t.id === target.shieldSource);
+    if (source) source.protectionDone = (source.protectionDone ?? 0) + Math.max(0, Math.min(target.hp, raw) - amount);
+  }
+  target.hp = Math.max(0, target.hp - amount);
+  return amount;
+}
+function stepHeroActions(actions, troops, buildings, dt) {
+  const events = [];
+  for (const action of actions) {
+    const actor = troops.find((t) => t.id === action.actorId);
+    if (!actor) {
+      action.elapsed = 99;
+      continue;
+    }
+    if (actor.dead && !action.released) {
+      actor.activeAction = void 0;
+      actor.signatureFrame = void 0;
+      action.elapsed = 99;
+      continue;
+    }
+    action.elapsed += dt;
+    actor.signatureFrame = actor.dead ? void 0 : signatureFrameAt(action.elapsed, action.windup, action.recovery);
+    if (!action.released && action.elapsed + 1e-9 >= action.windup) {
+      action.released = true;
+      if (!actor.dead) actor.actionPoseT = action.recovery;
+      events.push({ type: "signature-release", actorId: actor.id, heroKey: action.heroKey, ability: action.ability, x: action.sx, y: action.sy });
+    }
+    if (!action.resolved && action.elapsed + 1e-9 >= action.windup + action.travel) {
+      action.resolved = true;
+      const target = buildings.find((b) => b.id === action.targetId);
+      if (action.ability === "hailmary" && target) events.push(...applyBuildingYardage(actor, target, 300 + actor.dps * 4));
+      else if (action.ability === "onside_bomb" && target) {
+        events.push(...applyBuildingYardage(actor, target, 500));
+        for (const b of buildings) if (b.id !== target.id && dist(target.x, target.y, b.x, b.y) <= 12) events.push(...applyBuildingYardage(actor, b, 250));
+      } else if (action.ability === "truckstick") {
+        actor.rageT = 6;
+        actor.truckT = 1.8;
+        recover(actor, actor, actor.maxHp, events);
+      } else if (action.ability === "burner_dash") {
+        actor.sprintT = 2.5;
+        actor.rageT = 2.5;
+      } else if (action.ability === "trick_play") events.push({ type: "reinforcements", actorId: actor.id, x: actor.x, y: actor.y });
+      else for (const t of troops) {
+        if (t.dead) continue;
+        const distance = dist(actor.x, actor.y, t.x, t.y);
+        if (action.ability === "motivation" && distance <= 20) t.rageT = Math.max(t.rageT, 4);
+        if (action.ability === "field_medic" && distance <= 18) {
+          recover(actor, t, t.maxHp * 0.35, events);
+          t.healT = Math.max(t.healT, 5);
+          t.healingSource = actor.id;
+        }
+        if (action.ability === "shield_wall" && distance <= 16) {
+          t.shieldT = Math.max(t.shieldT ?? 0, 5);
+          t.shieldSource = actor.id;
+        }
+        if (action.ability === "hall_of_fame") {
+          t.rageT = Math.max(t.rageT, 6);
+          recover(actor, t, t.maxHp, events);
+        }
+      }
+      events.push({ type: "signature-impact", actorId: actor.id, heroKey: action.heroKey, ability: action.ability, x: action.tx, y: action.ty });
+    }
+    if (action.elapsed + 1e-9 >= action.windup + action.recovery) actor.activeAction = void 0;
+  }
+  return events;
+}
+var actionFinished = (action) => action.elapsed + 1e-9 >= action.windup + action.travel + action.recovery;
+
 // game/combat/roster.ts
 function rosterPreparation(roster, readiness = 0) {
   return Object.fromEntries(Object.values(UnitGroup).map((unit) => {
@@ -1744,6 +1857,9 @@ var COMBAT_STEP_SECONDS = 0.05;
 var DT = COMBAT_STEP_SECONDS;
 function createBattleEngine(input, seed, planKey = "balanced") {
   const config = JSON.parse(JSON.stringify(input));
+  const rules = config.authority?.rules ?? config.replay?.rules ?? COMBAT_RULES_VERSION;
+  if (!supportsCombatRules(rules)) throw new Error("Unsupported match rules");
+  const counterCombat = rules === DEFENSE_COUNTER_RULES;
   const isDefense = config.mode === "defense";
   const isReplay = !!config.replay;
   const povDefense = isDefense || isReplay;
@@ -1895,7 +2011,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
       digest = Math.imul(digest, 16777619) >>> 0;
     }
   };
-  hash([COMBAT_RULES_VERSION, { ...config, replay: void 0 }]);
+  hash([rules, { ...config, replay: void 0 }]);
   let planHashed = false;
   const hashPlan = () => {
     if (!planHashed) {
@@ -2100,6 +2216,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
       if (t.abilityCd && t.abilityCd > 0) t.abilityCd = Math.max(0, t.abilityCd - DT);
       if (t.sprintT) t.sprintT = Math.max(0, t.sprintT - DT);
       if (t.truckT && !t.activeAction) t.truckT = Math.max(0, t.truckT - DT);
+      if (counterCombat) tickCounterEffects(t, DT);
       if (modernCombat && t.activeAction) {
         t.attacking = true;
         continue;
@@ -2107,8 +2224,8 @@ function createBattleEngine(input, seed, planKey = "balanced") {
       const raging = t.rageT > 0;
       const rc = t.role ? ROLE_COMBAT[t.role] : void 0;
       const catching = rc?.receiver && s.troops.some((o) => !o.dead && (ROLE_COMBAT[o.role ?? ""]?.thrower || o.heroKey === "qb"));
-      const dps = t.dps * (raging ? 2 : 1) * (catching ? RECEIVER_BONUS : 1);
-      const speed = t.speed * (raging ? 1.5 : 1) * ((t.sprintT ?? 0) > 0 ? 1.7 : (t.truckT ?? 0) > 0 ? 1.6 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1);
+      const dps = (counterCombat && (t.flagT ?? 0) > 0 ? 0.8 : 1) * t.dps * (raging ? 2 : 1) * (catching ? RECEIVER_BONUS : 1);
+      const speed = (counterCombat ? counterSpeed(t) : 1) * t.speed * (raging ? 1.5 : 1) * ((t.sprintT ?? 0) > 0 ? 1.7 : (t.truckT ?? 0) > 0 ? 1.6 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1);
       const goal = nearestBuilding(t.x, t.y, s.buildings, t.special ? void 0 : UNIT_PREF[t.unit]);
       if (!goal) continue;
       if (!t.plan || t.plan.goalId !== goal.id || (t.plan.age += DT) > (modernCombat ? routeRefreshSeconds(t) : 1.1)) t.plan = planPath(t.x, t.y, goal, s.buildings);
@@ -2399,6 +2516,10 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     };
     for (const b of s.buildings) {
       if (b.dead || b.kind !== "defense" || !b.damage || !b.range) continue;
+      if (counterCombat) {
+        stepCounterEquipment(b, s, DT, hitTroop);
+        continue;
+      }
       if ((b.level ?? 0) >= 10) {
         const bb = b;
         if (bb.sigT === void 0) {
@@ -2494,7 +2615,12 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     if (s.puddles.length) {
       s.puddles = s.puddles.filter((p) => (p.life -= DT) > 0);
       for (const p of s.puddles) for (const t of s.troops) {
-        if (!t.dead && dist(t.x, t.y, p.x, p.y) <= p.r) t.slowT = Math.max(t.slowT ?? 0, 0.3);
+        if (!t.dead && dist(t.x, t.y, p.x, p.y) <= p.r) {
+          if (counterCombat) {
+            t.wetT = Math.max(t.wetT ?? 0, 0.15);
+            t.lastDefenseEffect = "Wet turf";
+          } else t.slowT = Math.max(t.slowT ?? 0, 0.3);
+        }
       }
     }
     if (s.pulses.length) s.pulses = s.pulses.filter((p) => (p.life -= DT) > 0);
@@ -2592,6 +2718,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     stepSim();
     if (sim.current.ticks === previousTick) return;
     const s = sim.current;
+    if (counterCombat) hash([s.buildings.map((b) => [b.id, b.counterAttack, b.counterSignatureT]), s.troops.map((t) => [t.id, t.wetT, t.flagT, t.braceT]), s.puddles]);
     hash([
       s.ticks,
       s.time,
@@ -2604,7 +2731,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
   };
   const getReplay = () => ({
     v: 2,
-    rules: COMBAT_RULES_VERSION,
+    rules,
     seed,
     plan: planRef.current.key,
     power: config.power,
@@ -2652,8 +2779,8 @@ function createBattleEngine(input, seed, planKey = "balanced") {
   };
 }
 function replayMatch(replay) {
-  if (replay.v !== 2 || !replay.snapshot || replay.rules !== COMBAT_RULES_VERSION) throw new Error("Unsupported match rules");
-  const engine = createBattleEngine({ ...replay.snapshot, replay: { seed: replay.seed, planKey: replay.plan, script: replay.script, version: 2 } }, replay.seed, replay.plan);
+  if (replay.v !== 2 || !replay.snapshot || !supportsCombatRules(replay.rules)) throw new Error("Unsupported match rules");
+  const engine = createBattleEngine({ ...replay.snapshot, replay: { seed: replay.seed, planKey: replay.plan, script: replay.script, version: 2, rules: replay.rules } }, replay.seed, replay.plan);
   for (let i = 0; i < 1400 && !engine.state.ended; i++) engine.advance();
   return { result: engine.result, hash: engine.hash, matches: engine.state.ended && engine.rejectedCommands === 0 && engine.hash === replay.finalHash && engine.state.ticks === replay.ticks && engine.getReplay().script.length === replay.script.length, engine };
 }
@@ -2680,7 +2807,8 @@ function validateReplay(value) {
     if (v.v === 2) {
       if (v.script.some((a) => a.tick > v.ticks)) return null;
       const c = v.snapshot;
-      if (v.rules !== COMBAT_RULES_VERSION || !text(v.finalHash, 8) || !/^[0-9a-f]{8}$/.test(v.finalHash) || !Number.isInteger(v.ticks) || !finite(v.ticks, 0, 1400) || !record2(c) || !["attack", "defense"].includes(c.mode) || !text(c.title, 160) || c.replay !== void 0 || !layout(c.buildings) || !heroes(c.heroes ?? []) || !specials(c.specials ?? []) || !squad(c.squad, true) || !multiplier(c.power) || !multiplier(c.preparation) || !multiplier(c.playerArmy) || !record2(c.loot) || !finite(c.loot.coins, 0, 1e6) || !finite(c.loot.fans, 0, 1e6)) return null;
+      if (!supportsCombatRules(v.rules) || !text(v.finalHash, 8) || !/^[0-9a-f]{8}$/.test(v.finalHash) || !Number.isInteger(v.ticks) || !finite(v.ticks, 0, 1400) || !record2(c) || !["attack", "defense"].includes(c.mode) || !text(c.title, 160) || c.replay !== void 0 || !layout(c.buildings) || !heroes(c.heroes ?? []) || !specials(c.specials ?? []) || !squad(c.squad, true) || !multiplier(c.power) || !multiplier(c.preparation) || !multiplier(c.playerArmy) || !record2(c.loot) || !finite(c.loot.coins, 0, 1e6) || !finite(c.loot.fans, 0, 1e6)) return null;
+      if (c.authority?.rules !== void 0 && c.authority.rules !== v.rules) return null;
       if (c.aiMult !== void 0 && !finite(c.aiMult, 0.1, 20)) return null;
       if (c.fans !== void 0 && !finite(c.fans, 0, 1e8)) return null;
       if (c.masteryTier !== void 0 && !finite(c.masteryTier, 0, 3)) return null;
@@ -3439,11 +3567,12 @@ var uuid2 = (v) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4
 function parseMatchChoice(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return fail("invalid_choice", "Choose a game.");
   const v = value;
-  const keys2 = Object.keys(v).sort().join(",");
+  if (v.rules !== void 0 && !supportsCombatRules(v.rules)) return fail("invalid_choice", "Update the app to play these rules.");
+  const keys2 = Object.keys(v).filter((k) => k !== "rules").sort().join(",");
   if (v.kind === "campaign" && keys2 === "kind,stage" && Number.isInteger(v.stage) && Number(v.stage) >= 1 && Number(v.stage) <= CAMPAIGN_STAGES.length) return v;
   if (v.kind === "road" && keys2 === "choice,kind" && Number.isInteger(v.choice) && Number(v.choice) >= 0 && Number(v.choice) <= 2) return v;
   if (v.kind === "rival" && keys2 === "kind,target" && uuid2(v.target)) return v;
-  if (v.kind === "gauntlet" && keys2 === "kind") return { kind: "gauntlet" };
+  if (v.kind === "gauntlet" && keys2 === "kind") return v;
   return fail("invalid_choice", "That game choice is unavailable.");
 }
 function authorityRoadTargets(state, owner, now) {
@@ -3482,7 +3611,7 @@ function issueMatch(input) {
     state = { ...state, gauntlet: { ...state.gauntlet, attempts: state.gauntlet.attempts - 1 } };
   }
   const expiresAt = now + 15 * 6e4;
-  config.authority = { matchId: id, seed, rules: COMBAT_RULES_VERSION, issuedAt: now, expiresAt };
+  config.authority = { matchId: id, seed, rules: choice.rules ?? LEGACY_COMBAT_RULES, issuedAt: now, expiresAt };
   state = { ...state, resources: { ...state.resources, ENERGY: state.resources.ENERGY - cost } };
   return { state, match: { id, owner, seed, issuedAt: now, expiresAt, cost, choice, config } };
 }

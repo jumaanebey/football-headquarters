@@ -1,3 +1,4 @@
+import { EQUIPMENT_COUNTERS } from '../game/combat/defenseCounters';
 import { describe, expect, it } from 'vitest';
 import { DEFENSE_TYPES, EXTRA_SLOT_COSTS } from '../constants';
 import { MAX_SLOT_LEVEL, masteryDefMult, slotDmgMult, slotHpMult, slotUpgradeCost, slotsFor } from '../fixedBase';
@@ -6,7 +7,8 @@ import { defenseTroopBoost } from '../defense';
 import { createBattleEngine } from '../game/combat/engine';
 import { applyClubAction } from '../game/authority/clubActions';
 import { applyCampusLayout, templateCampusLayout } from '../game/campusLayout';
-import { DEFENSE_BEHAVIOUR, crownSlotPurchase, equipmentModel, equipmentRoster, type EquipmentKind } from '../game/progression';
+import { LEGACY_DEFENSE_BEHAVIOUR as DEFENSE_BEHAVIOUR } from '../game/progression/equipmentModel';
+import { crownSlotPurchase, equipmentModel, equipmentRoster, type EquipmentKind } from '../game/progression';
 import { UnitGroup } from '../types';
 import { NOW, act, context, equipmentBase, equipmentLockedButLevelled, equipmentMaxed, equipmentStadium4, equipmentWithCrown } from './fixtures/progression';
 
@@ -59,7 +61,7 @@ describe('equipment numbers come from the real layout builder and the authority'
     expect(m.current!.damage).toBe(Math.round(def.damage * slotDmgMult(3)));
     expect(m.behaviour.range).toBe(def.range);
     expect(m.next!.costCoins).toBe(slotUpgradeCost(slot.kind, 4));
-    expect(m.next!.stats.sustainedDamagePerSecond).toBeCloseTo(at(4).damage! * m.behaviour.hitDamageMult / m.behaviour.cooldownSeconds, 9);
+    expect(m.next!.stats.sustainedDamagePerSecond).toBeCloseTo(at(4).damage! * m.behaviour.hitDamageMult / (m.behaviour.cooldownSeconds + EQUIPMENT_COUNTERS[m.kind].windup), 9);
   });
 
   it('upgrade cost and blockers match defense.upgrade-slot', () => {
@@ -103,7 +105,7 @@ describe('equipment behaviour matches the combat engine', () => {
   const firstShot = (kind: EquipmentKind) => {
     const def = DEFENSE_TYPES.find(d => d.kind === kind)!;
     const engine = createBattleEngine({
-      mode: 'attack', title: 'turret probe', loot: { coins: 0, fans: 0 },
+      authority:{matchId:'legacy',seed:5,rules:'hero-actions-3',issuedAt:0,expiresAt:1}, mode: 'attack', title: 'turret probe', loot: { coins: 0, fans: 0 },
       playerArmy: { [UnitGroup.OFFENSE_LINE]: 1, [UnitGroup.OFFENSE_SKILL]: 0, [UnitGroup.DEFENSE_LINE]: 0, [UnitGroup.DEFENSE_SECONDARY]: 0 },
       buildings: [
         { id: 'hq', kind: 'hq', x: 50, y: 30, size: 8, hp: 100000 },
@@ -138,7 +140,7 @@ describe('equipment behaviour matches the combat engine', () => {
     expect(DEFENSE_BEHAVIOUR.ref.slow?.apply).toBe('overwrite');
     expect(DEFENSE_BEHAVIOUR.tshirt.slow?.apply).toBe('extend');
     const engine = createBattleEngine({
-      mode: 'attack', title: 'overwrite probe', loot: { coins: 0, fans: 0 },
+      authority:{matchId:'legacy',seed:5,rules:'hero-actions-3',issuedAt:0,expiresAt:1}, mode: 'attack', title: 'overwrite probe', loot: { coins: 0, fans: 0 },
       playerArmy: { [UnitGroup.OFFENSE_LINE]: 1, [UnitGroup.OFFENSE_SKILL]: 0, [UnitGroup.DEFENSE_LINE]: 0, [UnitGroup.DEFENSE_SECONDARY]: 0 },
       buildings: [
         { id: 'hq', kind: 'hq', x: 50, y: 30, size: 8, hp: 100000 },

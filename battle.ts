@@ -43,6 +43,8 @@ export interface BBuilding extends BattleBuildingDef {
   maxHp: number;
   dead: boolean;
   cooldown: number; // seconds until next shot (defense)
+  counterSignatureT?: number;
+  counterAttack?: { targetId: string; x: number; y: number; remaining: number; signature: boolean };
 }
 
 export interface BTroop {
@@ -62,6 +64,11 @@ export interface BTroop {
   healT: number;    // seconds of Heal remaining
   shieldT?: number; // seconds of Shield Wall (incoming damage halved) remaining
   slowT?: number;   // seconds of penalty-flag slow (Ref Tower) remaining
+  wetT?: number;
+  flagT?: number;
+  braceT?: number;
+  lastDefenseEffect?: string;
+  defenseControlSeconds?: number;
   isHero?: boolean;
   heroKey?: string;
   ability?: 'hailmary' | 'truckstick' | 'motivation' | 'onside_bomb' | 'burner_dash' | 'field_medic' | 'shield_wall' | 'trick_play' | 'hall_of_fame';

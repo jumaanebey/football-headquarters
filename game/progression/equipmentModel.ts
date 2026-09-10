@@ -1,3 +1,4 @@
+import { EQUIPMENT_COUNTERS } from '../combat/defenseCounters';
 // Defensive equipment read model. Pure functions over GameState.
 // Geometry and gates: fixedBase.ts. Prices and base stats: constants.ts DEFENSE_TYPES.
 // Level scaling: battle.ts defenseLayoutFromBase (the real layout builder, called here with the
@@ -33,14 +34,14 @@ export interface DefenseBehaviour {
   slow: { seconds: number; apply: 'extend' | 'overwrite' } | null;
   puddle: { radius: number; lifeSeconds: number; slowSecondsWhileInside: number } | null;
   /** Speed multiplier while any slow timer is running (one timer per attacker; never stacks). */
-  slowSpeedMult: 0.55;
-  signature: { name: string; unlockLevel: 10; everySeconds: number; searchRangeMult: 1.25; effect: string };
+  slowSpeedMult: number;
+  signature: { name: string; unlockLevel: 10; everySeconds: number; searchRangeMult: number; effect: string };
   /** Exact wording that matches the code (the shipped `desc` in DEFENSE_TYPES is left untouched). */
   correctedDescription: string;
   sources: string[];
 }
 
-export const DEFENSE_BEHAVIOUR: Record<EquipmentKind, DefenseBehaviour> = {
+export const LEGACY_DEFENSE_BEHAVIOUR: Record<EquipmentKind, DefenseBehaviour> = {
   jugs: {
     kind: 'jugs', range: 24, cooldownSeconds: 0.55, hitDamageMult: 1, targeting: 'nearest-single', splash: null, slow: null, puddle: null, slowSpeedMult: 0.55,
     signature: { name: 'JUGS Overdrive', unlockLevel: 10, everySeconds: 9, searchRangeMult: 1.25, effect: 'A 2.2× damage volley on the nearest attacker within 1.25× range.' },
@@ -73,11 +74,24 @@ export const DEFENSE_BEHAVIOUR: Record<EquipmentKind, DefenseBehaviour> = {
   },
 };
 
+/** Current rules; legacy descriptions remain available for old-film verification. */
+export const DEFENSE_BEHAVIOUR = Object.fromEntries(Object.entries(LEGACY_DEFENSE_BEHAVIOUR).map(([key, old]) => {
+  const kind=key as EquipmentKind, rule=EQUIPMENT_COUNTERS[kind];
+  return [kind, {...old, cooldownSeconds:rule.cooldown, hitDamageMult:rule.damage,
+    slowSpeedMult:kind==='cooler'?.6:kind==='ref'?.75:.65,
+    slow: kind==='ref'?{seconds:1.4,apply:'extend'}:kind==='tshirt'?{seconds:.9,apply:'extend'}:null,
+    splash:kind==='tshirt'?{radius:7,damageMult:EQUIPMENT_COUNTERS.tshirt.damage,slowSeconds:.9}:null,
+    puddle:kind==='cooler'?{radius:7,lifeSeconds:3.5,slowSecondsWhileInside:.15}:null,
+    correctedDescription:`${rule.counter} ${rule.windup ? `${rule.windup}s warning, then ` : ''}${rule.cooldown}s recovery after each attack.`,
+    signature:{...old.signature,searchRangeMult:1,effect:kind==='sled'?'5-unit knockback reduced by brace resistance; obstacle-safe. 1.4× normal impact.':kind==='ref'?'Flags every attacker within normal range; IQ shortens each flag.':kind==='tshirt'?'11.2-unit area, 1.4× normal pressure with edge falloff.':kind==='cooler'?'11.2-unit water zone lasting 5 seconds; no direct damage.':'2.2× pressure on the nearest attacker.'},
+    sources:['game/combat/defenseCounters.ts','game/combat/defenseCounterStep.ts']}];
+})) as Record<EquipmentKind, DefenseBehaviour>;
+
 export interface EquipmentStats {
   level: number;
   durability: number;
   damage: number;
-  /** damage × hitDamageMult ÷ cooldown — steady single-target output while a runner is in range. */
+  /** Maximum pressure × hitDamageMult ÷ (warning + recovery); resistance and spacing reduce this — steady single-target output while a runner is in range. */
   sustainedDamagePerSecond: number;
 }
 
@@ -125,7 +139,7 @@ export const equipmentStatsAt = (slot: Pick<DefenseSlotDef, 'id' | 'kind' | 'gri
   const piece = defenseLayoutFromBase([], [], boost, [{ id: slot.id, kind: slot.kind, gridX: slot.gridX, gridY: slot.gridY, level }])[0];
   const behaviour = DEFENSE_BEHAVIOUR[kindOf(slot.kind)];
   const damage = piece.damage ?? 0;
-  return { level, durability: piece.hp, damage, sustainedDamagePerSecond: damage * behaviour.hitDamageMult / behaviour.cooldownSeconds };
+  return { level, durability: piece.hp, damage, sustainedDamagePerSecond: damage * behaviour.hitDamageMult / (behaviour.cooldownSeconds + EQUIPMENT_COUNTERS[kindOf(slot.kind)].windup) };
 };
 
 const gateOf = (slot: DefenseSlotDef, stadiumLevel: number, bonusDefSlots: number): EquipmentModel['gate'] =>
@@ -173,7 +187,7 @@ export function equipmentModel(state: GameState, slotId: string): EquipmentModel
   }
 
   return {
-    slotId: slot.id, kind, name: def.name, emoji: def.emoji, description: def.desc,
+    slotId: slot.id, kind, name: def.name, emoji: def.emoji, description: DEFENSE_BEHAVIOUR[kind].correctedDescription,
     status, level, maxLevel: MAX_SLOT_LEVEL,
     fielded: gate.met && level >= 1 && level <= MAX_SLOT_LEVEL,
     location: { gridX: placed.gridX, gridY: placed.gridY, covers: slot.covers, formation },

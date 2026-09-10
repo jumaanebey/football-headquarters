@@ -1,3 +1,5 @@
+import { DEFENSE_COUNTER_RULES, supportsCombatRules, counterSpeed, tickCounterEffects } from './defenseCounters';
+import { stepCounterEquipment } from './defenseCounterStep';
 import { canonicalJson } from './canonical';
 import { UnitGroup } from '../../types';
 import type { Player } from '../../types';
@@ -27,6 +29,9 @@ export interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down
  */
 export function createBattleEngine(input: BattleConfig, seed: number, planKey = 'balanced') {
   const config: BattleConfig = JSON.parse(JSON.stringify(input));
+  const rules = config.authority?.rules ?? config.replay?.rules ?? COMBAT_RULES_VERSION;
+  if(!supportsCombatRules(rules)) throw new Error('Unsupported match rules');
+  const counterCombat = rules === DEFENSE_COUNTER_RULES;
   const isDefense = config.mode === 'defense';
   const isReplay = !!config.replay;
   const povDefense = isDefense || isReplay;
@@ -109,7 +114,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
   let started = isDefense || isReplay;
   let digest = 2166136261;
   const hash = (value: unknown) => { for (const c of canonicalJson(value)) { digest ^= c.charCodeAt(0); digest = Math.imul(digest, 16777619) >>> 0; } };
-  hash([COMBAT_RULES_VERSION, {...config,replay:undefined}]);
+  hash([rules, {...config,replay:undefined}]);
   let planHashed = false;
   const hashPlan = () => { if(!planHashed){hash(['plan',planRef.current.key]);planHashed=true;} };
   const endBattle = () => {
@@ -294,14 +299,15 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
         if (t.abilityCd && t.abilityCd > 0) t.abilityCd = Math.max(0, t.abilityCd - DT);
         if (t.sprintT) t.sprintT = Math.max(0, t.sprintT - DT);
         if (t.truckT && !t.activeAction) t.truckT = Math.max(0, t.truckT - DT);
+        if(counterCombat) tickCounterEffects(t,DT);
         if (modernCombat && t.activeAction) { t.attacking = true; continue; } // plant through release
 
         const raging = t.rageT > 0;
         // WR power: catching — big damage while any thrower (QB player or QB hero) is out
         const rc = t.role ? ROLE_COMBAT[t.role] : undefined;
         const catching = rc?.receiver && s.troops.some(o => !o.dead && (ROLE_COMBAT[o.role ?? '']?.thrower || o.heroKey === 'qb'));
-        const dps = t.dps * (raging ? 2 : 1) * (catching ? RECEIVER_BONUS : 1);
-        const speed = t.speed * (raging ? 1.5 : 1) * ((t.sprintT ?? 0) > 0 ? 1.7 : (t.truckT ?? 0) > 0 ? 1.6 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1);
+        const dps = ((counterCombat && (t.flagT??0)>0) ? .8 : 1) * t.dps * (raging ? 2 : 1) * (catching ? RECEIVER_BONUS : 1);
+        const speed = (counterCombat ? counterSpeed(t) : 1) * t.speed * (raging ? 1.5 : 1) * ((t.sprintT ?? 0) > 0 ? 1.7 : (t.truckT ?? 0) > 0 ? 1.6 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1);
 
         const goal = nearestBuilding(t.x, t.y, s.buildings, t.special ? undefined : UNIT_PREF[t.unit]); // position-group targeting roles
         if (!goal) continue;
@@ -593,6 +599,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
       };
       for (const b of s.buildings) {
         if (b.dead || b.kind !== 'defense' || !b.damage || !b.range) continue;
+        if(counterCombat) { stepCounterEquipment(b,s,DT,hitTroop); continue; }
         // ⭐ L10 SIGNATURE PLAYS — maxed gear runs a special on its own clock. The
         // slot's level rides the layout, so raiders face signatures on real L10 bases
         // (and replays re-fire them identically — all state lives in the sim).
@@ -683,7 +690,10 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
       if (s.puddles.length) {
         s.puddles = s.puddles.filter(p => (p.life -= DT) > 0);
         for (const p of s.puddles) for (const t of s.troops) {
-          if (!t.dead && dist(t.x, t.y, p.x, p.y) <= p.r) t.slowT = Math.max(t.slowT ?? 0, 0.3);
+          if (!t.dead && dist(t.x, t.y, p.x, p.y) <= p.r) {
+            if(counterCombat){t.wetT=Math.max(t.wetT??0,.15);t.lastDefenseEffect='Wet turf';}
+            else t.slowT = Math.max(t.slowT ?? 0, 0.3);
+          }
         }
       }
       if (s.pulses.length) s.pulses = s.pulses.filter(p => (p.life -= DT) > 0);
@@ -775,11 +785,12 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
     if (sim.current.ticks === previousTick) return;
     const s = sim.current;
     // Hash gameplay only: cosmetic quality, FPS, sound and camera cannot alter verification.
+    if(counterCombat) hash([s.buildings.map(b=>[b.id,b.counterAttack,b.counterSignatureT]),s.troops.map(t=>[t.id,t.wetT,t.flagT,t.braceT]),s.puddles]);
     hash([s.ticks,s.time,s.momentum,s.bonus,s.nextWave,s.buildings.map(b=>[b.id,b.hp,b.cooldown]),
       [...s.troops,...s.guards].map(t=>[t.id,t.x,t.y,t.hp,t.rageT,t.healT,t.shieldT,t.slowT,t.abilityCd,t.dmg,t.healingDone,t.protectionDone])]);
   };
   const getReplay = (): ReplayData => ({
-    v:2, rules:COMBAT_RULES_VERSION,seed,plan:planRef.current.key,power:config.power,heroes:JSON.parse(JSON.stringify(heroes)),specials:JSON.parse(JSON.stringify(specials)),
+    v:2, rules,seed,plan:planRef.current.key,power:config.power,heroes:JSON.parse(JSON.stringify(heroes)),specials:JSON.parse(JSON.stringify(specials)),
     layout:JSON.parse(JSON.stringify(config.buildings)),script:script.map(a=>({...a})),squad:JSON.parse(JSON.stringify(config.squad??[])),
     snapshot:JSON.parse(JSON.stringify({...config,replay:undefined})),finalHash:digest.toString(16).padStart(8,'0'),ticks:sim.current.ticks,
   });
@@ -794,8 +805,8 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
 export type BattleEngine = ReturnType<typeof createBattleEngine>;
 
 export function replayMatch(replay: ReplayData) {
-  if(replay.v!==2 || !replay.snapshot || replay.rules!==COMBAT_RULES_VERSION) throw new Error('Unsupported match rules');
-  const engine=createBattleEngine({...replay.snapshot,replay:{seed:replay.seed,planKey:replay.plan,script:replay.script,version:2}},replay.seed,replay.plan);
+  if(replay.v!==2 || !replay.snapshot || !supportsCombatRules(replay.rules)) throw new Error('Unsupported match rules');
+  const engine=createBattleEngine({...replay.snapshot,replay:{seed:replay.seed,planKey:replay.plan,script:replay.script,version:2,rules:replay.rules}},replay.seed,replay.plan);
   for(let i=0;i<1400&&!engine.state.ended;i++) engine.advance();
   return {result:engine.result,hash:engine.hash,matches:engine.state.ended&&engine.rejectedCommands===0&&engine.hash===replay.finalHash&&engine.state.ticks===replay.ticks&&engine.getReplay().script.length===replay.script.length,engine};
 }

@@ -1548,7 +1548,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
           {s.puddles.map((p, i) => (
             <div key={`pud${i}`} className="absolute rounded-[50%] pointer-events-none"
               style={{ left: `${px(p.x, p.y) - p.r * ISO_KX * 1.414}%`, top: `${py(p.x, p.y) - p.r * ISO_KY * 1.414}%`, width: `${p.r * ISO_KX * 2.828}%`, height: `${p.r * ISO_KY * 2.828}%`, zIndex: 2,
-                background: 'radial-gradient(ellipse at 45% 40%, rgba(255,166,77,0.7) 0%, rgba(249,115,22,0.5) 55%, rgba(194,65,12,0.35) 78%, transparent 92%)',
+                background: 'radial-gradient(ellipse at 45% 40%, rgba(125,211,252,0.7) 0%, rgba(14,165,233,0.5) 55%, rgba(3,105,161,0.35) 78%, transparent 92%)',
                 boxShadow: 'inset 0 0 8px rgba(255,220,180,0.5)', opacity: Math.min(0.8, (p.life / p.maxLife) * 1.4) }} />
           ))}
 
@@ -1781,7 +1781,8 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
               <div key={t.id} data-hero={t.heroKey} data-action-state={t.activeAction ? 'signature' : walking ? 'running' : attacking ? 'contact' : 'idle'} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, width: w, minWidth: wmin, maxWidth: wmax, ...(modernCombat && heroDef ? HERO_FIELD_SIZE : {}), zIndex: Math.round((t.x + t.y) / 2) + 1, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
                 {showPlayerLabels && <span className="absolute bottom-full mb-2 whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-1 text-[10px] font-bold text-white">{heroDef?.name ?? t.nameTag ?? st.label} · {t.activeAction ? 'Signature' : walking ? 'Moving' : attacking ? 'Engaging' : 'Ready'}</span>}
-                {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
+                {((t.wetT??0)>0 || (t.braceT??0)>0) && <span className="absolute bottom-full rounded bg-slate-950 px-1 text-[9px] text-sky-200">{(t.wetT??0)>0?'WET TURF':'BRACING'}</span>}
+                {((t.slowT ?? 0) > 0 || (t.flagT ?? 0)>0) && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
                 {t.hp < t.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
                 {specialDef ? (
                   // Emoji placeholder shows until the real sprite loads, then hides.

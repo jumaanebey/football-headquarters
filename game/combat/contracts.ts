@@ -25,7 +25,7 @@ export interface BattleConfig {
   parkingLot?: number;    // defense mode: apron level (visual; the layout is pre-compressed)
   masteryTier?: number;   // defense mode: formation mastery ★ tier (0-3) — the DEFENSE PLAYS LADDER
   gauntlet?: { tier: number; waves: GauntletWave[] }; // 🛡 THE GAUNTLET: escalating waves storm your house
-  replay?: { seed: number; script: ReplayAction[]; planKey: string; version?: 1 | 2; expectedHash?: string; expectedTicks?: number; displayTitle?: string }; // spectate a recorded attack
+  replay?: { seed: number; script: ReplayAction[]; planKey: string; version?: 1 | 2; rules?: string; expectedHash?: string; expectedTicks?: number; displayTitle?: string }; // spectate a recorded attack
   /** Server-issued match binding: the seed and rules version belong to this match id (game/authority/matches.ts). */
   authority?: { matchId: string; seed: number; rules: string; issuedAt: number; expiresAt: number };
   /** Defense snapshot identity stamped by defenseBattleFields (game/defenseSnapshot.ts). */

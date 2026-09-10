@@ -1,3 +1,4 @@
+import { LEGACY_COMBAT_RULES, supportsCombatRules } from '../combat/defenseCounters';
 import { ResourceType, type GameState, type UnitGroup } from '../../types';
 import { RAID_ENERGY } from '../../constants';
 import {
@@ -15,11 +16,11 @@ import { nextFanMilestone } from '../fanProgress';
 import { createDefenseSnapshot, defenseBattleFields } from '../defenseSnapshot';
 import { progressClubDaily, settleClubState } from './clubActions';
 
-export type MatchChoice =
+export type MatchChoice = (
   | { kind: 'campaign'; stage: number }
   | { kind: 'road'; choice: number }
   | { kind: 'rival'; target: string }
-  | { kind: 'gauntlet' };
+  | { kind: 'gauntlet' }) & { rules?: string };
 
 export interface IssuedMatch {
   id: string;
@@ -55,11 +56,12 @@ const uuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}
 export function parseMatchChoice(value: unknown): MatchChoice {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fail('invalid_choice', 'Choose a game.');
   const v = value as Record<string, unknown>;
-  const keys = Object.keys(v).sort().join(',');
+  if(v.rules!==undefined&&!supportsCombatRules(v.rules))return fail('invalid_choice','Update the app to play these rules.');
+  const keys = Object.keys(v).filter(k=>k!=='rules').sort().join(',');
   if (v.kind === 'campaign' && keys === 'kind,stage' && Number.isInteger(v.stage) && Number(v.stage) >= 1 && Number(v.stage) <= CAMPAIGN_STAGES.length) return v as MatchChoice;
   if (v.kind === 'road' && keys === 'choice,kind' && Number.isInteger(v.choice) && Number(v.choice) >= 0 && Number(v.choice) <= 2) return v as MatchChoice;
   if (v.kind === 'rival' && keys === 'kind,target' && uuid(v.target)) return v as MatchChoice;
-  if (v.kind === 'gauntlet' && keys === 'kind') return { kind: 'gauntlet' };
+  if (v.kind === 'gauntlet' && keys === 'kind') return v as MatchChoice;
   return fail('invalid_choice', 'That game choice is unavailable.');
 }
 
@@ -100,7 +102,7 @@ export function issueMatch(input: { state: GameState; owner: string; id: string;
     state = { ...state, gauntlet: { ...state.gauntlet, attempts: state.gauntlet.attempts - 1 } };
   }
   const expiresAt = now + 15 * 6e4;
-  config.authority = { matchId: id, seed, rules: COMBAT_RULES_VERSION, issuedAt: now, expiresAt };
+  config.authority = { matchId: id, seed, rules: choice.rules ?? LEGACY_COMBAT_RULES, issuedAt: now, expiresAt };
   state = { ...state, resources: { ...state.resources, ENERGY: state.resources.ENERGY - cost } };
   return { state, match: { id, owner, seed, issuedAt: now, expiresAt, cost, choice, config } };
 }

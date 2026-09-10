@@ -1,0 +1,12 @@
+import React,{useState} from 'react';
+import {createRoot} from 'react-dom/client';
+import {BattleScreen} from '../components/BattleScreen';
+import {DefenseCounterGuide} from '../components/DefenseCounterGuide';
+import {heroPracticeConfig} from '../game/combat/practice';
+import {DEFENSE_TYPES} from '../constants';
+import type {BattleConfig} from '../game/combat/contracts';
+import '../tailwind.css';
+import '../game-theme.css';
+import '../game-motion.css';
+function Fixture(){const[config,setConfig]=useState<BattleConfig|null>(null);const buildings=DEFENSE_TYPES.map((d,i)=>({id:d.kind,kind:'defense' as const,flavor:d.kind as 'jugs',x:25+i*12,y:40,hp:d.hp,size:5,damage:d.damage,range:d.range,art:d.sprite,level:10}));return <main className="min-h-screen bg-slate-950 p-4 text-white"><div className="mx-auto max-w-xl"><h1 className="mb-4 text-xl font-bold">Defense counterplay acceptance</h1><DefenseCounterGuide buildings={buildings}/>{DEFENSE_TYPES.map(d=><button key={d.kind} className="m-2 rounded bg-sky-800 p-3" onClick={()=>{const practice=heroPracticeConfig('enforcer');setConfig({...practice,title:`${d.name} counter test`,buildings:[{id:'hq',kind:'hq',x:50,y:28,hp:9000,size:9},...buildings.filter(b=>b.id===d.kind).map(b=>({...b,x:50,y:62,hp:10000}))]});}}>Practice against {d.name}</button>)}{config&&<BattleScreen config={config} clubName="Counter Preview FC" onFinish={()=>setConfig(null)} onExit={()=>setConfig(null)}/>}</div></main>};
+if(import.meta.env.DEV)createRoot(document.getElementById('root')!).render(<Fixture/>);

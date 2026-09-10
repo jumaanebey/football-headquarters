@@ -1,3 +1,4 @@
+import { COMBAT_RULES_VERSION } from './game/combat/actions';
 import { ClubStylePicker } from './components/ClubStyle';
 import { LandscapePlay } from './components/LandscapePlay';
 import { DEFENSE_MATCHUPS } from './game/defensePresentation';
@@ -878,7 +879,7 @@ function App() {
       if (!choice) { sfx.error(); centerText('This game is not available for a protected club', '#94a3b8'); return false; }
       if (authorityMatchRef.current) { sfx.error(); centerText('Finish your current game first', '#ef4444'); return false; }
       centerText('Reserving your game…', '#94a3b8');
-      void authority.reserve(choice).then(reserved => {
+      void authority.reserve({...choice,rules:COMBAT_RULES_VERSION}).then(reserved => {
         if ('error' in reserved) { sfx.error(); centerText(reserved.error, '#ef4444'); authority.setNotice(reserved.error); return; }
         authorityMatchRef.current = { matchId: reserved.matchId, begun: false };
         setBattleConfig({ ...reserved.config, attackerName: reserved.config.attackerName ?? stateRef.current.teamName });
@@ -944,7 +945,7 @@ function App() {
       void authority.film(entry.authorityMatchId).then(film => {
         if (!film || film.v !== 2 || !film.snapshot) { centerText('This film is unavailable or uses unsupported rules', '#94a3b8'); return; }
         setDefenseLogOpen(false);
-        setBattleConfig({ ...film.snapshot, replay: { seed: film.seed, script: film.script, planKey: film.plan, version: 2, expectedHash: film.finalHash, expectedTicks: film.ticks, displayTitle: `${entry.attacker.replace(' ⚡', '')} at your stadium` } });
+        setBattleConfig({ ...film.snapshot, replay: { seed: film.seed, script: film.script, planKey: film.plan, version: 2, rules: film.rules, expectedHash: film.finalHash, expectedTicks: film.ticks, displayTitle: `${entry.attacker.replace(' ⚡', '')} at your stadium` } });
       });
       return;
     }
@@ -952,7 +953,7 @@ function App() {
     if (!rep) {spawnText('This replay is unavailable or uses unsupported rules', window.innerWidth/2,window.innerHeight/2,'#94a3b8');return;}
     if(rep.v === 2 && rep.snapshot) {
       setDefenseLogOpen(false);
-      setBattleConfig({...rep.snapshot,replay:{seed:rep.seed,script:rep.script,planKey:rep.plan,version:2,expectedHash:rep.finalHash,expectedTicks:rep.ticks,displayTitle:`${entry.attacker.replace(' ⚡','')} at your stadium`}});
+      setBattleConfig({...rep.snapshot,replay:{seed:rep.seed,script:rep.script,planKey:rep.plan,version:2,rules:rep.rules,expectedHash:rep.finalHash,expectedTicks:rep.ticks,displayTitle:`${entry.attacker.replace(' ⚡','')} at your stadium`}});
       return;
     }
     setDefenseLogOpen(false);
