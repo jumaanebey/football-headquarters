@@ -2,7 +2,7 @@ import { BuildingArt } from './BuildingArt';
 import { Sheet } from './ui';
 
 import React from 'react';
-import { BuildingInstance, BuildingType, ResourceType, UpgradeJob } from '../types';
+import { BuildingInstance, BuildingType, DrillState, ResourceType, UpgradeJob } from '../types';
 import { BUILDING_INFO, UPGRADE_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, buildingEffect } from '../constants';
 import { buildingSprite, BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
 import { X, ArrowUpCircle, Coins, Hammer, Lock, Clock, Crown, Zap } from 'lucide-react';
@@ -13,6 +13,9 @@ interface Props {
   stadiumLevel: number;
   upgrades: UpgradeJob[];
   builders: number;
+  onCollect?: (building: BuildingInstance) => void;
+  onVisit?: () => void;
+  visitLabel?: string;
   onClose: () => void;
   onUpgrade: (buildingId: string, cost: number) => void;
   onFinishNow: (jobId: string) => void;
@@ -25,7 +28,7 @@ const fmt = (secs: number) => {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 };
 
-export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder }) => {
+export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect }) => {
   if (!building) return null;
 
   const info = BUILDING_INFO[building.type];
@@ -46,11 +49,11 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
   const hireCost = builderHireCost(builders);
 
   return (
-    <Sheet title={info.name} subtitle={`Level ${building.level}${job ? ` → ${job.toLevel}` : ''}`} onClose={onClose} maxWidth="max-w-sm">
+    <Sheet title={info.name} subtitle={`Level ${building.level}${job ? ` → ${job.toLevel}` : ''}`} onClose={onClose} maxWidth="max-w-lg">
       <div className="bg-slate-900">
         <div className={`h-28 ${info.color} bg-opacity-20 relative flex items-center justify-center overflow-hidden`}>
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
-          <Hammer size={56} className="text-white/10" />
+          <BuildingArt type={building.type} level={building.level} label={info.name} className="absolute right-2 w-40 h-40 object-contain" />
           <div className="absolute bottom-4 left-4">
             <h2 className="text-2xl font-bold text-white drop-shadow-md">{info.name}</h2>
             <div className="text-xs font-bold bg-black/50 px-2 py-1 rounded text-white/80 w-fit">LVL {building.level}{job ? ` → ${job.toLevel}` : ''}</div>
@@ -58,7 +61,10 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
         </div>
 
         <div className="p-6">
-          <p className="text-slate-400 text-sm mb-5">{info.description}</p>
+          <p className="text-slate-300 text-sm mb-5">{info.description}</p>
+          {onCollect && (building.state === DrillState.COMPLETED || (building.accrued ?? 0) >= 30) && <button onClick={() => onCollect(building)} className="mb-3 w-full rounded-xl bg-amber-400 p-3 font-bold text-slate-950">{building.state === DrillState.COMPLETED ? 'Collect completed training' : `Collect ${Math.floor(building.accrued ?? 0)} Coins`}</button>}
+          {building.state === DrillState.ACTIVE && <p className="mb-4 text-sm text-blue-300">Training in progress · {fmt(Math.max(0, ((building.finishTime ?? Date.now()) - Date.now()) / 1000))} remaining</p>}
+          {onVisit && <button onClick={onVisit} className="mb-6 w-full rounded-xl bg-blue-600 p-3 font-bold text-white">{visitLabel} →</button>}
 
           {(() => {
             // Show the REAL wired effect (income / drill XP / regen / roster cap / readiness).

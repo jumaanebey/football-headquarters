@@ -19,6 +19,7 @@ interface Props {
   onTrainHero?: (key: string, cost: number) => void;
   onCutPlayer?: (id: string) => void;
   onOpenHeroes?: () => void;
+  onScout?: () => void;
 }
 
 const fmtDur = (s: number) => s < 60 ? `${Math.ceil(s)}s` : `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
@@ -35,7 +36,10 @@ const GROUPS: { unit: UnitGroup; title: string; subtitle: string; icon: React.Re
   { unit: UnitGroup.DEFENSE_SECONDARY, title: 'No Fly Zone',     subtitle: 'CB·S',      icon: <Target size={13} />, ring: '#6366f1' },
 ];
 
-export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], upgrades = [], stadiumLevel = 1, onClose, onTrainGroup, onTrainHero, onCutPlayer, onOpenHeroes }) => {
+export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], upgrades = [], stadiumLevel = 1, onClose, onTrainGroup, onTrainHero, onCutPlayer, onOpenHeroes, onScout }) => {
+  const [view, setView] = useState<'players' | 'training'>('players');
+  const [playerFilter, setPlayerFilter] = useState<UnitGroup | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitGroup | null>(null);
   const [rosterOpen, setRosterOpen] = useState(false);
   const [cutArmed, setCutArmed] = useState<string | null>(null); // two-tap confirm
@@ -57,13 +61,32 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], up
 
   return (
     <Sheet
-      title="Roster & Training"
+      title="Your roster"
       icon={<Users className="text-sky-400" size={22} />}
-      subtitle={selectedUnit ? 'Pick a drill — training builds Readiness for game day.' : 'Tap a position group to run a drill.'}
+      subtitle={`${roster.length} players · ${Math.round(roster.reduce((sum, p) => sum + candidateOvr(p), 0) / Math.max(1, roster.length))} team OVR`}
       onClose={onClose}
-      maxWidth="max-w-lg"
+      maxWidth="max-w-3xl"
     >
-      <div className="p-4 sm:p-5 space-y-4">
+      <div className="p-4 border-b border-slate-700 flex gap-2">
+        {(['players','training'] as const).map(tab => <button key={tab} aria-pressed={view === tab} onClick={() => setView(tab)} className={`flex-1 rounded-xl px-4 py-3 font-bold capitalize ${view === tab ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300'}`}>{tab}</button>)}
+        <button onClick={onScout} className="rounded-xl bg-blue-600 px-4 py-3 font-bold text-white">Scout</button>
+      </div>
+      {view === 'players' ? <div className="p-4 space-y-4">
+        <div className="flex flex-wrap gap-2"><button onClick={() => setPlayerFilter(null)} aria-pressed={playerFilter === null} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-white">All players</button>{GROUPS.map(g => <button key={g.unit} aria-pressed={playerFilter === g.unit} onClick={() => setPlayerFilter(g.unit)} className={`rounded-lg border px-3 py-2 text-sm ${playerFilter === g.unit ? 'border-orange-400 bg-orange-500/20 text-orange-200' : 'border-slate-700 text-slate-300'}`}>{g.title}</button>)}</div>
+        <div className="grid gap-3 sm:grid-cols-2">{roster.filter(p => !playerFilter || p.unit === playerFilter).map(p => <article key={p.id} className="rounded-2xl border border-slate-700 bg-slate-800/60 overflow-hidden">
+          <button aria-expanded={selectedPlayer === p.id} onClick={() => {setSelectedPlayer(selectedPlayer === p.id ? null : p.id);setCutArmed(null);}} className="w-full flex items-center gap-3 p-4 text-left">
+            <img src={unitPlayerSprite(p.unit)} alt="" className="w-14 h-16 object-contain" />
+            <span className="flex-1 min-w-0"><strong className="block text-white">{p.name}</strong><span className="block text-sm text-slate-300">{p.role} · Level {p.level}</span><span className="text-xs text-orange-300">View player →</span></span>
+            <span className="text-center text-2xl font-bold text-amber-300">{candidateOvr(p)}<small className="block text-xs text-slate-400">OVR</small></span>
+          </button>
+          {selectedPlayer === p.id && <div className="border-t border-slate-700 p-4 space-y-3">
+            <dl className="grid grid-cols-3 gap-2 text-center">{[['Strength',p.stats.strength],['Speed',p.stats.speed],['IQ',p.stats.iq]].map(([label,value]) => <div key={label}><dt className="text-xs text-slate-400">{label}</dt><dd className="text-lg font-bold text-white">{value}</dd></div>)}</dl>
+            {TENDENCIES[p.tendency as TendencyKey] && <p className="text-sm text-slate-300">{TENDENCIES[p.tendency as TendencyKey].desc}</p>}
+            <button onClick={() => {setSelectedUnit(p.unit);setView('training');}} className="w-full rounded-lg bg-blue-600 p-3 font-bold text-white">Train this position group</button>
+            {onCutPlayer && roster.length > 6 && (cutArmed === p.id ? <div className="space-y-2"><p className="text-sm text-red-200">Release {p.name}? This frees one roster spot.</p><div className="flex gap-2"><button onClick={() => {onCutPlayer(p.id);setCutArmed(null);}} className="rounded-lg bg-red-700 px-3 py-3 text-white">Confirm release</button><button onClick={() => setCutArmed(null)} className="p-3 text-white">Keep player</button></div></div> : <button onClick={() => setCutArmed(p.id)} className="min-h-11 text-sm text-red-300">Release player</button>)}
+          </div>}
+        </article>)}</div>
+      </div> : <div className="p-4 sm:p-5 space-y-4">
         <HowTo id="coach" lines={[
           'Run drills to build READINESS — at 100% your squad is FIRED UP and the next raid hits +15% harder.',
           'Drills cost ⚡ Energy and pay Coins. Each position group trains on its own.',
@@ -275,7 +298,7 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], up
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </Sheet>
   );
 };

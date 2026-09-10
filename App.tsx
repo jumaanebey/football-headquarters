@@ -118,6 +118,7 @@ function App() {
   const [replayTake, setReplayTake] = useState(0);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
   const [campusEditorOpen, setCampusEditorOpen] = useState(false);
+  const [commandCenterOpen, setCommandCenterOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false); // 🏙 Club Dashboard (tap the jumbotron)
   // CC-style tap: the action bar shows first; Info opens the full sheet.
   const [buildingInfoOpen, setBuildingInfoOpen] = useState(false);
@@ -1427,7 +1428,7 @@ function App() {
 
       <TopHUD onOpenClub={() => setDashboardOpen(true)} gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
-      <div className="fhq-campus-stage absolute inset-0"><IsometricMap
+      <div className={`fhq-campus-stage absolute inset-0 ${commandCenterOpen ? "fhq-command-open" : ""}`}><IsometricMap
         customLayout={!!gameState.campusLayout}
         onEditCampus={() => {setSelectedBuilding(null);setCampusEditorOpen(true);}}
         heroes={gameState.heroes}
@@ -1451,14 +1452,18 @@ function App() {
         onOpenStats={() => { sfx.click(); setDashboardOpen(true); }}
         onBuildingClick={(b) => {
           if (b.type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true);
-          else { setSelectedBuilding(b); setBuildingInfoOpen(false); sfx.click(); }
+          else { setSelectedBuilding(b); setBuildingInfoOpen(true); sfx.click(); }
         }}
         onCollect={handleCollect}
         onCollectResource={handleCollectResource}
         onOrbClick={() => {}}
       /></div>
-      {!showTutorial && <DesktopClubPanel state={gameState} onGames={openRaid} onHeroes={() => setIsHeroOpen(true)} onDefense={() => setFrontOfficeOpen(true)} onRanks={() => {setStandingsTab('live');setIsStandingsOpen(true);}} onShare={() => setShareOwner(playerId() ?? 'local')} />}
+      {!showTutorial && commandCenterOpen && <DesktopClubPanel onClose={() => setCommandCenterOpen(false)} state={gameState} onGames={openRaid} onHeroes={() => setIsHeroOpen(true)} onDefense={() => setFrontOfficeOpen(true)} onRanks={() => {setStandingsTab('live');setIsStandingsOpen(true);}} onShare={() => setShareOwner(playerId() ?? 'local')} />}
 
+      {!showTutorial && <div className="absolute top-[92px] left-3 z-30 flex gap-2">
+        <button onClick={() => setDashboardOpen(true)} className="rounded-xl border border-amber-300/40 bg-slate-950/95 px-4 py-3 text-sm font-bold text-amber-200">Your program</button>
+        <button aria-expanded={commandCenterOpen} onClick={() => setCommandCenterOpen(v => !v)} className="fhq-command-toggle rounded-xl border border-slate-600 bg-slate-950/95 px-4 py-3 text-sm font-bold text-white">Command center</button>
+      </div>}
       <FloatingTextLayer items={floatingTexts} />
       {/* coin flights: outer = X easing, inner = Y easing → curved arc to the HUD */}
       {coinFlights.map(f => (
@@ -1480,12 +1485,13 @@ function App() {
           onTrainHero={handleUpgradeHero}
           onCutPlayer={handleCutPlayer}
           onOpenHeroes={() => { setIsSquadOpen(false); setIsHeroOpen(true); }}
+          onScout={() => { setIsSquadOpen(false); setIsScoutingOpen(true); }}
         />
       )}
 
       {selectedBuilding && buildingInfoOpen && (
           <ActionModal
-             building={selectedBuilding}
+             building={gameState.buildings.find(b => b.id === selectedBuilding.id) ?? selectedBuilding}
              resources={gameState.resources}
              stadiumLevel={stadiumLevel}
              upgrades={gameState.upgrades}
@@ -1494,6 +1500,9 @@ function App() {
              onUpgrade={handleUpgradeBuilding}
              onFinishNow={handleFinishNow}
              onHireBuilder={handleHireBuilder}
+             onCollect={building => { const point = {x:window.innerWidth/2,y:window.innerHeight/2}; if (building.state === DrillState.COMPLETED) handleCollect(building, point); else handleCollectResource(building, point); }}
+             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.TRAINING_PITCH) setIsSquadOpen(true); else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
+             visitLabel={selectedBuilding.type === BuildingType.TRAINING_PITCH ? 'Open roster & training' : selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
           />
       )}
 
@@ -1560,6 +1569,7 @@ function App() {
               <img src="/assets/gpt/game-day-tunnel.png" alt="Three players head through the tunnel toward the field" width="1536" height="1024" decoding="async" />
               <div><span>{attackTab === 'season' ? `Season · Stage ${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}` : 'Away games'}</span><strong>{attackTab === 'season' ? CAMPAIGN_STAGES[Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length) - 1].name : 'Take their house'}</strong></div>
             </div>
+            {attackTab === 'season' && (() => { const next = CAMPAIGN_STAGES[Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)-1]; return <section className="mb-4 rounded-2xl border border-orange-500/50 bg-orange-500/10 p-4"><p className="text-xs uppercase tracking-wider text-orange-300">Your next matchup</p><h3 className="mt-1 text-xl font-bold text-white">{next.name}</h3><p className="mt-1 text-sm text-slate-300">vs {next.opponent} · Readiness {gameState.teamReadiness}%</p><button onClick={() => startCampaign(next.stage)} className="mt-3 w-full rounded-xl bg-orange-500 p-3 font-bold text-white">Prepare lineup & game plan →</button></section>; })()}
             {/* Mode tabs */}
             <div className="flex gap-2 mb-2">
               <button onClick={() => setAttackTab('season')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'season' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
@@ -1569,6 +1579,7 @@ function App() {
                 🏈 Away games
               </button>
             </div>
+            <details className="mb-4 rounded-xl border border-slate-700 p-3"><summary className="cursor-pointer py-2 font-bold text-slate-200">Defense events & practice</summary>
             {/* 🛡 Defend — your side of game day, right where the action lives */}
             <div className="flex gap-2 mb-3">
               <button onClick={() => { setAttackSelectOpen(false); openDefenseLog(); }}
@@ -1606,8 +1617,9 @@ function App() {
                 </button>
               );
             })()}
+            </details>
             <div className="mb-3">
-              <HowTo id="gameday" lines={[
+              <HowTo defaultCollapsed id="gameday" lines={[
                 'SEASON: beat 12 rival coaches for the ring — earn up to 3 game balls per matchup.',
                 'RAID: hit rival bases for Coins and Fans. ⚡ Live Rivals are real coaches — beating them takes trophies.',
                 `Every game costs ⚡${RAID_ENERGY} Energy. In battle: drop players near a lane, then direct the drive with plays and hero abilities.`,
@@ -1788,6 +1800,8 @@ function App() {
             roster={gameState.roster}
             recruitSlot={gameState.recruitSlot}
             academy={academy}
+            upgradeJob={gameState.upgrades.find(job => job.kind === "building" && job.key === academy.id)}
+            onRoster={() => { setIsScoutingOpen(false); setIsSquadOpen(true); }}
             stadiumLevel={stadiumLevel}
             onClose={() => setIsScoutingOpen(false)}
             onStartRecruit={handleStartRecruit}
@@ -1817,7 +1831,7 @@ function App() {
         const gradeColor = dr.score >= 70 ? '#22c55e' : dr.score >= 40 ? '#eab308' : '#ef4444';
         return (
           <Sheet
-            title="Front Office"
+            title="Home defense"
             icon={<Shield className="text-sky-400" size={22} />}
             subtitle={<>Call your scheme, upgrade your emplacements — <b className="text-sky-300">levels and mastery</b> are your edge. See it fight with 🧪 Test.</>}
             onClose={() => setFrontOfficeOpen(false)}
@@ -1834,7 +1848,7 @@ function App() {
             }
           >
             <div className="p-4 sm:p-5 space-y-4">
-              <HowTo id="frontoffice" lines={[
+              <HowTo defaultCollapsed id="frontoffice" lines={[
                 'Pick a FORMATION template, then level its emplacements. Edit campus on the home field customizes their positions.',
                 'Install and level emplacements with Coins. Higher Stadium levels unlock more slots.',
                 'Walls and the Team Bus grow with your Stadium. Their positions can be changed in Edit campus.',
@@ -1891,20 +1905,20 @@ function App() {
                     const cost = slotUpgradeCost(slot.kind, lvl + 1);
                     const crownCost = isCrown ? EXTRA_SLOT_COSTS[slot.crownIndex!] : 0;
                     return (
-                      <div key={slot.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${unlocked ? 'border-slate-700 bg-slate-800/50' : 'border-slate-800 bg-slate-900/40 opacity-60'}`}>
+                      <div key={slot.id} className={`flex flex-wrap items-center gap-4 rounded-2xl border p-4 ${unlocked ? 'border-slate-700 bg-slate-800/50' : 'border-slate-800 bg-slate-900/40 opacity-60'}`}>
                         {/* current-tier art (emoji shows until it loads) */}
-                        <span className="relative w-10 h-10 shrink-0 flex items-center justify-center">
+                        <span className="relative w-20 h-20 shrink-0 flex items-center justify-center">
                           <span className="text-xl">{t.emoji}</span>
                           <img src={defenseSprite(slot.kind, Math.max(1, lvl))} alt="" draggable={false}
                             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                             className="absolute inset-0 w-full h-full object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))' }} />
                         </span>
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-[150px] flex-1">
                           <div className="text-sm font-bold text-white truncate">
                             {t.name} {lvl > 0 && <span className="text-yellow-300">L{lvl}</span>}
                             {lvl > 1 && <span className="text-[10px] text-green-400 font-mono ml-1.5">+{Math.round((slotHpMult(lvl) - 1) * 100)}% Grit · +{Math.round((slotDmgMult(lvl) - 1) * 100)}% yards</span>}
                           </div>
-                          <div className="text-[11px] text-slate-400 truncate">{slot.covers} · {t.desc}</div>
+                          <div className="text-sm text-slate-300 mt-1">{slot.covers} · {t.desc}</div>
                           {/* 🛣 THE ROAD TO LEVELS — the gear itself visibly upgrades at L4 and L8 */}
                           {unlocked && lvl > 0 && (
                             <div className="flex items-center gap-1 mt-1.5">
@@ -1938,7 +1952,7 @@ function App() {
                           <span className="text-[11px] text-slate-500 font-bold shrink-0" title="Emplacement level can't pass your Stadium level">🔒 Stadium L{lvl + 1}</span>
                         ) : (
                           <Btn size="sm" onClick={() => handleUpgradeSlot(slot.id)} disabled={gameState.resources.COINS < cost}>
-                            {lvl === 0 ? 'Install' : `L${lvl + 1}`} · {cost >= 1000 ? `${(cost / 1000).toFixed(1)}k` : cost}🪙
+                            {lvl === 0 ? 'Install' : `Upgrade to L${lvl + 1}`}  · {cost >= 1000 ? `${(cost / 1000).toFixed(1)}k` : cost}🪙
                           </Btn>
                         )}
                       </div>
