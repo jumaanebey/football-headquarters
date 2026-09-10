@@ -22,7 +22,9 @@ Baseline: `d647c2f` on main. A bounded hero-art/motion slice, not completion of 
 - [x] Final post-fix live sampling: set/load 100/101; contact 102; moving frames 4/5 as position advances; planted contact/recovery 102/103 at fixed coordinates. Vite was restarted because its file watcher did not invalidate a changed module.
 - [x] Final typecheck, 255 tests in 25 files, 529 raster decodes and production build. Existing large-bundle warning remains.
 - [x] Balance suite: all gates pass across 219 deterministic matches; engine source is unchanged.
-- [ ] Preview, remote CI and production verification.
+- [x] PR #27 remote CI and Vercel preview build passed on `bc13794`. Preview asset SHA-256 matches the reviewed source.
+- [x] Deployed preview at 390 × 844: Film Room authored release frame 102; free deployment, Truck Stick load/contact/recovery, run frames 1–6, debrief and retry. No browser errors/warnings observed.
+- [ ] Production release verification: results will be recorded on PR #27 after merge.
 
 ## Nine-hero coverage and remaining scope
 
