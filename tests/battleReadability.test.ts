@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildingObscuresHero, moveBattleCursor, visibleBattleEffects } from '../game/battleReadability';
+import { buildingObscuresHero, moveBattleCursor, visibleBattleEffects, heroKeyForPresentation } from '../game/battleReadability';
 describe('battle readability', () => {
+  it('recognizes defending heroes for occlusion and substitutions',()=>{expect(heroKeyForPresentation({guardArt:'/assets/heroes/burner.webp'})).toBe('burner');expect(heroKeyForPresentation({guardArt:'/assets/units/mascot.webp'})).toBeUndefined();});
   const building={x:50,y:50,width:20,depth:50};
   it('fades a building only for an overlapping hero behind it',()=>{
     expect(buildingObscuresHero(building,[{x:50,y:45,depth:40}])).toBe(true);

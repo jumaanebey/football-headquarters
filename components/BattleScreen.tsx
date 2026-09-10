@@ -1,4 +1,4 @@
-import { buildingObscuresHero, visibleBattleEffects, moveBattleCursor } from '../game/battleReadability';
+import { buildingObscuresHero, visibleBattleEffects, moveBattleCursor, heroKeyForPresentation } from '../game/battleReadability';
 import { HeroSubstitutions } from './HeroSubstitutions';
 import { firstMatchLesson } from '../game/firstMatchLesson';
 import { StadiumStands } from './StadiumStands';
@@ -1246,7 +1246,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   }
   const cameraHeroes = [...s.troops, ...s.guards].flatMap(t => {
     const art = (t as BTroop & { guardArt?: string }).guardArt;
-    const key = t.heroKey ?? art?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1];
+    const key = heroKeyForPresentation(t);
     if (t.dead || !key) return [];
     const name = heroes.find(h => h.key === key)?.name ?? config.homeGuards?.find(h => h.art === art)?.name ?? key;
     return [{ id: t.id, name, x: px(t.x, t.y), y: py(t.x, t.y) }];
@@ -1671,7 +1671,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             // Buildings: width is a % of the field, so `size` (world radius) maps straight
             // to on-screen footprint. HQ size 8 → 17.6% ; buildings size 5–6 → 11–13%.
             const wpct = b.size * 2.8;
-            const obscuresHero = modernCombat && buildingObscuresHero({ x:px(b.x,b.y),y:py(b.x,b.y),depth:(b.x+b.y)/2,width:wpct }, [...s.troops,...s.guards].filter(t=>!t.dead && !!t.heroKey).map(t=>({x:px(t.x,t.y),y:py(t.x,t.y),depth:(t.x+t.y)/2})));  // One world-footprint scale at every viewport.
+            const obscuresHero = modernCombat && buildingObscuresHero({ x:px(b.x,b.y),y:py(b.x,b.y),depth:(b.x+b.y)/2,width:wpct }, [...s.troops,...s.guards].filter(t=>!t.dead && !!heroKeyForPresentation(t)).map(t=>({x:px(t.x,t.y),y:py(t.x,t.y),depth:(t.x+t.y)/2})));  // One world-footprint scale at every viewport.
             // Fixed base: layouts carry the REAL building art (type + level) so the field
             // is the same base you built. Old published bases / bot bases lack it → pool art.
             const sprite = b.art ?? battleBuildingSprite(b.kind, b.id, !isDefense && !isReplay, b.flavor);
@@ -1703,7 +1703,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             );
           })}
 
-          {modernCombat && <HeroSubstitutions reduced={reducedBattleMotion} actors={[...s.troops,...s.guards].filter(t=>!!t.heroKey).map(t=>({id:t.id,key:t.heroKey!,x:px(t.x,t.y),y:py(t.x,t.y),dead:t.dead}))} />}
+          {modernCombat && <HeroSubstitutions reduced={reducedBattleMotion} actors={[...s.troops,...s.guards].filter(t=>!!heroKeyForPresentation(t)).map(t=>({id:t.id,key:heroKeyForPresentation(t)!,x:px(t.x,t.y),y:py(t.x,t.y),dead:t.dead}))} />}
           {/* DEFENDERS chasing the attackers — crimson rivals when you raid, YOUR black/orange
               linebackers when it's your stadium being defended */}
           {s.guards.filter(g => !g.dead).map(g => {

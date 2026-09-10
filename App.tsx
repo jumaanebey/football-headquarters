@@ -444,6 +444,7 @@ function App() {
   // change was taken over (the caller must not mutate local state). Effects run only on
   // the server's confirmation; a pending answer is retried by the ledger and surfaced in Settings.
   const protectedAction = (action: Record<string, unknown>, onConfirmed?: (receipt: AuthorityActionReceipt | null) => void): boolean => {
+    if (pvpEnabled() && !authority.ready) { authority.setNotice('Connecting your club. Try again after Settings shows its status.'); return true; }
     if (authority.locked) { sfx.error(); spawnText('Sign in as this club\'s owner to make changes', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return true; }
     if (!authority.isActiveNow()) return false;
     void authority.dispatch(action).then(outcome => {

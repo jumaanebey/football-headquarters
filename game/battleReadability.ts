@@ -1,3 +1,6 @@
+export function heroKeyForPresentation(actor: { heroKey?: string; guardArt?: string }) {
+  return actor.heroKey ?? actor.guardArt?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1];
+}
 export type ScreenActor = { x: number; y: number; depth: number };
 /** Fade only structures in front of a hero whose body intersects their artwork. */
 export function buildingObscuresHero(building: ScreenActor & { width: number }, heroes: ScreenActor[]) {

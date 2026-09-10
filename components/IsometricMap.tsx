@@ -356,7 +356,7 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
             A-frame legs stay click-through for panning. */}
         {onOpenStats && (
           <div className="cursor-pointer" title="Club Dashboard"
-            onClick={e => { e.stopPropagation(); if (clickGuard?.current) { clickGuard.current = false; return; } onOpenStats(); }}
+            onClick={e => { e.stopPropagation(); if (e.detail !== 0 && clickGuard?.current) { clickGuard.current = false; return; } onOpenStats(); }}
             style={{ position: 'absolute', left: '10%', top: '5%', width: '80%', height: '50%', pointerEvents: 'auto' }} />
         )}
       </div>
@@ -529,12 +529,13 @@ const BuildingSprite: React.FC<{
   recruitSlot?: RecruitSlot | null;
   upgradeJob?: UpgradeJob;
   clickGuard?: React.MutableRefObject<boolean>;
+  compactLayout?: boolean;
   onBuildingClick: Props['onBuildingClick'];
   onCollect: Props['onCollect'];
   onCollectResource?: Props['onCollectResource'];
   selected?: boolean;
   celebrating?: boolean;
-}> = ({ building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
+}> = ({ compactLayout = false, building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
   const c = tileToScreen(building.gridX + 0.5, building.gridY + 0.5); // 2×2 footprint center
   const info = BUILDING_INFO[building.type];
   const starter = isStarterFacility(building.type, building.level);
@@ -568,8 +569,9 @@ const BuildingSprite: React.FC<{
   // the building. No separate hit-targets fighting each other on the same sprite.
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // board-level tap-away must not fire for building taps
-    if (clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
-    const screenPos = { x: e.clientX, y: e.clientY };
+    if (e.detail !== 0 && clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
+    const bounds = e.currentTarget.getBoundingClientRect();
+    const screenPos = e.detail === 0 ? {x:bounds.left+bounds.width/2,y:bounds.top+bounds.height/2} : { x: e.clientX, y: e.clientY };
     if (isCompleted) onCollect(building, screenPos);
     else if (collectReady) onCollectResource?.(building, screenPos);
     else onBuildingClick(building, screenPos);
@@ -578,7 +580,7 @@ const BuildingSprite: React.FC<{
   // Proportion pass: art renders ~15% past the 2×2 footprint (Jumaane: buildings read
   // small vs field/lot). The STADIUM is the landmark at 4.2t — "this game deserves
   // the actual stadium to be that large". Footprints unchanged.
-  const SPRITE_W = TILE_W * (building.type === BuildingType.STADIUM ? 4.2 : 2.3);
+  const SPRITE_W = TILE_W * (building.type === BuildingType.STADIUM && !compactLayout ? 4.2 : 2.3);
 
   // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
   // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
@@ -595,7 +597,7 @@ const BuildingSprite: React.FC<{
   // and those invisible corners were stealing taps from neighbors' labels/bubbles.
   // Only the explicit hitbox (building body) and the badge buttons take pointers.
   return (
-    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.type === BuildingType.STADIUM ? 1 : Math.round(building.gridX + building.gridY + 6), transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting; the backdrop stadium paints BEHIND everything */}
+    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.type === BuildingType.STADIUM && !compactLayout ? 1 : Math.round(building.gridX + building.gridY + 6), transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting; the backdrop stadium paints BEHIND everything */}
       {/* 🔦 CC spotlight under the selected building */}
       {selected && (
         <div className="absolute -translate-x-1/2 rounded-[50%] pointer-events-none animate-pulse"
@@ -1128,7 +1130,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
             <DecorSprite key={`c${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
           {sortedBuildings.map((b) => (
-            <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} selected={selectedId === b.id} celebrating={celebrationId === b.id} />
+            <BuildingSprite key={b.id} compactLayout={customLayout} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} selected={selectedId === b.id} celebrating={celebrationId === b.id} />
           ))}
           {/* ☁️ Cloud shade drifting over the campus — two lanes, same wind, shading
               everything under them (hidden entirely under prefers-reduced-motion). */}
