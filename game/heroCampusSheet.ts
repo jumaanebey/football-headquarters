@@ -6,16 +6,17 @@
 import { heroMotionColumns } from './heroMotion';
 
 export const CAMPUS_FRAME = 256;
-export const CAMPUS_SHEET_VERSION = 1;
-/** Elite poses 0–8 (idle, walk 1–6, attack 7, celebrate 8) come first, then motion idle + four
- *  stride frames facing left (row 0) and facing right (row 1). */
+export const CAMPUS_SHEET_VERSION = 2;
+/** Elite poses 0–8 (idle, walk 1–6, attack 7, celebrate 8) come first, then the eight motion
+ *  columns (idle, start, four stride frames, plant, gesture) facing left (row 0) and facing
+ *  right (row 1): every frame the campus presentation profiles can ask for. */
 export interface CampusFrameMap { elite: number[]; motion: Record<number, number> }
 export function campusFrameMap(key: string): CampusFrameMap {
   const columns = heroMotionColumns(key);
   const motion: Record<number, number> = {};
   const rows = [0, columns];
   let index = 9;
-  for (const base of rows) for (const column of [0, 2, 3, 4, 5]) motion[base + column] = index++;
+  for (const base of rows) for (const column of [0, 1, 2, 3, 4, 5, 6, 7]) motion[base + column] = index++;
   return { elite: [0, 1, 2, 3, 4, 5, 6, 7, 8], motion };
 }
 export const campusFrameCount = (key: string) => 9 + Object.keys(campusFrameMap(key).motion).length;

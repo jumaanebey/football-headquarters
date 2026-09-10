@@ -4,6 +4,7 @@ import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 import { HERO_DEFS } from '../battle';
 import { hasModernHero } from '../game/heroAnimation';
 import { heroPatrol } from '../game/heroPatrol';
+import { heroMotionColumns } from '../game/heroMotion';
 import { campusArtOpen, campusArtReady } from '../game/artGate';
 
 export function CampusHero({ heroKey, lane, field, project, onSelect }: {
@@ -11,7 +12,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
   project: (x: number, y: number) => { x: number; y: number }; onSelect?: () => void;
 }) {
   const button = useRef<HTMLButtonElement>(null);
-  const [pose, setPose] = useState(() => heroPatrol(lane * 2, lane));
+  const [pose, setPose] = useState(() => heroPatrol(lane * 2, lane, false, heroKey));
   const [artOpen, setArtOpen] = useState(campusArtOpen());
   useEffect(() => { if (!artOpen) { let live = true; campusArtReady().then(() => { if (live) setArtOpen(true); }); return () => { live = false; }; } }, [artOpen]);
   const animationTime = useRef(pose.mode === 'walk' ? pose.stridePhase : pose.actionElapsed);
@@ -23,7 +24,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
       // Resume where the athlete stopped when returning from a hidden tab.
       if (!document.hidden) {
         elapsed += Math.min((now - previous) / 1000, 0.05);
-        const next = heroPatrol(elapsed, lane, media.matches);
+        const next = heroPatrol(elapsed, lane, media.matches, heroKey);
         animationTime.current = next.mode === 'walk' ? next.stridePhase : next.actionElapsed;
         const x = field.x1 + (field.x2 - field.x1) * (0.08 + lane * 0.105);
         const y = field.y1 + (field.y2 - field.y1) * (0.15 + next.progress * 0.7);
@@ -33,7 +34,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
           button.current.style.top = `${point.y}px`;
           button.current.style.zIndex = `${Math.round(x + y) + 6}`;
         }
-        const signature = `${next.mode}/${next.facing}`;
+        const signature = `${next.mode}/${next.facing}/${next.gesture ? 'g' : ''}`;
         if (signature !== previousPose) { previousPose = signature; setPose(next); }
       }
       previous = now;
@@ -41,7 +42,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [lane, field.x1, field.x2, field.y1, field.y2, project]);
+  }, [lane, field.x1, field.x2, field.y1, field.y2, project, heroKey]);
   const initial = project(field.x1 + (field.x2 - field.x1) * (0.08 + lane * 0.105), field.y1 + (field.y2 - field.y1) * (0.15 + pose.progress * 0.7));
   const def = HERO_DEFS.find(h => h.key === heroKey)!;
   const modern = hasModernHero(heroKey);
@@ -51,7 +52,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
     style={{ left: initial.x, top: initial.y, width: 48, height: 48, transform: 'translate(-50%,-96%)', pointerEvents: 'auto' }}>
     <span className="absolute rounded-[50%] bg-black/30" style={{ left: '25%', bottom: '-2%', width: '50%', height: '10%' }} />
     {modern && artOpen && <img src={def.art} alt="" className="fhq-campus-hero-fallback absolute inset-0 w-full h-full object-contain" />}
-    {modern ? <AnimatedHero heroKey={heroKey} mode={pose.mode} cycle={pose.cycle} facing={pose.facing} elapsedRef={animationTime} /> :
+    {modern ? <AnimatedHero heroKey={heroKey} mode={pose.mode} cycle={pose.cycle} facing={pose.facing} elapsedRef={animationTime} motionFrame={pose.gesture ? (pose.facing > 0 ? heroMotionColumns(heroKey) : 0) + 7 : undefined} /> :
       <span className="fhq-unit absolute inset-0">
         <img src={def.art} alt="" className="fhq-flat absolute inset-0 w-full h-full object-contain" />
         <SpriteFrames sources={pose.mode === 'walk' ? WALK_FRAMES.map(frame => `/assets/heroes/rig/${heroKey}-${frame}.webp`) : [pose.mode === 'attack' ? action : `/assets/heroes/rig/${heroKey}-body.webp`]} duration={pose.cycle} style={{ transform: pose.facing > 0 ? 'scaleX(-1)' : undefined }} />

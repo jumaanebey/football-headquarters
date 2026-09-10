@@ -1,6 +1,6 @@
 import { subscribeHeroAnimation } from './heroAnimationClock';
 import { heroMotionColumns } from '../game/heroMotion';
-import { HERO_MOVEMENT_STYLE } from '../game/heroMovementStyle';
+import { heroPresentation } from '../game/heroPresentation';
 import { HERO_MOTION_BOUNDS } from '../game/heroMotionBounds';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HeroAnimation, heroFrame, advanceHeroStride } from '../game/heroAnimation';
@@ -17,17 +17,18 @@ import { campusFrameMap } from '../game/heroCampusSheet';
 export type HeroArtTier = 'campus' | 'battle';
 type Sheet = { frames: HTMLCanvasElement[]; campus?: HTMLCanvasElement[] };
 
-export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame }: {
-  tier?: HeroArtTier; motionFrame?: number; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
+export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame, offset }: {
+  tier?: HeroArtTier; motionFrame?: number; /** Cosmetic screen offset in 384-space units (hit reactions); never changes registration. */ offset?: { dx: number; dy: number }; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderNowRef = useRef<(() => void) | null>(null);
-  const playback = useRef({ motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete });
-  playback.current = { motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete };
+  const playback = useRef({ motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete, offset });
+  playback.current = { motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete, offset };
+  const profile = heroPresentation(heroKey);
   const [ready, setReady] = useState(false);
   // Event-clock poses and distance-driven footfalls must be painted alongside
   // the new actor position, even if the browser throttles cosmetic RAF work.
-  useLayoutEffect(() => { renderNowRef.current?.(); }, [motionFrame, facing, mode, signatureFrame, elapsedSeconds, playbackKey, contactSeconds, driving]);
+  useLayoutEffect(() => { renderNowRef.current?.(); }, [motionFrame, facing, mode, signatureFrame, elapsedSeconds, playbackKey, contactSeconds, driving, offset?.dx, offset?.dy]);
   useEffect(() => {
     let disposed = false, visible = true;
     let unsubscribe = () => {};
@@ -90,10 +91,14 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
         signaturePlayback = advanceSignaturePlayback(signaturePlayback, beat, delta, signatures.length === 4);
         const pose = beat === undefined ? undefined : heroSignaturePose(heroKey, beat, signaturePlayback.seconds, media.matches, signaturePlayback.authored);
         const baseFrame = pose?.frame ?? heroFrame(playback.current.mode, frameElapsed, walking ? 1 : playback.current.cycle, media.matches);
-        const signatureCanvas = !media.matches && signaturePlayback.authored && beat !== undefined ? signatures[beat] : undefined;
+        // The Set beat shows the profile's preparation plant (a motion frame) when the sprite supplies one; authored signature frames take over from Load.
+        const prepFrame = beat === 0 && playback.current.motionFrame !== undefined;
+        const signatureCanvas = !media.matches && signaturePlayback.authored && beat !== undefined && !prepFrame ? signatures[beat] : undefined;
         const previewMotion = playback.current.mode === 'walk' ? (playback.current.facing > 0 ? heroMotionColumns(heroKey) : 0) + 2 + Math.floor((((frameElapsed % 1) + 1) % 1) * 4) : playback.current.mode === 'idle' ? (playback.current.facing > 0 ? heroMotionColumns(heroKey) : 0) : undefined;
         const selectedMotion = playback.current.motionFrame ?? previewMotion;
-        const motionCanvas = !media.matches && !signatureCanvas && beat === undefined && selectedMotion !== undefined
+        // A motion frame may also stand in during the signature's Set beat (the profile's preparation plant).
+        const motionAllowed = beat === undefined || prepFrame;
+        const motionCanvas = !media.matches && !signatureCanvas && motionAllowed && selectedMotion !== undefined
           ? (tier === 'battle' ? (selectedMotion < motionFrameCount ? motion[selectedMotion] : reactions[selectedMotion - motionFrameCount]) : (campusMap.motion[selectedMotion] !== undefined ? sheet.campus?.[campusMap.motion[selectedMotion]] : undefined))
           : undefined;
         const idleCanvas = !motionCanvas && beat === undefined && playback.current.mode === 'idle' && !['qb','enforcer'].includes(heroKey) ? signatures[0] : undefined;
@@ -101,10 +106,12 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
         const drive = walking && playback.current.driving && !media.matches;
         const scaleY = pose?.scaleY ?? (drive ? .96 : 1);
         const lean = pose?.lean ?? (drive ? .035 : 0);
-        const drawKey = `${playback.current.facing}:${frame}:${beat}:${scaleY.toFixed(3)}:${lean.toFixed(3)}:${pose?.cueOpacity.toFixed(2)}`;
+        const kick = media.matches ? undefined : playback.current.offset;
+        const drawKey = `${playback.current.facing}:${frame}:${beat}:${scaleY.toFixed(3)}:${lean.toFixed(3)}:${pose?.cueOpacity.toFixed(2)}:${kick?.dx.toFixed(1) ?? 0}:${kick?.dy.toFixed(1) ?? 0}`;
         if (!document.hidden && drawKey !== lastDraw) {
           ctx.clearRect(0, 0, 384, 384);
           ctx.save();
+          if (kick) ctx.translate(kick.dx, kick.dy);
           if (!motionCanvas && playback.current.facing > 0) { ctx.translate(384, 0); ctx.scale(-1, 1); }
           // Keep the same ground registration through the planted action.
           ctx.translate(192, 370);
@@ -114,6 +121,7 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
           if (pose) paintHeroSignatureCue(ctx, pose);
           ctx.restore();
           canvas.dataset.frame = String(frame);
+          canvas.dataset.kick = kick ? `${kick.dx.toFixed(1)},${kick.dy.toFixed(1)}` : '0,0';
           canvas.dataset.signatureBeat = beat === undefined ? 'none' : SIGNATURE_BEATS[beat].toLowerCase();
           canvas.dataset.driving = drive ? '1' : '0';
           lastDraw = drawKey; if (!announced) { setReady(true); announced = true; }
@@ -128,5 +136,5 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
   }, [heroKey, loadSignatureArt, tier]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
-    style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? `fhq-modern-breathe ${HERO_MOVEMENT_STYLE[heroKey]?.breath ?? 2.8}s ease-in-out infinite` : mode === 'celebrate' ? 'fhq-hero-victory 1.2s ease-in-out infinite' : undefined }} />;
+    style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', ['--fhq-breath' as string]: profile.idle.breathAmplitude, animation: mode === 'idle' ? `fhq-modern-breathe ${profile.idle.breathSeconds}s ease-in-out infinite` : mode === 'celebrate' ? 'fhq-hero-victory 1.2s ease-in-out infinite' : undefined }} />;
 }

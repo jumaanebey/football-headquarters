@@ -12,7 +12,7 @@ class FakeImage {
     requests.push(value);
     const done = () => {
       if (failing.has(value)) { this.onerror?.(); return; }
-      if (value.includes('/campus/')) { this.naturalWidth = 256 * 19; this.naturalHeight = 256; }
+      if (value.includes('/campus/')) { this.naturalWidth = 256 * 25; this.naturalHeight = 256; }
       else if (value.includes('/motion/')) { this.naturalWidth = 1774; this.naturalHeight = 887; }
       else { this.naturalWidth = 1254; this.naturalHeight = 1254; }
       this.onload?.();
@@ -83,7 +83,7 @@ describe('hero art loader', () => {
     await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
     expect(requests).toEqual(['/assets/heroes/campus/qb.webp']);
     await flush();
-    expect((await campus).length).toBe(19);
+    expect((await campus).length).toBe(25);
   });
   it('warming is bounded, deduplicated and skipped under Save-Data', async () => {
     const { warmHeroArt } = await load();
@@ -149,7 +149,7 @@ describe('warming handles and decoded-art lifecycle', () => {
     release(); unsubscribe();
     expect(releaseUnretainedHeroArt({ keep: ['qb'] })).toBe(0); // kept on request
     expect(releaseUnretainedHeroArt()).toBe(1);
-    expect(heroArtStats()).toMatchObject({ decodedFrames: 19, retainedEntries: 0, listeners: 0 });
+    expect(heroArtStats()).toMatchObject({ decodedFrames: 25, retainedEntries: 0, listeners: 0 });
   });
   it('heroesInConfig lists exactly the heroes a battle draws', async () => {
     const { heroesInConfig } = await load();
