@@ -16,11 +16,11 @@
     "recordedFrom": "Supabase deployment version 4 and get_edge_function readback: index.ts identical to the committed minified artifact. Pinned CDN import returned 503; uploaded artifact inline instead."
   },
   "staged": {
-    "version": 4,
-    "artifact": "supabase/recovery/club-authority.v4.min.js",
-    "sha256": "58511f9bd88831d6f29934f78048e4cca2cf830ef37607ab65c4f07b782e3028",
-    "rules": "hero-actions-3",
-    "commit": "e3f866925aabff7cc700fa91d429c1f4cf571ba8"
+    "version": 5,
+    "artifact": "supabase/recovery/club-authority.v5.min.js",
+    "sha256": "09d2deaa68b45bfc8ab8eb2b15db30f8bfe38fc8fd701d2844d402fbb6be6f68",
+    "rules": "defense-counters-4",
+    "commit": "4319884acfcd3816bc14b7e82142b47a6d139d33"
   },
   "rollback": {
     "healthy": "previousHealthy: v3, commit e5d8238affa0e31a21b895c29ba98fba03a4ed38",
