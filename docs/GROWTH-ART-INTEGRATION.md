@@ -10,6 +10,7 @@ Integrates Claude packages A (#47, 2e6f408) and C (#48, 6128058) with the shippe
 - Every defensive machine has expandable behavior, range, firing interval, saved grid location, base/boosted stats, next-level blockers and level-10 signature details.
 - Game Day uses the compact WebP tunnel with a PNG fallback. Derived alpha cutouts preserve original source art.
 - Battle warming prioritizes the selected opener and one partner. Leaving cancels warming and releases unretained heavy decoded art. Film-room warming cancels when the selection/mode changes or the panel closes.
+- Battle layout fits the projected 100×58 field rather than its empty square canvas, enlarging the action while reserving room for facility art and camera scale. Rendered at 390×844, 844×390 and 1440×900; desktop retains its command rail and short landscape retains scrolling commands. Production build passed after this CSS change.
 - Practice takeaway commentary no longer advertises a bonus coin reward.
 
 ## Verification

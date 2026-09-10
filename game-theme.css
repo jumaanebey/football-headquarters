@@ -123,7 +123,7 @@ button { touch-action:manipulation; }
   .fhq-battle { display:grid; grid-template-columns:minmax(0,1fr) minmax(260px,38%); grid-template-rows:auto auto auto minmax(0,1fr); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); }
   .fhq-battle-header { grid-column:1 / -1; grid-row:1; padding-block:4px; }
   .fhq-battle-stage { grid-column:1; grid-row:2 / 5; container-type:size; padding:4px; }
-  .fhq-battle-stage [data-battlefield] { width:min(98cqw,98cqh)!important; height:min(98cqw,98cqh)!important; flex-shrink:0; }
+  .fhq-battle-stage [data-battlefield] { width:min(92cqw,138cqh)!important; height:min(92cqw,138cqh)!important; flex-shrink:0; }
   .fhq-battle-guide { grid-column:2; grid-row:2; padding:6px; }
   .fhq-battle-guide p { font-size:11px; }
   .fhq-battle-guide button { max-width:130px; }
@@ -137,8 +137,10 @@ button { touch-action:manipulation; }
 .fhq-battle-commands { max-height:48dvh; overflow-y:auto; overscroll-behavior:contain; }
 @media (orientation: landscape) and (max-height: 540px) { .fhq-battle-commands { max-height:none; } }
 
+/* Fit the projected field (100% wide, 58% tall), not its mostly empty square canvas.
+   Reserve width for the 1.06 full-field camera and height for tall facility art. */
 .fhq-battle-stage { container-type:size; }
-.fhq-battle-stage [data-battlefield] { width:min(98cqw,98cqh)!important; height:min(98cqw,98cqh)!important; flex-shrink:0; }
+.fhq-battle-stage [data-battlefield] { width:min(92cqw,138cqh)!important; height:min(92cqw,138cqh)!important; flex-shrink:0; }
 
 @media (orientation: portrait) and (max-height: 640px) { .fhq-battle-commands { max-height:34dvh; } }
 
