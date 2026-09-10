@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BuildingType } from '../types';
 import { BUILDING_ART_LEVELS, buildingSprite } from '../assets';
 import { keyHeroPixels } from '../game/heroAnimation';
+import { assetUrl } from '../game/assetUrl';
+import { campusArtReady } from '../game/artGate';
 import { ScenerySprite, type ScenerySpriteProps } from './ScenerySprite';
 
 const BOUNDS: Partial<Record<BuildingType, readonly number[]>> = {
@@ -29,7 +31,7 @@ function loadFacilities() {
     image.onerror = () => { prepared = undefined; reject(new Error('Facility art unavailable')); };
     // Floorless art lets the actual turf show through, including the gaps between
     // posts and equipment. Grass-colored sprite aprons cannot match its lighting.
-    image.src = '/assets/buildings/starter-campus-cutouts.webp';
+    campusArtReady().then(() => { image.src = assetUrl('/assets/buildings/starter-campus-cutouts.webp'); });
   });
 }
 

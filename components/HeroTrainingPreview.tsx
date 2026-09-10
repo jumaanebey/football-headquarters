@@ -22,7 +22,7 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
         <div className="absolute bottom-3 rounded-[50%] w-24 h-4 bg-black/40" />
         <div key={heroKey} className="fhq-unit relative w-40 h-40 sm:w-48 sm:h-48">
           <img src={hero.art} alt={hero.name} className="fhq-flat absolute inset-0 w-full h-full object-contain" />
-          <AnimatedHero heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode} facing={facing} cycle={.58} playbackKey={take} playbackRate={slowMotion ? .5 : 1} loadSignatureArt
+          <AnimatedHero tier={mode === 'idle' ? 'campus' : 'battle'} heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode} facing={facing} cycle={.58} playbackKey={take} playbackRate={slowMotion ? .5 : 1} loadSignatureArt
             onSignatureComplete={() => setMode('idle')}
             filter={`drop-shadow(0 0 ${mode === 'signature' ? 6 : 3}px ${hero.color})`} />
         </div>
