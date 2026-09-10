@@ -1,3 +1,5 @@
+import { BattleCameraControls, useReducedBattleMotion } from './BattleCameraControls';
+import { heroCameraFrame } from '../game/battleCamera';
 import { HeroArt } from './HeroArt';
 import { BuildingSprite } from './BuildingArt';
 import { BattleHeroSprite } from './BattleHeroSprite';
@@ -60,7 +62,7 @@ interface Fx { type: 'dust' | 'impact' | 'yards' | 'coin' | 'dmg' | 'down' | 'de
 const TICK_MS = 50;
 const DT = TICK_MS / 1000;
 // The same hero size and foot anchor on both sides of the stadium.
-const HERO_FIELD_SIZE = { width: '10%', minWidth: 52, maxWidth: 88, transform: 'translate(-50%, -96%)' };
+const HERO_FIELD_SIZE = { width: '12%', minWidth: 64, maxWidth: 104, transform: 'translate(-50%, -96%)' };
 let troopUid = 0;
 
 // 🔷 ISO PROJECTION — the sim runs on a flat 0-100 square (pathing, ranges, replays all
@@ -193,6 +195,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   // Broadcast-camera drift: eases toward the hottest fight each render (presentation
   // only — sim coords are untouched, and clicks read getBoundingClientRect anyway).
   const cam = useRef({ x: 0, y: 0 });
+  const reducedBattleMotion = useReducedBattleMotion();
+  const [cameraHero, setCameraHero] = useState<{ id: string; x: number; y: number } | null>(null);
   // Deterministic battle RNG — a replay re-seeds with the recorded seed and every random
   // decision (jerseys, wave picks, FX jitter) replays identically.
   const seedRef = useRef(config.replay?.seed ?? Math.floor(Math.random() * 2 ** 31));
@@ -1226,6 +1230,17 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
       cam.current.y += (ty - cam.current.y) * 0.06;
     } else { cam.current.x *= 0.94; cam.current.y *= 0.94; }
   }
+  const cameraHeroes = [...s.troops, ...s.guards].flatMap(t => {
+    const art = (t as BTroop & { guardArt?: string }).guardArt;
+    const key = t.heroKey ?? art?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1];
+    if (t.dead || !key) return [];
+    const name = heroes.find(h => h.key === key)?.name ?? config.homeGuards?.find(h => h.art === art)?.name ?? key;
+    return [{ id: t.id, name, x: px(t.x, t.y), y: py(t.x, t.y) }];
+  });
+  const followedHero = cameraHeroes.find(hero => hero.id === cameraHero?.id);
+  // Restore the sideline while selecting another deployment or a field play.
+  const cameraPoint = followedHero && !pendingHero && !pendingSpecial && !castMode ? (reducedBattleMotion ? cameraHero! : followedHero) : undefined;
+  const heroCamera = heroCameraFrame(cameraPoint);
   const destroyed = s.buildings.filter(b => b.dead && b.kind !== 'wall').length;
   // Drive = DAMAGE dealt, not just demolitions — the meter moves within seconds of
   // first contact instead of sitting at 0% until a whole building falls (TASK-4).
@@ -1345,14 +1360,50 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
         }}>Deploy selected hero</button>}
       </div>}
       {/* Battlefield */}
-      <div className="flex-1 flex items-center justify-center p-3 overflow-hidden bg-gradient-to-b from-emerald-900 to-emerald-950">
-        <div ref={fieldRef} onClick={handleFieldClick} aria-label="Battlefield" data-battlefield data-combat-rules={modernCombat ? COMBAT_RULES_VERSION : 'legacy-v1'}
+      <div className="relative flex-1 flex items-center justify-center p-3 overflow-hidden bg-gradient-to-b from-emerald-900 to-emerald-950">
+          {/* 📣 Play-by-play announcer */}
+          {s.commentary.text && !(s.banner && s.time > s.banner.until) && phase === 'fighting' && (
+            <div key={s.commentary.text + s.commentary.t} className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: 8, zIndex: 220, maxWidth: '92%' }}>
+              <div className="bg-black/75 border border-white/10 rounded-full px-4 py-1.5 text-[11px] sm:text-xs font-bold italic text-amber-100 text-center shadow-lg">
+                📣 {s.commentary.text}
+              </div>
+            </div>
+          )}
+
+          {/* 🛡 GAUNTLET WAVE BANNER — a broadcast lower-third sweeps across the field
+              on every whistle: slanted team-color plate, big italic display type. */}
+          {s.banner && s.time > s.banner.until && (
+            <div key={s.banner.key} className="absolute inset-x-0 pointer-events-none flex justify-center" style={{ top: '19%', zIndex: 240 }}>
+              <div style={{ animation: 'fhq-wavebanner 2.7s cubic-bezier(0.22, 0.9, 0.3, 1) both' }}>
+                <div className="relative px-7 py-2" style={{ transform: 'skewX(-11deg)', background: 'linear-gradient(100deg, #7c2d12 0%, #ea580c 30%, #f97316 70%, #7c2d12 100%)', border: '2px solid rgba(255,255,255,0.85)', borderLeftWidth: 6, borderLeftColor: '#fde047', boxShadow: '0 6px 22px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.35)' }}>
+                  <div className="font-display font-black italic uppercase text-white whitespace-nowrap" style={{ transform: 'skewX(11deg)', fontSize: 'min(4.6vw, 26px)', letterSpacing: '0.04em', textShadow: '0 2px 0 rgba(0,0,0,0.45), 0 0 14px rgba(253,224,71,0.35)' }}>{s.banner.label}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🔥 Momentum meter — a labeled pill in the corner, only when it's YOUR live
+              drive (in replays/defense it floated mid-field like a rendering glitch). */}
+          {!isDefense && !isReplay && phase === 'fighting' && (
+            <div className="absolute pointer-events-none flex items-center gap-1.5 rounded-full bg-slate-900/75 border border-white/10 px-2 py-1 shadow-lg" style={{ right: 8, top: 60, zIndex: 218, width: '32%', maxWidth: 170 }}>
+              <span className={`text-[10px] font-black ${s.momentum > 75 ? 'text-orange-300 animate-pulse' : 'text-white/50'}`}>🔥</span>
+              <div className="flex-1 h-1.5 rounded-full bg-black/60 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.momentum}%`, background: s.momentum > 75 ? 'linear-gradient(90deg,#f97316,#fde047)' : '#f97316' }} />
+              </div>
+            </div>
+          )}
+
+        {modernCombat && cameraHeroes.length > 0 && phase !== 'result' && <BattleCameraControls heroes={cameraHeroes} selected={cameraPoint ? cameraHero!.id : null} reduced={reducedBattleMotion} onSelect={id => {
+          const hero = cameraHeroes.find(h => h.id === id);
+          setCameraHero(hero ? { id: hero.id, x: hero.x, y: hero.y } : null);
+        }} />}
+        <div ref={fieldRef} onClick={handleFieldClick} aria-label="Battlefield" data-battlefield data-camera-mode={cameraPoint ? 'hero' : 'full'} data-combat-rules={modernCombat ? COMBAT_RULES_VERSION : 'legacy-v1'}
           onPointerDown={() => { pourRef.current.down = true; }}
           onPointerMove={e => { if (pourRef.current.down) tryPour(e); }}
           onPointerUp={() => { pourRef.current.down = false; }}
           onPointerLeave={() => { pourRef.current.down = false; }}
           className={`relative rounded-2xl overflow-hidden shadow-2xl ${isDefense ? '' : castMode ? 'cursor-pointer ring-4 ring-offset-0' : 'cursor-crosshair'}`}
-          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'radial-gradient(ellipse at 50% 42%, #17402a 0%, #0d2617 55%, #071410 100%)', border: '3px solid #0a1f14', animation: s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: `${(typeof window !== 'undefined' && window.innerWidth < 640) ? '' : `translate(${cam.current.x.toFixed(2)}%, ${cam.current.y.toFixed(2)}%) `}scale(${((typeof window !== 'undefined' && window.innerWidth < 640 ? 1.06 : isDefense || isReplay ? 1.22 : 1.16) * (1 + (s.punchT > 0 ? s.punchT * 0.16 : 0))).toFixed(3)})`, /* phones: field is already 96vw + no zoom crop to hide the pan behind — camera drift is desktop-only. Iso diamond spans full width, so zooms stay modest. */ transition: 'transform 90ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
+          style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'radial-gradient(ellipse at 50% 42%, #17402a 0%, #0d2617 55%, #071410 100%)', border: '3px solid #0a1f14', animation: !reducedBattleMotion && s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: modernCombat ? `translate(${heroCamera.x}%, ${heroCamera.y}%) scale(${heroCamera.scale})` : `${(typeof window !== 'undefined' && window.innerWidth < 640) ? '' : `translate(${cam.current.x.toFixed(2)}%, ${cam.current.y.toFixed(2)}%) `}scale(${((typeof window !== 'undefined' && window.innerWidth < 640 ? 1.06 : isDefense || isReplay ? 1.22 : 1.16) * (1 + (s.punchT > 0 ? s.punchT * 0.16 : 0))).toFixed(3)})`, transition: reducedBattleMotion ? 'none' : 'transform 160ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
 
           {/* 🔷 ISO GROUND — the Clash-style diamond. Mow stripes + chalk yard lines run
               between projected world bands, end zones tint both ends, midfield gets the
@@ -1484,38 +1535,6 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
                     “{config.rival.intro}”
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* 📣 Play-by-play announcer */}
-          {s.commentary.text && phase === 'fighting' && (
-            <div key={s.commentary.text + s.commentary.t} className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: 8, zIndex: 220, maxWidth: '92%' }}>
-              <div className="bg-black/75 border border-white/10 rounded-full px-4 py-1.5 text-[11px] sm:text-xs font-bold italic text-amber-100 whitespace-nowrap overflow-hidden text-ellipsis shadow-lg">
-                📣 {s.commentary.text}
-              </div>
-            </div>
-          )}
-
-          {/* 🛡 GAUNTLET WAVE BANNER — a broadcast lower-third sweeps across the field
-              on every whistle: slanted team-color plate, big italic display type. */}
-          {s.banner && s.time > s.banner.until && (
-            <div key={s.banner.key} className="absolute inset-x-0 pointer-events-none flex justify-center" style={{ top: '19%', zIndex: 240 }}>
-              <div style={{ animation: 'fhq-wavebanner 2.7s cubic-bezier(0.22, 0.9, 0.3, 1) both' }}>
-                <div className="relative px-7 py-2" style={{ transform: 'skewX(-11deg)', background: 'linear-gradient(100deg, #7c2d12 0%, #ea580c 30%, #f97316 70%, #7c2d12 100%)', border: '2px solid rgba(255,255,255,0.85)', borderLeftWidth: 6, borderLeftColor: '#fde047', boxShadow: '0 6px 22px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.35)' }}>
-                  <div className="font-display font-black italic uppercase text-white whitespace-nowrap" style={{ transform: 'skewX(11deg)', fontSize: 'min(4.6vw, 26px)', letterSpacing: '0.04em', textShadow: '0 2px 0 rgba(0,0,0,0.45), 0 0 14px rgba(253,224,71,0.35)' }}>{s.banner.label}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 🔥 Momentum meter — a labeled pill in the corner, only when it's YOUR live
-              drive (in replays/defense it floated mid-field like a rendering glitch). */}
-          {!isDefense && !isReplay && phase === 'fighting' && (
-            <div className="absolute pointer-events-none flex items-center gap-1.5 rounded-full bg-slate-900/75 border border-white/10 px-2 py-1 shadow-lg" style={{ right: 8, top: 36, zIndex: 218, width: '32%', maxWidth: 170 }}>
-              <span className={`text-[10px] font-black ${s.momentum > 75 ? 'text-orange-300 animate-pulse' : 'text-white/50'}`}>🔥</span>
-              <div className="flex-1 h-1.5 rounded-full bg-black/60 overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.momentum}%`, background: s.momentum > 75 ? 'linear-gradient(90deg,#f97316,#fde047)' : '#f97316' }} />
               </div>
             </div>
           )}
@@ -1785,9 +1804,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
                     <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${flip}` }} />
                     <BattleHeroSprite heroKey={t.heroKey!} actor={t} fighting={phase === 'fighting'}
                       filter={hf ? `${glow} brightness(1.8)` : glow} />
-                    {/* Nameplate: full strength for the deploy moment, then fades way down —
-                        review flagged clustered pills occluding sprites and hit VFX. */}
-                    {(!modernCombat || t.activeAction || s.ticks - (t.deployedAt ?? 0) < 40) && <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: modernCombat ? '-18%' : '-14%', fontSize: modernCombat ? 10 : '0.95vmin', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(253,224,71,0.35)', animation: modernCombat ? undefined : 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>}
+                    {/* Modern hero names live in the command tray and camera selector, not over the action. */}
+                    {(!modernCombat) && <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: modernCombat ? '-18%' : '-14%', fontSize: modernCombat ? 10 : '0.95vmin', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(253,224,71,0.35)', animation: modernCombat ? undefined : 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>}
                   </div>
                 ) : (
                   // ONE individual player — chip fallback until the sprite loads, then pure sprite.
