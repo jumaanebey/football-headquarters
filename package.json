@@ -21,7 +21,12 @@
     "check": "npm run typecheck && npm test && npm run build",
     "authority:rehearsal": "esbuild scripts/restore-rehearsal.ts --bundle --format=esm --platform=node --define:import.meta.env={} --outfile=dist/restore-rehearsal.mjs && node dist/restore-rehearsal.mjs",
     "art:verify": "esbuild scripts/verify-hero-atlases.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/verify-hero-atlases.mjs && node dist/verify-hero-atlases.mjs",
-    "release:verify": "node scripts/release-verify.mjs"
+    "release:verify": "node scripts/release-verify.mjs",
+    "art:campus": "esbuild scripts/derive-campus-heroes.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/derive-campus-heroes.mjs && node dist/derive-campus-heroes.mjs",
+    "perf:waterfall": "node scripts/perf-waterfall.mjs",
+    "build:verify": "node scripts/verify-build-assets.mjs",
+    "funnel:weekly": "node scripts/funnel-report.mjs --days 7",
+    "pwa:check": "node scripts/pwa-check.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.554.0",

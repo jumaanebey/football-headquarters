@@ -22,7 +22,7 @@ export function BattleHeroSprite({ heroKey, actor, fighting, filter }: {
   const sources = mode === 'walk' ? WALK_FRAMES.map(frame => `${base}-${frame}.webp`) : [contact ? action : idle];
   return <>
     <SpriteFrames sources={sources} duration={actor.strideSeconds} style={{ filter, transform: (actor.face ?? 1) > 0 ? 'scaleX(-1)' : undefined }} />
-    {hasModernHero(heroKey) && <AnimatedHero motionFrame={HERO_MOTION_BOUNDS[heroKey] && mode !== 'attack' && mode !== 'signature' ? sample.frame : undefined} heroKey={heroKey} mode={mode} facing={actor.face} cycle={actor.strideSeconds} loadSignatureArt
+    {hasModernHero(heroKey) && <AnimatedHero tier="battle" motionFrame={HERO_MOTION_BOUNDS[heroKey] && mode !== 'attack' && mode !== 'signature' ? sample.frame : undefined} heroKey={heroKey} mode={mode} facing={actor.face} cycle={actor.strideSeconds} loadSignatureArt
       signatureFrame={fighting ? actor.signatureFrame : undefined}
       contactSeconds={heroKey === 'enforcer' && mode === 'attack' ? Math.max(0, .32 - (actor.actionPoseT ?? 0)) : undefined}
       driving={heroKey === 'enforcer' && (actor.truckT ?? 0) > 0}
