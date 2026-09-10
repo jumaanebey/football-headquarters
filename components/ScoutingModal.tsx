@@ -127,7 +127,7 @@ export const ScoutingModal: React.FC<Props> = ({ club, resources, roster, recrui
             className={`mt-1 w-full py-3 rounded-xl font-bold text-base flex items-center justify-center gap-1.5 transition-all active:scale-95
               ${disabled ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-400 text-black shadow-lg ring-2 ring-yellow-400/40'}`}
           >
-            <Search size={16} /> Scout
+            <Search size={16} /> {rosterFull?'Make room to scout':'Scout'}
             <span className="flex items-center gap-0.5 text-sm bg-black/20 px-2 py-0.5 rounded"><Coins size={12} /> {cost}</span>
           </button>
           {!canAfford && !blocked && <div className="text-[9px] text-red-400 text-center">Not enough coins</div>}
@@ -225,16 +225,9 @@ export const ScoutingModal: React.FC<Props> = ({ club, resources, roster, recrui
           </div>
           {recruitSlot ? (
             renderInProgress()
-          ) : rosterFull ? (
-            <div className="flex flex-col items-center justify-center text-center gap-4 py-12">
-              <Users size={48} className="text-slate-700" />
-              <div>
-                <h3 className="text-xl font-bold text-slate-300">Roster Full ({roster.length}/{cap})</h3>
-                <p className="text-slate-500 text-sm max-w-xs mt-1">Upgrade the facility or review your roster to make room.</p><button onClick={onRoster} className="mt-4 rounded-xl bg-blue-600 px-4 py-3 font-bold text-white">Manage roster</button>
-              </div>
-            </div>
           ) : (
             <>
+              {rosterFull && <div className="mb-4 rounded-xl border border-amber-600/50 bg-amber-950/30 p-3 text-sm text-amber-100"><strong>Roster full · {roster.length}/{cap}</strong><p className="mt-1">Compare prospects below before making room. Upgrade Scouting or release a player to start a new report.</p><button onClick={onRoster} className="mt-2 min-h-11 rounded-lg bg-slate-800 px-3 font-bold text-white">Manage roster</button></div>}
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-blue-300 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
@@ -244,8 +237,10 @@ export const ScoutingModal: React.FC<Props> = ({ club, resources, roster, recrui
                   <RefreshCw size={13} /> New Prospects
                 </button>
               </div>
+              {board.length===0 && <p role="status" className="rounded-xl bg-slate-800 p-3 text-sm text-slate-300">No prospects loaded. Choose New Prospects to try again.</p>}
+              {selected && <label className="md:hidden block mb-4 text-sm text-slate-300">Prospect report<select aria-label="Prospect report" value={selected.id} onChange={e=>setSelectedId(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-800 p-3 text-base text-white">{board.map(p=><option key={p.id} value={p.id}>{p.name} · {p.role} · OVR {candidateOvr(p)} · {recruitCost(p)} Coins</option>)}</select></label>}
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2" aria-label="Available prospects">{board.map(p => <button key={p.id} onClick={() => setSelectedId(p.id)} aria-pressed={selected?.id === p.id} className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left ${selected?.id === p.id ? 'border-orange-400 bg-orange-500/10' : 'border-slate-700 bg-slate-800'}`}><img src={unitPlayerSprite(p.unit)} alt="" className="w-10 h-12 object-contain" /><span className="flex-1"><strong className="block text-white">{p.name}</strong><span className="text-sm text-slate-300">{p.role} · {p.rarity} · {recruitCost(p)} Coins</span></span><strong className="text-lg text-amber-300">{candidateOvr(p)}<small className="block text-xs text-slate-400">OVR</small></strong></button>)}</div>
+                <div className="hidden md:block space-y-2" aria-label="Available prospects">{board.map(p => <button key={p.id} onClick={() => setSelectedId(p.id)} aria-pressed={selected?.id === p.id} className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left ${selected?.id === p.id ? 'border-orange-400 bg-orange-500/10' : 'border-slate-700 bg-slate-800'}`}><img src={unitPlayerSprite(p.unit)} alt="" className="w-10 h-12 object-contain" /><span className="flex-1"><strong className="block text-white">{p.name}</strong><span className="text-sm text-slate-300">{p.role} · {p.rarity} · {recruitCost(p)} Coins</span></span><strong className="text-lg text-amber-300">{candidateOvr(p)}<small className="block text-xs text-slate-400">OVR</small></strong></button>)}</div>
                 {selected && <div aria-label="Selected prospect report">{renderCandidate(selected)}</div>}
               </div>
             </>

@@ -35,3 +35,19 @@ describe('campus edits reach the saved defense', () => {
     }
   });
 });
+
+describe('map selection and keyboard movement',()=>{
+ it('selects any tile of an occupied facility and previews only open ground',async()=>{
+  const {campusTileIntent}=await import('../game/campusEditor');
+  const layout=campusLayoutForState(createInitialState(1));const item=campusItems(layout).find(p=>p.size===2)!;
+  expect(campusTileIntent(layout,item.gridX,item.gridY)).toEqual({select:item.key});
+  expect(campusTileIntent(layout,item.gridX+1,item.gridY+1)).toEqual({select:item.key});
+  expect(campusTileIntent(layout,9,9)).toEqual({destination:{x:9,y:9}});
+ });
+ it('keeps keyboard focus on the same row at left and right edges',async()=>{
+  const {editorNeighbor}=await import('../game/campusEditor');
+  expect(editorNeighbor(10,'ArrowLeft')).toBe(10);expect(editorNeighbor(19,'ArrowRight')).toBe(19);
+  expect(editorNeighbor(0,'ArrowUp')).toBe(0);expect(editorNeighbor(99,'ArrowDown')).toBe(99);
+  expect(editorNeighbor(44,'ArrowRight')).toBe(45);expect(editorNeighbor(44,'ArrowDown')).toBe(54);
+ });
+});
