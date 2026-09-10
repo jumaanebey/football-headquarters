@@ -1,0 +1,77 @@
+
+> football-headquarters@0.0.0 authority:evidence
+> esbuild scripts/authority-evidence.ts --bundle --format=esm --platform=node --outfile=dist/authority-evidence.mjs && node --env-file=.env.production dist/authority-evidence.mjs
+
+
+  dist/authority-evidence.mjs  112.1kb
+
+⚡ Done in 4ms
+# club-authority live evidence — 2026-09-10T22:07:19.257Z — https://ruzkpbvgzvqrrnexrffz.supabase.co
+accounts: A=51b3b8e1-0d55-4360-bc50-a914adbf2b42 B=80a7b3b7-900e-4687-89ad-1f6be876afab (anonymous test accounts)
+PASS  A: bootstrap fresh protected club (origin new)
+PASS  A: club.rename confirmed (revision 1)
+PASS  B: bootstrap fresh protected club (origin new)
+PASS  B: club.rename confirmed (revision 1)
+PASS  A: stale expectedRevision → revision_conflict
+PASS  A: unknown action → invalid_command
+PASS  A: unaffordable purchase → insufficient_resources
+PASS  A: gate.assign confirmed once; verbatim retry returns the same receipt at revision 2
+PASS  A: operation id reused for a different request → operation_conflict
+PASS  A: rival before two Season games → beginner_protection
+PASS  A: reserve campaign stage 1 (energy 88)
+PASS  A: negotiated hero-actions-3
+PASS  A: begin campaign stage 1
+PASS  A: finish campaign stage 1 → stars 3, +432 coins (client sim: 3 stars, +432)
+PASS  A: coins credited exactly once (500 → 932)
+PASS  A: duplicate match.finish returns the receipt without a second credit
+PASS  A: settled match cannot be finished again → match_conflict
+PASS  A: reserve campaign stage 2 (energy 77)
+PASS  A: negotiated defense-counters-4
+PASS  A: begin campaign stage 2
+PASS  A: finish campaign stage 2 → stars 3, +478 coins (client sim: 3 stars, +478)
+PASS  A: coins credited exactly once (932 → 1410)
+PASS  A: reserve campaign stage 3 (energy 66)
+PASS  A: negotiated defense-counters-4
+PASS  A: begin campaign stage 3
+PASS  A: finish campaign stage 3 → stars 2, +904 coins (client sim: 2 stars, +904)
+PASS  A: coins credited exactly once (1410 → 2314)
+PASS  B: reserve campaign stage 1 (energy 88)
+PASS  B: negotiated defense-counters-4
+PASS  B: begin campaign stage 1
+PASS  B: finish campaign stage 1 → stars 3, +432 coins (client sim: 3 stars, +432)
+PASS  B: coins credited exactly once (500 → 932)
+PASS  B: reserve campaign stage 2 (energy 76)
+PASS  B: negotiated defense-counters-4
+PASS  B: begin campaign stage 2
+PASS  B: finish campaign stage 2 → stars 3, +478 coins (client sim: 3 stars, +478)
+PASS  B: coins credited exactly once (932 → 1410)
+PASS  B: reserve campaign stage 3 (energy 66)
+PASS  B: negotiated defense-counters-4
+PASS  B: begin campaign stage 3
+PASS  B: finish campaign stage 3 → stars 2, +885 coins (client sim: 2 stars, +885)
+PASS  B: coins credited exactly once (1410 → 2295)
+PASS  A: forged finalHash → simulation_mismatch
+PASS  A: cancel a started game → released, refunded=false
+PASS  A: facility.upgrade Stadium → job up_1789078228702_stadium-1_139362 to L2 (spent 1400 coins; coins now 914)
+PASS  A: upgrade settled by the server (Stadium L2)
+PASS  A: formation.set cover3 confirmed
+A after upgrades: revision 17, trophies 0, heroGates {"south":"kicker"}, formation cover3
+PASS  B: A listed as a protected rival (8 rivals)
+PASS  B: reserve rival raid on A (energy 67)
+PASS  B: negotiated defense-counters-4
+PASS  B: begin rival raid on A
+PASS  B: finish rival raid on A → stars 3, +575 coins (client sim: 3 stars, +575)
+PASS  B: coins credited exactly once (2295 → 2870)
+PASS  B: attacked snapshot formation=cover3 snapshot=defense-v1-69207ce7bdd1cd09 layout=campus-v1-d0d6cb7cd6aa9602
+PASS  B: attacked snapshot carries A's assigned south-gate hero (The Specialist) (The Enforcer, The Specialist)
+PASS  B: attacked Stadium reflects the saved upgrade (HQ hp 720)
+PASS  A: defense receipt {"stars":3,"pct":100,"coinsLost":109,"authorityMatchId":"9e6bfc42-231b-4af8-a7c9-825ac12d883b"}
+PASS  A: revision advanced by reserve+settle (17 → 19)
+PASS  A: coins 914 → 805 (lost 109)
+PASS  B: duplicate settlement leaves A untouched (one receipt)
+PASS  both accounts fetch the identical film
+PASS  A's film replays to the settled result under the attacked snapshot (pct 100, hash 1801e85c)
+PASS  C: third account cannot fetch the film → film_unavailable
+PASS  B: raiding A again right after → shielded (That club is protected right now.)
+
+summary: 64 passed, 0 failed; accounts A=51b3b8e1-0d55-4360-bc50-a914adbf2b42 B=80a7b3b7-900e-4687-89ad-1f6be876afab C=839f3855-da14-4af4-ac2f-3cee4556bd14
