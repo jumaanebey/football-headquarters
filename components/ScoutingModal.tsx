@@ -70,6 +70,8 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
     const canAfford = resources.COINS >= cost;
     const blocked = rosterFull || !!recruitSlot;
     const disabled = !canAfford || blocked;
+    const peers = roster.filter(p => p.role === c.role);
+    const best = peers.reduce<Player | undefined>((current, p) => !current || candidateOvr(p) > candidateOvr(current) ? p : current, undefined);
 
     return (
       <div key={c.id} className={`relative rounded-2xl border-2 ${RARITY_CONFIG[c.rarity].border} bg-slate-900/80 overflow-hidden flex flex-col`}>
@@ -96,6 +98,15 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
 
           <div className="flex items-center justify-between text-[10px] text-slate-500">
             <span className="flex items-center gap-1"><Clock size={10} /> {fmt(secs)}</span>
+          </div>
+
+          <div className="rounded-lg bg-slate-800 p-3 text-xs text-slate-300">
+            <p className="font-bold text-white">Your {c.role} depth: {peers.length} {peers.length === 1 ? 'player' : 'players'}</p>
+            {best ? <><p className="mt-1">Best current: {best.name} · OVR {candidateOvr(best)}</p>
+              <p className="mt-1">Prospect difference: {candidateOvr(c) - candidateOvr(best) > 0 ? '+' : ''}{candidateOvr(c) - candidateOvr(best)} OVR</p>
+              <p className="mt-1">Strength {best.stats.strength} → {c.stats.strength} · Speed {best.stats.speed} → {c.stats.speed} · IQ {best.stats.iq} → {c.stats.iq}</p></>
+              : <p className="mt-1">Your first player at this position.</p>}
+            <p className="mt-2 text-slate-400">Signing adds this player to your available squad; it does not replace anyone.</p>
           </div>
 
           <button

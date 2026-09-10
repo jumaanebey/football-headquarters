@@ -57,7 +57,7 @@ export const SquadModal: React.FC<Props> = ({ roster, resources, heroes = [], up
 
   return (
     <Sheet
-      title="Coach"
+      title="Roster & Training"
       icon={<Users className="text-sky-400" size={22} />}
       subtitle={selectedUnit ? 'Pick a drill — training builds Readiness for game day.' : 'Tap a position group to run a drill.'}
       onClose={onClose}

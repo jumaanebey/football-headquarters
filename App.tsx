@@ -5,6 +5,15 @@ import { heroPracticeConfig, isNonProgressionBattle, canRefundRaidEnergy } from 
 
 const CampusEditor = React.lazy(() => import('./components/CampusEditor').then(m => ({ default: m.CampusEditor })));
 
+const CCBtn = ({ label, emoji, onClick, disabled, accent }: { label: string; emoji: string; onClick: () => void; disabled?: boolean; accent?: boolean }) => (
+  <button type="button" aria-label={label} onClick={onClick} disabled={disabled}
+    className={`flex flex-col items-center gap-1 w-[74px] py-2.5 rounded-xl border-2 shadow-xl transition-all active:scale-90 pointer-events-auto
+      ${disabled ? 'border-slate-700 bg-slate-900/90 opacity-50' : accent ? 'border-yellow-500 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-yellow-300' : 'border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-slate-400'}`}>
+    <span aria-hidden="true" className="text-2xl leading-none drop-shadow">{emoji}</span>
+    <span className="text-[10px] font-black uppercase text-white leading-none">{label}</span>
+  </button>
+);
+
 // Drops the CC building bar on ANY press outside it — HUD, nav, empty turf, other
 // screens' chrome. Buildings are excluded so pressing one just switches the bar.
 const ClickAwayCloser: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -20,7 +29,7 @@ const ClickAwayCloser: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return null;
 };
 import { GameState, ResourceType, BuildingInstance, BuildingType, DrillState, FloatingText, PlayerState, UnitGroup, Player, UpgradeJob, DefenseLogEntry } from './types';
-import { DRILLS, RECRUIT_CONFIG, COLLECTOR_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, trainingYieldMult, warRoomReadinessMult, OPPONENTS, DEFENSE_TYPES, RAID_ENERGY, PARKING_LOT, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG } from './constants';
+import { DRILLS, RECRUIT_CONFIG, COLLECTOR_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, trainingYieldMult, warRoomReadinessMult, OPPONENTS, DEFENSE_TYPES, RAID_ENERGY, PARKING_LOT, EXTRA_SLOT_COSTS, BUILDING_INFO, UPGRADE_CONFIG, buildingEffect } from './constants';
 import { rosterCap, recruitSeconds } from './recruiting';
 import { sfx, toggleMute, isMuted } from './sound';
 import { IsometricMap } from './components/IsometricMap';
@@ -28,6 +37,8 @@ import { TopHUD } from './components/TopHUD';
 import { SquadModal } from './components/SquadModal';
 import { ActionModal } from './components/ActionModal';
 import { ScoutingModal } from './components/ScoutingModal';
+import { MatchPreparation } from './components/MatchPreparation';
+import type { GamePlanKey } from './battle';
 import { StandingsModal } from './components/StandingsModal';
 import { ClubDashboard } from './components/ClubDashboard';
 import { TutorialOverlay } from './components/TutorialOverlay';
@@ -93,6 +104,9 @@ function App() {
   const [standingsTab, setStandingsTab] = useState<'live' | 'ladder' | undefined>(undefined);
   const [attackSelectOpen, setAttackSelectOpen] = useState(false);
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
+  const [preparedMatch, setPreparedMatch] = useState<{config: BattleConfig; choice?: MatchChoice} | null>(null);
+  const [preparedPlan, setPreparedPlan] = useState<GamePlanKey>('balanced');
+  const [openingHero, setOpeningHero] = useState<string | undefined>();
   const [practiceTake, setPracticeTake] = useState(0);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
   const [campusEditorOpen, setCampusEditorOpen] = useState(false);
@@ -215,7 +229,8 @@ function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (importPending) setImportPending(null);
+      if (preparedMatch) setPreparedMatch(null);
+      else if (importPending) setImportPending(null);
       else if (settingsOpen) setSettingsOpen(false);
       else if (confirmingReset) setConfirmingReset(false);
       else if (isDailyOpen) setIsDailyOpen(false);
@@ -231,7 +246,7 @@ function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, dashboardOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
+  }, [preparedMatch, importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, dashboardOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
 
   // (The vega300 owner boost — URL param + redeem code — was REMOVED for launch,
   // July 11 2026: cheats must not exist once cloud saves can sync them forever.)
@@ -801,8 +816,15 @@ function App() {
   // --- BATTLES (real-time raid + base defense) ---
   // Every attack costs Energy — game day isn't free, so loot means something.
   // (Defense scrimmages stay free; you're not choosing to be raided.)
-  const launchAttack = (config: BattleConfig, choice?: MatchChoice): boolean => {
+  const launchAttack = (config: BattleConfig, choice?: MatchChoice, confirmed = false): boolean => {
+    if (!confirmed) {
+      setPreparedPlan('balanced');
+      setOpeningHero(config.heroes?.[0]?.key);
+      setPreparedMatch({ config: { ...config, squad: gameState.roster }, choice });
+      return true;
+    }
     if (authority.locked) { sfx.error(); centerText('Sign in as this club\'s owner to play online', '#ef4444'); return false; }
+    if (pvpEnabled() && !authority.ready) { authority.setNotice('Connecting your club. Wait for confirmation before reserving a game.'); return false; }
     if (authority.isActiveNow()) {
       // The server issues the match: seed, rules, the rival's defense snapshot and the Energy
       // reservation all come back in one answer. Local Energy is not touched here.
@@ -1464,14 +1486,6 @@ function App() {
         const gated = !isStadium && b.level >= stadiumLevel;
         const busy = gameState.upgrades.some(u => u.kind === 'building' && u.key === b.id);
         const canAfford = gameState.resources.COINS >= cost;
-        const CCBtn = ({ label, emoji, onClick, disabled, accent }: { label: string; emoji: string; onClick: () => void; disabled?: boolean; accent?: boolean }) => (
-          <button onClick={onClick} disabled={disabled}
-            className={`flex flex-col items-center gap-1 w-[74px] py-2.5 rounded-xl border-2 shadow-xl transition-all active:scale-90 pointer-events-auto
-              ${disabled ? 'border-slate-700 bg-slate-900/90 opacity-50' : accent ? 'border-yellow-500 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-yellow-300' : 'border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-slate-400'}`}>
-            <span className="text-2xl leading-none drop-shadow">{emoji}</span>
-            <span className="text-[10px] font-black uppercase text-white leading-none">{label}</span>
-          </button>
-        );
         return (
           <div data-ccbar className="fixed left-0 right-0 z-40 flex flex-col items-center gap-1.5 pointer-events-none animate-fade-in" style={{ bottom: 96 }}>
             <div className="font-display font-black text-white text-xl sm:text-2xl uppercase tracking-tight text-center px-3" style={{ textShadow: '0 2px 6px #000, 0 0 14px rgba(0,0,0,0.8)' }}>
@@ -1484,10 +1498,11 @@ function App() {
             </div>
             <div className="flex items-end gap-2 mt-1">
               <CCBtn label="Info" emoji="💬" onClick={() => setBuildingInfoOpen(true)} />
-              <CCBtn label="Level Up" emoji="🔨" accent disabled={busy || gated || !canAfford} onClick={() => { handleUpgradeBuilding(b.id, cost); }} />
+              <CCBtn label="Level Up" emoji="🔨" accent disabled={busy || gated || !canAfford} onClick={() => setBuildingInfoOpen(true)} />
               {isStadium && <CCBtn label="Defense" emoji="🛡️" onClick={() => { setSelectedBuilding(null); setFrontOfficeOpen(true); }} />}
               {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="🏈" onClick={() => { setSelectedBuilding(null); setAttackSelectOpen(true); }} />}
             </div>
+            {!busy && <p className="max-w-sm rounded-lg bg-slate-950/95 px-3 py-2 text-center text-xs text-slate-200">{buildingEffect(b.type, b.level).label}: {buildingEffect(b.type, b.level).value} → {buildingEffect(b.type, b.level + 1).value}</p>}
           </div>
         );
       })()}
@@ -1667,10 +1682,15 @@ function App() {
         </Sheet>
       )}
 
+      {preparedMatch && <MatchPreparation config={preparedMatch.config} energy={gameState.resources.ENERGY} cost={RAID_ENERGY}
+        plan={preparedPlan} onPlan={setPreparedPlan} openingHero={openingHero} onHero={setOpeningHero} onClose={() => setPreparedMatch(null)}
+        onStart={() => { if (launchAttack(preparedMatch.config, preparedMatch.choice, true)) setPreparedMatch(null); }} />}
       {battleConfig && (
         <Suspense fallback={<div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4" role="status"><img src="/assets/brand/logo.webp" alt="Football Headquarters" width="240" /><p>Getting the field ready…</p></div>}><BattleScreen
           key={battleConfig.practice ? `practice-${practiceTake}` : 'match'}
           config={battleConfig}
+          initialPlan={battleConfig.practice ? 'balanced' : preparedPlan}
+          openingHero={battleConfig.practice ? undefined : openingHero}
           onFinish={handleBattleFinish}
           onKickoff={() => {
             const open = authorityMatchRef.current;
@@ -1784,9 +1804,9 @@ function App() {
           >
             <div className="p-4 sm:p-5 space-y-4">
               <HowTo id="frontoffice" lines={[
-                'Pick a FORMATION (your defensive scheme), then level its emplacements — spots are fixed per scheme.',
+                'Pick a FORMATION template, then level its emplacements. Edit campus on the home field customizes their positions.',
                 'Install and level emplacements with Coins. Higher Stadium levels unlock more slots.',
-                'Walls and the Team Bus are automatic — they grow with your Stadium. No placing anything.',
+                'Walls and the Team Bus grow with your Stadium. Their positions can be changed in Edit campus.',
                 'Tap 🧪 Test Defense to watch your setup fight off a raid.',
                 'Mastery ★s pay off LIVE: each ★ adds a 📣 Crowd Noise charge, ★★ adds a 🛡 Goal-Line charge, ★★★ unlocks 🧊 TIMEOUT.',
               ]} />

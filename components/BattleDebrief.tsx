@@ -1,6 +1,7 @@
 import React from 'react';
 import { Flag, Trophy, Heart, Shield } from 'lucide-react';
-import { gauntletReward, type BTroop } from '../battle';
+import { gauntletReward, GAME_PLANS, type BBuilding, type BTroop, type GamePlanKey } from '../battle';
+import { FORMATIONS, type FormationKey } from '../fixedBase';
 import type { BattleConfig, BattleResult } from '../game/combat/contracts';
 import { battleContributions, contributionLeaders, resultPresentation } from '../game/battleDebrief';
 import { HeroArt } from './HeroArt';
@@ -13,8 +14,9 @@ const METRICS = {
 };
 const number = (value: number) => Math.round(value).toLocaleString();
 
-export function BattleDebrief({ config, result, actors, stats, modernCombat, replayVerified, onContinue, onPracticeAgain }: {
+export function BattleDebrief({ config, result, actors, buildings = [], guards = [], planKey, stats, modernCombat, replayVerified, onContinue, onPracticeAgain }: {
   config: BattleConfig; result: BattleResult; actors: BTroop[];
+  buildings?: BBuilding[]; guards?: BTroop[]; planKey?: GamePlanKey;
   stats: { pancakes: number; lost: number; bonus: number } | null;
   modernCombat: boolean; replayVerified: boolean; onContinue: () => void; onPracticeAgain?: () => void;
 }) {
@@ -24,7 +26,9 @@ export function BattleDebrief({ config, result, actors, stats, modernCombat, rep
   const neutral = config.practice || replay;
   const contributions = battleContributions(actors, config.heroes ?? []);
   const leaders = contributionLeaders(contributions);
-  const heroRows = contributions.filter(actor => actor.heroKey);
+  const formationKey = config.defenseFormation ?? config.buildings.find(b => b.kind === 'hq')?.formation;
+  const formation = FORMATIONS[formationKey as FormationKey];
+  const selectedPlan = GAME_PLANS.find(p => p.key === planKey);
   const showContributions = modernCombat && !defense;
   const purse = result.gauntletTier !== undefined
     ? gauntletReward(result.gauntletTier, result.wavesHeld ?? 0, !!result.gauntletCleared) : null;
@@ -52,6 +56,16 @@ export function BattleDebrief({ config, result, actors, stats, modernCombat, rep
           {replay && <p className="mt-3 text-sm text-sky-200">Recorded result. Watching this film does not change your club or award rewards.</p>}
         </div>
 
+        <section aria-label="Game breakdown" className="rounded-xl border border-slate-700 p-3 text-sm text-slate-300">
+          <h3 className="font-bold text-white">How this result happened</h3>
+          <p className="mt-2">{defense ? `Your defense ${result.pct < 50 ? 'kept damage below' : 'allowed damage to reach'} the 50% threshold. You hold the field by staying below 50%.` : 'Game balls: 50% overall damage, taking the Stadium, and 99% damage. Any one wins an attack.'}</p>
+          <p className="mt-2">Targets cleared: {buildings.filter(b => b.kind !== 'wall' && b.dead).length} · Stadium {buildings.find(b => b.kind === 'hq')?.dead ? 'taken' : 'standing'}. Partial damage counts; walls do not.</p>
+          {formation && <p className="mt-2">Defending formation: <b className="text-white">{formation.name}</b>.</p>}
+          {!defense && selectedPlan && <p className="mt-2">Your plan: <b className="text-white">{selectedPlan.name}</b>. {formation?.counter.weakTo.includes(selectedPlan.key) ? 'This plan exploited the formation’s weakness.' : formation?.counter.strongVs.includes(selectedPlan.key) ? 'The formation countered this plan. Try its vulnerable plan before your next kickoff.' : 'The formation matchup was neutral.'}</p>}
+          {defense && <p className="mt-2">{guards.filter(g => !g.dead).length}/{guards.length} defenders still on the field · {buildings.filter(b => b.kind === 'defense' && !b.dead).length} emplacements standing.</p>}
+          {defense && <p className="mt-2">Next test: adjust one gate assignment or placement, then compare damage and surviving defenses against this result.</p>}
+        </section>
+
         {config.campaignStage === 1 && !neutral && !defense && <section aria-label="Your next improvement" className="rounded-xl border border-orange-800 bg-orange-950/30 p-3 text-sm text-slate-200">
           <h3 className="font-bold text-orange-300">Next: improve your club</h3>
           <p className="mt-1">{result.won ? 'You cleared the opener. ' : 'You can retry the opener after preparing. '}Back home, open Heroes to compare a Train upgrade’s cost and stat benefit. If you need Coins, use the Training Field drills. Game Day shows your next match.</p>
@@ -72,9 +86,9 @@ export function BattleDebrief({ config, result, actors, stats, modernCombat, rep
             })}
             {!leaders.length && <p className="text-sm text-slate-400">No yardage, recovery or protection was recorded this drive.</p>}
           </div>
-          {heroRows.length > 0 && <details className="mt-3 rounded-xl border border-slate-700">
-            <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-bold text-white">All hero stats ({heroRows.length})</summary>
-            <div className="space-y-3 border-t border-slate-700 p-3">{heroRows.map(actor => <div key={actor.id}>
+          {contributions.length > 0 && <details className="mt-3 rounded-xl border border-slate-700">
+            <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-bold text-white">All player stats ({contributions.length})</summary>
+            <div className="space-y-3 border-t border-slate-700 p-3">{contributions.map(actor => <div key={actor.id}>
               <p className="mb-1 break-words text-sm font-bold text-white">{actor.name}</p>
               <dl className="grid grid-cols-3 gap-2 text-sm"><div><dt className="text-slate-400">Yards</dt><dd className="font-bold tabular-nums text-amber-300">{number(actor.yardage)}</dd></div>
                 <div><dt className="text-slate-400">Recovered</dt><dd className="font-bold tabular-nums text-emerald-300">{number(actor.recovery)}</dd></div>
