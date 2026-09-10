@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { HERO_DEFS } from '../battle';
 import { HERO_PLAYBOOK } from '../game/heroPlaybook';
 import { AnimatedHero } from './AnimatedHero';
@@ -12,11 +12,6 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
   const [slowMotion, setSlowMotion] = useState(false);
   const hero = HERO_DEFS.find(h => h.key === heroKey)!;
   const guide = HERO_PLAYBOOK[heroKey];
-  useEffect(() => {
-    if (mode !== 'signature') return;
-    const timer = window.setTimeout(() => setMode('idle'), slowMotion ? 1800 : 900);
-    return () => window.clearTimeout(timer);
-  }, [mode, take, slowMotion]);
   return <section aria-label="Hero film room" className="m-5 rounded-2xl border border-slate-700 overflow-hidden bg-slate-950">
     <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-lg font-display font-bold text-white">Hero Film Room</h2>
@@ -28,6 +23,7 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
         <div key={heroKey} className="fhq-unit relative w-48 h-48">
           <img src={hero.art} alt={hero.name} className="fhq-flat absolute inset-0 w-full h-full object-contain" />
           <AnimatedHero heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode} facing={facing} cycle={.58} playbackKey={take} playbackRate={slowMotion ? .5 : 1} loadSignatureArt
+            onSignatureComplete={() => setMode('idle')}
             filter={`drop-shadow(0 0 ${mode === 'signature' ? 6 : 3}px ${hero.color})`} />
         </div>
       </div>

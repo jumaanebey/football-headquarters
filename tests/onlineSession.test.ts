@@ -122,4 +122,29 @@ describe('online identity preservation', () => {
     expect(request.mock.calls.map(call => call[1]?.method ?? 'GET')).toEqual(['POST', 'DELETE', 'DELETE', 'GET', 'GET']);
   });
 
+  it('an old refresh completion cannot clear a newer guest signup in flight', async () => {
+    values.set('fhq_session_v1', JSON.stringify(session())); values.set('fhq_pid', uid);
+    let finishOld!: (value: Response) => void, finishNew!: (value: Response) => void;
+    const newUid = '22222222-2222-4222-8222-222222222222';
+    const request = vi.fn()
+      .mockImplementationOnce(() => new Promise<Response>(resolve => { finishOld = resolve; }))
+      .mockImplementationOnce(() => new Promise<Response>(resolve => { finishNew = resolve; }))
+      .mockImplementation(async () => response({ id: newUid }));
+    vi.stubGlobal('fetch', request);
+    const pvp = await import('../pvp');
+    const oldProfile = pvp.getProfile();
+    pvp.signOutToGuest();
+    const newProfile = pvp.getProfile();
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    finishOld(response({ access_token: 'old-refresh', refresh_token: 'old-refresh-token', expires_in: 3600, user: { id: uid } }));
+    await oldProfile;
+    const anotherProfile = pvp.getProfile();
+    await Promise.resolve(); await Promise.resolve();
+    expect(request).toHaveBeenCalledTimes(2);
+    finishNew(response({ access_token: 'new-guest', refresh_token: 'new-guest-refresh', expires_in: 3600, user: { id: newUid } }));
+    await Promise.all([newProfile, anotherProfile]);
+    expect(pvp.playerId()).toBe(newUid);
+    expect(request.mock.calls.filter(call => String(call[0]).endsWith('/signup'))).toHaveLength(1);
+  });
+
 });

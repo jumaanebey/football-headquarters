@@ -158,6 +158,34 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   const introGamePlan = isOnboardAttack && gamesDone === 1; // game 2: picker + NEW badge
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
+  const battlePanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // The originating sheet may restore focus while it unmounts. Enter the battle
+    // after those cleanups, and keep keyboard navigation above the campus.
+    const frame = requestAnimationFrame(() => battlePanel.current?.focus());
+    const keepFocus = (event: FocusEvent) => {
+      const panel = battlePanel.current;
+      if (panel && event.target instanceof Node && !panel.contains(event.target)) panel.focus();
+    };
+    document.addEventListener('focusin', keepFocus);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('focusin', keepFocus);
+      const fallback = Array.from(document.querySelectorAll<HTMLButtonElement>('[aria-label="Club navigation"] button')).find(button => button.textContent?.trim() === 'Heroes');
+      (opener?.isConnected ? opener : fallback)?.focus();
+    };
+  }, []);
+  const containBattleFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') return;
+    const panel = battlePanel.current;
+    const controls = Array.from(panel?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex]') ?? [])
+      .filter(el => el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.closest('[hidden], [inert]'));
+    const first = controls[0], last = controls[controls.length - 1];
+    if (!first) { event.preventDefault(); panel?.focus(); return; }
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panel)) { event.preventDefault(); first.focus(); }
+  };
   // Broadcast-camera drift: eases toward the hottest fight each render (presentation
   // only — sim coords are untouched, and clicks read getBoundingClientRect anyway).
   const cam = useRef({ x: 0, y: 0 });
@@ -1232,7 +1260,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
     : 'Pick your offense — players, heroes, or plays';
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
+    <div ref={battlePanel} role="dialog" aria-modal="true" aria-label={config.practice ? 'Free hero practice' : config.replay?.displayTitle ?? config.title} tabIndex={-1} onKeyDown={containBattleFocus} className="fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
       {/* ⚡ ability cast — edges flash in the caster's color */}
       {abilityFlash && phase === 'fighting' && (
         <React.Fragment key={abilityFlash.key}>
@@ -1309,7 +1337,12 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
           if (!spot || !doDeployHero(pendingHero.key,spot[0],spot[1])) return;
           deployedHeroesRef.current.add(pendingHero.key);
           setDeployedHeroes(prev => new Set(prev).add(pendingHero.key));
+          const heroKey = pendingHero.key;
           setPendingHero(null); setPhase('fighting');
+          requestAnimationFrame(() => {
+            const command = battlePanel.current?.querySelector<HTMLButtonElement>(`[data-hero-command="${heroKey}"]`);
+            (command ?? battlePanel.current)?.focus();
+          });
         }}>Deploy selected hero</button>}
       </div>}
       {/* Battlefield */}

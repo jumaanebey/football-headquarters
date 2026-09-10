@@ -14,8 +14,8 @@ export function HeroCommandBar({ heroes, troops, selected, onSelect, onAbility }
       const cooldown = Math.ceil(actor?.abilityCd ?? 0);
       const disabled = !!actor && (actor.dead || cooldown > 0 || !!actor.activeAction);
       const status = !actor ? selected === hero.key ? 'Selected · send in' : 'Select to send in' : actor.dead ? 'Subbed out' : actor.activeAction ? 'Play in progress' : cooldown > 0 ? `Ready in ${cooldown}s` : 'Signature ready';
-      return <button key={hero.key} type="button" disabled={disabled} aria-label={`${hero.name}: ${!actor ? 'select for deployment' : hero.abilityName}. ${status}`}
-        aria-pressed={!actor ? selected === hero.key : undefined} onClick={() => actor ? onAbility(hero.key) : onSelect(hero)}
+      return <button key={hero.key} type="button" data-hero-command={hero.key} aria-disabled={disabled} aria-label={`${hero.name}: ${!actor ? 'select for deployment' : hero.abilityName}. ${status}`}
+        aria-pressed={!actor ? selected === hero.key : undefined} onClick={() => { if (!disabled) { if (actor) onAbility(hero.key); else onSelect(hero); } }}
         className={`min-h-16 rounded-xl px-2 py-2 flex gap-2 items-center text-left border-2 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-white ${disabled ? 'bg-slate-900 border-slate-700 text-slate-400' : selected === hero.key || actor ? 'border-amber-400 bg-amber-950/40 text-white' : 'border-slate-600 bg-slate-800 text-white'}`}>
         <HeroArt heroKey={hero.key} art={hero.art} className="shrink-0 w-10 h-12" />
         <span className="min-w-0 leading-tight">

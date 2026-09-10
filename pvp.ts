@@ -102,7 +102,7 @@ const ensureSession = async (): Promise<Session | null> => {
   const cur = loadSession();
   if (cur && cur.expires_at > Date.now() / 1000 + 60) return cur;
   if (!inflight) {
-    inflight = (async () => {
+    const active = (async () => {
       if (cur?.refresh_token) {
         const r = await refreshSession(cur);
         if (r.session) return r.session;
@@ -112,7 +112,9 @@ const ensureSession = async (): Promise<Session | null> => {
       }
       if (hasPreviousIdentity()) return null;
       return await signUpAnonymous(); // first-time guests only
-    })().finally(() => { inflight = null; });
+    })();
+    const tracked = active.finally(() => { if (inflight === tracked) inflight = null; });
+    inflight = tracked;
   }
   return inflight;
 };

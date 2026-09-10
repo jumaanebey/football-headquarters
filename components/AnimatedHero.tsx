@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HeroAnimation, heroFrame, keyHeroPixels, advanceHeroStride } from '../game/heroAnimation';
 
 import { HERO_ATLAS } from '../game/heroAtlas';
@@ -59,13 +59,17 @@ function loadSheet(key: string): Promise<Sheet> {
   return sheets.get(key)!;
 }
 
-export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, driving = false, loadSignatureArt = false, playbackRate = 1 }: {
-  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number;
+export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete }: {
+  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const playback = useRef({ mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, driving, playbackRate });
-  playback.current = { mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, driving, playbackRate };
+  const renderNowRef = useRef<(() => void) | null>(null);
+  const playback = useRef({ mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, driving, playbackRate, onSignatureComplete });
+  playback.current = { mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, driving, playbackRate, onSignatureComplete };
   const [ready, setReady] = useState(false);
+  // Event-clock poses and distance-driven footfalls must be painted alongside
+  // the new actor position, even if the browser throttles cosmetic RAF work.
+  useLayoutEffect(() => { renderNowRef.current?.(); }, [mode, signatureFrame, elapsedSeconds, playbackKey, driving]);
   useEffect(() => {
     let disposed = false, raf = 0;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -77,12 +81,13 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
       const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return;
       let previous = performance.now(), elapsed = 0, stride = 0, previousMode = playback.current.mode, previousTake = playback.current.playbackKey;
-      let lastDraw = '', announced = false;
+      let lastDraw = '', announced = false, signatureCompleted = false;
       let signaturePlayback: SignaturePlayback = { seconds: 0, authored: false };
-      const draw = (now: number) => {
+      const draw = (now: number, schedule = true) => {
         if (disposed) return;
         if (previousMode !== playback.current.mode || previousTake !== playback.current.playbackKey) {
           elapsed = 0; stride = 0; signaturePlayback = { seconds: 0, authored: false };
+          signatureCompleted = false;
           previousMode = playback.current.mode; previousTake = playback.current.playbackKey;
         }
         const rate = Number.isFinite(playback.current.playbackRate) ? Math.max(.25, Math.min(1, playback.current.playbackRate)) : 1;
@@ -95,6 +100,12 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
         const walking = playback.current.mode === 'walk';
         const frameElapsed = playback.current.elapsedRef?.current ?? playback.current.elapsedSeconds ?? (walking ? stride : elapsed);
         const beat = asSignatureBeat(playback.current.signatureFrame) ?? (playback.current.mode === 'signature' ? previewSignatureBeat(heroKey, frameElapsed) : undefined);
+        // Film Room completion shares this clock. A wall-clock timeout can cut
+        // off the release on a slow device or after pausing a hidden tab.
+        if (!document.hidden && playback.current.mode === 'signature' && beat === undefined && frameElapsed > 0 && !signatureCompleted) {
+          signatureCompleted = true;
+          playback.current.onSignatureComplete?.();
+        }
         signaturePlayback = advanceSignaturePlayback(signaturePlayback, beat, delta, signatures.length === 4);
         const pose = beat === undefined ? undefined : heroSignaturePose(heroKey, beat, signaturePlayback.seconds, media.matches);
         const baseFrame = pose?.frame ?? heroFrame(playback.current.mode, frameElapsed, walking ? 1 : playback.current.cycle, media.matches);
@@ -119,11 +130,13 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
           canvas.dataset.driving = drive ? '1' : '0';
           lastDraw = drawKey; if (!announced) { setReady(true); announced = true; }
         }
-        raf = requestAnimationFrame(draw);
+        if (schedule) raf = requestAnimationFrame(draw);
       };
+      renderNowRef.current = () => draw(performance.now(), false);
+      renderNowRef.current();
       raf = requestAnimationFrame(draw);
     }).catch(() => { if (!disposed) setReady(false); });
-    return () => { disposed = true; cancelAnimationFrame(raf); };
+    return () => { disposed = true; cancelAnimationFrame(raf); renderNowRef.current = null; };
   }, [heroKey, loadSignatureArt]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
