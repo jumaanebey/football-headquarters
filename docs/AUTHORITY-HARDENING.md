@@ -50,6 +50,20 @@ No code defects were reproduced in this tranche; every item closed on new execut
 - **12 Match lifecycle boundaries** (`tests/authorityLifecycle.test.ts`): begin/finish are allowed at the exact expiry instant and refused one millisecond later; an expired reserved game cancels with a refund, an expired started game cannot settle and cancels without one; an abandoned reservation blocks club changes until released and the release is idempotent; beginner protection lifts exactly at the third Season game for both sides; a shield ending at this instant no longer protects; kickoff drops the attacker's shield, a lost defense raises the defender's for two hours, a held defense earns a mastery hold; busy and missing targets are refused without an Energy charge; Energy is accounted once across reserve→cancel, reserve→begin→cancel, reserve→expire→cancel and reserve→finish.
 - **13 Defense consequence and history integrity** (`tests/defenseHistory.test.ts`): thirty-five settled raids leave thirty newest-first receipts with every coin consequence applied exactly once at settlement (aged-out receipts keep their consequences); repeated status reads and reloads change nothing; marking seen touches only the flag; film for an aged-out match stays fetchable by both participants; two raids settled at the same millisecond are both kept in deterministic order. The legacy paginated inbox keeps its existing evidence (`tests/defenseInbox.test.ts`). Retention (30 receipts) unchanged.
 
+## Tranche 4 — replay compatibility, determinism, workload bounds (PR stacked on tranche 3)
+
+### Fixed and tested
+
+| # | Finding | Before | After | Test |
+| --- | --- | --- | --- | --- |
+| 16 | `verifyMatch` copied the whole film into the battle result, so every settlement answer carried the film to the client (which never uses it) and every settled match stored the film twice (`result.replay` and `result.battleResult.replay`). | Settlement answer ≈ film size; film stored twice | Battle results never embed film; film is stored once and served only by the bounded `film` request | `tests/authorityWorkload.test.ts` (settlement answers, club state and status contain no `script`); v4 artifact regenerated |
+
+### Verified / measured
+
+- **14 Replay version compatibility** (`tests/replayCompatibility.test.ts`): supported film versions are v1 (legacy playback path only) and v2 under rules `hero-actions-3`; v0/v3, other rules and a missing rules field are refused; the modern replay path throws `Unsupported match rules` for anything else; incomplete v2 film (any of script/ticks/finalHash/snapshot/layout/heroes/specials/seed/plan missing) is refused; unsafe asset ids (remote URLs, `..`, data URIs) and unknown hero keys are refused; snapshots disagreeing with their film, embedded replay fields, shortened tick counts and mode swaps are refused or fail verification. Existing `tests/sharedCombat.test.ts` covers altered inputs, duplicate deployments and key reordering.
+- **15 Determinism across execution paths**: a fixed eight-match corpus (`game/authority/matchCorpus.ts`, hashes committed in `tests/fixtures/determinism-corpus.json`) gives identical gameplay hashes and results through the Node headless engine, recorded-film replay and the authority verification path (`tests/determinism.test.ts`), and through **HeadlessChrome 152** via `npm run determinism:browser` (esbuild browser bundle, Playwright, 8/8 matches: `d24bc304 … 966a7756`). Presentation randomness (audio/fx draining) does not change the hash. Runtimes really exercised: Node v22.14.0 and Chrome 152 headless on this Mac; the deployed edge runtime was exercised by the live evidence in `docs/AUTHORITY-RECOVERY.md` (server-settled hashes equal to client hashes for every settled game). No physical device.
+- **16 Workload bounds** (`tests/authorityWorkload.test.ts`, measured in-process): club state with 12 receipts ≈ 30 KB and grows by well under 600 B per receipt up to the 30-receipt cap; `status` answers stay far below the 450 KB request cap; a film answer ≈ 20–100 KB; verification of the longest corpus films (1 201 ticks) takes tens of milliseconds; the largest inputs the service parses are a 450 KB legacy save and a 1 500-command film. Settled matches accumulate one row each with no retention (`fhq_authority_matches`, indexed by owner/issued_at): **owner decision** whether to prune settled matches older than N days or beyond N per owner; not built because it is a data-retention policy.
+
 ## Completion matrix (updated per tranche)
 
 | Item | Status | Evidence / dependency |
@@ -67,4 +81,7 @@ No code defects were reproduced in this tranche; every item closed on new execut
 | 11 Resource conservation | Verified (no defect) + invariant walk | `tests/authorityInvariants.test.ts` |
 | 12 Match lifecycle boundaries | Verified (no defect) + boundary tests | `tests/authorityLifecycle.test.ts` |
 | 13 Defense history integrity | Verified (no defect) + tests | `tests/defenseHistory.test.ts`, `tests/defenseInbox.test.ts` |
-| 14–23 | Pending (next tranches) | — |
+| 14 Replay version compatibility | Verified + tests | `tests/replayCompatibility.test.ts` |
+| 15 Determinism across runtimes | Verified (Node, Chrome 152, edge via live evidence) | `tests/determinism.test.ts`, `npm run determinism:browser` |
+| 16 Workload bounds | Fixed (film no longer duplicated in settlement answers/results; staged for v4) + measured; retention policy pending owner | `tests/authorityWorkload.test.ts` |
+| 17–23 | Pending (final tranche) | — |

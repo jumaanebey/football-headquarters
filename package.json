@@ -15,6 +15,8 @@
     "typecheck": "tsc --noEmit",
     "assets:verify": "node scripts/verify-assets.mjs",
     "authority:build": "node scripts/build-authority.mjs",
+    "determinism:corpus": "esbuild scripts/write-determinism-corpus.ts --bundle --platform=node --format=esm --define:import.meta.env={} --outfile=dist/write-determinism-corpus.mjs && node dist/write-determinism-corpus.mjs",
+    "determinism:browser": "node scripts/determinism-browser.mjs",
     "authority:evidence": "esbuild scripts/authority-evidence.ts --bundle --format=esm --platform=node --outfile=dist/authority-evidence.mjs && node --env-file=.env.production dist/authority-evidence.mjs",
     "check": "npm run typecheck && npm test && npm run build"
   },

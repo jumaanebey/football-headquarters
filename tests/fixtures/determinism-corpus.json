@@ -1,0 +1,54 @@
+{
+  "rules": "hero-actions-3",
+  "note": "Fixed match corpus (game/authority/matchCorpus.ts). Regenerate only with a deliberate rules change.",
+  "matches": {
+    "campaign-1": {
+      "hash": "d24bc304",
+      "stars": 3,
+      "pct": 100,
+      "ticks": 103
+    },
+    "campaign-4": {
+      "hash": "e8347b39",
+      "stars": 1,
+      "pct": 50,
+      "ticks": 1201
+    },
+    "campaign-7": {
+      "hash": "5cc364d0",
+      "stars": 0,
+      "pct": 34,
+      "ticks": 1201
+    },
+    "road-0": {
+      "hash": "f9e9fb5c",
+      "stars": 0,
+      "pct": 43,
+      "ticks": 1201
+    },
+    "road-1": {
+      "hash": "0998dc5d",
+      "stars": 0,
+      "pct": 16,
+      "ticks": 1201
+    },
+    "rival-0": {
+      "hash": "3c96864d",
+      "stars": 3,
+      "pct": 100,
+      "ticks": 239
+    },
+    "rival-1": {
+      "hash": "11dadeaa",
+      "stars": 3,
+      "pct": 100,
+      "ticks": 237
+    },
+    "gauntlet-1": {
+      "hash": "966a7756",
+      "stars": 1,
+      "pct": 50,
+      "ticks": 816
+    }
+  }
+}

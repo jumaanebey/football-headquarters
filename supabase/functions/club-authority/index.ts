@@ -3497,7 +3497,7 @@ function verifyMatch(match, value, now) {
   if (!film) return fail("invalid_film", "The match commands are invalid.");
   const checked = replayMatch(film);
   if (!checked.matches || !checked.result) return fail("simulation_mismatch", "The match could not be verified. Your reserved game remains available.");
-  return { result: { ...checked.result, isReplay: false, replay: film, defenseLayoutId: match.config.defenseLayoutId, defenseSnapshotId: match.config.defenseSnapshotId }, replay: film };
+  return { result: { ...checked.result, isReplay: false, defenseLayoutId: match.config.defenseLayoutId, defenseSnapshotId: match.config.defenseSnapshotId }, replay: film };
 }
 function settleMatchRewards(input, result, now) {
   let state = settleClubState(input, { now });
