@@ -1,0 +1,18 @@
+{
+  "note": "Known QA/evidence account ids (anonymous test users) excluded from the weekly funnel. Consolidated inventory: docs/AUTHORITY-HARDENING.md. Accounts known only by club name (Protected Preview FC, Campus QA FC) cannot be excluded by id.",
+  "accounts": [
+    { "id": "89bf29b7-09ba-4537-b09b-e000d2ac808d", "purpose": "earlier integrity QA" },
+    { "id": "41ba80f3-9809-498a-aee8-5633214b0a00", "purpose": "earlier integrity QA" },
+    { "id": "4c40cd9d-91be-45bd-9cb8-83087ec1f36e", "purpose": "evidence run against v2" },
+    { "id": "f96fcf0e-4b73-4cf9-a6bc-d9a4ee1b305d", "purpose": "evidence run against v2" },
+    { "id": "c5f960d1-cc2e-4e29-bf80-7ad2e4e460a4", "purpose": "evidence run 1 (v3)" },
+    { "id": "bb5e10d0-cf14-4be2-9448-a45c95a116ca", "purpose": "evidence run 1 (v3)" },
+    { "id": "7e275a6a-cd30-45b6-861a-bed148fd6c4a", "purpose": "evidence run 1 (v3)" },
+    { "id": "d38b8c11-9ee0-4b5d-8634-827a27737954", "purpose": "evidence run 2 (v3)" },
+    { "id": "79d451a1-7033-4e28-8e0e-92b267270417", "purpose": "evidence run 2 (v3)" },
+    { "id": "147c15d7-30f1-4fe2-b07c-4684c840c03c", "purpose": "evidence run 2 (v3)" },
+    { "id": "e786415f-bc5a-48c4-a006-17e7955884b0", "purpose": "evidence run (v4)" },
+    { "id": "7d77ef69-7cad-48fa-95bf-9c098ed84793", "purpose": "evidence run (v4)" },
+    { "id": "1650dd26-74e6-48e0-9a90-cbaca993d1a3", "purpose": "evidence run (v4)" }
+  ]
+}
