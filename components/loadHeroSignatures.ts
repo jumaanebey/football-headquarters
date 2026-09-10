@@ -17,9 +17,10 @@ export function loadHeroSignatures(key: string, reaction = false): Promise<HTMLC
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
         keyHeroPixels(data.data); ctx.putImageData(data, 0, 0);
         const frames = signatureRegistration(key, data.data, canvas.width, canvas.height, spec).map(frame => {
-          const out = document.createElement('canvas'); out.width = out.height = 384;
+          const out = document.createElement('canvas'); out.width = out.height = 256;
           const target = out.getContext('2d');
           if (!target) throw new Error('Canvas unavailable');
+          target.scale(2 / 3, 2 / 3);
           target.drawImage(canvas, frame.x, frame.y, frame.w, frame.h, frame.dx, frame.dy, frame.w * frame.scale, frame.h * frame.scale);
           return out;
         });

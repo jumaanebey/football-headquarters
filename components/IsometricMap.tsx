@@ -20,6 +20,8 @@ import { Check, Star, Dumbbell, Search, Coins, Hammer, Plus, Minus, Focus } from
 // geometry (fixedBase.ts): there is no placement, painting, or dragging here.
 
 interface Props {
+  customLayout?: boolean;
+  onEditCampus?: () => void;
   heroes?: import('../types').HeroState[];
   onOpenHeroes?: (heroKey?: string) => void;
   buildings: BuildingInstance[];
@@ -354,7 +356,7 @@ const Jumbotron: React.FC<{ clubName?: string; trophies?: number; fans?: number;
             A-frame legs stay click-through for panning. */}
         {onOpenStats && (
           <div className="cursor-pointer" title="Club Dashboard"
-            onClick={e => { e.stopPropagation(); if (clickGuard?.current) { clickGuard.current = false; return; } onOpenStats(); }}
+            onClick={e => { e.stopPropagation(); if (e.detail !== 0 && clickGuard?.current) { clickGuard.current = false; return; } onOpenStats(); }}
             style={{ position: 'absolute', left: '10%', top: '5%', width: '80%', height: '50%', pointerEvents: 'auto' }} />
         )}
       </div>
@@ -527,12 +529,13 @@ const BuildingSprite: React.FC<{
   recruitSlot?: RecruitSlot | null;
   upgradeJob?: UpgradeJob;
   clickGuard?: React.MutableRefObject<boolean>;
+  compactLayout?: boolean;
   onBuildingClick: Props['onBuildingClick'];
   onCollect: Props['onCollect'];
   onCollectResource?: Props['onCollectResource'];
   selected?: boolean;
   celebrating?: boolean;
-}> = ({ building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
+}> = ({ compactLayout = false, building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
   const c = tileToScreen(building.gridX + 0.5, building.gridY + 0.5); // 2×2 footprint center
   const info = BUILDING_INFO[building.type];
   const starter = isStarterFacility(building.type, building.level);
@@ -566,8 +569,9 @@ const BuildingSprite: React.FC<{
   // the building. No separate hit-targets fighting each other on the same sprite.
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // board-level tap-away must not fire for building taps
-    if (clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
-    const screenPos = { x: e.clientX, y: e.clientY };
+    if (e.detail !== 0 && clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
+    const bounds = e.currentTarget.getBoundingClientRect();
+    const screenPos = e.detail === 0 ? {x:bounds.left+bounds.width/2,y:bounds.top+bounds.height/2} : { x: e.clientX, y: e.clientY };
     if (isCompleted) onCollect(building, screenPos);
     else if (collectReady) onCollectResource?.(building, screenPos);
     else onBuildingClick(building, screenPos);
@@ -576,7 +580,7 @@ const BuildingSprite: React.FC<{
   // Proportion pass: art renders ~15% past the 2×2 footprint (Jumaane: buildings read
   // small vs field/lot). The STADIUM is the landmark at 4.2t — "this game deserves
   // the actual stadium to be that large". Footprints unchanged.
-  const SPRITE_W = TILE_W * (building.type === BuildingType.STADIUM ? 4.2 : 2.3);
+  const SPRITE_W = TILE_W * (building.type === BuildingType.STADIUM && !compactLayout ? 4.2 : 2.3);
 
   // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
   // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
@@ -593,7 +597,7 @@ const BuildingSprite: React.FC<{
   // and those invisible corners were stealing taps from neighbors' labels/bubbles.
   // Only the explicit hitbox (building body) and the badge buttons take pointers.
   return (
-    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.type === BuildingType.STADIUM ? 1 : Math.round(building.gridX + building.gridY + 6), transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting; the backdrop stadium paints BEHIND everything */}
+    <div className="absolute group pointer-events-none" style={{ left: c.x, top: c.y, zIndex: building.type === BuildingType.STADIUM && !compactLayout ? 1 : Math.round(building.gridX + building.gridY + 6), transition: 'left 0.7s cubic-bezier(0.22, 1, 0.36, 1), top 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}>{/* formation switches GLIDE buildings to their new anchors instead of teleporting; the backdrop stadium paints BEHIND everything */}
       {/* 🔦 CC spotlight under the selected building */}
       {selected && (
         <div className="absolute -translate-x-1/2 rounded-[50%] pointer-events-none animate-pulse"
@@ -794,7 +798,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -896,7 +900,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   // Home-board display remap FIRST (Jumaane's layout — battle geometry unaffected),
   // then any live editor overrides on top of it.
   const displayBuildings = buildings.map(b => {
-    const o = HOME_DISPLAY_ANCHORS[b.type];
+    const o = customLayout ? undefined : HOME_DISPLAY_ANCHORS[b.type];
     return o ? { ...b, gridX: o.gridX, gridY: o.gridY } : b;
   });
   // The editor previews the ENDGAME look ("show it at full fan capacity"):
@@ -1126,7 +1130,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
             <DecorSprite key={`c${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
           {sortedBuildings.map((b) => (
-            <BuildingSprite key={b.id} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} selected={selectedId === b.id} celebrating={celebrationId === b.id} />
+            <BuildingSprite key={b.id} compactLayout={customLayout} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} selected={selectedId === b.id} celebrating={celebrationId === b.id} />
           ))}
           {/* ☁️ Cloud shade drifting over the campus — two lanes, same wind, shading
               everything under them (hidden entirely under prefers-reduced-motion). */}
@@ -1235,13 +1239,17 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
         </div>
       </div>
 
-      <div role="group" aria-label="Campus camera" className="absolute bottom-24 right-3 z-40 flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
+      <div className="absolute bottom-24 inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none">
+      {onEditCampus && <button type="button" onClick={onEditCampus} className="pointer-events-auto min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-4 py-2 text-sm font-bold text-white shadow-xl">Edit campus</button>}
+      <div role="group" aria-label="Campus camera" className="pointer-events-auto ml-auto flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
         <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomCam(1 / 1.2)} disabled={cam.z <= .85}
           className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Minus size={18} /></button>
         <button type="button" aria-label="Recenter campus" title="Recenter campus" onClick={resetCam}
           className="w-11 h-11 flex items-center justify-center border-x border-slate-700 hover:bg-slate-700 focus-visible:bg-slate-700"><Focus size={18} /></button>
         <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomCam(1.2)} disabled={cam.z >= 3}
           className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Plus size={18} /></button>
+      </div>
+
       </div>
 
       {/* 🏙 stage-up banner — one keyframe owns bounce/hold/fade; unmounts at 4.2s */}

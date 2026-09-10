@@ -1,3 +1,4 @@
+export const heroMotionColumns = (key: string) => ['qb', 'enforcer'].includes(key) ? 8 : 9;
 export type HeroMotionSample = { x: number; y: number; moving?: boolean; hitFlash?: number; stridePhase?: number };
 export type HeroMotionState = { x: number; y: number; moving: boolean; direction: number; changedAt: number; transition?: 'start' | 'turn' | 'stop' };
 /** Directions are screen-space: front-left, front-right, back-left, back-right. */
@@ -14,5 +15,5 @@ export function advanceHeroMotion(previous: HeroMotionState | undefined, actor: 
   const column=moving ? age<.1 ? transition==='turn' ? 6 : 1 : 2+Math.floor(phase*4) : previous?.moving || age<.16 && !!previous ? 6 : 0;
   // The QB generator supplied the back-facing rows in the opposite order.
   const row=key==='qb'&&direction>=2?5-direction:direction;
-  return {state,frame:(actor.hitFlash??0)>0 ? 32+direction : row*8+column};
+  return {state,frame:(actor.hitFlash??0)>0 ? heroMotionColumns(key) === 8 ? 32+direction : row*9+8 : row*heroMotionColumns(key)+column};
 }
