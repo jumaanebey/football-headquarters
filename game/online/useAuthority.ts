@@ -11,7 +11,7 @@ import { validateReplay } from '../combat/replay';
 import { authorityClient, getProfile, playerId, pvpEnabled } from '../../pvp';
 import { clearAuthorityProtection, enableAuthorityProtection, readAuthorityProtection, setAuthorityProtectionPending } from '../authority/protection';
 import type { MatchChoice, MatchSubmission } from '../authority/matches';
-import type { AuthorityAnswer, AuthorityMatchView, AuthorityOutcome, AuthorityRivalView } from './authorityClient';
+import type { AuthorityAnswer, AuthorityDiagnostics, AuthorityMatchView, AuthorityOutcome, AuthorityRivalView } from './authorityClient';
 
 export interface AuthorityActionReceipt { type: string; [key: string]: unknown }
 export interface AuthorityHook {
@@ -28,8 +28,13 @@ export interface AuthorityHook {
   match: AuthorityMatchView | null;
   rivals: AuthorityRivalView[];
   roadTargets: EnemyBase[];
+  /** Synchronous view of `active` for handlers that run before React re-renders (e.g. right after `enable`). */
+  isActiveNow(): boolean;
   enable(legacy: GameState): Promise<{ ok: boolean; message: string }>;
+  /** Re-detect after sign-in, sign-out or account linking; drops in-memory club views first. */
+  resync(): Promise<void>;
   refresh(): Promise<void>;
+  diagnostics(): AuthorityDiagnostics;
   retry(): Promise<void>;
   dispatch(action: Record<string, unknown>): Promise<AuthorityOutcome>;
   reserve(choice: MatchChoice): Promise<{ matchId: string; config: BattleConfig } | { error: string }>;
@@ -56,6 +61,8 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
   const [roadTargets, setRoadTargets] = useState<EnemyBase[]>([]);
   const ownerRef = useRef<string | null>(null);
   ownerRef.current = owner;
+  const activeRef = useRef(false);
+  const setActiveNow = useCallback((value: boolean) => { activeRef.current = value; setActive(value); }, []);
 
   const adopt = useCallback((answer: AuthorityAnswer, who: string) => {
     if (answer.club && answer.club.owner === who) { applyState(answer.club.state); setRevision(answer.club.revision); }
@@ -86,22 +93,24 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
     await getProfile();
     const who = playerId();
     const record = readAuthorityProtection();
-    if (!/^[0-9a-f-]{36}$/i.test(who)) { setLocked(!!record); setActive(false); setReady(true); return; }
+    if (!/^[0-9a-f-]{36}$/i.test(who)) { setOwner(null); setLocked(!!record); setActiveNow(false); setReady(true); return; }
     const answer = await authorityClient.query(who, { kind: 'status' });
     if (!answer.ok) {
       // Unreachable: keep the device's record as the source of truth for this load.
       const known = record?.viewOwner === who;
-      setOwner(known ? who : null); setActive(known); setLocked(!!record && !known);
+      setOwner(known ? who : null); setActiveNow(known); setLocked(!!record && !known);
       if (known) { setRevision(authorityClient.club(who)?.revision ?? 0); setNotice(answer.message ?? null); }
       syncPending(known ? who : null); setReady(true); return;
     }
     if (answer.club) {
       enableAuthorityProtection(who);
-      setOwner(who); setActive(true); setLocked(false);
+      setOwner(who); setActiveNow(true); setLocked(false);
       adopt(answer, who);
       syncPending(who);
       await authorityClient.retry(who).then(outcomes => { for (const o of outcomes) if (o.status === 'confirmed') adopt(o.answer, who); });
-      const open = answer.match;
+      // Pending receipts may have settled the open game; only release what is still open now.
+      const latest = authorityClient.club(who);
+      const open = latest?.activeMatch === answer.match?.id ? answer.match : null;
       if (open && (open.status === 'reserved' || open.status === 'started')) {
         // A reservation cannot be resumed after a reload; release it so the club can play again.
         const cancelled = await authorityClient.operate(who, 'match.cancel', { matchId: open.id });
@@ -109,10 +118,10 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
       }
     } else {
       if (record?.viewOwner === who) clearAuthorityProtection(); // the server has no club for this account
-      setOwner(null); setActive(false); setLocked(!!record && record.viewOwner !== who);
+      setOwner(null); setActiveNow(false); setLocked(!!record && record.viewOwner !== who);
     }
     setReady(true);
-  }, [adopt, syncPending]);
+  }, [adopt, syncPending, setActiveNow]);
   useEffect(() => {
     void detect();
     const online = () => { void retry(); };
@@ -120,6 +129,7 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
     return () => window.removeEventListener('online', online);
   }, [detect, retry]);
 
+  const resync = useCallback(async () => { authorityClient.forgetClubs(); setOwner(null); setActiveNow(false); setLocked(false); setMatch(null); setReady(false); await detect(); }, [detect, setActiveNow]);
   const enable = useCallback(async (legacy: GameState) => {
     if (!pvpEnabled()) return { ok: false, message: 'Online protection is not configured in this build.' };
     await getProfile();
@@ -128,12 +138,12 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
     const answer = await authorityClient.query(who, { kind: 'bootstrap', legacy });
     if (!answer.ok || !answer.club) return { ok: false, message: answer.message ?? 'Online protection could not admit this club. Your local club is unchanged.' };
     enableAuthorityProtection(who);
-    setOwner(who); setActive(true); setLocked(false);
+    setOwner(who); ownerRef.current = who; setActiveNow(true); setLocked(false);
     adopt(answer, who);
     const status = await authorityClient.query(who, { kind: 'status' });
     if (status.ok) adopt(status, who);
     return { ok: true, message: answer.club.origin === 'legacy' ? 'Your club is now protected online. Progress is confirmed by the server from here on.' : 'A fresh protected club is ready. Your earlier local progress could not be carried over and is kept in a backup.' };
-  }, [adopt]);
+  }, [adopt, setActiveNow]);
 
   const refresh = useCallback(async () => {
     const who = ownerRef.current;
@@ -176,6 +186,8 @@ export function useAuthority({ applyState }: Options): AuthorityHook {
     return result?.replay == null ? null : validateReplay(result.replay);
   }, []);
 
-  return useMemo(() => ({ active, locked, ready, owner, revision, pendingCount, notice, match, rivals, roadTargets, enable, refresh, retry, dispatch, reserve, begin, cancel, finish, film, setNotice }),
-    [active, locked, ready, owner, revision, pendingCount, notice, match, rivals, roadTargets, enable, refresh, retry, dispatch, reserve, begin, cancel, finish, film]);
+  const isActiveNow = useCallback(() => activeRef.current, []);
+  const diagnostics = useCallback(() => authorityClient.diagnostics(ownerRef.current ?? undefined), []);
+  return useMemo(() => ({ active, locked, ready, owner, revision, pendingCount, notice, match, rivals, roadTargets, isActiveNow, enable, resync, refresh, retry, dispatch, reserve, begin, cancel, finish, film, diagnostics, setNotice }),
+    [active, locked, ready, owner, revision, pendingCount, notice, match, rivals, roadTargets, isActiveNow, enable, resync, refresh, retry, dispatch, reserve, begin, cancel, finish, film, diagnostics]);
 }

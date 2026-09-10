@@ -9,7 +9,8 @@ import { fanMilestoneTotal } from './fanProgress';
  * No browser access, mutation, timers, sound, or random global state in this transition.
  * React can replay it without duplicating events or changing patrol destinations.
  */
-export function advanceCampus(previous: GameState, now: number): GameState {
+/** `calendarDate` overrides the local calendar day: protected clubs advance on the club server's UTC day. */
+export function advanceCampus(previous: GameState, now: number, calendarDate?: string): GameState {
   if (!Number.isFinite(now) || now <= previous.lastTick) return previous;
   const seconds = (now - previous.lastTick) / 1000;
   const movementSeconds = Math.min(seconds, 0.25);
@@ -40,7 +41,7 @@ export function advanceCampus(previous: GameState, now: number): GameState {
     }
     return arrived;
   });
-  const date = todayKey(now);
+  const date = calendarDate ?? todayKey(now);
   return {
     ...previous, ...economy, roster, peakFans: fanMilestoneTotal(previous),
     dailies: previous.dailies.date === date ? previous.dailies : freshDailies(date),

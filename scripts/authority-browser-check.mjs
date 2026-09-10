@@ -40,7 +40,8 @@ try {
   await page.waitForFunction(() => /\bprotected\b/i.test(document.querySelector('span.uppercase.font-black')?.textContent ?? '') || document.body.innerText.includes('Your club is now protected') || document.body.innerText.includes('fresh protected club'), null, { timeout: 30000 });
   await page.waitForTimeout(500);
   await shot('settings-protected');
-  console.log('settings:', (await text()).match(/Online protection.{0,260}/)?.[0]);
+  const protectedText = (await text()).match(/Online protection.{0,260}/)?.[0] ?? '';
+  console.log('settings:', protectedText);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
   // Game Day → Season game 1 (reserved on the server).
@@ -71,18 +72,37 @@ try {
   await page.waitForFunction(() => !document.querySelector('[aria-label="Battlefield"]'), null, { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(4000);
   await shot('after-result');
-  const body = await text();
-  console.log('confirmation notice present:', /Confirmed|Confirming|Result not confirmed|will not count/.test(body));
   await page.click('button:has(svg.lucide-settings)');
   await waitText('Online protection');
   await page.waitForTimeout(500);
   await shot('settings-after-match');
-  console.log('settings after match:', (await text()).match(/Online protection.{0,320}/)?.[0]);
+  const settingsText = await text();
+  const revisionAfterMatch = Number((settingsText.match(/Revision (\d+)/) ?? [])[1] ?? NaN);
+  console.log('settings after match:', settingsText.match(/Online protection.{0,200}/)?.[0]);
   await page.keyboard.press('Escape');
-  // Upgrade the Stadium through the authority (tap the stadium → Upgrade).
-  const stadium = page.locator('text=Stadium').first();
-  if (await stadium.count()) { await stadium.click({ force: true }); await page.waitForTimeout(600); await shot('stadium-selected'); const up = page.locator('button:has-text("Upgrade")'); if (await up.count()) { await up.first().click(); await page.waitForTimeout(1500); await shot('stadium-upgrade'); } }
+  await page.waitForTimeout(300);
+  const balances = () => page.evaluate(() => { const hud = document.querySelector('#hud-coins'); return { coinsText: hud?.textContent?.trim() ?? null }; });
+  const afterMatch = await balances();
+  // REQUIRED assertions: persistent confirmed state, not a toast.
+  const required = { protectedBefore: /PROTECTED/.test(protectedText), revisionAfterMatch, confirmedAfterMatch: /everything confirmed/.test(settingsText), coinsAfterMatch: afterMatch.coinsText };
+  console.log('required:', JSON.stringify(required));
+  if (!required.protectedBefore || !(revisionAfterMatch >= 3) || !required.confirmedAfterMatch) throw new Error(`required journey did not confirm: ${JSON.stringify(required)}`);
+  // OPTIONAL coverage: a paid upgrade through the authority (Stadium, accessible target, scrolled into view).
+  let optional = 'skipped';
+  try {
+    const stadium = page.locator('button[aria-label^="Stadium, level"]').first();
+    await stadium.scrollIntoViewIfNeeded({ timeout: 5000 });
+    await stadium.click({ timeout: 5000, force: true });
+    await page.waitForTimeout(600);
+    await shot('stadium-selected');
+    const levelUp = page.locator('button:has-text("Level Up")').first();
+    const disabled = await levelUp.isDisabled().catch(() => true);
+    if (disabled) optional = 'stadium upgrade unaffordable on this club (expected for a fresh club); Level Up was correctly disabled';
+    else { await levelUp.click(); await page.waitForTimeout(2500); await shot('stadium-upgrade'); await page.click('button:has(svg.lucide-settings)'); await waitText('Online protection'); const t = await text(); const rev = Number((t.match(/Revision (\d+)/) ?? [])[1] ?? NaN); optional = rev > revisionAfterMatch ? `stadium upgrade confirmed at revision ${rev}` : `stadium upgrade not confirmed (revision ${rev})`; await page.keyboard.press('Escape'); }
+  } catch (error) { optional = `stadium step could not run: ${error.message.split('\n')[0]}`; }
+  console.log('optional:', optional);
   console.log('console problems:', logs.slice(0, 10));
+  console.log('RESULT: required journey passed');
 } catch (error) {
   await shot('failure');
   console.error('journey failed:', error.message);
