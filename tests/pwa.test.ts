@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
-import { ART_CACHE_LIMIT, artCache, artEvictions, classify, isSwMessage, shellCache, staleCaches } from '../pwa/swPolicy';
+import { ART_CACHE_LIMIT, activationDeletions, artCache, artEvictions, classify, clientsAllCurrent, isCurrentBundle, isSwMessage, shellCache, staleCaches, versionHistory } from '../pwa/swPolicy';
 import { armInstallCapture, detectPlatform, installSupport, onInstallSupportChange, promptInstall, resetInstallForTests, IOS_INSTRUCTIONS } from '../pwa/install';
 import { armConnectionTracking, connectionState, onConnectionChange, reportClubServer, resetConnectionForTests } from '../pwa/connection';
 import { PUBLIC_GAME_URL, shareUrl } from '../game/publicUrl';
@@ -32,13 +32,42 @@ describe('service worker policy', () => {
     expect(c('/assets/units/mascot.webp')).toBe('art');
     expect(c('/some/page.json')).toBe('network-only');
   });
+  it('treats Vite code-split chunks as immutable assets and never caches the worker metadata files', () => {
+    expect(c('/assets/CampusEditor-4hCeemTl.js')).toBe('immutable-asset');
+    expect(c('/assets/vendor.react-Bx9_2kQz.js')).toBe('immutable-asset');
+    expect(c('/assets/index-CCD_ct4c.css')).toBe('immutable-asset');
+    expect(c('/assets/CampusEditor.js')).toBe('network-only'); // no content hash: nothing to trust
+    expect(c('/sw-version.json')).toBe('network-only');
+  });
   it('versions its two caches, deletes only its own stale caches and bounds the art cache', () => {
     expect(shellCache('v1')).toBe('fhq-shell-v1'); expect(artCache('v1')).toBe('fhq-art-v1');
-    expect(staleCaches(['fhq-shell-v0', 'fhq-art-v0', 'fhq-shell-v1', 'fhq-art-v1', 'other-app-cache'], 'v1')).toEqual(['fhq-shell-v0', 'fhq-art-v0']);
+    expect(staleCaches(['fhq-shell-v0', 'fhq-art-v0', 'fhq-shell-v1', 'fhq-art-v1', 'fhq-meta', 'other-app-cache'], 'v1')).toEqual(['fhq-shell-v0', 'fhq-art-v0']);
+    expect(staleCaches(['fhq-shell-v0', 'fhq-art-v0', 'fhq-shell-v1', 'fhq-shell-vX'], 'v1', ['v0'])).toEqual(['fhq-shell-vX']); // a kept version survives
     const keys = Array.from({ length: ART_CACHE_LIMIT + 3 }, (_, i) => `k${i}`);
     expect(artEvictions(keys)).toEqual(['k0', 'k1', 'k2']);
     expect(artEvictions(keys.slice(0, 10))).toEqual([]);
-    expect(isSwMessage({ type: 'SKIP_WAITING' })).toBe(true); expect(isSwMessage({ type: 'DELETE_EVERYTHING' })).toBe(false); expect(isSwMessage(null)).toBe(false);
+    expect(isSwMessage({ type: 'SKIP_WAITING' })).toBe(true); expect(isSwMessage({ type: 'CLIENT_HELLO', bundle: '/assets/index-a.js' })).toBe(true); expect(isSwMessage({ type: 'GET_VERSION' })).toBe(true);
+    expect(isSwMessage({ type: 'DELETE_EVERYTHING' })).toBe(false); expect(isSwMessage(null)).toBe(false);
+  });
+  it('keeps the previous version on activation and only deletes older ones; unknown order deletes nothing', () => {
+    expect(versionHistory([], 'v1')).toEqual(['v1']);
+    expect(versionHistory(['v1'], 'v2')).toEqual(['v1', 'v2']);
+    expect(versionHistory(['v1', 'v2', 'v3'], 'v4')).toEqual(['v2', 'v3', 'v4']); // bounded
+    expect(versionHistory(['v1', 'v2'], 'v1')).toEqual(['v2', 'v1']); // re-activation moves to the end
+    expect(versionHistory('garbage', 'v1')).toEqual(['v1']); expect(versionHistory([1, null, 'v0'], 'v1')).toEqual(['v0', 'v1']);
+    const names = ['fhq-shell-v0', 'fhq-art-v0', 'fhq-shell-v1', 'fhq-art-v1', 'fhq-shell-v2', 'fhq-meta', 'other-app-cache'];
+    expect(activationDeletions(names, 'v2', ['v0', 'v1', 'v2'])).toEqual(['fhq-shell-v0', 'fhq-art-v0']); // v1 (the previous) survives
+    expect(activationDeletions(names, 'v2', ['v2'])).toEqual([]); // first install or lost history: unknown order, delete nothing
+    expect(activationDeletions(names, 'v2', [])).toEqual([]);
+  });
+  it('old caches go only once every open window is known to run the current bundle', () => {
+    const current = new Set(['/', '/assets/index-NEW.js']);
+    expect(clientsAllCurrent([], current)).toBe(true); // no windows: nothing depends on old caches
+    expect(clientsAllCurrent(['/assets/index-NEW.js'], current)).toBe(true);
+    expect(clientsAllCurrent(['/assets/index-NEW.js', '/assets/index-OLD.js'], current)).toBe(false);
+    expect(clientsAllCurrent(['/assets/index-NEW.js', undefined], current)).toBe(false); // a window that never said hello is treated as old
+    expect(clientsAllCurrent([null], current)).toBe(false);
+    expect(isCurrentBundle('/assets/index-NEW.js', current)).toBe(true); expect(isCurrentBundle(42, current)).toBe(false);
   });
 });
 
@@ -70,6 +99,48 @@ describe('install helpers', () => {
     expect(installSupport().canPrompt).toBe(false);
     vi.stubGlobal('window', { matchMedia: (q: string) => ({ matches: q.includes('standalone') }) });
     expect(installSupport().installed).toBe(true);
+  });
+  it('a dismissed or failing prompt leaves the UI in a consistent state and never prompts twice', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/152', serviceWorker: {}, maxTouchPoints: 5 });
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    const handlers: Record<string, (e: unknown) => void> = {};
+    armInstallCapture({ addEventListener: (type: string, h: unknown) => { handlers[type] = h as (e: unknown) => void; } } as unknown as Window);
+    armInstallCapture({ addEventListener: () => { throw new Error('armed twice'); } } as unknown as Window); // idempotent
+    const seen: boolean[] = []; onInstallSupportChange(s => seen.push(s.canPrompt));
+    // Dismissed: the event is consumed (browsers do not allow a second prompt() on the same event).
+    handlers.beforeinstallprompt({ preventDefault() {}, prompt: async () => {}, userChoice: Promise.resolve({ outcome: 'dismissed' as const }) });
+    expect(await promptInstall()).toBe('dismissed');
+    expect(installSupport().canPrompt).toBe(false); expect(await promptInstall()).toBe('unavailable');
+    // Failing: prompt() throws (not triggered by a user gesture, or the browser withdrew the offer).
+    handlers.beforeinstallprompt({ preventDefault() {}, prompt: async () => { throw new Error('NotAllowedError'); }, userChoice: new Promise(() => {}) });
+    expect(installSupport().canPrompt).toBe(true);
+    expect(await promptInstall()).toBe('unavailable');
+    expect(installSupport().canPrompt).toBe(false);
+    expect(seen).toEqual([true, false, true, false]);
+    // The browser reports installation (from its own UI, not ours): the held event is dropped.
+    handlers.beforeinstallprompt({ preventDefault() {}, prompt: async () => {}, userChoice: Promise.resolve({ outcome: 'accepted' as const }) });
+    handlers.appinstalled({});
+    expect(installSupport().canPrompt).toBe(false);
+  });
+  it('already installed: no prompt and no manual guidance, on iOS (standalone) and Android (display-mode)', () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)', serviceWorker: {}, maxTouchPoints: 5, standalone: true });
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    expect(installSupport()).toEqual({ platform: 'ios', installed: true, canPrompt: false, manualInstructions: null });
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/152', serviceWorker: {}, maxTouchPoints: 5 });
+    vi.stubGlobal('window', { matchMedia: (q: string) => ({ matches: q.includes('standalone') }) });
+    const handlers: Record<string, (e: unknown) => void> = {};
+    armInstallCapture({ addEventListener: (type: string, h: unknown) => { handlers[type] = h as (e: unknown) => void; } } as unknown as Window);
+    handlers.beforeinstallprompt({ preventDefault() {}, prompt: async () => {}, userChoice: Promise.resolve({ outcome: 'accepted' as const }) });
+    expect(installSupport()).toEqual({ platform: 'android', installed: true, canPrompt: false, manualInstructions: null }); // a held event is not offered to an installed app
+  });
+  it('unsupported browsers (no service worker) get neither a prompt nor iOS guidance, and matchMedia errors read as not installed', () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Linux; Android 9) OldBrowser/1.0', maxTouchPoints: 5 });
+    vi.stubGlobal('window', { matchMedia: () => { throw new Error('no matchMedia'); } });
+    expect(installSupport()).toEqual({ platform: 'unsupported', installed: false, canPrompt: false, manualInstructions: null });
+    // iPadOS reports itself as a Mac with touch: still iOS guidance.
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605', serviceWorker: {}, maxTouchPoints: 5 });
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    expect(installSupport()).toMatchObject({ platform: 'ios', manualInstructions: IOS_INSTRUCTIONS });
   });
 });
 
