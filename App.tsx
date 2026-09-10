@@ -1467,12 +1467,12 @@ function App() {
     if (!formationUnlocked(layout.formation, stadium)) return {ok:false,message:'This formation is not unlocked yet.'};
     if (authority.active) {
       const outcome = await authority.dispatch({type:'campus.apply',layout});
-      if(outcome.status==='confirmed') return {ok:true,message:'Layout confirmed online. Your campus and defense now use these positions.'};
+      if(outcome.status==='confirmed') return {ok:true,message:'Layout confirmed online. Your saved arrangement and defense use these positions.'};
       authority.setNotice(outcome.message);
       return {ok:false,message:outcome.message};
     }
     setGameState(previous=>applyCampusLayout(previous,layout));
-    return {ok:true,message:'Layout applied. Your campus and defense tests now use these positions.'};
+    return {ok:true,message:'Layout applied. Your saved arrangement and defense tests use these positions.'};
   };
 
   return (
@@ -1515,7 +1515,7 @@ function App() {
       /></div>
       {!showTutorial && commandCenterOpen && <DesktopClubPanel onClose={() => setCommandCenterOpen(false)} state={gameState} onGames={openRaid} onHeroes={() => setIsHeroOpen(true)} onDefense={() => setFrontOfficeOpen(true)} onRanks={() => {setStandingsTab('live');setIsStandingsOpen(true);}} onShare={() => setShareOwner(playerId() ?? 'local')} />}
 
-      {!showTutorial && <div className="absolute top-[92px] left-3 z-30 flex gap-2">
+      {!showTutorial && <div className="fhq-campus-actions absolute top-[92px] left-3 z-30 flex gap-2">
         <button onClick={() => setDashboardOpen(true)} className="rounded-xl border border-amber-300/40 bg-slate-950/95 px-4 py-3 text-sm font-bold text-amber-200">Your program</button>
         <button aria-expanded={commandCenterOpen} onClick={() => setCommandCenterOpen(v => !v)} className="fhq-command-toggle rounded-xl border border-slate-600 bg-slate-950/95 px-4 py-3 text-sm font-bold text-white">Command center</button>
       </div>}
@@ -1889,7 +1889,7 @@ function App() {
       {!frontOfficeOpen && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} dailyClaimable={dailyClaimable} onOpenDailies={() => setIsDailyOpen(true)} />}
       <TourPointer
         gameState={gameState}
-        active={!frontOfficeOpen && !(campusEditorOpen || dashboardOpen || isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
+        active={gameState.campaign.claimed.length === 0 && !frontOfficeOpen && !(campusEditorOpen || dashboardOpen || isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
           || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || shareOwner === (playerId() ?? 'local') || !!preparedMatch || !!battleConfig)}
       />
 
