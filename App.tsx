@@ -5,6 +5,15 @@ import { heroPracticeConfig, isNonProgressionBattle, canRefundRaidEnergy } from 
 
 const CampusEditor = React.lazy(() => import('./components/CampusEditor').then(m => ({ default: m.CampusEditor })));
 
+const CCBtn = ({ label, emoji, onClick, disabled, accent }: { label: string; emoji: string; onClick: () => void; disabled?: boolean; accent?: boolean }) => (
+  <button type="button" aria-label={label} onClick={onClick} disabled={disabled}
+    className={`flex flex-col items-center gap-1 w-[74px] py-2.5 rounded-xl border-2 shadow-xl transition-all active:scale-90 pointer-events-auto
+      ${disabled ? 'border-slate-700 bg-slate-900/90 opacity-50' : accent ? 'border-yellow-500 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-yellow-300' : 'border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-slate-400'}`}>
+    <span aria-hidden="true" className="text-2xl leading-none drop-shadow">{emoji}</span>
+    <span className="text-[10px] font-black uppercase text-white leading-none">{label}</span>
+  </button>
+);
+
 // Drops the CC building bar on ANY press outside it — HUD, nav, empty turf, other
 // screens' chrome. Buildings are excluded so pressing one just switches the bar.
 const ClickAwayCloser: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -1477,14 +1486,6 @@ function App() {
         const gated = !isStadium && b.level >= stadiumLevel;
         const busy = gameState.upgrades.some(u => u.kind === 'building' && u.key === b.id);
         const canAfford = gameState.resources.COINS >= cost;
-        const CCBtn = ({ label, emoji, onClick, disabled, accent }: { label: string; emoji: string; onClick: () => void; disabled?: boolean; accent?: boolean }) => (
-          <button onClick={onClick} disabled={disabled}
-            className={`flex flex-col items-center gap-1 w-[74px] py-2.5 rounded-xl border-2 shadow-xl transition-all active:scale-90 pointer-events-auto
-              ${disabled ? 'border-slate-700 bg-slate-900/90 opacity-50' : accent ? 'border-yellow-500 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-yellow-300' : 'border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 hover:border-slate-400'}`}>
-            <span className="text-2xl leading-none drop-shadow">{emoji}</span>
-            <span className="text-[10px] font-black uppercase text-white leading-none">{label}</span>
-          </button>
-        );
         return (
           <div data-ccbar className="fixed left-0 right-0 z-40 flex flex-col items-center gap-1.5 pointer-events-none animate-fade-in" style={{ bottom: 96 }}>
             <div className="font-display font-black text-white text-xl sm:text-2xl uppercase tracking-tight text-center px-3" style={{ textShadow: '0 2px 6px #000, 0 0 14px rgba(0,0,0,0.8)' }}>
