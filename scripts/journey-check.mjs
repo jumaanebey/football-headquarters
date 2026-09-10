@@ -33,6 +33,16 @@ const netSince = async mark => { const rows = await page.evaluate(m => performan
 const mark = () => page.evaluate(() => performance.now());
 const text = () => page.locator('body').innerText().catch(() => '');
 const tap = async (name, timeout = 4000) => { const b = page.getByRole('button', { name }).first(); if (await b.count()) { try { await b.click({ timeout }); return true; } catch { return false; } } return false; };
+/** Same, but scoped to the open dialog: the campus behind a modal carries buttons with the same
+ *  accessible names (the Scouting Dept building matches /Scout/), and clicking one is intercepted
+ *  by the overlay. Scoping asserts the control the player actually sees. */
+const tapInDialog = async (name, timeout = 4000) => {
+  const dialog = page.locator('[role="dialog"]').last();
+  if (!(await dialog.count())) return false;
+  const b = dialog.getByRole('button', { name }).first();
+  if (!(await b.count())) return false;
+  try { await b.click({ timeout }); return true; } catch { return false; }
+};
 const nav = label => page.click(`[aria-label="Club navigation"] button:has-text("${label}")`).catch(() => {});
 const esc = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(250); };
 
@@ -53,7 +63,14 @@ for (let round = 1; round <= rounds; round++) {
   for (const [label, needle] of [['Roster', /ROSTER|Players|Position/i], ['Heroes', /HALL OF HEROES/i]]) {
     await nav(label); await page.waitForTimeout(800);
     line(needle.test(await text()), `round ${round}: ${label} opens`);
-    if (label === 'Roster') { const went = await tap(/Scout|Scouting|Recruit/i); line(went, `round ${round}: Scouting reachable from Roster`); await page.waitForTimeout(700); await esc(); }
+    if (label === 'Roster') {
+      const went = await tapInDialog(/^(Scout|Scouting|Recruit)/i);
+      await page.waitForTimeout(900);
+      // Reachable means the scouting view actually opened, not merely that a button was clicked.
+      const opened = went && /prospect|scouting report|scout a|SCOUTING/i.test(await text());
+      line(opened, `round ${round}: Scouting reachable from Roster${went ? '' : ' (no Scout control inside the roster dialog)'}`);
+      await esc();
+    }
     await esc();
   }
   await nav('Game Day'); await page.waitForTimeout(600);
