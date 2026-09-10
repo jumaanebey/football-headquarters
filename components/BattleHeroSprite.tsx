@@ -9,7 +9,7 @@ import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 export function BattleHeroSprite({ heroKey, actor, fighting, filter }: {
   heroKey: string; actor: Pick<BTroop, 'moving' | 'actionPoseT' | 'abilityPoseT' | 'face' | 'strideSeconds' | 'stridePhase' | 'signatureFrame' | 'truckT'>; fighting: boolean; filter?: string;
 }) {
-  const mode = heroBattlePose(actor, fighting);
+  const mode = heroBattlePose(actor, fighting, heroKey);
   const base = `/assets/heroes/rig/${heroKey}`;
   const idle = heroKey === 'qb' ? '/assets/heroes/franchise-rig/body.webp' : `${base}-body.webp`;
   const action = heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `${base}-action.webp`;
@@ -19,6 +19,7 @@ export function BattleHeroSprite({ heroKey, actor, fighting, filter }: {
     <SpriteFrames sources={sources} duration={actor.strideSeconds} style={{ filter, transform: (actor.face ?? 1) > 0 ? 'scaleX(-1)' : undefined }} />
     {hasModernHero(heroKey) && <AnimatedHero heroKey={heroKey} mode={mode} facing={actor.face} cycle={actor.strideSeconds} loadSignatureArt
       signatureFrame={fighting ? actor.signatureFrame : undefined}
+      contactSeconds={heroKey === 'enforcer' && mode === 'attack' ? Math.max(0, .32 - (actor.actionPoseT ?? 0)) : undefined}
       driving={heroKey === 'enforcer' && (actor.truckT ?? 0) > 0}
       elapsedSeconds={mode === 'attack' ? 0.2 : mode === 'walk' ? actor.stridePhase : undefined} filter={filter} />}
   </>;

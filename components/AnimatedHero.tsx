@@ -3,7 +3,7 @@ import { HeroAnimation, heroFrame, keyHeroPixels, advanceHeroStride } from '../g
 
 import { HERO_ATLAS } from '../game/heroAtlas';
 import { heroPixelOwners } from '../game/heroPixelOwners';
-import { advanceSignaturePlayback, asSignatureBeat, heroSignaturePose, previewSignatureBeat, SIGNATURE_BEATS, type SignaturePlayback } from '../game/heroSignaturePresentation';
+import { advanceSignaturePlayback, battleSignatureBeat, heroSignaturePose, previewSignatureBeat, SIGNATURE_BEATS, type SignaturePlayback } from '../game/heroSignaturePresentation';
 import { loadHeroSignatures } from './loadHeroSignatures';
 import { paintHeroSignatureCue } from './paintHeroSignatureCue';
 
@@ -59,17 +59,17 @@ function loadSheet(key: string): Promise<Sheet> {
   return sheets.get(key)!;
 }
 
-export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete }: {
-  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
+export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete }: {
+  heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderNowRef = useRef<(() => void) | null>(null);
-  const playback = useRef({ mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, driving, playbackRate, onSignatureComplete });
-  playback.current = { mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, driving, playbackRate, onSignatureComplete };
+  const playback = useRef({ mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete });
+  playback.current = { mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete };
   const [ready, setReady] = useState(false);
   // Event-clock poses and distance-driven footfalls must be painted alongside
   // the new actor position, even if the browser throttles cosmetic RAF work.
-  useLayoutEffect(() => { renderNowRef.current?.(); }, [mode, signatureFrame, elapsedSeconds, playbackKey, driving]);
+  useLayoutEffect(() => { renderNowRef.current?.(); }, [mode, signatureFrame, elapsedSeconds, playbackKey, contactSeconds, driving]);
   useEffect(() => {
     let disposed = false, raf = 0;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -99,7 +99,7 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
         previous = now;
         const walking = playback.current.mode === 'walk';
         const frameElapsed = playback.current.elapsedRef?.current ?? playback.current.elapsedSeconds ?? (walking ? stride : elapsed);
-        const beat = asSignatureBeat(playback.current.signatureFrame) ?? (playback.current.mode === 'signature' ? previewSignatureBeat(heroKey, frameElapsed) : undefined);
+        const beat = battleSignatureBeat(heroKey, playback.current.mode, playback.current.signatureFrame, playback.current.contactSeconds) ?? (playback.current.mode === 'signature' ? previewSignatureBeat(heroKey, frameElapsed) : undefined);
         // Film Room completion shares this clock. A wall-clock timeout can cut
         // off the release on a slow device or after pausing a hidden tab.
         if (!document.hidden && playback.current.mode === 'signature' && beat === undefined && frameElapsed > 0 && !signatureCompleted) {
@@ -107,7 +107,7 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
           playback.current.onSignatureComplete?.();
         }
         signaturePlayback = advanceSignaturePlayback(signaturePlayback, beat, delta, signatures.length === 4);
-        const pose = beat === undefined ? undefined : heroSignaturePose(heroKey, beat, signaturePlayback.seconds, media.matches);
+        const pose = beat === undefined ? undefined : heroSignaturePose(heroKey, beat, signaturePlayback.seconds, media.matches, signaturePlayback.authored);
         const baseFrame = pose?.frame ?? heroFrame(playback.current.mode, frameElapsed, walking ? 1 : playback.current.cycle, media.matches);
         const signatureCanvas = !media.matches && signaturePlayback.authored && beat !== undefined ? signatures[beat] : undefined;
         const frame = signatureCanvas ? 100 + beat! : baseFrame;
