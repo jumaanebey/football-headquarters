@@ -1,6 +1,6 @@
 
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Star, ListChecks, MousePointerClick, Dices } from 'lucide-react';
+import { Dices } from 'lucide-react';
 
 interface Props {
   initialName: string;
@@ -68,30 +68,8 @@ export const TutorialOverlay: React.FC<Props> = ({ initialName, onRerollName, on
         ) : (
           <div className="p-6 text-center">
             <h2 ref={heading} id={titleId} tabIndex={-1} className="text-2xl font-display font-bold text-white mb-1">{clean}</h2>
-            {/* This screen used to teach three BASE-screen cues (goals panel, bouncing
-                arrow, glow) and then drop the player straight into the BATTLE screen,
-                where none of them exist — "you'll never be lost" was falsified within
-                ten seconds. Teach the screen they are actually about to see. */}
-            <p className="text-slate-400 text-sm mb-5">Your first road game is the Preseason Opener. Here's your playbook.</p>
-
-            <div className="space-y-3 text-left mb-6">
-              <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><Star size={18} className="text-amber-400" /></span>
-                <p className="text-sm text-slate-300">Send in your <span className="text-white font-bold">hero</span>, then tap their <span className="text-yellow-300 font-bold">signature</span> when it's ready to turn the drive.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><MousePointerClick size={18} className="text-green-400" /></span>
-                <p className="text-sm text-slate-300">Tap a <span className="text-white font-bold">player card</span> at the bottom, then tap the <span className="text-yellow-300 font-bold">glowing sideline</span> to send them in.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><span className="text-lg leading-none">🏈</span></span>
-                <p className="text-sm text-slate-300">Sack <span className="text-white font-bold">half their buildings</span> before the clock runs out and you win.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0"><ListChecks size={18} className="text-blue-400" /></span>
-                <p className="text-sm text-slate-300">Back home, the <span className="text-white font-bold">Coach's checklist</span> has your next move. Open <span className="text-white font-bold">Heroes</span> to practice any signature for free.</p>
-              </div>
-            </div>
+            <p className="text-slate-300 text-base my-6">Pick a player, then tap the glowing sideline. Your coach will guide you through the first drive.</p>
+            <p className="text-slate-400 text-sm mb-5">No account needed to try your first game. Free hero practice is available from Heroes whenever you want a refresher.</p>
 
             <button type="button" onClick={() => finish(true)} className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg transition-colors active:scale-95 flex items-center justify-center gap-2 mb-2">
               <span className="text-xl leading-none">🏈</span> Play your first game →

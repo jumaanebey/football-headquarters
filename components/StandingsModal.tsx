@@ -4,35 +4,39 @@ import { GameState } from '../types';
 import { rankFor, RANKS, clubPower, clubPowerBreakdown } from '../ranks';
 import { pvpEnabled, fetchLeaderboard, playerId, LeaderRow } from '../pvp';
 import { Trophy, TrendingUp, TrendingDown, Dumbbell, Zap } from 'lucide-react';
+import { CAMPAIGN_STAGES, coachForStage } from '../campaign';
 import { Sheet, Btn, HowTo, RankCrest } from './ui';
 
 interface Props {
   gameState: GameState;
   onClose: () => void;
   onPlay: () => void;
+  onCampaign: (stage: number) => void;
+  onShare: () => void;
   initialTab?: 'live' | 'ladder';
 }
 
-export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, initialTab }) => {
+export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, onCampaign, onShare, initialTab }) => {
   const played = gameState.matchHistory.length;
   const recent = gameState.matchHistory.slice(0, 5); // newest first
   const ready = gameState.teamReadiness >= 100;
 
   // LIVE leaderboard — real coaches only, ranked by trophies. The competitive spine.
   const live = pvpEnabled();
-  const [tab, setTab] = useState<'live' | 'ladder'>(initialTab ?? (live ? 'live' : 'ladder'));
+  const [tab, setTab] = useState<'live' | 'ladder'>(initialTab ?? 'live');
   const [board, setBoard] = useState<LeaderRow[] | null>(null);
   const [copied, setCopied] = useState(false);
+  const [boardError, setBoardError] = useState(false);
+  const [retry, setRetry] = useState(0);
   const myPid = playerId();
   useEffect(() => {
-    if (!live) return;
-    fetchLeaderboard(20).then(rows => {
-      // My trophy count may be fresher locally than my last published snapshot.
-      const mine = rows.find(r => r.pid === myPid);
-      if (mine) mine.trophies = Math.max(mine.trophies, gameState.trophies);
-      setBoard(rows.sort((a, b) => b.trophies - a.trophies));
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    let active = true;
+    setBoard(null); setBoardError(false);
+    if (!live) { setBoard([]); return; }
+    fetchLeaderboard(20, true).then(rows => { if (active) setBoard(rows); })
+      .catch(() => { if (active) { setBoardError(true); setBoard([]); } });
+    return () => { active = false; };
+  }, [live, myPid, retry]);
   const myLiveRank = board ? board.findIndex(r => r.pid === myPid) + 1 : 0;
 
   return (
@@ -40,7 +44,7 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
       title="Standings"
       icon={<Trophy className="text-yellow-500" size={22} />}
       subtitle={tab === 'live'
-        ? (myLiveRank > 0 ? <>You’re <span className="text-fuchsia-300 font-bold">#{myLiveRank}</span> of {board?.length ?? '…'} real coaches</> : 'Real coaches, ranked by trophies')
+        ? (myLiveRank > 0 ? <>You’re <span className="text-fuchsia-300 font-bold">#{myLiveRank}</span> in these {board?.length ?? '…'} published clubs</> : 'Your club, campaign challenges and live competition')
         : <>Your trophy climb<span className="text-slate-600"> • </span>{played} game{played === 1 ? '' : 's'} played</>}
       onClose={onClose}
       maxWidth="max-w-2xl"
@@ -57,13 +61,16 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
         </div>
       }
     >
+        <section aria-label="Your club standing" className="m-5 mb-0 rounded-xl border border-fuchsia-700 bg-fuchsia-950/30 p-4">
+          <p className="text-xs text-fuchsia-300">YOUR CLUB</p><h3 className="text-lg font-bold text-white">{gameState.teamName}</h3>
+          <p className="text-sm text-slate-300">{gameState.trophies} trophies · {myLiveRank > 0 ? `#${myLiveRank} in the loaded leaderboard` : 'No verified leaderboard position yet'}</p>
+          {recent.length > 0 && <button onClick={onShare} className="mt-2 min-h-11 rounded-lg border border-slate-600 px-3 text-sm text-white">Make a card from your latest result</button>}
+        </section>
         {/* Tabs — LIVE board = real competition; Ranks = your trophy climb. */}
         <div className="flex gap-2 px-5 pt-3 pb-1">
-          {live && (
             <button onClick={() => setTab('live')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'live' ? 'bg-fuchsia-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-              ⚡ Live
+              Competition
             </button>
-          )}
           <button onClick={() => setTab('ladder')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${tab === 'ladder' ? 'bg-yellow-500 text-black' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
             🎖 Ranks
           </button>
@@ -163,7 +170,19 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
           ) : (
             <div className="p-5 pt-3">
               {!board && <div className="text-center text-slate-500 italic py-10">Loading the ladder…</div>}
-              {board && board.length === 0 && <div className="text-center text-slate-500 italic py-10">No published rivals yet — raid to plant your flag.</div>}
+              {boardError && <div role="status" className="rounded-xl border border-amber-800 p-3 text-sm text-amber-200">Live standings couldn't load. Campaign challenges are still available.<button onClick={() => setRetry(n => n + 1)} className="block min-h-11 underline">Retry live standings</button></div>}
+              {board && board.length === 0 && !boardError && <p className="py-3 text-sm text-slate-300">{live ? 'No live standings to show yet. Start your climb against the campaign coaches below.' : 'Live competition is offline. Your campaign is ready to play.'}</p>}
+              <section aria-label="Campaign coach challenges" className="my-4 space-y-2">
+                <h3 className="font-bold text-white">Campaign coaches · AI challenges</h3>
+                <p className="text-xs text-slate-400">Season opponents are separate from real-player standings. First clears unlock the next game.</p>
+                {CAMPAIGN_STAGES.slice(Math.max(0, gameState.campaign.unlocked - 2), Math.min(CAMPAIGN_STAGES.length, gameState.campaign.unlocked + 1)).map(stage => {
+                  const locked = stage.stage > gameState.campaign.unlocked;
+                  return <button key={stage.stage} disabled={locked} onClick={() => onCampaign(stage.stage)} className="w-full min-h-16 rounded-xl border border-slate-700 p-3 text-left text-sm text-white disabled:opacity-50">
+                    <strong>{stage.name} · {stage.opponent}</strong><span className="block text-slate-300">{coachForStage(stage.stage).name}</span>
+                    <span className="block text-xs text-amber-200">{locked ? 'Clear the preceding game to unlock' : gameState.campaign.claimed.includes(stage.stage) ? 'Replay challenge · first-clear bounty already collected' : `Prepare challenge · first clear +${stage.firstClear.gems} Crowns`}</span>
+                  </button>;
+                })}
+              </section>
               {board && board.length > 0 && (
                 <div className="space-y-1.5">
                   {board.map((r, i) => {
@@ -185,12 +204,12 @@ export const StandingsModal: React.FC<Props> = ({ gameState, onClose, onPlay, in
                   })}
                 </div>
               )}
-              <div className="text-[12px] text-slate-500 mt-3 text-center">Every coach on this board is a real player. Win raids to climb.</div>
+              <div className="text-[12px] text-slate-500 mt-3 text-center">Live standings list published player clubs. Campaign coaches are labeled separately.</div>
               {board && board.length > 0 && board.length < 8 && (
                 <div className="mt-3 rounded-xl border border-fuchsia-900/60 bg-fuchsia-950/20 p-3 text-center">
-                  <div className="text-[12px] text-fuchsia-200 font-bold mb-2">Only {board.length} coach{board.length === 1 ? '' : 'es'} in the league so far — every visitor becomes one.</div>
+                  <div className="text-[12px] text-fuchsia-200 font-bold mb-2">{board.length} published club{board.length === 1 ? '' : 's'} in this board. Invite a friend to build a rival club.</div>
                   <button
-                    onClick={() => { navigator.clipboard?.writeText('https://football-headquarters.vercel.app').then(() => setCopied(true)); }}
+                    onClick={() => { navigator.clipboard?.writeText('https://football-headquarters.vercel.app').then(() => setCopied(true)).catch(() => setCopied(false)); }}
                     className="px-4 py-2 rounded-xl bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-sm font-bold transition-colors active:scale-95">
                     {copied ? '✓ Link copied — send it to a rival' : '📋 Copy the game link'}
                   </button>

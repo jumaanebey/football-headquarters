@@ -81,6 +81,10 @@ import { fanMilestoneTotal, nextFanMilestone, rallyFans, rallyPreview } from './
 import { applyAttackInbox, establishDefenseInbox, defenseCursor } from './game/online/defenseInbox';
 import { isArchivedAiRaid } from './game/defenseHistory';
 import { useUpgradeCelebrations } from './game/useUpgradeCelebrations';
+import { InstallClubControl, useClubInstall } from './components/InstallClubControl';
+import { DesktopClubPanel } from './components/DesktopClubPanel';
+import { ResultShare } from './components/ResultShare';
+import { ClubReturnCard } from './components/ClubReturnCard';
 import { Sheet, Btn, HowTo } from './components/ui';
 import { armyFromRoster, armyStrength, heroesForBattle, HERO_DEFS, heroMaxLevel, defenseAiTroops, specialsForBattle, raidAiMult, makeRevengeBase, homeDefenders, gauntletWaves, gauntletReward, GAUNTLET_MAX_TIER } from './battle';
 import { HeroModal } from './components/HeroModal';
@@ -90,6 +94,7 @@ import { Volume2, VolumeX, X, Shield, Settings as SettingsIcon } from 'lucide-re
 
 
 function App() {
+  const install = useClubInstall();
   const [gameState, setGameState] = useState<GameState>(() => loadState());
   // ☁️ PROTECTED CLUBS: when the signed-in account has a server club, every club change and
   // every match is confirmed by the club-authority service and the local state is a mirror
@@ -154,6 +159,7 @@ function App() {
     try { return localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch { return true; }
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shareOwner, setShareOwner] = useState<string | null>(null);
   const [hasExported, setHasExported] = useState(() => { try { return localStorage.getItem('fhq_exported_v1') === '1'; } catch { return false; } });
   const [importPending, setImportPending] = useState<Record<string, string | null> | null>(null);
 
@@ -232,7 +238,8 @@ function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (preparedMatch) setPreparedMatch(null);
+      if (shareOwner) setShareOwner(null);
+      else if (preparedMatch) setPreparedMatch(null);
       else if (importPending) setImportPending(null);
       else if (settingsOpen) setSettingsOpen(false);
       else if (confirmingReset) setConfirmingReset(false);
@@ -249,7 +256,7 @@ function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [preparedMatch, importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, dashboardOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
+  }, [shareOwner, preparedMatch, importPending, settingsOpen, confirmingReset, isDailyOpen, defenseLogOpen, dashboardOpen, isHeroOpen, isStandingsOpen, isScoutingOpen, isSquadOpen, attackSelectOpen, frontOfficeOpen, selectedBuilding]);
 
   // (The vega300 owner boost — URL param + redeem code — was REMOVED for launch,
   // July 11 2026: cheats must not exist once cloud saves can sync them forever.)
@@ -928,9 +935,10 @@ function App() {
 
   const handleBattleFinish = (r: BattleResult, destination?: PostBattleDestination) => {
     const ownerAtFinish = playerId();
-    const continueJourney = () => {
+    const continueJourney = (canShare = true) => {
       if (playerId() !== ownerAtFinish) return;
-      if (destination === 'heroes') setIsHeroOpen(true);
+      if (destination === 'share' && canShare) setShareOwner(ownerAtFinish ?? 'local');
+      else if (destination === 'heroes') setIsHeroOpen(true);
       else if (destination === 'defense') setFrontOfficeOpen(true);
       else if (destination === 'games') openRaid();
     };
@@ -957,7 +965,7 @@ function App() {
             (battle.won ? sfx.victory : sfx.defeat)();
           }
           track('battle_confirmed', { mode: battle?.mode, won: !!battle?.won });
-          continueJourney();
+          continueJourney(!!battle);
         } else if (outcome.status === 'failed') { sfx.error(); authority.setNotice(`Result not confirmed: ${outcome.message}`); centerText('Result not confirmed', '#ef4444'); }
         else authority.setNotice(`${outcome.message} Your result will be confirmed when the connection returns.`);
       });
@@ -1413,11 +1421,13 @@ function App() {
 
   return (
     <div className="fhq-game relative w-full h-screen bg-slate-900 overflow-hidden font-sans select-none">
+      {shareOwner === (playerId() ?? 'local') && gameState.matchHistory[0] && <ResultShare key={`result:${shareOwner}`} club={gameState.teamName} match={gameState.matchHistory[0]} onClose={() => setShareOwner(null)} />}
+      <ClubReturnCard key={`return:${playerId() ?? 'local'}`} owner={playerId() ?? 'local'} eligible={!selectedBuilding && !confirmingReset && !importPending && !showTutorial && !battleConfig && !preparedMatch && !settingsOpen && !isHeroOpen && !isSquadOpen && !isScoutingOpen && !isStandingsOpen && !attackSelectOpen && !defenseLogOpen && !frontOfficeOpen && !campusEditorOpen && !dashboardOpen && !isDailyOpen && shareOwner !== (playerId() ?? 'local') && !profile?.email && !profile?.pendingEmail && authority.ready && !authority.locked && authority.pendingCount === 0 && (stadiumLevel > 1 || gameState.defenseLog.some(entry => !!entry.attackerPid || !!entry.authorityMatchId))} onBackup={() => setSettingsOpen(true)} />
       {showTutorial && <TutorialOverlay initialName={gameState.teamName} onRerollName={genTeamName} onDone={finishTutorial} />}
 
       <TopHUD onOpenClub={() => setDashboardOpen(true)} gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
-      <IsometricMap
+      <div className="fhq-campus-stage absolute inset-0"><IsometricMap
         customLayout={!!gameState.campusLayout}
         onEditCampus={() => {setSelectedBuilding(null);setCampusEditorOpen(true);}}
         heroes={gameState.heroes}
@@ -1446,7 +1456,8 @@ function App() {
         onCollect={handleCollect}
         onCollectResource={handleCollectResource}
         onOrbClick={() => {}}
-      />
+      /></div>
+      {!showTutorial && <DesktopClubPanel state={gameState} onGames={openRaid} onHeroes={() => setIsHeroOpen(true)} onDefense={() => setFrontOfficeOpen(true)} onRanks={() => {setStandingsTab('live');setIsStandingsOpen(true);}} onShare={() => setShareOwner(playerId() ?? 'local')} />}
 
       <FloatingTextLayer items={floatingTexts} />
       {/* coin flights: outer = X easing, inner = Y easing → curved arc to the HUD */}
@@ -1526,6 +1537,8 @@ function App() {
           gameState={gameState}
           initialTab={standingsTab}
           onClose={() => { setIsStandingsOpen(false); setStandingsTab(undefined); }}
+          onCampaign={stage => { if (startCampaign(stage)) { setIsStandingsOpen(false); setStandingsTab(undefined); } }}
+          onShare={() => { setIsStandingsOpen(false); setShareOwner(playerId() ?? 'local'); }}
           onPlay={() => { setIsStandingsOpen(false); setStandingsTab(undefined); openRaid(); }}
         />
       )}
@@ -1792,7 +1805,7 @@ function App() {
       <TourPointer
         gameState={gameState}
         active={!frontOfficeOpen && !(campusEditorOpen || dashboardOpen || isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
-          || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || !!preparedMatch || !!battleConfig)}
+          || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || shareOwner === (playerId() ?? 'local') || !!preparedMatch || !!battleConfig)}
       />
 
       {/* 🏛 FRONT OFFICE — the whole defensive layer, managed from one list. Fixed
@@ -2054,6 +2067,7 @@ function App() {
               {pvpEnabled() && (
                 <div className="pt-2 border-t border-slate-800">
                   <div className="text-sm text-slate-300 mb-0.5">Profile & cloud save</div>
+                  <InstallClubControl install={install} />
                   {profile?.email || profile?.pendingEmail ? (
                     <>
                       <div className="text-[11px] text-slate-500 mb-2">
