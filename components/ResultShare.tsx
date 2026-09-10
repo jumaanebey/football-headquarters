@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import type { MatchResult } from '../types';
 import { Sheet } from './ui';
 
-const GAME_URL = 'https://football-headquarters.vercel.app/';
+import { shareUrl } from '../game/publicUrl';
+const GAME_URL = shareUrl('result-card');
 /** Exports only player-visible result fields. No receipts, identifiers or reward claims. */
 export async function resultCard(club: string, match: MatchResult): Promise<Blob> {
   const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 630;

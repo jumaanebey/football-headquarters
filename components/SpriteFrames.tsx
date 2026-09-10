@@ -1,5 +1,6 @@
 import { HERO_FOOT_OFFSET } from '../game/heroFootOffsets';
 import React, { useState } from 'react';
+import { assetUrl } from '../game/assetUrl';
 
 export const WALK_FRAMES = ['walkA', 'walkC', 'walkB', 'walkD'] as const;
 
@@ -20,7 +21,7 @@ function FrameSequence({ sources, duration = 0.42, style }: Props) {
   const [failed, setFailed] = useState(false);
   const ready = !failed && sources.length > 0 && loaded.size === sources.length;
   return <span className="fhq-frame-sequence absolute inset-0 pointer-events-none" data-ready={ready ? '1' : '0'} style={{ visibility: ready ? 'visible' : 'hidden' }}>
-    {sources.map((src, i) => <img key={src} src={src} alt="" draggable={false}
+    {sources.map((src, i) => <img key={src} src={assetUrl(src)} alt="" draggable={false}
       onLoad={() => setLoaded(previous => new Set(previous).add(i))}
       onError={() => setFailed(true)}
       className="fhq-rigframe absolute inset-0 w-full h-full object-contain select-none"

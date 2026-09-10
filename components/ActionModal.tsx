@@ -1,14 +1,18 @@
+import { FacilityOverview } from './FacilityOverview';
 import { BuildingArt } from './BuildingArt';
 import { Sheet } from './ui';
 
 import React from 'react';
-import { BuildingInstance, BuildingType, DrillState, ResourceType, UpgradeJob } from '../types';
+import { BuildingInstance, BuildingType, DrillState, GameState, ResourceType, UpgradeJob } from '../types';
 import { BUILDING_INFO, UPGRADE_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, buildingEffect } from '../constants';
 import { buildingSprite, BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
 import { X, ArrowUpCircle, Coins, Hammer, Lock, Clock, Crown, Zap } from 'lucide-react';
 
 interface Props {
   building: BuildingInstance | null;
+  club?: GameState;
+  blocked?: boolean;
+  onDefense?: () => void;
   resources: Record<ResourceType, number>;
   stadiumLevel: number;
   upgrades: UpgradeJob[];
@@ -28,7 +32,7 @@ const fmt = (secs: number) => {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 };
 
-export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect }) => {
+export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect, club, onDefense, blocked = false }) => {
   if (!building) return null;
 
   const info = BUILDING_INFO[building.type];
@@ -62,7 +66,10 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
 
         <div className="p-6">
           <p className="text-slate-300 text-sm mb-5">{info.description}</p>
-          {onCollect && (building.state === DrillState.COMPLETED || (building.accrued ?? 0) >= 30) && <button onClick={() => onCollect(building)} className="mb-3 w-full rounded-xl bg-amber-400 p-3 font-bold text-slate-950">{building.state === DrillState.COMPLETED ? 'Collect completed training' : `Collect ${Math.floor(building.accrued ?? 0)} Coins`}</button>}
+          {blocked && <p role="status" className="mb-3 rounded-xl bg-blue-950 p-3 text-sm text-blue-200">Confirming your club change…</p>}
+          {club && <FacilityOverview building={building} club={club} />}
+          {onDefense && building.type === BuildingType.STADIUM && <button onClick={onDefense} className="mb-3 min-h-11 w-full rounded-xl border border-blue-500 px-3 font-bold text-blue-200">Manage home defense</button>}
+          {onCollect && (building.state === DrillState.COMPLETED || (building.accrued ?? 0) >= 30) && <button disabled={blocked} onClick={() => onCollect(building)} className="mb-3 w-full rounded-xl bg-amber-400 p-3 font-bold text-slate-950">{building.state === DrillState.COMPLETED ? 'Collect completed training' : `Collect ${Math.floor(building.accrued ?? 0)} Coins`}</button>}
           {building.state === DrillState.ACTIVE && <p className="mb-4 text-sm text-blue-300">Training in progress · {fmt(Math.max(0, ((building.finishTime ?? Date.now()) - Date.now()) / 1000))} remaining</p>}
           {onVisit && <button onClick={onVisit} className="mb-6 w-full rounded-xl bg-blue-600 p-3 font-bold text-white">{visitLabel} →</button>}
 
@@ -97,7 +104,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
               <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
                 <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300" style={{ width: `${progress * 100}%` }} />
               </div>
-              <button onClick={() => onFinishNow(job.id)} disabled={resources.GEMS < gemCost}
+              <button onClick={() => onFinishNow(job.id)} disabled={blocked || resources.GEMS < gemCost}
                 className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95
                   ${resources.GEMS >= gemCost ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
                 <Crown size={16} className="fill-current" /> Finish Now
@@ -110,7 +117,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
             </div>
           ) : (
             <>
-              <button onClick={() => onUpgrade(building.id, cost)} disabled={!canAfford || buildersFree <= 0}
+              <button onClick={() => onUpgrade(building.id, cost)} disabled={blocked || !canAfford || buildersFree <= 0}
                 className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95
                   ${canAfford && buildersFree > 0 ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
                 {buildersFree <= 0 ? 'ALL BUILDERS BUSY' : canAfford ? 'UPGRADE' : 'NEED COINS'}

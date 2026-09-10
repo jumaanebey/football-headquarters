@@ -27,6 +27,8 @@ export const TourPointer: React.FC<Props> = ({ gameState, active }) => {
       raf = requestAnimationFrame(tick);
       if (now - measuredAt < 100) return;
       measuredAt = now;
+      // Nested facility panels also cover the campus, even when App has no modal flag.
+      if (document.querySelector('[aria-modal="true"]')) { setAnchor(null); return; }
       const el = Array.from(document.querySelectorAll(`[data-tour="${target}"]`)).find(candidate => candidate.getClientRects().length > 0);
       if (el) {
         const r = el.getBoundingClientRect();

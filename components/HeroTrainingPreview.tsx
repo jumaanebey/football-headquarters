@@ -1,10 +1,11 @@
+import { warmHeroArt } from './heroArtLoader';
 import React, { useState } from 'react';
 import { HERO_DEFS } from '../battle';
 import { HERO_PLAYBOOK } from '../game/heroPlaybook';
 import { AnimatedHero } from './AnimatedHero';
 
 /** An animation preview only: no currency, unlock or combat state is changed. */
-export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initialHero?: string; onPractice?: (key: string) => void }) {
+export function HeroTrainingPreview({ initialHero = 'qb', showHeroPicker = true, onPractice }: { initialHero?: string; showHeroPicker?: boolean; onPractice?: (key: string) => void }) {
   const [heroKey, setHeroKey] = useState(() => HERO_DEFS.some(h => h.key === initialHero) ? initialHero : 'qb');
   const [mode, setMode] = useState<'idle' | 'run' | 'signature' | 'celebrate'>('idle');
   const [take, setTake] = useState(0);
@@ -22,18 +23,18 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
         <div className="absolute bottom-3 rounded-[50%] w-24 h-4 bg-black/40" />
         <div key={heroKey} className="fhq-unit relative w-40 h-40 sm:w-48 sm:h-48">
           <img src={hero.art} alt={hero.name} className="fhq-flat absolute inset-0 w-full h-full object-contain" />
-          <AnimatedHero heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode} facing={facing} cycle={.58} playbackKey={take} playbackRate={slowMotion ? .5 : 1} loadSignatureArt
+          <AnimatedHero tier={mode === 'idle' ? 'campus' : 'battle'} heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode} facing={facing} cycle={.58} playbackKey={take} playbackRate={slowMotion ? .5 : 1} loadSignatureArt
             onSignatureComplete={() => setMode('idle')}
             filter={`drop-shadow(0 0 ${mode === 'signature' ? 6 : 3}px ${hero.color})`} />
         </div>
       </div>
       <div className="min-w-0">
-        <label htmlFor="film-room-hero" className="block text-sm text-slate-300 mb-1">Choose a hero</label>
+        {showHeroPicker && <><label htmlFor="film-room-hero" className="block text-sm text-slate-300 mb-1">Choose a hero</label>
         <select id="film-room-hero" value={heroKey} onChange={e => { setHeroKey(e.target.value); setMode('idle'); }} className="w-full rounded-lg bg-slate-800 border border-slate-600 p-2 text-base text-white">
           {HERO_DEFS.map(h => <option key={h.key} value={h.key}>{h.name} · {h.role}</option>)}
-        </select>
+        </select></>}
         <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Preview animation">
-          {(['idle', 'run', 'signature', 'celebrate'] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value); setTake(t => t + 1); }}
+          {(['idle', 'run', 'signature', 'celebrate'] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value); if (value !== 'idle') void warmHeroArt([heroKey], {maxHeroes:1}); setTake(t => t + 1); }}
             className={`rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline focus-visible:outline-orange-400 ${mode === value ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}>
             {value === 'signature' ? 'Signature play' : value === 'run' ? 'Run' : value === 'celebrate' ? 'Celebrate' : 'Idle'}
           </button>)}

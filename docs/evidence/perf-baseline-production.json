@@ -1,0 +1,400 @@
+{
+  "url": "https://football-headquarters.vercel.app/",
+  "measuredAt": "2026-09-10T14:38:13.261Z",
+  "viewport": {
+    "width": 430,
+    "height": 932
+  },
+  "deviceScaleFactor": 2,
+  "network": "none",
+  "cpuThrottle": 1,
+  "clubServer": "blocked (no account created)",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+  "cold": [
+    {
+      "stage": "naming",
+      "requests": 71,
+      "transferBytes": 23829611,
+      "encodedBytes": 23809211,
+      "decodedBytes": 24385085,
+      "ms": 2581,
+      "largest": [
+        {
+          "name": "/assets/heroes/motion/kicker.webp",
+          "transfer": 1821016,
+          "decoded": 1820716
+        },
+        {
+          "name": "/assets/heroes/motion/burner.webp",
+          "transfer": 1794024,
+          "decoded": 1793724
+        },
+        {
+          "name": "/assets/heroes/motion/coach.webp",
+          "transfer": 1777096,
+          "decoded": 1776796
+        },
+        {
+          "name": "/assets/heroes/motion/enforcer.webp",
+          "transfer": 1759264,
+          "decoded": 1758964
+        },
+        {
+          "name": "/assets/heroes/motion/qb.webp",
+          "transfer": 1748448,
+          "decoded": 1748148
+        },
+        {
+          "name": "/assets/heroes/elite/qb.webp",
+          "transfer": 1414974,
+          "decoded": 1414674
+        },
+        {
+          "name": "/assets/heroes/elite/enforcer.webp",
+          "transfer": 1407172,
+          "decoded": 1406872
+        },
+        {
+          "name": "/assets/heroes/elite/burner.webp",
+          "transfer": 1393256,
+          "decoded": 1392956
+        }
+      ],
+      "battleOnly": [
+        "/assets/heroes/motion/enforcer.webp",
+        "/assets/heroes/motion/qb.webp",
+        "/assets/heroes/elite/qb.webp",
+        "/assets/heroes/elite/kicker.webp",
+        "/assets/heroes/motion/kicker.webp",
+        "/assets/heroes/elite/coach.webp",
+        "/assets/heroes/motion/burner.webp",
+        "/assets/heroes/elite/burner.webp",
+        "/assets/heroes/elite/enforcer.webp",
+        "/assets/heroes/motion/coach.webp",
+        "/assets/heroes/reactions/enforcer.webp",
+        "/assets/heroes/reactions/qb.webp"
+      ]
+    },
+    {
+      "stage": "campus",
+      "requests": 4,
+      "transferBytes": 73144,
+      "encodedBytes": 72544,
+      "decodedBytes": 72544,
+      "ms": 1193,
+      "largest": [
+        {
+          "name": "/assets/coaches/grimes.webp",
+          "transfer": 37110,
+          "decoded": 36810
+        },
+        {
+          "name": "/assets/coaches/chalmers.webp",
+          "transfer": 36034,
+          "decoded": 35734
+        },
+        {
+          "name": "/auth/v1/signup",
+          "transfer": 0,
+          "decoded": 0
+        },
+        {
+          "name": "/auth/v1/signup",
+          "transfer": 0,
+          "decoded": 0
+        }
+      ],
+      "battleOnly": []
+    },
+    {
+      "stage": "hero-detail",
+      "requests": 14,
+      "transferBytes": 14255430,
+      "encodedBytes": 14251230,
+      "decodedBytes": 14251230,
+      "ms": 710,
+      "largest": [
+        {
+          "name": "/assets/heroes/motion/legend.webp",
+          "transfer": 1903098,
+          "decoded": 1902798
+        },
+        {
+          "name": "/assets/heroes/motion/playmaker.webp",
+          "transfer": 1825240,
+          "decoded": 1824940
+        },
+        {
+          "name": "/assets/heroes/motion/captain.webp",
+          "transfer": 1820586,
+          "decoded": 1820286
+        },
+        {
+          "name": "/assets/heroes/motion/medic.webp",
+          "transfer": 1713052,
+          "decoded": 1712752
+        },
+        {
+          "name": "/assets/heroes/elite/playmaker.webp",
+          "transfer": 1414210,
+          "decoded": 1413910
+        },
+        {
+          "name": "/assets/heroes/elite/legend.webp",
+          "transfer": 1406978,
+          "decoded": 1406678
+        },
+        {
+          "name": "/assets/heroes/elite/captain.webp",
+          "transfer": 1399902,
+          "decoded": 1399602
+        },
+        {
+          "name": "/assets/heroes/elite/medic.webp",
+          "transfer": 1287018,
+          "decoded": 1286718
+        }
+      ],
+      "battleOnly": [
+        "/assets/heroes/signatures/qb.webp",
+        "/assets/heroes/motion/medic.webp",
+        "/assets/heroes/elite/medic.webp",
+        "/assets/heroes/elite/captain.webp",
+        "/assets/heroes/motion/playmaker.webp",
+        "/assets/heroes/motion/captain.webp",
+        "/assets/heroes/elite/playmaker.webp",
+        "/assets/heroes/elite/legend.webp",
+        "/assets/heroes/motion/legend.webp"
+      ]
+    },
+    {
+      "stage": "first-battle",
+      "requests": 46,
+      "transferBytes": 4615047,
+      "encodedBytes": 4601847,
+      "decodedBytes": 4601847,
+      "ms": 4552,
+      "largest": [
+        {
+          "name": "/assets/gpt/game-day-tunnel.png",
+          "transfer": 1971173,
+          "decoded": 1970873
+        },
+        {
+          "name": "/assets/battle/field-equipment-cutouts.webp",
+          "transfer": 1393940,
+          "decoded": 1393640
+        },
+        {
+          "name": "/assets/units/mascot.webp",
+          "transfer": 62924,
+          "decoded": 62624
+        },
+        {
+          "name": "/assets/units/fan-mob.webp",
+          "transfer": 61596,
+          "decoded": 61296
+        },
+        {
+          "name": "/assets/buildings/rival-practice-field.webp",
+          "transfer": 46610,
+          "decoded": 46310
+        },
+        {
+          "name": "/assets/coaches/holloway.webp",
+          "transfer": 44764,
+          "decoded": 44464
+        },
+        {
+          "name": "/assets/battle/blocking-sled.webp",
+          "transfer": 40710,
+          "decoded": 40410
+        },
+        {
+          "name": "/assets/coaches/twotimes.webp",
+          "transfer": 38046,
+          "decoded": 37746
+        }
+      ],
+      "battleOnly": []
+    }
+  ],
+  "warm": [
+    {
+      "stage": "return-campus",
+      "requests": 70,
+      "transferBytes": 23794699,
+      "encodedBytes": 23774599,
+      "decodedBytes": 24350473,
+      "ms": 2272,
+      "largest": [
+        {
+          "name": "/assets/heroes/motion/kicker.webp",
+          "transfer": 1821016,
+          "decoded": 1820716
+        },
+        {
+          "name": "/assets/heroes/motion/burner.webp",
+          "transfer": 1794024,
+          "decoded": 1793724
+        },
+        {
+          "name": "/assets/heroes/motion/coach.webp",
+          "transfer": 1777096,
+          "decoded": 1776796
+        },
+        {
+          "name": "/assets/heroes/motion/enforcer.webp",
+          "transfer": 1759264,
+          "decoded": 1758964
+        },
+        {
+          "name": "/assets/heroes/motion/qb.webp",
+          "transfer": 1748448,
+          "decoded": 1748148
+        },
+        {
+          "name": "/assets/heroes/elite/qb.webp",
+          "transfer": 1414974,
+          "decoded": 1414674
+        },
+        {
+          "name": "/assets/heroes/elite/enforcer.webp",
+          "transfer": 1407172,
+          "decoded": 1406872
+        },
+        {
+          "name": "/assets/heroes/elite/burner.webp",
+          "transfer": 1393256,
+          "decoded": 1392956
+        }
+      ],
+      "battleOnly": [
+        "/assets/heroes/elite/enforcer.webp",
+        "/assets/heroes/motion/coach.webp",
+        "/assets/heroes/elite/qb.webp",
+        "/assets/heroes/motion/qb.webp",
+        "/assets/heroes/motion/enforcer.webp",
+        "/assets/heroes/elite/kicker.webp",
+        "/assets/heroes/motion/burner.webp",
+        "/assets/heroes/elite/coach.webp",
+        "/assets/heroes/motion/kicker.webp",
+        "/assets/heroes/elite/burner.webp",
+        "/assets/heroes/reactions/qb.webp",
+        "/assets/heroes/reactions/enforcer.webp"
+      ]
+    },
+    {
+      "stage": "hero-detail",
+      "requests": 16,
+      "transferBytes": 14328574,
+      "encodedBytes": 14323774,
+      "decodedBytes": 14323774,
+      "ms": 678,
+      "largest": [
+        {
+          "name": "/assets/heroes/motion/legend.webp",
+          "transfer": 1903098,
+          "decoded": 1902798
+        },
+        {
+          "name": "/assets/heroes/motion/playmaker.webp",
+          "transfer": 1825240,
+          "decoded": 1824940
+        },
+        {
+          "name": "/assets/heroes/motion/captain.webp",
+          "transfer": 1820586,
+          "decoded": 1820286
+        },
+        {
+          "name": "/assets/heroes/motion/medic.webp",
+          "transfer": 1713052,
+          "decoded": 1712752
+        },
+        {
+          "name": "/assets/heroes/elite/playmaker.webp",
+          "transfer": 1414210,
+          "decoded": 1413910
+        },
+        {
+          "name": "/assets/heroes/elite/legend.webp",
+          "transfer": 1406978,
+          "decoded": 1406678
+        },
+        {
+          "name": "/assets/heroes/elite/captain.webp",
+          "transfer": 1399902,
+          "decoded": 1399602
+        },
+        {
+          "name": "/assets/heroes/elite/medic.webp",
+          "transfer": 1287018,
+          "decoded": 1286718
+        }
+      ],
+      "battleOnly": [
+        "/assets/heroes/signatures/qb.webp",
+        "/assets/heroes/elite/medic.webp",
+        "/assets/heroes/motion/captain.webp",
+        "/assets/heroes/motion/medic.webp",
+        "/assets/heroes/elite/captain.webp",
+        "/assets/heroes/motion/legend.webp",
+        "/assets/heroes/elite/playmaker.webp",
+        "/assets/heroes/elite/legend.webp",
+        "/assets/heroes/motion/playmaker.webp"
+      ]
+    },
+    {
+      "stage": "first-battle",
+      "requests": 44,
+      "transferBytes": 4541903,
+      "encodedBytes": 4529303,
+      "decodedBytes": 4529303,
+      "ms": 4524,
+      "largest": [
+        {
+          "name": "/assets/gpt/game-day-tunnel.png",
+          "transfer": 1971173,
+          "decoded": 1970873
+        },
+        {
+          "name": "/assets/battle/field-equipment-cutouts.webp",
+          "transfer": 1393940,
+          "decoded": 1393640
+        },
+        {
+          "name": "/assets/units/mascot.webp",
+          "transfer": 62924,
+          "decoded": 62624
+        },
+        {
+          "name": "/assets/units/fan-mob.webp",
+          "transfer": 61596,
+          "decoded": 61296
+        },
+        {
+          "name": "/assets/buildings/rival-practice-field.webp",
+          "transfer": 46610,
+          "decoded": 46310
+        },
+        {
+          "name": "/assets/coaches/holloway.webp",
+          "transfer": 44764,
+          "decoded": 44464
+        },
+        {
+          "name": "/assets/battle/blocking-sled.webp",
+          "transfer": 40710,
+          "decoded": 40410
+        },
+        {
+          "name": "/assets/coaches/twotimes.webp",
+          "transfer": 38046,
+          "decoded": 37746
+        }
+      ],
+      "battleOnly": []
+    }
+  ]
+}

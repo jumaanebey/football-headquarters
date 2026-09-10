@@ -39,6 +39,8 @@ const heroHue = (hex: string): number => {
 };
 
 export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, upgrades = [], blocked = false, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
+  const [selectedKey, setSelectedKey] = useState(initialHero ?? 'qb');
+  const [heroTab, setHeroTab] = useState<'growth' | 'practice'>('growth');
   const stateOf = (key: string) => heroes.find(h => h.key === key);
   const scoutButton = useRef<HTMLButtonElement>(null);
   const revealButton = useRef<HTMLButtonElement>(null);
@@ -140,9 +142,15 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, up
           </div>
         )}
 
-        <HeroTrainingPreview key={initialHero ?? 'qb'} initialHero={initialHero} onPractice={onPractice} />
+        <div className="p-4 border-b border-slate-700 space-y-3">
+          <div className="flex gap-2">{(['growth','practice'] as const).map(tab => <button key={tab} aria-pressed={heroTab === tab} onClick={() => setHeroTab(tab)} className={`flex-1 rounded-xl p-3 font-bold capitalize ${heroTab === tab ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300'}`}>{tab === 'growth' ? 'Your heroes & growth' : 'Film Room & practice'}</button>)}</div>
+          <label htmlFor="growth-hero" className="block text-sm text-slate-300">Choose your hero</label>
+          <select id="growth-hero" value={selectedKey} onChange={e => setSelectedKey(e.target.value)} className="w-full rounded-xl border border-slate-600 bg-slate-800 p-3 text-white">{HERO_DEFS.map(def => <option key={def.key} value={def.key}>{def.name} · {def.role} · {(stateOf(def.key)?.unlocked ?? !!def.starter) ? `Level ${stateOf(def.key)?.level ?? 1}` : 'Locked'}</option>)}</select>
+        </div>
+        {heroTab === 'practice' && <HeroTrainingPreview showHeroPicker={false} key={selectedKey} initialHero={selectedKey} onPractice={onPractice} />}
+        {heroTab === 'growth' && <>
         <div className="px-5 pt-4">
-          <HowTo id="heroes" lines={[
+          <HowTo defaultCollapsed id="heroes" lines={[
             'Practice any hero for free, including locked heroes. Send them in, then call their signature when it is ready.',
             'Unlock a hero to take them into road games. Free practice does not unlock or level your roster.',
             'Unlock new heroes with Coins/Crowns or find them in Scout Searches — duplicates become 🧩 shards.',
@@ -150,8 +158,8 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, up
             'Heroes guard your GATES on defense — assign who holds which gate in the Front Office.',
           ]} />
         </div>
-        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 content-start auto-rows-max">
-          {HERO_DEFS.map(def => {
+        <div className="p-5 grid grid-cols-1 gap-4 content-start auto-rows-max">
+          {HERO_DEFS.filter(def => def.key === selectedKey).map(def => {
             const st = stateOf(def.key);
             const unlocked = st?.unlocked ?? !!def.starter;
             const lvl = st?.level ?? 1;
@@ -221,7 +229,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, up
                 <div className="p-4 flex flex-col gap-3 flex-1">
                   <div>
                     <div className="font-display font-bold text-lg text-white">{def.name}</div>
-                    <div className="text-xs text-slate-400">{def.role} • Hero</div>
+                    <div className="text-sm text-slate-300">{def.role} · Level {lvl} · {strs}/{MAX_STARS} stars</div><p className="mt-2 text-sm text-slate-400">Speed {def.speed} · Range {def.range}. Levels and stars improve Grit and Yardage; speed and range stay fixed.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="flex items-center gap-1.5 bg-slate-800/60 rounded-lg px-2 py-1.5"><Dumbbell size={14} className="text-red-400" /><span className="text-slate-400 text-xs">GRIT</span><span className="ml-auto font-mono font-bold text-white">{hp}</span></div>
@@ -297,6 +305,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, up
             );
           })}
         </div>
+        </>}
         </div>
     </Sheet>
   );
