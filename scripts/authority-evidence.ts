@@ -70,7 +70,7 @@ const main = async () => {
   check(bad.ok === false && bad.code === 'invalid_command', `A: unknown action → ${bad.code}`);
   const poor = await call(A, op(A, 'action', { action: { type: 'builder.hire' } }));
   check(poor.ok === false && poor.code === 'insufficient_resources', `A: unaffordable purchase → ${poor.code}`);
-  const gateOp = op(A, 'action', { action: { type: 'gate.assign', postId: 'south', heroKey: 'rb' } });
+  const gateOp = op(A, 'action', { action: { type: 'gate.assign', postId: 'south', heroKey: 'kicker' } }); // a starter hero every fresh club owns
   const gate1 = await call(A, gateOp);
   const gate2 = await call(A, gateOp); // lost-reply retry: identical request
   check(gate1.ok === true && gate2.ok === true && gate2.club.revision === gate1.club.revision && canonicalJson(gate2.result) === canonicalJson(gate1.result), `A: gate.assign confirmed once; verbatim retry returns the same receipt at revision ${gate1.club?.revision}`);
@@ -126,7 +126,7 @@ const main = async () => {
   if (!raid) throw new Error('rival raid failed');
   const cfg = raid.config as BattleConfig;
   check(cfg.defenseFormation === 'cover3' && !!cfg.defenseSnapshotId && !!cfg.defenseLayoutId, `B: attacked snapshot formation=${cfg.defenseFormation} snapshot=${cfg.defenseSnapshotId} layout=${cfg.defenseLayoutId}`);
-  check((cfg.homeGuards ?? []).some(g => g.name === 'Playmaker'), `B: attacked snapshot carries A's assigned south-gate hero (${(cfg.homeGuards ?? []).filter(g => g.jersey === 0).map(g => g.name).join(', ')})`);
+  check((cfg.homeGuards ?? []).some(g => g.name === 'The Specialist'), `B: attacked snapshot carries A's assigned south-gate hero (The Specialist) (${(cfg.homeGuards ?? []).filter(g => g.jersey === 0).map(g => g.name).join(', ')})`);
   const hq = cfg.buildings.find(b => b.kind === 'hq');
   check(!!hq && hq.hp >= 675, `B: attacked Stadium reflects the saved upgrade (HQ hp ${hq?.hp})`);
   const battle = raid.settled.result.battleResult as BattleResult;

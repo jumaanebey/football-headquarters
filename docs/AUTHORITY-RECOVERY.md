@@ -57,6 +57,14 @@ Every request to `club-authority` — including CORS preflight — returned HTTP
 - Verified after deploy: CORS preflight `OPTIONS` → 204 (was 500); `POST` without a bearer → gateway 401 `UNAUTHORIZED_NO_AUTH_HEADER` (was 500).
 - Rollback: redeploy the preserved v2 bundle (`supabase/recovery/club-authority.v2.bundle.js`) as `index.ts`, or an entry importing it by commit.
 
+## Live evidence (v3) — run 1, 2026-09-10 ~03:31 UTC
+
+`npm run authority:evidence` against the deployed v3, run by the owner from this session: **54 passed, 3 failed**. Test accounts (anonymous, clubs renamed `fhq-authority-evidence-A/B`): `c5f960d1-cc2e-4e29-bf80-7ad2e4e460a4`, `bb5e10d0-cf14-4be2-9448-a45c95a116ca`, `7e275a6a-cd30-45b6-861a-bed148fd6c4a` — add to the deferred QA cleanup list.
+
+Observed on the live service: fresh bootstrap for both accounts; `club.rename` confirmed; stale revision → `revision_conflict`; unknown action → `invalid_command`; unaffordable → `insufficient_resources`; rival before two Season games → `beginner_protection`; six Season games settled with the server's result equal to the client simulation and coins credited exactly once each (e.g. 500 → 932 → 1410 → 2407 for A); duplicate `match.finish` returned the receipt without a second credit; finishing a settled match → `match_conflict`; forged `finalHash` → `simulation_mismatch`; cancelling a started game → released without refund; `facility.upgrade` Stadium (1 400 coins) settled to L2 by the server timer; `formation.set cover3` confirmed; B saw A as a protected rival; B's raid config carried A's `cover3` layout, `defenseSnapshotId`/`defenseLayoutId`, and the upgraded Stadium (HQ hp 720); settlement credited B once (+550) and gave A one receipt (`stars 3, pct 100, coinsLost 120`, `authorityMatchId` set) with A's revision advancing exactly twice (reserve + settle); a repeated settlement left A untouched; both accounts fetched the identical film, which replayed to the settled result under the attacked snapshot (hash `a0dc1792`); a third account got `film_unavailable`; raiding A again → `shielded`.
+
+The three failures were one script defect: the gate assignment used `rb`, which is not a hero key, so the server correctly refused it and the two dependent checks (verbatim-retry receipt, assigned gate hero in the attacked snapshot) could not pass. Fixed in the script (starter hero `kicker`); rerun pending.
+
 ## Release: what deploying the fix involves
 
 1. `npm run authority:build` (already run; `supabase/functions/club-authority/index.ts` sha256 `10df7c51…`).
