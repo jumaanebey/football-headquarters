@@ -1,3 +1,4 @@
+import { nextSeasonMatch } from './game/seasonRecommendation';
 import { BuildingSprite } from './components/BuildingArt';
 import { ClubConnectionControl } from './components/ClubConnectionControl';
 import { setUpdateGuard } from './pwa/register';
@@ -170,7 +171,9 @@ function App() {
   const [focusedHero, setFocusedHero] = useState<string | undefined>();
   const [defenseLogOpen, setDefenseLogOpen] = useState(false);
   const [raidTargets, setRaidTargets] = useState<EnemyBase[]>([]);
+  const [awayTab, setAwayTab] = useState<'road' | 'live'>('road');
   const [attackTab, setAttackTab] = useState<'season' | 'raid'>('season');
+  const [rosterInitialView, setRosterInitialView] = useState<'players' | 'training'>('players');
   const [rosterFilter, setRosterFilter] = useState<UnitGroup | null>(null);
   const [defenseTab, setDefenseTab] = useState<'equipment' | 'formation' | 'gates'>('equipment');
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
@@ -760,7 +763,7 @@ function App() {
       // season finished), fall back to the Game Day sheet rather than doing nothing.
       case 'campaign': { const next = Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length); if (!startCampaign(next)) setAttackSelectOpen(true); break; }
       case 'fortify': setFrontOfficeOpen(true); setSelectedBuilding(null); break;
-      case 'train': setIsSquadOpen(true); break;
+      case 'train': setRosterInitialView('training');setIsSquadOpen(true); break;
       case 'upgrade': { const st = find(BuildingType.STADIUM); if (st) { setSelectedBuilding(st); setBuildingInfoOpen(true); } break; }
       case 'recruit': setIsScoutingOpen(true); break;
       case 'raid': openRaid(); break;
@@ -1527,6 +1530,7 @@ function App() {
 
       {isSquadOpen && (
         <SquadModal
+          initialView={rosterInitialView}
           roster={gameState.roster}
           resources={gameState.resources}
           club={gameState}
@@ -1534,7 +1538,7 @@ function App() {
           playerFilter={rosterFilter}
           onFilterChange={setRosterFilter}
           onCollect={b => handleCollect(b, {x: window.innerWidth / 2, y: window.innerHeight / 2})}
-          onClose={() => setIsSquadOpen(false)}
+          onClose={() => {setIsSquadOpen(false);setRosterInitialView('players');}}
           onTrainGroup={handleTrainGroup}
           onCutPlayer={handleCutPlayer}
           onOpenHeroes={() => { setIsSquadOpen(false); setIsHeroOpen(true); }}
@@ -1557,7 +1561,7 @@ function App() {
              onFinishNow={handleFinishNow}
              onHireBuilder={handleHireBuilder}
              onCollect={building => { const point = {x:window.innerWidth/2,y:window.innerHeight/2}; if (building.state === DrillState.COMPLETED) handleCollect(building, point); else handleCollectResource(building, point); }}
-             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.TRAINING_PITCH) setIsSquadOpen(true); else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
+             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.TRAINING_PITCH) {setRosterInitialView('training');setIsSquadOpen(true);} else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
              visitLabel={selectedBuilding.type === BuildingType.TRAINING_PITCH ? 'Open roster & training' : selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
           />
       )}
@@ -1590,7 +1594,7 @@ function App() {
               <CCBtn label="Info" emoji="💬" onClick={() => setBuildingInfoOpen(true)} />
               <CCBtn label="Level Up" emoji="🔨" accent disabled={busy || gated || !canAfford} onClick={() => setBuildingInfoOpen(true)} />
               {isStadium && <CCBtn label="Defense" emoji="🛡️" onClick={() => { setSelectedBuilding(null); setFrontOfficeOpen(true); }} />}
-              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="🏈" onClick={() => { setSelectedBuilding(null); setAttackSelectOpen(true); }} />}
+              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="🏈" onClick={() => { setSelectedBuilding(null); openRaid(); }} />}
             </div>
             {!busy && <p className="max-w-sm rounded-lg bg-slate-950/95 px-3 py-2 text-center text-xs text-slate-200">{buildingEffect(b.type, b.level).label}: {buildingEffect(b.type, b.level).value} → {buildingEffect(b.type, b.level + 1).value}</p>}
           </div>
@@ -1610,7 +1614,7 @@ function App() {
 
       {campusEditorOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-50 bg-slate-950 text-white p-8">Opening campus editor…</div>}><CampusEditor state={gameState} blocked={authority.locked || !authority.ready || authority.pendingCount > 0} onApply={saveCampusDraft} onClose={()=>setCampusEditorOpen(false)} onTest={()=>{setCampusEditorOpen(false);startDefense();}} /></Suspense>}
       {/* 🏙 Club Dashboard — SimCity advisor panel, opened from the jumbotron */}
-      {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} onRoster={() => { setDashboardOpen(false); setIsSquadOpen(true); }} onGameDay={() => { setDashboardOpen(false); openRaid(); }} onDefense={() => { setDashboardOpen(false); setFrontOfficeOpen(true); }} />}
+      {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} onRoster={() => { setDashboardOpen(false); setRosterInitialView('players');setIsSquadOpen(true); }} onGameDay={() => { setDashboardOpen(false); openRaid(); }} onDefense={() => { setDashboardOpen(false); setFrontOfficeOpen(true); }} />}
 
       {/* Attack: Season campaign ladder or a live Raid */}
       {attackSelectOpen && (
@@ -1618,23 +1622,23 @@ function App() {
           title={<>Game Day <span className="text-[12px] font-sans font-bold normal-case tracking-normal text-slate-400 bg-slate-800 border border-slate-700 rounded-full px-2 py-0.5" title="Suiting up costs Energy — regen at the Rehab Center">⚡{RAID_ENERGY} per game</span></>}
           icon={<span className="text-[22px] leading-none">🏈</span>}
           onClose={() => setAttackSelectOpen(false)}
-          maxWidth="max-w-md"
+          maxWidth="max-w-3xl"
         >
           <div className="p-5 pt-3 flex flex-col max-h-full">
-            <div className="fhq-game-day-art">
-              <picture><source srcSet="/assets/gpt/game-day-tunnel.webp" type="image/webp" /><img src="/assets/gpt/game-day-tunnel.png" alt="Three players head through the tunnel toward the field" width="1536" height="1024" decoding="async" /></picture>
-              <div><span>{attackTab === 'season' ? `Season · Stage ${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}` : 'Away games'}</span><strong>{attackTab === 'season' ? CAMPAIGN_STAGES[Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length) - 1].name : 'Take their house'}</strong></div>
-            </div>
-            {attackTab === 'season' && (() => { const next = CAMPAIGN_STAGES[Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)-1]; return <section className="mb-4 rounded-2xl border border-orange-500/50 bg-orange-500/10 p-4"><p className="text-xs uppercase tracking-wider text-orange-300">Your next matchup</p><h3 className="mt-1 text-xl font-bold text-white">{next.name}</h3><p className="mt-1 text-sm text-slate-300">vs {next.opponent} · Readiness {gameState.teamReadiness}%</p><button onClick={() => startCampaign(next.stage)} className="mt-3 w-full rounded-xl bg-orange-500 p-3 font-bold text-white">Prepare lineup & game plan →</button></section>; })()}
             {/* Mode tabs */}
             <div className="flex gap-2 mb-2">
-              <button onClick={() => setAttackTab('season')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'season' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+              <button aria-pressed={attackTab === 'season'} onClick={() => setAttackTab('season')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'season' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                 🏆 Season {(gameState.campaign.stars[CAMPAIGN_STAGES.length] ?? 0) > 0 ? '✓' : `${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length}`}
               </button>
-              <button onClick={() => setAttackTab('raid')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'raid' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+              <button aria-pressed={attackTab === 'raid'} onClick={() => setAttackTab('raid')} className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors ${attackTab === 'raid' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                 🏈 Away games
               </button>
             </div>
+            <div className="fhq-game-day-art">
+              <picture><source srcSet="/assets/gpt/game-day-tunnel.webp" type="image/webp" /><img src="/assets/gpt/game-day-tunnel.png" alt="Three players head through the tunnel toward the field" width="1536" height="1024" decoding="async" /></picture>
+              <div><span>{attackTab === 'season' ? `Season · Stage ${nextSeasonMatch(gameState.campaign).stage.stage}` : 'Away games'}</span><strong>{attackTab === 'season' ? nextSeasonMatch(gameState.campaign).stage.name : 'Take their house'}</strong></div>
+            </div>
+            {attackTab === 'season' && (() => { const recommendation = nextSeasonMatch(gameState.campaign); const next = recommendation.stage; return <section className="mb-4 rounded-2xl border border-orange-500/50 bg-orange-500/10 p-4"><p className="text-xs uppercase tracking-wider text-orange-300">{recommendation.label}</p><h3 className="mt-1 text-xl font-bold text-white">{next.name}</h3><p className="mt-1 text-sm text-slate-300">vs {next.opponent} · Readiness {gameState.teamReadiness}%</p><p className="mt-2 text-sm text-orange-200">{recommendation.detail}</p><button onClick={() => startCampaign(next.stage)} className="mt-3 w-full rounded-xl bg-orange-500 p-3 font-bold text-white">Prepare lineup & game plan →</button></section>; })()}
             <details className="mb-4 rounded-xl border border-slate-700 p-3"><summary className="cursor-pointer py-2 font-bold text-slate-200">Defense events & practice</summary>
             {/* 🛡 Defend — your side of game day, right where the action lives */}
             <div className="flex gap-2 mb-3">
@@ -1654,7 +1658,7 @@ function App() {
               const night = Math.min(GAUNTLET_MAX_TIER, g.best + 1);
               const preview = gauntletReward(night, 5, true);
               return (
-                <button onClick={() => { if (g.attempts <= 0) { sfx.error(); return; } setAttackSelectOpen(false); handleStartGauntlet(); }}
+                <button disabled={g.attempts <= 0} onClick={() => { if (g.attempts <= 0) { sfx.error(); return; } setAttackSelectOpen(false); handleStartGauntlet(); }}
                   className={`relative w-full mb-3 rounded-2xl p-[2px] text-left transition-all active:scale-[0.98] ${g.attempts > 0 ? '' : 'opacity-60'}`}
                   style={{ background: 'linear-gradient(115deg, #7c2d12, #f97316 45%, #fde047 55%, #f97316 65%, #7c2d12)' }}>
                   <span className="flex items-center gap-3 rounded-[14px] bg-[#131b2b] px-4 py-3">
@@ -1724,8 +1728,14 @@ function App() {
               </div></details>
             ) : (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+              <div className="flex gap-2" role="group" aria-label="Away opponents">
+                <button aria-pressed={awayTab === 'road'} onClick={()=>setAwayTab('road')} className={`flex-1 min-h-11 rounded-xl border px-3 text-sm font-bold ${awayTab === 'road' ? 'border-orange-400 bg-orange-950 text-orange-200' : 'border-slate-700 text-slate-300'}`}>Road teams</button>
+                <button aria-pressed={awayTab === 'live'} onClick={()=>setAwayTab('live')} className={`flex-1 min-h-11 rounded-xl border px-3 text-sm font-bold ${awayTab === 'live' ? 'border-fuchsia-400 bg-fuchsia-950 text-fuchsia-200' : 'border-slate-700 text-slate-300'}`}>Live Rivals · {liveTargets.length}</button>
+              </div>
+              <p className="text-sm text-slate-300">{awayTab === 'road' ? 'Computer-controlled clubs. Compare difficulty and rewards, then prepare your game plan.' : 'Published defenses from other clubs. Choose a rival to prepare your raid.'}</p>
+              {awayTab === 'live' && liveTargets.length === 0 && <p role="status" className="rounded-xl border border-slate-700 p-4 text-sm text-slate-300">No live rivals available right now. Road teams are available for your next game.</p>}
               {/* LIVE RIVALS — real players' published bases (async PvP) */}
-              {liveTargets.length > 0 && (
+              {awayTab === 'live' && liveTargets.length > 0 && (
                 <>
                   <div className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-300 flex items-center gap-1.5">⚡ Live Rivals <span className="text-slate-500 normal-case tracking-normal">— real coaches' stadiums</span></div>
                   {liveTargets.map(b => (
@@ -1741,15 +1751,15 @@ function App() {
                       </div>
                     </button>
                   ))}
-                  <div className="text-[10px] uppercase tracking-widest font-bold text-slate-500 pt-1">Scrimmage bots</div>
+
                 </>
               )}
               {/* Was: "not connected — raid real players by wiring Supabase (see PVP-SETUP.md)".
                   That is a developer instruction, and it was shipping to real players. */}
-              {!pvpEnabled() && (
+              {awayTab === 'live' && !pvpEnabled() && (
                 <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> — raiding real coaches' stadiums is coming soon.</div>
               )}
-              {raidTargets.map((b, choice) => (
+              {awayTab === 'road' && raidTargets.map((b, choice) => (
                 <button key={b.id} onClick={() => { if (launchAttack({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) }, { kind: 'road', choice })) setAttackSelectOpen(false); }}
                   className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -1862,7 +1872,7 @@ function App() {
             academy={academy}
             blocked={authority.pendingCount > 0 || authority.locked}
             upgradeJob={gameState.upgrades.find(job => job.kind === "building" && job.key === academy.id)}
-            onRoster={() => { setIsScoutingOpen(false); setRosterFilter(null); setIsSquadOpen(true); }}
+            onRoster={() => { setIsScoutingOpen(false); setRosterFilter(null); setRosterInitialView('players');setIsSquadOpen(true); }}
             stadiumLevel={stadiumLevel}
             onClose={() => setIsScoutingOpen(false)}
             onStartRecruit={handleStartRecruit}
@@ -2299,7 +2309,7 @@ function App() {
       <GameNavigation
         rosterOpen={isSquadOpen} heroesOpen={isHeroOpen} defenseOpen={frontOfficeOpen}
         ranksOpen={isStandingsOpen} unseenDefenses={unseenDefenses}
-        onRoster={() => setIsSquadOpen(true)} onHeroes={() => {setFocusedHero('qb');setIsHeroOpen(true);}}
+        onRoster={() => {setRosterInitialView('players');setIsSquadOpen(true);}} onHeroes={() => {setFocusedHero('qb');setIsHeroOpen(true);}}
         onGameDay={openRaid} onRanks={() => setIsStandingsOpen(true)}
         onDefense={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }}
       />
