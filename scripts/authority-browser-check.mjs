@@ -56,17 +56,20 @@ try {
   // Tap along the left edge to deploy squad, then the hero button(s), then let the clock run.
   for (let i = 0; i < 8; i++) { await page.mouse.click(box.x + box.width * 0.06, box.y + box.height * (0.15 + i * 0.09)); await page.waitForTimeout(120); }
   await shot('battle-kickoff');
-  const heroButtons = page.locator('button[title*="Franchise"], button:has-text("Franchise")');
-  if (await heroButtons.count()) { await heroButtons.first().click(); await page.waitForTimeout(200); await page.mouse.click(box.x + box.width * 0.08, box.y + box.height * 0.5); }
-  await page.waitForTimeout(6000);
+  // Heroes/squad are already on the field from the sideline taps; let the drive run, then blow the whistle if it is still going.
+  await page.waitForTimeout(8000);
   await shot('battle-playing');
-  await page.click('button[title="Blow the whistle — see the result"]');
+  const whistle = page.locator('button[title="Blow the whistle — see the result"]');
+  if (await whistle.count()) await whistle.first().click({ timeout: 5000, force: true }).catch(() => {});
+  await page.waitForFunction(() => /Your team|standouts|Return|Continue|Back to|Collect/i.test(document.body.innerText), null, { timeout: 90000 }).catch(() => {});
   await page.waitForTimeout(1500);
   await shot('battle-result');
-  // Leave the result screen (any return/continue button).
-  for (const label of ['Return', 'Back to campus', 'Continue', 'Done', 'Collect', 'Home']) { const b = page.locator(`button:has-text("${label}")`); if (await b.count()) { await b.first().click(); break; } }
-  await page.waitForFunction(() => !document.querySelector('[aria-label="Battlefield"]'), null, { timeout: 20000 }).catch(() => {});
-  await page.waitForTimeout(3000);
+  // Leave the result screen: any visible button whose label reads like a return/continue.
+  const dialogButtons = page.locator('[role="dialog"] button');
+  const n = await dialogButtons.count();
+  for (let i = n - 1; i >= 0; i--) { const b = dialogButtons.nth(i); const t = ((await b.innerText().catch(() => '')) || (await b.getAttribute('aria-label')) || '').trim(); if (/return|back to|continue|done|collect|campus|home|next/i.test(t) && await b.isVisible()) { console.log('leaving result via:', t); await b.click({ force: true }); break; } }
+  await page.waitForFunction(() => !document.querySelector('[aria-label="Battlefield"]'), null, { timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(4000);
   await shot('after-result');
   const body = await text();
   console.log('confirmation notice present:', /Confirmed|Confirming|Result not confirmed|will not count/.test(body));
