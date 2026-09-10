@@ -5,6 +5,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { armCampusArtGate } from './game/artGate';
+import { bootPwa } from './pwa/boot';
+
+armCampusArtGate(); // returning players get campus art at once; new players after naming
+bootPwa(); // install capture, connection tracking, worker registration (production only)
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found');

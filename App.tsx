@@ -68,6 +68,7 @@ import { GameNavigation } from './components/GameNavigation';
 import { BACKUP_KEYS, createBackup } from './backup';
 import { createInitialState, genTeamName } from './game/initialState';
 import { loadState, SAVE_KEY, TUTORIAL_KEY, parseSavedClub } from './game/persistence';
+import { openCampusArt } from './game/artGate';
 import { layoutFromFixedBase } from './game/defenseLayout';
 import { createDefenseSnapshot, defenseBattleFields } from './game/defenseSnapshot';
 import { useAuthority, type AuthorityActionReceipt } from './game/online/useAuthority';
@@ -199,6 +200,7 @@ function App() {
     const named = checkClubName(rawName);
     const teamName = named.ok ? named.name : stateRef.current.teamName;
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
+    openCampusArt(); // naming is done: the campus may now request its art (see game/artGate.ts)
     track('club_created', { startRaid, nameLen: teamName.length });
     track('tutorial_choice', { stormFirst: startRaid });
     setShowTutorial(false);
