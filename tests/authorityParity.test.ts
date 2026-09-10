@@ -82,6 +82,13 @@ describe('authority parity guard', () => {
     expect(incomplete.ok).toBe(false); expect(incomplete.deployment).toBe('unknown');
     await write('supabase/recovery/deployed.json', record());
   });
+  it('accepts an inline artifact with matching entry hash and rejects a different entry', async () => {
+    await write('supabase/recovery/deployed.json', record({}, { entryMode: 'inline-artifact', entrySha256: sha256(V3) }));
+    expect((await checkAuthorityParity({ root, readable: READABLE, minified: V4 })).ok).toBe(true);
+    await write('supabase/recovery/deployed.json', record({}, { entryMode: 'inline-artifact', entrySha256: sha256('other content') }));
+    expect(fails(await checkAuthorityParity({ root, readable: READABLE, minified: V4 }))).toEqual([expect.stringContaining('inline deployment entry hash')]);
+    await write('supabase/recovery/deployed.json', record());
+  });
   it('refuses generated output that carries a token-shaped string', async () => {
     const leaked = READABLE + 'const k = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.abcdefghijklmnopqrstuvwxyz";\n';
     expect(findSecretShapes(leaked)).toHaveLength(1);

@@ -94,11 +94,11 @@ Operational signals: Supabase `function_logs` (`event loop error` lines mean a s
 - Restore rehearsal: `npm run authority:rehearsal` restores a synthetic backup of the four tables into an isolated memory store and replays a device's pending requests (exactly-once verified). A real restore follows the same shapes: `server/authoritySnapshot.ts` exports rows with the tables' column names (`fhq_authority_clubs(pid, state, revision, active_match, origin, updated_at)`, `fhq_authority_matches(id, owner, status, config, seed, issued_at, expires_at, metadata, result)`, `fhq_authority_operations(owner, operation_id, request_hash, result)`, `fhq_authority_configuration(activation_at)`); insert matches before clubs (the active-match foreign key), then operations; clients replay their ledgers on the next load and the operation rows answer already-applied requests with their original receipts. Never restore over production without a fresh backup taken first; never copy production rows into repository fixtures.
 - `npm run release:verify` composes the offline checks; `--live` adds the credentialed evidence (owner-run).
 
-## Release: what deploying the fix involves
+## Historical failed v2 deployment (superseded by the healthy procedure above)
 
 1. `npm run authority:build` (already run; `supabase/functions/club-authority/index.ts` sha256 `10df7c51…`).
 2. Deploy `club-authority` with `index.ts` as the single file, keeping `verify_jwt: true` (the gateway passes `OPTIONS` through; the function validates the bearer itself and answered 204/401 correctly under the shim).
-3. Rollback: redeploy `supabase/recovery/club-authority.v2.bundle.js` as `index.ts` (restores the crashing v2), or disable the function. No migration is involved; no data changes.
+3. This historical v2 artifact crashes at startup. Do not deploy it. Use the healthy v3 artifact recorded in `deployed.json.previousHealthy` for rollback.
 4. Then run `npm run authority:evidence` (two anonymous test accounts) and `node scripts/authority-browser-check.mjs` against a preview, and record the outputs here.
 
 No new migration is required for this package. The legacy (unprotected) publish path still sends only `layout`; carrying the full snapshot there would need an additive `fhq_bases.defense` column and is deferred (see contracts doc).
@@ -108,3 +108,12 @@ No new migration is required for this package. The legacy (unprotected) publish 
 - QA record cleanup and analytics exclusions (owner: "build everything else and come back to this later"). The evidence script's test accounts (`fhq-authority-evidence-A/B/C` club names, anonymous users) will join that cleanup list once it runs against a working deployment.
 - Consolidated inventory of every QA and evidence account (ids where known, club names otherwise): `docs/AUTHORITY-HARDENING.md` › "Consolidated deferred QA cleanup inventory".
 - `fhq_authority_configuration.activation_at` stays `2026-09-10 00:47:31 UTC`.
+
+
+## v4 deployed — 2026-09-10
+
+Version 4 is ACTIVE with JWT verification enabled. Deployed the minified artifact from main e3f866925aabff7cc700fa91d429c1f4cf571ba8, sha256 58511f9bd88831d6f29934f78048e4cca2cf830ef37607ab65c4f07b782e3028. The initial pinned CDN import failed with 503 before deployment; uploaded the exact artifact as index.ts. Management readback of version 4 is byte-identical to that committed file. Preflight returns 204; unauthenticated POST returns 401. Rules remain hero-actions-3. The deployment record preserves the healthy v3 artifact and commit under previousHealthy. No schema migration occurred.
+
+Live v4 evidence: 57 passed, 0 failed. Exactly-once operations and match settlement, forged film and conflict rejection, saved Stadium upgrade, assigned gate hero and cover3 snapshot, one defender receipt, identical film for both owners, matching replay hash and shield enforcement. Evidence accounts for deferred cleanup: A e786415f-bc5a-48c4-a006-17e7955884b0; B 7d77ef69-7cad-48fa-95bf-9c098ed84793; C 1650dd26-74e6-48e0-9a90-cbaca993d1a3. None deleted. Strict --require-deployed-current parity passes.
+
+Protected v4 browser acceptance on the final client: Campus QA FC reserved and played an Air Raid opener with five heroes and Hail Mary, then Collect & choose next game opened Game Day only after confirmation. Coins 431→888, Fans 45→60, revision 26 / everything confirmed. No new browser QA account.

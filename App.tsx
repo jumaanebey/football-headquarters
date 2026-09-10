@@ -1787,7 +1787,7 @@ function App() {
       {!frontOfficeOpen && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} dailyClaimable={dailyClaimable} onOpenDailies={() => setIsDailyOpen(true)} />}
       <TourPointer
         gameState={gameState}
-        active={!frontOfficeOpen && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
+        active={!frontOfficeOpen && !(campusEditorOpen || dashboardOpen || isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
           || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || !!preparedMatch || !!battleConfig)}
       />
 

@@ -80,9 +80,14 @@ export async function checkAuthorityParity({ root, readable, minified, requireDe
     else if (sha256(pinned) !== record.deployed.sha256) fail(`artifact at pinned commit ${record.deployed.commit.slice(0, 7)} has sha256 ${sha256(pinned).slice(0, 12)}…, not the recorded ${record.deployed.sha256.slice(0, 12)}…`);
     else pass(`pinned commit ${record.deployed.commit.slice(0, 7)} serves the recorded artifact`);
   }
+  if (record.deployed.entryMode === 'inline-artifact') {
+    if (record.deployed.entrySha256 !== record.deployed.sha256) fail('inline deployment entry hash does not match the pinned artifact');
+    else pass(`inline deployment entry matches artifact pinned at ${record.deployed.commit.slice(0, 7)}`);
+  } else {
   const entry = (record.entryTemplate ?? '').replace('{repository}', record.repository ?? '').replace('{commit}', record.deployed.commit).replace('{artifact}', record.deployed.artifact);
   if (!/^import 'https:\/\/cdn\.jsdelivr\.net\/gh\/[^/]+\/[^@]+@[0-9a-f]{7,40}\/supabase\/recovery\/club-authority\.v\d+\.min\.js';$/.test(entry)) fail(`deployment entry is not a commit-pinned jsDelivr import: ${entry}`);
   else pass(`deployment entry pins ${record.deployed.commit.slice(0, 7)}`);
+  }
 
   // 6. Rules drift between the deployed function and the sources: a client built from these sources would be refused by the deployed server.
   if (sourceRules && record.deployed.rules !== sourceRules) fail(`RULES DRIFT: deployed v${record.deployed.version} runs ${record.deployed.rules}, sources are ${sourceRules}; deploy before shipping a client from these sources`);

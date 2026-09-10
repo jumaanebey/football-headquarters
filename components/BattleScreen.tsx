@@ -1,3 +1,4 @@
+import { BattleFieldReport } from './BattleFieldReport';
 import { buildingObscuresHero, visibleBattleEffects, moveBattleCursor, heroKeyForPresentation } from '../game/battleReadability';
 import { HeroSubstitutions } from './HeroSubstitutions';
 import { firstMatchLesson } from '../game/firstMatchLesson';
@@ -1287,7 +1288,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
     : 'Pick your offense — players, heroes, or plays';
 
   return (
-    <div ref={battlePanel} role="dialog" aria-modal="true" aria-label={config.practice ? 'Free hero practice' : config.replay?.displayTitle ?? config.title} tabIndex={-1} onKeyDown={containBattleFocus} className="fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
+    <div ref={battlePanel} role="dialog" aria-modal="true" aria-label={config.practice ? 'Free hero practice' : config.replay?.displayTitle ?? config.title} tabIndex={-1} onKeyDown={containBattleFocus} className="fhq-battle fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
       {/* ⚡ ability cast — edges flash in the caster's color */}
       {abilityFlash && phase === 'fighting' && (
         <React.Fragment key={abilityFlash.key}>
@@ -1330,7 +1331,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
         </div>
       )}
       {/* Top bar */}
-      <div className="flex items-center justify-between gap-2 px-2.5 sm:px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
+      <div className="fhq-battle-header flex items-center justify-between gap-2 px-2.5 sm:px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button onClick={() => { if (phase === 'fighting' && !sim.current.ended) { endBattle(); } else onExit(phase === 'deploy'); }} title="Blow the whistle — see the result" className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
           <div className="min-w-0">
@@ -1355,7 +1356,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
         </div>
       </div>
 
-      {modernCombat && !isDefense && !isReplay && <div className="shrink-0 px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
+      {modernCombat && !isDefense && !isReplay && <div className="fhq-battle-guide shrink-0 px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
         <p className="text-xs text-slate-300" role={lesson ? 'status' : undefined}><strong className="text-amber-300">{lesson ? `${lesson.step}/3 · ${lesson.title}` : config.practice ? 'FREE PRACTICE' : 'YOUR HEROES'}</strong><br />{lesson?.detail ?? (pendingHero ? 'Choose a sideline spot, or use Deploy.' : 'Call a ready signature below. Watch its release and contact.')}</p>
         {pendingHero && <button type="button" className="shrink-0 min-h-11 px-3 py-2 rounded-lg bg-orange-500 text-sm font-bold text-white" onClick={() => {
           if (deployedHeroesRef.current.has(pendingHero.key)) return;
@@ -1373,11 +1374,11 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
         }}>Deploy selected hero</button>}
       </div>}
       {/* Battlefield */}
-      <div className="flex shrink-0 items-center justify-between gap-2 bg-slate-900 px-3 py-1 text-xs text-slate-300">
+      <div className="fhq-battle-tools flex shrink-0 items-center justify-between gap-2 bg-slate-900 px-3 py-1 text-xs text-slate-300">
         <span>{defFormation && FORMATIONS[defFormation] ? FORMATIONS[defFormation].name : 'Defense'}{!isDefense && !isReplay ? ` · ${plan.name}` : ''}</span>
         <button type="button" aria-pressed={showThreats} onClick={() => setShowThreats(value => !value)} className="min-h-11 rounded-lg border border-slate-600 px-3 text-white">{showThreats ? 'Hide' : 'Show'} defense ranges</button>
       </div>
-      <div className="relative flex-1 flex items-center justify-center p-3 overflow-hidden bg-gradient-to-b from-emerald-900 to-emerald-950">
+      <div className="fhq-battle-stage relative min-h-0 flex-1 flex items-center justify-center p-3 overflow-hidden bg-gradient-to-b from-emerald-900 to-emerald-950">
           {/* 📣 Play-by-play announcer */}
           {s.commentary.text && !(s.banner && s.time > s.banner.until) && phase === 'fighting' && (
             <div key={s.commentary.text + s.commentary.t} className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: 8, zIndex: 220, maxWidth: '92%' }}>
@@ -1509,7 +1510,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
                 <polygon points={isoRect(16, 16, 84, 84)} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="0.5" strokeDasharray="2.4 1.6" />
               </svg>
               <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ bottom: '3%', zIndex: 220 }}>
-                <span className="inline-block animate-bounce-sm text-[11px] font-black uppercase tracking-wide bg-yellow-400 text-black px-3 py-1 rounded-full shadow-xl whitespace-nowrap">👇 tap the glowing sideline to deploy</span>
+                <span className="inline-block animate-bounce-sm text-[11px] font-black uppercase tracking-wide bg-yellow-400 text-black px-3 py-1 rounded-full shadow-xl whitespace-nowrap">👇 Tap sideline to deploy</span>
               </div>
             </>
           )}
@@ -1858,12 +1859,13 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
 
       {/* Bottom bar */}
       {phase !== 'result' && isReplay && (
-        <div className="shrink-0 bg-slate-900 border-t border-slate-800 px-3 py-3 text-center text-xs text-slate-400 font-bold">
-          ● You're watching the actual attack on your stadium — every move is theirs.
+        <div className="fhq-battle-commands shrink-0 bg-slate-900 border-t border-slate-800 px-3 py-3 text-center text-xs text-slate-400 font-bold">
+          <p>● You're watching the actual attack on your stadium — every move is theirs.</p>
+          <BattleFieldReport troops={s.troops} guards={s.guards} buildings={s.buildings} heroes={heroes} />
         </div>
       )}
       {phase !== 'result' && !isReplay && (
-        <div className="shrink-0 px-3 py-2" style={{ background: 'linear-gradient(180deg, #131c2e 0%, #0b111f 100%)', borderTop: '1px solid rgba(249,115,22,0.28)', boxShadow: '0 -6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+        <div role="region" aria-label="Battle commands" tabIndex={0} className="fhq-battle-commands shrink-0 px-3 py-2" style={{ background: 'linear-gradient(180deg, #131c2e 0%, #0b111f 100%)', borderTop: '1px solid rgba(249,115,22,0.28)', boxShadow: '0 -6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)' }}>
           {isDefense ? (
             <div className="py-1">
               <div className="text-center text-xs text-orange-200 font-bold flex items-center justify-center gap-2 mb-2">
@@ -2015,6 +2017,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
               </div>
             </>
           )}
+          <BattleFieldReport troops={s.troops} guards={s.guards} buildings={s.buildings} heroes={heroes} />
         </div>
       )}
 

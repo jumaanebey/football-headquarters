@@ -4,6 +4,29 @@
   "repository": "jumaanebey/football-headquarters",
   "entryTemplate": "import 'https://cdn.jsdelivr.net/gh/{repository}@{commit}/{artifact}';",
   "deployed": {
+    "version": 4,
+    "artifact": "supabase/recovery/club-authority.v4.min.js",
+    "sha256": "58511f9bd88831d6f29934f78048e4cca2cf830ef37607ab65c4f07b782e3028",
+    "rules": "hero-actions-3",
+    "commit": "e3f866925aabff7cc700fa91d429c1f4cf571ba8",
+    "deployedAt": "2026-09-10T14:01:31.215000+00:00",
+    "verifyJwt": true,
+    "entryMode": "inline-artifact",
+    "entrySha256": "58511f9bd88831d6f29934f78048e4cca2cf830ef37607ab65c4f07b782e3028",
+    "recordedFrom": "Supabase deployment version 4 and get_edge_function readback: index.ts identical to the committed minified artifact. Pinned CDN import returned 503; uploaded artifact inline instead."
+  },
+  "staged": {
+    "version": 4,
+    "artifact": "supabase/recovery/club-authority.v4.min.js",
+    "sha256": "58511f9bd88831d6f29934f78048e4cca2cf830ef37607ab65c4f07b782e3028",
+    "rules": "hero-actions-3",
+    "commit": "e3f866925aabff7cc700fa91d429c1f4cf571ba8"
+  },
+  "rollback": {
+    "healthy": "previousHealthy: v3, commit e5d8238affa0e31a21b895c29ba98fba03a4ed38",
+    "never": "supabase/recovery/club-authority.v2.bundle.js (crashes at startup: window guard)"
+  },
+  "previousHealthy": {
     "version": 3,
     "artifact": "supabase/recovery/club-authority.v3.min.js",
     "sha256": "9ebeed1b5d0d2cff592dfa596825662ccea5a26bfd27e3ca8598bf913c05b4fe",
@@ -12,16 +35,5 @@
     "deployedAt": "2026-09-10T03:24:00Z",
     "verifyJwt": true,
     "recordedFrom": "deploy call made from the owner's session on 2026-09-10 (docs/AUTHORITY-RECOVERY.md); the live entry could not be re-read on 2026-09-10 06:20 UTC because the management read timed out"
-  },
-  "staged": {
-    "version": 4,
-    "artifact": "supabase/recovery/club-authority.v4.min.js",
-    "sha256": "58511f9bd88831d6f29934f78048e4cca2cf830ef37607ab65c4f07b782e3028",
-    "rules": "hero-actions-3",
-    "commit": null
-  },
-  "rollback": {
-    "healthy": "deployed (v3, commit e5d8238)",
-    "never": "supabase/recovery/club-authority.v2.bundle.js (crashes at startup: window guard)"
   }
 }
