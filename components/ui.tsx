@@ -117,7 +117,7 @@ export const Sheet: React.FC<{
       return;
     }
     if (e.key !== 'Tab') return;
-    const controls = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]') ?? [])
+    const controls = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]') ?? [])
       .filter(el => el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.closest('[hidden], [inert]'));
     const first = controls[0], last = controls[controls.length - 1];
     if (!first) { e.preventDefault(); panel.current?.focus(); return; }
