@@ -2,7 +2,7 @@ import type { BBuilding, BTroop } from '../../battle';
 import { ABILITY_CD, dist, nearestBuilding } from '../../battle';
 import { signatureFrameAt } from './actionTiming';
 
-export const COMBAT_RULES_VERSION = 'hero-actions-3';
+export const COMBAT_RULES_VERSION = 'defense-counters-4';
 export type HeroAction = {
   id: string; actorId: string; heroKey: string; ability: NonNullable<BTroop['ability']>;
   elapsed: number; windup: number; travel: number; recovery: number; released: boolean; resolved: boolean;

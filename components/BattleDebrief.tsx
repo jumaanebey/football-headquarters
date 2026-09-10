@@ -1,3 +1,4 @@
+import { DefenseCounterGuide } from './DefenseCounterGuide';
 import React from 'react';
 import { Flag, Trophy, Heart, Shield } from 'lucide-react';
 import { gauntletReward, GAME_PLANS, type BBuilding, type BTroop, type GamePlanKey } from '../battle';
@@ -63,6 +64,8 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
           {replay && <p className="mt-3 text-sm text-sky-200">Recorded result. Watching this film does not change your club or award rewards.</p>}
         </div>
 
+        {actors.some(t=>(t.defenseControlSeconds??0)>0) && <section className="rounded-xl border border-sky-900 p-3 text-sm text-slate-300"><h3 className="font-bold text-white">Equipment control during this game</h3><p className="my-2 text-xs">Time affected by wet turf, flags or entanglement. Overlapping effects count once.</p>{[...actors].filter(t=>(t.defenseControlSeconds??0)>0).sort((a,b)=>(b.defenseControlSeconds??0)-(a.defenseControlSeconds??0)).slice(0,4).map(t=><p key={t.id}>{contributions.find(c=>c.id===t.id)?.name}: {(t.defenseControlSeconds??0).toFixed(1)}s · {t.lastDefenseEffect}</p>)}</section>}
+        <DefenseCounterGuide buildings={config.buildings} rules={config.authority?.rules ?? config.replay?.rules} />
         <section aria-label="Game breakdown" className="rounded-xl border border-slate-700 p-3 text-sm text-slate-300">
           <h3 className="font-bold text-white">How this result happened</h3>
           <p className="mt-2">{defense ? `Your defense ${result.pct < 50 ? 'kept damage below' : 'allowed damage to reach'} the 50% threshold. You hold the field by staying below 50%.` : 'Game balls: 50% overall damage, taking the Stadium, and 99% damage. Any one wins an attack.'}</p>

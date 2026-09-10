@@ -1,3 +1,4 @@
+import { COMBAT_RULES_VERSION } from '../game/combat/actions';
 // Live two-account evidence for the club-authority service. Creates two clearly named
 // anonymous test accounts against the configured Supabase project, drives them through the
 // protected-club journey with the headless bot, and prints a report of accepted/rejected
@@ -33,12 +34,14 @@ const call = async (a: Account, body: Record<string, unknown>): Promise<any> => 
 };
 const op = (a: Account, kind: string, fields: Record<string, unknown>, operationId = uuid()) => ({ kind, operationId, expectedRevision: a.revision, ...fields });
 
+let gamesReserved=0;
 const playMatch = async (a: Account, choice: Record<string, unknown>, label: string) => {
-  const reserved = await call(a, op(a, 'match.reserve', { choice }));
+  const reserved = await call(a, op(a, 'match.reserve', { choice: gamesReserved++===0 ? choice : {...choice,rules:COMBAT_RULES_VERSION} }));
   check(reserved.ok === true, `${a.name}: reserve ${label} (energy ${reserved.club?.state?.resources?.ENERGY})`);
   if (!reserved.ok) { log(`      ${reserved.code}: ${reserved.message}`); return null; }
   const matchId = reserved.result.matchId as string;
   const config = reserved.match.config as BattleConfig & { authority: { seed: number; rules: string } };
+  check(config.authority.rules === (gamesReserved===1?'hero-actions-3':COMBAT_RULES_VERSION), `${a.name}: negotiated ${config.authority.rules}`);
   const begun = await call(a, op(a, 'match.begin', { matchId }));
   check(begun.ok === true, `${a.name}: begin ${label}`);
   const film = playHeadlessMatch(config, config.authority.seed);

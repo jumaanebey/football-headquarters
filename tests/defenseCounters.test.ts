@@ -1,0 +1,23 @@
+import {describe,it,expect} from 'vitest';
+import {UnitGroup,PlayerRole} from '../types';
+import type {BTroop,BBuilding,ReplayData} from '../battle';
+import {createBattleEngine,replayMatch} from '../game/combat/engine';
+import {stepCounterEquipment} from '../game/combat/defenseCounterStep';
+import {defenseResistance,splashFalloff,displaceFrom,EQUIPMENT_COUNTERS} from '../game/combat/defenseCounters';
+import {parseMatchChoice} from '../game/authority/matches';
+import {validateReplay} from '../game/combat/replay';
+import films from './fixtures/legacy-defense-films.json';
+const troop=(role='WR',x=52,y=50):BTroop=>({id:role,role,unit:UnitGroup.OFFENSE_SKILL,x,y,hp:1000,maxHp:1000,dps:0,speed:0,range:1,targetId:null,dead:false,hitFlash:0,rageT:0,healT:0});
+const building=(flavor:BBuilding['flavor'],level=1):BBuilding=>({id:'gear',kind:'defense',flavor,x:50,y:50,hp:1000,maxHp:1000,size:2,damage:20,range:20,cooldown:0,dead:false,level});
+const state=(troops:BTroop[],b:BBuilding)=>({...createBattleEngine({mode:'attack',title:'Test',buildings:[b],loot:{coins:0,fans:0}},12).state,troops,buildings:[b]});
+describe('defense counter rules',()=>{
+ it('replays every pre-change film with its original hash and result',()=>{for(const film of films){expect(validateReplay(film)).not.toBeNull();expect(replayMatch(film as ReplayData).matches,film.snapshot.title).toBe(true);}});
+ it('negotiates new rules without changing old client choices',()=>{expect(parseMatchChoice({kind:'campaign',stage:1})).toEqual({kind:'campaign',stage:1});expect(parseMatchChoice({kind:'gauntlet',rules:'defense-counters-4'}).rules).toBe('defense-counters-4');expect(()=>parseMatchChoice({kind:'gauntlet',rules:'forged'})).toThrow();});
+ it('gives heavy players brace resistance and agile players traction',()=>{expect(defenseResistance(troop('OL')).brace).toBeLessThan(defenseResistance(troop('WR')).brace);expect(defenseResistance(troop('RB')).traction).toBeGreaterThan(defenseResistance(troop('OL')).traction);expect(defenseResistance({...troop('QB'),chargeRate:1.6}).discipline).toBeLessThan(defenseResistance(troop('QB')).discipline);});
+ it('has graded splash instead of equal damage throughout the radius',()=>{expect(splashFalloff(0,7)).toBe(1);expect(splashFalloff(7,7)).toBeCloseTo(.35);expect(splashFalloff(8,7)).toBe(0);});
+ it('cannot knock a player through an occupied building',()=>{const t=troop('WR',52,50),b=building('sled');displaceFrom(t,b,11,[b,{...building('jugs'),id:'wall',kind:'wall',x:55,y:50,size:2}]);expect(t.x).toBeLessThan(53.6);});
+ it('telegraphs Ref and cancels a call when its target exits range',()=>{const t=troop(),b=building('ref'),s=state([t],b);const hit=(t:BTroop,d:number)=>{t.hp-=d};stepCounterEquipment(b,s,.05,hit);expect(t.hp).toBe(1000);expect(b.counterAttack).toBeDefined();t.x=95;for(let i=0;i<12;i++)stepCounterEquipment(b,s,.05,hit);expect(t.hp).toBe(1000);expect(t.flagT).toBeUndefined();});
+ it('nearby OL redirects JUGS pressure and cannot absorb beyond remaining grit',()=>{const t=troop('WR'),ol={...troop('OL',53,50),hp:2},b=building('jugs'),s=state([t,ol],b);stepCounterEquipment(b,s,.05,(t,d)=>{t.hp-=d;t.dead=t.hp<=0});expect(ol.hp).toBe(0);expect(t.hp).toBe(982);expect(ol.protectionDone).toBe(2);});
+ it('water creates terrain without dealing direct damage',()=>{const t=troop(),b=building('cooler'),s=state([t],b);for(let i=0;i<12;i++)stepCounterEquipment(b,s,.05,(t,d)=>{t.hp-=d});expect(t.hp).toBe(1000);expect(s.puddles).toHaveLength(1);});
+ it('runs every role × machine × level with finite, bounded outcomes',()=>{for(const role of Object.values(PlayerRole))for(const flavor of Object.keys(EQUIPMENT_COUNTERS) as (keyof typeof EQUIPMENT_COUNTERS)[])for(const level of [1,4,10]){const t=troop(role),b=building(flavor,level),s=state([t],b);for(let i=0;i<240;i++)stepCounterEquipment(b,s,.05,(t,d)=>{t.hp=Math.max(0,t.hp-d);t.dead=t.hp===0});expect(Number.isFinite(t.hp)).toBe(true);expect(t.hp).toBeGreaterThanOrEqual(0);expect(t.x).toBeGreaterThanOrEqual(2);expect(t.x).toBeLessThanOrEqual(98);}});
+});
