@@ -1,3 +1,5 @@
+import type { CampusLayout } from './game/campusLayout';
+
 
 export enum ResourceType {
   COINS = 'COINS',
@@ -172,6 +174,8 @@ export interface GameState {
   peakFans?: number; // permanent campus-growth record; a rally cannot remove earned scenery
   timeOfDay: number; // 0-24
   recruitSlot: RecruitSlot | null;
+  /** Server-issued scouting board for protected clubs (client-authoritative clubs roll locally). */
+  recruitBoard?: { candidates: Player[]; generatedAt: number };
   walls: { gridX: number; gridY: number }[]; // Blocking Sleds — player-placed defensive barriers
   heroes: HeroState[];      // trainable star heroes (unlocked = owned; stars/shards = evolution)
   campaign: CampaignProgress; // Season campaign ladder progress
@@ -202,6 +206,8 @@ export interface GameState {
   formationMastery: Record<string, number>;
   /** 🛡 THE GAUNTLET: highest night cleared, attempts left today, and the day stamp. */
   gauntlet: { best: number; attempts: number; date: string };
+  /** Versioned canonical campus placement (game/campusLayout.ts). Absent = the formation template. */
+  campusLayout?: CampusLayout;
 }
 
 // Pieces you own but currently have OFF the board (Design-mode inventory).
@@ -250,6 +256,8 @@ export interface DefenseLogEntry {
   avenged?: boolean; // true once the player has taken revenge on this raid
   replay?: unknown;  // recorded attack script (live rivals) — watch the actual drive
   attackerPid?: string; // live rivals: their identity — revenge hits their REAL base
+  authorityMatchId?: string; // server-settled match: film is fetched from the authority, never stored in the save
+  defenseLayoutId?: string;  // canonical campus layout id that was attacked (game/defenseSnapshot.ts)
 }
 
 export interface FloatingText {

@@ -1,4 +1,5 @@
 import { BuildingType, GameState, UnitGroup, PlayerRole, PlayerState, DrillState } from '../types';
+import { parseCampusLayout } from './campusLayout';
 
 export class SaveLoadError extends Error {
   readonly cause: unknown;
@@ -37,5 +38,11 @@ export function parseSavedClub(raw: string): GameState {
   if (s.defenseInbox != null) require(object(s.defenseInbox) && typeof s.defenseInbox.ownerId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.defenseInbox.ownerId) && typeof s.defenseInbox.createdAt === 'string' && Number.isFinite(Date.parse(s.defenseInbox.createdAt)) && Number.isSafeInteger(s.defenseInbox.id) && s.defenseInbox.id >= 0, 'live defense cursor');
   if (s.inventory != null) require(object(s.inventory) && Array.isArray(s.inventory.defenses), 'inventory');
   if (s.heroGates != null) require(object(s.heroGates) && Object.values(s.heroGates).every(text), 'hero assignments');
+  // A saved campus layout must validate against the saved facilities and match the saved formation; it is stored canonicalized.
+  if (s.campusLayout !== undefined) {
+    const layout = parseCampusLayout(s.campusLayout, s.buildings);
+    require(!!layout && layout.formation === s.formation, 'campus formation');
+    s.campusLayout = layout;
+  }
   return s as unknown as GameState;
 }

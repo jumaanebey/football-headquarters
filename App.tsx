@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { heroPracticeConfig, isNonProgressionBattle, canRefundRaidEnergy } from './game/combat/practice';
 
 // Drops the CC building bar on ANY press outside it — HUD, nav, empty turf, other
@@ -38,7 +38,7 @@ import { rankFor, trophiesForRaid, trophiesLostOnDefense, clubPower } from './ra
 import { rollHero, RollResult, ROLL_COST_GEMS, STAR_UP_COSTS, MAX_STARS } from './gacha';
 import { CAMPAIGN_STAGES, campaignBase, coachForStage, coachForBase, preloadCoachArt, preloadNextCoaches, crestForTeam } from './campaign';
 import { questsForDate, todayKey, SWEEP_BONUS_GEMS } from './dailies';
-import { subscribeCloudWriteStatus, acceptCloudRevision, type CloudSave, getCloudWriteStatus, retryAttackReports, pendingAttackReports, fetchAttackInbox, fetchAttackInboxBaseline, playerId, pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, ProfileInfo } from './pvp';
+import { subscribeCloudWriteStatus, acceptCloudRevision, type CloudSave, getCloudWriteStatus, retryAttackReports, pendingAttackReports, fetchAttackInbox, fetchAttackInboxBaseline, playerId, pvpEnabled, publishBase, findOpponents, reportAttack, fetchAttacksOnMe, fetchBase, LiveBase, getProfile, linkAccount, signInWithPassword, signOutToGuest, fetchCloudSave, pushCloudSave, deleteCloudData, unpublishBase, ProfileInfo } from './pvp';
 import { track, trafficSource } from './analytics';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 
@@ -53,6 +53,9 @@ import { BACKUP_KEYS, createBackup } from './backup';
 import { createInitialState, genTeamName } from './game/initialState';
 import { loadState, SAVE_KEY, TUTORIAL_KEY, parseSavedClub } from './game/persistence';
 import { layoutFromFixedBase } from './game/defenseLayout';
+import { createDefenseSnapshot, defenseBattleFields } from './game/defenseSnapshot';
+import { useAuthority, type AuthorityActionReceipt } from './game/online/useAuthority';
+import type { MatchChoice } from './game/authority/matches';
 import { finishUpgradeNow } from './game/upgrades';
 import { rosterPreparation } from './game/combat/roster';
 import { validateReplay } from './game/combat/replay';
@@ -71,6 +74,15 @@ import { Volume2, VolumeX, X, Shield, Settings as SettingsIcon } from 'lucide-re
 
 function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
+  // ☁️ PROTECTED CLUBS: when the signed-in account has a server club, every club change and
+  // every match is confirmed by the club-authority service and the local state is a mirror
+  // of the last confirmed answer. Legacy cloud sync/publishing is bypassed for such clubs.
+  const applyAuthorityState = useCallback((state: GameState) => setGameState(state), []);
+  const authority = useAuthority({ applyState: applyAuthorityState });
+  const authorityRef = useRef(authority);
+  authorityRef.current = authority;
+  // The open server match for the battle on screen: begin is sent at kickoff, finish after the whistle.
+  const authorityMatchRef = useRef<{ matchId: string; begun: boolean } | null>(null);
   const [isSquadOpen, setIsSquadOpen] = useState(false);
   const [isScoutingOpen, setIsScoutingOpen] = useState(false);
   const [isStandingsOpen, setIsStandingsOpen] = useState(false);
@@ -164,8 +176,9 @@ function App() {
     track('club_created', { startRaid, nameLen: teamName.length });
     track('tutorial_choice', { stormFirst: startRaid });
     setShowTutorial(false);
-    setGameState(prev => ({ ...prev, teamName }));
-    if (pvpEnabled()) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0)), 400);
+    if (authorityRef.current.active) { void authorityRef.current.dispatch({ type: 'club.rename', name: teamName.trim().slice(0, 24) }); }
+    else setGameState(prev => ({ ...prev, teamName }));
+    if (pvpEnabled() && !authorityRef.current.active) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0)), 400);
     // "Storm your first rival!" must actually storm a rival. It used to open the GAME DAY
     // panel — four tabs, a currency lesson, and a wall of jargon — so a first-timer who
     // asked to play got a manual instead. 19 of the first 20 coaches never reached a
@@ -244,7 +257,7 @@ function App() {
     return out;
   };
   const pushSaveToCloud = async (): Promise<boolean> => {
-    if(cloudSyncPausedRef.current)return false;
+    if(cloudSyncPausedRef.current || authorityRef.current.active)return false;
     const ok = await pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current));
     if (ok) lastCloudPushRef.current = Date.now();
     return ok;
@@ -264,7 +277,7 @@ function App() {
    *  device sign-in). localRecency = when this device last recorded progress
    *  (boot passes the pre-session stamp; an actively-played session is "now"). */
   const syncWithCloud = async (force = false, localRecency?: number): Promise<'applied' | 'pushed' | 'error' | 'none' | 'conflict'> => {
-    if(cloudSyncPausedRef.current)return 'none';
+    if(cloudSyncPausedRef.current || authorityRef.current.active)return 'none'; // protected clubs are settled by the authority, not the cloud table
     const ownerId=playerId();
     const res = await fetchCloudSave();
     if(playerId()!==ownerId || cloudSyncPausedRef.current) return 'error';
@@ -323,8 +336,12 @@ function App() {
       if(await pushSaveToCloud()) {setCloudConflict(undefined);setCloudMsg('This device’s club is saved to the cloud.');}
     }
   };
+  const bootSyncStartedRef = useRef(false);
   useEffect(() => {
-    if (!pvpEnabled()) return;
+    // Protection detection settles first: a protected club must never be overwritten by
+    // a stale cloud save on a fresh device, and it never pushes to the legacy cloud table.
+    if (!pvpEnabled() || !authority.ready || bootSyncStartedRef.current) return;
+    bootSyncStartedRef.current = true;
     const justApplied = sessionStorage.getItem('fhq_cloud_applied');
     if (justApplied) sessionStorage.removeItem('fhq_cloud_applied');
     getProfile().then(async p => {
@@ -332,11 +349,11 @@ function App() {
       // Linked accounts sync on boot (skip the pull right after applying a
       // cloud save — that reload IS the sync); guests stay local-only.
       // Recency = the stamp from BEFORE this session started (see bootSavedAt).
-      if ((p?.email || p?.pendingEmail) && !justApplied) await syncWithCloud(false, bootSavedAt);
+      if (!authorityRef.current.active && (p?.email || p?.pendingEmail) && !justApplied) await syncWithCloud(false, bootSavedAt);
       bootSyncDoneRef.current = true; // only now may the autosave trickle-push to the cloud
     }).catch(() => { bootSyncDoneRef.current = true; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authority.ready]);
 
 
   // Keep a live ref of state so the autosave interval always writes the latest.
@@ -355,7 +372,7 @@ function App() {
       }
       // ☁️ linked clubs (active OR pending-confirm — same uid either way) trickle
       // up to the cloud once a minute, quietly
-      if (!cloudSyncPausedRef.current && bootSyncDoneRef.current && (profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
+      if (!cloudSyncPausedRef.current && !authorityRef.current.active && bootSyncDoneRef.current && (profileRef.current?.email || profileRef.current?.pendingEmail) && Date.now() - lastCloudPushRef.current > 60000) {
         lastCloudPushRef.current = Date.now(); // set BEFORE the await — no double-fire
         pushCloudSave(slimForCloud(stateRef.current), stateRef.current.teamName || 'Club', clubPower(stateRef.current)).catch(() => { /* offline — next tick */ });
       }
@@ -397,8 +414,24 @@ function App() {
     }, 1000);
   };
 
+  // Protected clubs: route a club change through the authority. Returns true when the
+  // change was taken over (the caller must not mutate local state). Effects run only on
+  // the server's confirmation; a pending answer is retried by the ledger and surfaced in Settings.
+  const protectedAction = (action: Record<string, unknown>, onConfirmed?: (receipt: AuthorityActionReceipt | null) => void): boolean => {
+    if (authority.locked) { sfx.error(); spawnText('Sign in as this club\'s owner to make changes', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return true; }
+    if (!authority.active) return false;
+    void authority.dispatch(action).then(outcome => {
+      if (outcome.status === 'confirmed') { authority.setNotice(null); onConfirmed?.((outcome.answer.result as AuthorityActionReceipt | null) ?? null); }
+      else if (outcome.status === 'failed') { sfx.error(); spawnText(outcome.message, window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); authority.setNotice(outcome.message); }
+      else { authority.setNotice(outcome.message); spawnText('Waiting for online confirmation…', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); }
+    });
+    return true;
+  };
+  const centerText = (text: string, color = '#fbbf24', dy = 0) => spawnText(text, window.innerWidth / 2, window.innerHeight / 2 + dy, color);
+
   // --- HANDLERS ---
   const handleTrainGroup = (unit: UnitGroup, drillId: string) => {
+    if (protectedAction({ type: 'training.start', drillId, unit }, () => { sfx.click(); setIsSquadOpen(false); })) return;
     const drill = DRILLS[drillId];
     if (gameState.resources.ENERGY < drill.costEnergy) {
       spawnText("Low Energy!", window.innerWidth/2, window.innerHeight/2, '#ef4444');
@@ -441,6 +474,7 @@ function App() {
 
   const handleCollect = (building: BuildingInstance, screenPos: {x: number, y: number}) => {
      if (!building.activeDrillId) return;
+     if (protectedAction({ type: 'training.collect', buildingId: building.id }, receipt => { const coins = Number((receipt?.gained as Record<string, number> | undefined)?.COINS ?? 0); spawnText(`+${coins} Coins`, screenPos.x, screenPos.y, '#fbbf24'); spawnCoinArc(screenPos, coins); spawnText('Squad +1 LVL', screenPos.x, screenPos.y - 30, '#3b82f6'); sfx.collect(); })) return;
      const drill = DRILLS[building.activeDrillId];
 
      // Training Field level boosts the coin payout of every drill (its real, wired effect).
@@ -495,6 +529,7 @@ function App() {
   const handleUpgradeBuilding = (buildingId: string, cost: number) => {
     const building = gameState.buildings.find(b => b.id === buildingId);
     if (!building) return;
+    if (protectedAction({ type: 'facility.upgrade', buildingId }, receipt => { setSelectedBuilding(null); sfx.click(); centerText('Under construction…', '#60a5fa'); track('building_upgrade', { type: building.type, toLevel: Number(receipt?.toLevel ?? building.level + 1), protected: true }); })) return;
     if (gameState.upgrades.length >= gameState.builders) { spawnText('All builders busy!', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); sfx.error(); return; }
     if (gameState.upgrades.some(u => u.kind === 'building' && u.key === buildingId)) return;
     if (gameState.resources.COINS < cost) { sfx.error(); return; }
@@ -516,6 +551,7 @@ function App() {
   };
 
   const handleFinishNow = (jobId: string) => {
+    if (protectedAction({ type: 'facility.rush', jobId }, receipt => { setSelectedBuilding(null); sfx.upgrade(); const gems = Number((receipt?.spent as Record<string, number> | undefined)?.GEMS ?? 0); centerText(gems > 0 ? 'Rushed!' : 'Upgrade complete!', '#a78bfa'); })) return;
     const now = Date.now();
     const before = stateRef.current;
     const job = before.upgrades.find(upgrade => upgrade.id === jobId);
@@ -530,6 +566,7 @@ function App() {
   };
 
   const handleHireBuilder = () => {
+    if (protectedAction({ type: 'builder.hire' }, () => { sfx.upgrade(); centerText('Builder hired!', '#4ade80'); })) return;
     setGameState(prev => {
       if (prev.builders >= MAX_BUILDERS) return prev;
       const cost = builderHireCost(prev.builders);
@@ -547,6 +584,7 @@ function App() {
     if (!cfg) return;
     const amount = Math.floor(building.accrued || 0);
     if (amount <= 0) return;
+    if (protectedAction({ type: 'facility.collect', buildingId: building.id }, receipt => { const gained = (receipt?.gained as Record<string, number> | undefined) ?? {}; const got = Number(gained.COINS ?? gained.FANS ?? amount); const label = gained.FANS !== undefined ? 'Fans' : 'Coins'; spawnText(`+${got} ${label}`, screenPos.x, screenPos.y, '#fbbf24'); if (label === 'Coins') spawnCoinArc(screenPos, got); sfx.collect(); })) return;
     setGameState(prev => ({
       ...prev,
       peakFans: nextFanMilestone(prev, cfg.resource === ResourceType.FANS ? amount : 0),
@@ -563,6 +601,7 @@ function App() {
   const handleRally = () => {
     const preview = rallyPreview(stateRef.current);
     if (!preview.canRally) return;
+    if (protectedAction({ type: 'rally' }, () => { centerText(`+${preview.energyGain} Energy · −${preview.fanCost} Fans`, '#f43f5e'); sfx.collect(); })) return;
     setGameState(rallyFans);
     spawnText(`+${preview.energyGain} Energy · −${preview.fanCost} Fans`, window.innerWidth/2, window.innerHeight/2, '#f43f5e');
     sfx.collect();
@@ -572,6 +611,7 @@ function App() {
   const handleStartRecruit = (candidate: Player, cost: number) => {
     const academy = gameState.buildings.find(b => b.type === BuildingType.YOUTH_ACADEMY);
     if (!academy || gameState.recruitSlot) return;
+    if (protectedAction({ type: 'recruit.start', candidateId: candidate.id }, () => { centerText('Scouting…', '#3b82f6'); sfx.scout(); })) return;
     if (gameState.roster.length >= rosterCap(academy.level)) {
       spawnText('Roster Full!', window.innerWidth/2, window.innerHeight/2, '#ef4444');
       sfx.error();
@@ -596,6 +636,7 @@ function App() {
   };
 
   const handleRushRecruit = () => {
+    if (protectedAction({ type: 'recruit.rush' })) return;
     setGameState(prev => {
       if (!prev.recruitSlot || prev.resources.GEMS < RECRUIT_CONFIG.rushGemCost) return prev;
       return {
@@ -607,6 +648,7 @@ function App() {
   };
 
   const handleSignRecruit = () => {
+    if (protectedAction({ type: 'recruit.sign' }, receipt => { const signed = stateRef.current.roster.find(p => p.id === receipt?.playerId); centerText(`Signed ${signed?.name ?? 'Player'}!`, '#10b981'); sfx.sign(); })) return;
     let signedName = '';
     setGameState(prev => {
       if (!prev.recruitSlot || Date.now() < prev.recruitSlot.finishTime) return prev;
@@ -645,6 +687,8 @@ function App() {
   // Open the Defense Log and mark all entries as seen (clears the nav badge).
   const openDefenseLog = () => {
     setDefenseLogOpen(true);
+    const unseen = gameState.defenseLog.filter(e => !e.seen).map(e => e.id);
+    if (unseen.length && protectedAction({ type: 'defense.seen', ids: unseen.slice(0, 100) })) return;
     if (gameState.defenseLog.some(e => !e.seen)) {
       setGameState(prev => ({ ...prev, defenseLog: prev.defenseLog.map(e => ({ ...e, seen: true })) }));
     }
@@ -655,9 +699,15 @@ function App() {
   // When Live Rivals is connected, also fetch REAL player bases near your trophy count.
   const openRaid = () => {
     preloadCoachArt(); // full portrait set, warmed only now that Game Day is actually open
-    setRaidTargets(generateRaidTargets(gameState.trophies));
-    setLiveTargets([]);
-    if (pvpEnabled()) findOpponents(gameState.trophies).then(setLiveTargets);
+    if (authority.active) {
+      setRaidTargets(authority.roadTargets);
+      setLiveTargets(authority.rivals.map(r => ({ pid: r.owner, name: r.name, trophies: r.trophies, layout: [] })));
+      void authority.refresh();
+    } else {
+      setRaidTargets(generateRaidTargets(gameState.trophies));
+      setLiveTargets([]);
+      if (pvpEnabled()) findOpponents(gameState.trophies).then(setLiveTargets);
+    }
     setAttackSelectOpen(true);
     track('raid_open', { trophies: gameState.trophies });
   };
@@ -673,6 +723,11 @@ function App() {
     // launched a SECOND raid and charged 12⚡ twice for one battle. Cleared in a finally
     // instead, so the guard lasts exactly as long as the work does.
     try {
+    if (authority.active) {
+      if (!entry.attackerPid) { sfx.error(); centerText('Only real rivals can be avenged online', '#94a3b8'); return; }
+      if (launchAttack({ mode: 'attack', title: `Revenge — ${entry.attacker}`, buildings: [], loot: { coins: 0, fans: 0 }, pvpTarget: entry.attackerPid }, { kind: 'rival', target: entry.attackerPid })) { track('revenge', { live: true, protected: true }); setDefenseLogOpen(false); }
+      return;
+    }
     // LIVE rival? Revenge storms their REAL published base — not a lookalike.
     let buildings = null as import('./battle').BattleBuildingDef[] | null;
     let pvpTarget: string | undefined;
@@ -719,7 +774,21 @@ function App() {
   // --- BATTLES (real-time raid + base defense) ---
   // Every attack costs Energy — game day isn't free, so loot means something.
   // (Defense scrimmages stay free; you're not choosing to be raided.)
-  const launchAttack = (config: BattleConfig): boolean => {
+  const launchAttack = (config: BattleConfig, choice?: MatchChoice): boolean => {
+    if (authority.locked) { sfx.error(); centerText('Sign in as this club\'s owner to play online', '#ef4444'); return false; }
+    if (authority.active) {
+      // The server issues the match: seed, rules, the rival's defense snapshot and the Energy
+      // reservation all come back in one answer. Local Energy is not touched here.
+      if (!choice) { sfx.error(); centerText('This game is not available for a protected club', '#94a3b8'); return false; }
+      if (authorityMatchRef.current) { sfx.error(); centerText('Finish your current game first', '#ef4444'); return false; }
+      centerText('Reserving your game…', '#94a3b8');
+      void authority.reserve(choice).then(reserved => {
+        if ('error' in reserved) { sfx.error(); centerText(reserved.error, '#ef4444'); authority.setNotice(reserved.error); return; }
+        authorityMatchRef.current = { matchId: reserved.matchId, begun: false };
+        setBattleConfig({ ...reserved.config, attackerName: reserved.config.attackerName ?? stateRef.current.teamName });
+      });
+      return true;
+    }
     if (gameState.resources.ENERGY < RAID_ENERGY) {
       spawnText(`Squad's gassed — need ⚡${RAID_ENERGY}`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
       sfx.error();
@@ -736,28 +805,14 @@ function App() {
 
   const startDefense = () => {
     const stadiumLvl = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
-    // ⭐ HERO GATES: each gate post is held by its ASSIGNED hero (Front Office), or
-    // auto-fills with your strongest available. (75% strength: surprised, not suited up.)
-    const posts = gatePostsFor(gameState.formation);
-    const pool = heroesForBattle(gameState.heroes).sort((a, b) => b.hp * b.dps - a.hp * a.dps);
-    const taken = new Set<string>();
-    const heroGuards = posts.map(post => {
-      const assigned = pool.find(h => h.key === gameState.heroGates[post.id] && !taken.has(h.key));
-      const h = assigned ?? pool.find(hh => !taken.has(hh.key));
-      if (!h) return null;
-      taken.add(h.key);
-      return { jersey: 0, hp: Math.round(h.hp * 0.75), dps: Math.round(h.dps * 0.75 * 10) / 10, name: h.name, art: h.art, unit: h.unit, x: post.gridX * 10 + 5, y: post.gridY * 10 + 5 };
-    }).filter(Boolean) as import('./battle').HomeGuardDef[];
+    // ONE DEFENSE SNAPSHOT: the same versioned snapshot (layout, emplacement levels, roster
+    // boost, mastery, crowd, assigned gate heroes) that rivals attack and the server verifies.
     setBattleConfig({
       mode: 'defense',
       title: 'Defend Your Stadium',
-      buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0),
+      ...defenseBattleFields(createDefenseSnapshot(gameState)),
       preTroops: defenseAiTroops(),
       aiMult: raidAiMult(65, stadiumLvl), // mid-tier live raider; same tuned curve as offline
-      homeGuards: [...homeDefenders(gameState.roster, gameState.parkingLot), ...heroGuards], // defenders + heroes, on the field
-      fans: gameState.resources.FANS,              // the crowd stalls enemy drives
-      parkingLot: gameState.parkingLot,            // visible apron (layout pre-compressed)
-      masteryTier: masteryLevel(gameState.formationMastery[gameState.formation] ?? 0), // ★ tiers = extra defense-play charges
       loot: { coins: 0, fans: 0 }, // a SCRIMMAGE — Test Defense must never cost real coins (it was deducting up to 15%+120 even on a hold)
     });
   };
@@ -765,6 +820,7 @@ function App() {
   // 🛡 THE GAUNTLET — preseason challengers storm your house in 5 escalating waves.
   // The mode where the defense you built earns its keep, every day.
   const handleStartGauntlet = () => {
+    if (authority.active || authority.locked) { launchAttack({ mode: 'defense', title: 'The Gauntlet', buildings: [], loot: { coins: 0, fans: 0 } }, { kind: 'gauntlet' }); return; }
     if (gameState.gauntlet.attempts <= 0 && gameState.gauntlet.date === todayKey()) { sfx.error(); spawnText('No Gauntlet attempts left today', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); return; }
     const tier = Math.min(GAUNTLET_MAX_TIER, gameState.gauntlet.best + 1);
     track('gauntlet_start', { tier });
@@ -775,24 +831,10 @@ function App() {
       const attempts = Math.max(0, (fresh ? 3 : prev.gauntlet.attempts) - 1);
       return { ...prev, gauntlet: { ...prev.gauntlet, attempts, date: todayKey() } };
     });
-    const posts = gatePostsFor(gameState.formation);
-    const pool = heroesForBattle(gameState.heroes).sort((a, b) => b.hp + b.dps * 10 - (a.hp + a.dps * 10));
-    const taken = new Set<string>();
-    const heroGuards = posts.map(post => {
-      const assigned = pool.find(h => h.key === gameState.heroGates[post.id] && !taken.has(h.key));
-      const h = assigned ?? pool.find(hh => !taken.has(hh.key));
-      if (!h) return null;
-      taken.add(h.key);
-      return { jersey: 0, hp: Math.round(h.hp * 0.75), dps: Math.round(h.dps * 0.75 * 10) / 10, name: h.name, art: h.art, unit: h.unit, x: post.gridX * 10 + 5, y: post.gridY * 10 + 5 };
-    }).filter(Boolean) as import('./battle').HomeGuardDef[];
     setBattleConfig({
       mode: 'defense',
       title: `The Gauntlet — Night ${tier}`,
-      buildings: layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0),
-      homeGuards: [...homeDefenders(gameState.roster, gameState.parkingLot), ...heroGuards],
-      fans: gameState.resources.FANS,
-      parkingLot: gameState.parkingLot,
-      masteryTier: masteryLevel(gameState.formationMastery[gameState.formation] ?? 0),
+      ...defenseBattleFields(createDefenseSnapshot(gameState)),
       gauntlet: { tier, waves: gauntletWaves(tier) },
       loot: { coins: 0, fans: 0 }, // the night pays per wave held, on the whistle
     });
@@ -800,6 +842,16 @@ function App() {
 
   // ▶ Watch the ACTUAL attack a live rival ran on your base — every deploy is theirs.
   const handleWatchReplay = (entry: DefenseLogEntry) => {
+    if (entry.authorityMatchId && !entry.replay) {
+      if (!authority.active) { centerText('Sign in as this club\'s owner to watch this film', '#94a3b8'); return; }
+      centerText('Fetching the film…', '#94a3b8');
+      void authority.film(entry.authorityMatchId).then(film => {
+        if (!film || film.v !== 2 || !film.snapshot) { centerText('This film is unavailable or uses unsupported rules', '#94a3b8'); return; }
+        setDefenseLogOpen(false);
+        setBattleConfig({ ...film.snapshot, replay: { seed: film.seed, script: film.script, planKey: film.plan, version: 2, expectedHash: film.finalHash, expectedTicks: film.ticks, displayTitle: `${entry.attacker.replace(' ⚡', '')} at your stadium` } });
+      });
+      return;
+    }
     const rep = validateReplay(entry.replay);
     if (!rep) {spawnText('This replay is unavailable or uses unsupported rules', window.innerWidth/2,window.innerHeight/2,'#94a3b8');return;}
     if(rep.v === 2 && rep.snapshot) {
@@ -823,6 +875,33 @@ function App() {
   };
 
   const handleBattleFinish = (r: BattleResult) => {
+    if (battleConfig?.authority && authorityMatchRef.current) {
+      // Protected club: nothing is credited here. The film goes to the authority, which
+      // re-simulates it and answers with the settled club. Rewards appear only when confirmed.
+      const open = authorityMatchRef.current;
+      authorityMatchRef.current = null;
+      setBattleConfig(null);
+      if (r.isReplay || r.isPractice) return;
+      const film = r.replay;
+      if (!film || film.v !== 2 || !film.finalHash || film.ticks === undefined) { authority.setNotice('This game produced no verifiable film, so it cannot be scored.'); sfx.error(); return; }
+      authority.setNotice('Confirming your result with the club authority…');
+      centerText('Confirming your result…', '#94a3b8');
+      track('battle_result', { mode: r.mode, won: r.won, stars: r.stars, pct: r.pct, campaign: !!r.campaignStage, gauntlet: r.gauntletTier !== undefined, live: !!r.pvpTarget, protected: true });
+      void authority.finish(open.matchId, { plan: film.plan, script: film.script, ticks: film.ticks, finalHash: film.finalHash }).then(outcome => {
+        if (outcome.status === 'confirmed') {
+          const battle = (outcome.answer.result as { battleResult?: BattleResult } | null)?.battleResult;
+          authority.setNotice(null);
+          if (battle) {
+            if (battle.mode === 'attack') { centerText(battle.coins > 0 ? `Confirmed: +${battle.coins} coins, +${battle.fans} fans` : 'Confirmed: no loot this drive', battle.coins > 0 ? '#fbbf24' : '#94a3b8'); if (battle.won) bumpLocalRankCelebration(); }
+            else centerText(battle.gauntletCleared ? `🛡 NIGHT ${battle.gauntletTier} CLEARED — confirmed` : `Gauntlet confirmed: ${battle.wavesHeld ?? 0} waves held`, '#a855f7');
+            (battle.won ? sfx.victory : sfx.defeat)();
+          }
+          track('battle_confirmed', { mode: battle?.mode, won: !!battle?.won });
+        } else if (outcome.status === 'failed') { sfx.error(); authority.setNotice(`Result not confirmed: ${outcome.message}`); centerText('Result not confirmed', '#ef4444'); }
+        else authority.setNotice(`${outcome.message} Your result will be confirmed when the connection returns.`);
+      });
+      return;
+    }
     if (isNonProgressionBattle(r, battleConfig)) {
       setBattleConfig(null);
       if (r.isPractice || battleConfig?.practice) setIsHeroOpen(true);
@@ -926,8 +1005,10 @@ function App() {
   // getting better is a grind, not a construction job. Doesn't occupy a builder; one
   // training session per hero at a time. (The job loop + gem-rush already understood
   // kind:'hero' jobs — this finally creates them.)
+  const bumpLocalRankCelebration = () => { const after = rankFor(stateRef.current.trophies); if (after.index > rankFor(gameState.trophies).index) { centerText(`RANK UP! ${after.rank.emoji} ${after.rank.name.toUpperCase()}`, after.rank.color, -60); } };
   const heroTrainSecs = (toLevel: number) => Math.round(upgradeDurationSecs(toLevel) * 3);
   const handleUpgradeHero = (key: string, cost: number) => {
+    if (protectedAction({ type: 'hero.train', heroKey: key }, receipt => { sfx.upgrade(); centerText('Training session started 🏋️', '#facc15'); track('hero_upgrade', { key, toLevel: Number(receipt?.toLevel ?? 0), protected: true }); })) return;
     const h0 = gameState.heroes.find(h => h.key === key);
     const stadLvl0 = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
     const busy = gameState.upgrades.some(u => u.kind === 'hero' && u.key === key);
@@ -958,6 +1039,7 @@ function App() {
   // --- DAILY PRACTICE (quests) ---
   // Advance a quest's progress if it's on today's slate and unclaimed.
   const bumpDaily = (id: string, n = 1) => {
+    if (authorityRef.current.active) return; // the authority advances daily objectives inside each confirmed action
     setGameState(prev => {
       const active = questsForDate(prev.dailies.date).find(q => q.id === id);
       if (!active || prev.dailies.claimed.includes(id)) return prev;
@@ -968,6 +1050,7 @@ function App() {
   };
 
   const handleClaimDaily = (id: string) => {
+    if (protectedAction({ type: 'daily.claim', questId: id }, () => { sfx.collect(); centerText('Daily reward claimed!', '#f43f5e'); track('daily_claim', { id, protected: true }); })) return;
     setGameState(prev => {
       const slate = questsForDate(prev.dailies.date);
       const q = slate.find(x => x.id === id);
@@ -994,8 +1077,10 @@ function App() {
 
   // --- LIVE RIVALS (async PvP) ---
   // Defense consequences and their owner-bound cursor persist as one state update.
+  const inboxStartedRef = useRef(false);
   useEffect(() => {
-    if (!pvpEnabled()) return;
+    if (!pvpEnabled() || !authority.ready || authority.active || authority.locked || inboxStartedRef.current) return;
+    inboxStartedRef.current = true;
     let cancelled=false;
     void (async()=>{
       await getProfile();
@@ -1016,7 +1101,7 @@ function App() {
       }
     })();
     return ()=>{cancelled=true;};
-  },[]);
+  },[authority.ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Publish my base snapshot so rivals can raid it (on load; also after each battle below).
   // Reads stateRef, NOT the render closure. Every caller schedules this with
@@ -1026,12 +1111,12 @@ function App() {
   // turret the player had just bought, against the formation they'd just switched off,
   // with trophies one raid stale (which also skewed matchmaking).
   const publishMyBase = () => {
-    if (!pvpEnabled() || cloudSyncPausedRef.current) return;
+    if (!pvpEnabled() || cloudSyncPausedRef.current || authorityRef.current.active || authorityRef.current.locked) return;
     const s = stateRef.current;
     publishBase(s.teamName, s.trophies, layoutFromFixedBase(s.buildings, s.roster, s.defenseSlots, s.parkingLot, s.formation, s.formationMastery[s.formation] ?? 0));
     track('base_publish', { trophies: s.trophies });
   };
-  useEffect(() => { publishMyBase(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (authority.ready && !authority.active) publishMyBase(); }, [authority.ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One session_start per load — the denominator for every retention/funnel metric.
   useEffect(() => {
@@ -1041,6 +1126,7 @@ function App() {
   // SCOUT SEARCH (hero gacha): spend gems, get a new hero or shards toward a star-up.
   const handleRollHero = () => {
     if (gameState.resources.GEMS < ROLL_COST_GEMS) { sfx.error(); return; }
+    if (protectedAction({ type: 'hero.scout' }, receipt => { const roll = receipt?.roll as RollResult | undefined; if (roll) { setLastRoll(roll); if (roll.isNew) sfx.victory(); else sfx.sign(); track('scout_search', { isNew: roll.isNew, key: roll.key, shards: roll.shards ?? 0, protected: true }); } })) return;
     const res = rollHero(gameState.heroes);
     setGameState(prev => {
       if (prev.resources.GEMS < ROLL_COST_GEMS) return prev; // double-tap must never drive gems negative
@@ -1060,6 +1146,7 @@ function App() {
 
   // Star-up: spend a hero's banked shards for a big evolution power spike.
   const handleStarUpHero = (key: string) => {
+    if (protectedAction({ type: 'hero.star', heroKey: key }, () => { sfx.upgrade(); centerText('⭐ STAR UP!', '#fde047'); })) return;
     setGameState(prev => {
       const hero = prev.heroes.find(h => h.key === key);
       if (!hero || !hero.unlocked || hero.stars >= MAX_STARS) return prev;
@@ -1091,7 +1178,7 @@ function App() {
       loot: st.reward,
       campaignStage: stage,
       rival: coachForStage(stage),
-    });
+    }, { kind: 'campaign', stage });
     if (launched) { setAttackSelectOpen(false); track('campaign_start', { stage }); }
     return launched;
   };
@@ -1100,6 +1187,7 @@ function App() {
   const handleUnlockHero = (key: string) => {
     const def = HERO_DEFS.find(d => d.key === key);
     if (!def || !def.unlock) return;
+    if (protectedAction({ type: 'hero.unlock', heroKey: key }, () => { sfx.sign(); centerText(`${def.name} unlocked!`, '#a855f7'); })) return;
     const { coins = 0, gems = 0 } = def.unlock;
     setGameState(prev => {
       const hero = prev.heroes.find(h => h.key === key);
@@ -1117,6 +1205,7 @@ function App() {
 
   // Crown emplacements (C1-C3) unlock in order via bonusDefSlots — a real gem sink.
   const handleBuySlot = () => {
+    if (protectedAction({ type: 'defense.buy-slot' }, () => { sfx.upgrade(); centerText('+1 equipment slot!', '#a855f7'); })) return;
     setGameState(prev => {
       if (prev.bonusDefSlots >= EXTRA_SLOT_COSTS.length) return prev;
       const cost = EXTRA_SLOT_COSTS[prev.bonusDefSlots];
@@ -1130,6 +1219,7 @@ function App() {
   // ✂️ CUT a player — frees a roster spot so you can scout better talent.
   // Floor of 6: you can't cut your way below a fieldable squad.
   const handleCutPlayer = (id: string) => {
+    if (protectedAction({ type: 'recruit.cut', playerId: id }, () => { sfx.click(); centerText('Released to free agency ✂️', '#94a3b8'); })) return;
     setGameState(prev => {
       if (prev.roster.length <= 6) { sfx.error(); return prev; }
       const p = prev.roster.find(pl => pl.id === id);
@@ -1166,6 +1256,7 @@ function App() {
   const handleSetFormation = (key: FormationKey) => {
     if (!formationUnlocked(key, stadiumLevel)) { sfx.error(); return; }
     if (key === gameState.formation) return;
+    if (protectedAction({ type: 'formation.set', formation: key }, () => { sfx.whoosh(); centerText(`${formationDef(key).name} — new scheme called! 📋`, '#38bdf8'); })) return;
     setGameState(prev => ({
       ...prev,
       formation: key,
@@ -1178,6 +1269,7 @@ function App() {
 
   // ⭐ Assign a hero to a gate post (one gate per hero — reassigning moves them).
   const handleAssignHeroGate = (postId: string, heroKey: string) => {
+    if (protectedAction({ type: 'gate.assign', postId, heroKey }, () => sfx.click())) return;
     setGameState(prev => {
       const next: Record<string, string> = { ...prev.heroGates };
       for (const k of Object.keys(next)) if (next[k] === heroKey) delete next[k]; // one post per hero
@@ -1201,6 +1293,7 @@ function App() {
     if (toLevel > stadiumLevel) { sfx.error(); spawnText(`Upgrade your Stadium to L${toLevel} first`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
     const cost = slotUpgradeCost(slot.kind, toLevel);
     if (gameState.resources.COINS < cost) { sfx.error(); spawnText('Need coins', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return; }
+    if (protectedAction({ type: 'defense.upgrade-slot', slotId }, () => { sfx.upgrade(); centerText(cur === 0 ? `${t.name} installed!` : `${t.name} → L${toLevel}!`, '#4ade80'); })) return;
     setGameState(prev => ({
       ...prev,
       resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost },
@@ -1213,6 +1306,7 @@ function App() {
 
   // 🅿️ Pave the next Parking Lot level — territory that stretches the raiders' approach.
   const handlePaveParkingLot = () => {
+    if (protectedAction({ type: 'parking.upgrade' }, () => { sfx.upgrade(); centerText('🅿️ Parking Lot paved — longer approach for raiders!', '#4ade80'); })) return;
     setGameState(prev => {
       if (prev.parkingLot >= PARKING_LOT.maxLevel) return prev;
       const cost = PARKING_LOT.costs[prev.parkingLot];
@@ -1224,6 +1318,7 @@ function App() {
   };
 
   const handleResetGame = () => {
+      if (authority.active || authority.locked) { setConfirmingReset(false); centerText('A protected club lives on the server and cannot be reset here', '#94a3b8'); return; }
       // Last-chance local backup — for a linked club the 60s trickle would otherwise
       // push the empty franchise over the cloud copy with nothing to recover from.
       try { const cur = localStorage.getItem(SAVE_KEY); if (cur) localStorage.setItem('fhq_backup_prereset', cur); } catch { /* best effort */ }
@@ -1479,11 +1574,11 @@ function App() {
                 <>
                   <div className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-300 flex items-center gap-1.5">⚡ Live Rivals <span className="text-slate-500 normal-case tracking-normal">— real coaches' stadiums</span></div>
                   {liveTargets.map(b => (
-                    <button key={b.pid} onClick={() => { if (launchAttack({ mode: 'attack', title: `Raiding ${b.name}`, buildings: b.layout, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: { coins: 500 + b.trophies * 3, fans: 25 }, pvpTarget: b.pid })) setAttackSelectOpen(false); }}
+                    <button key={b.pid} onClick={() => { if (launchAttack({ mode: 'attack', title: `Raiding ${b.name}`, buildings: b.layout, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: { coins: 500 + b.trophies * 3, fans: 25 }, pvpTarget: b.pid }, { kind: 'rival', target: b.pid })) setAttackSelectOpen(false); }}
                       className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-fuchsia-700/70 hover:border-fuchsia-400 bg-fuchsia-950/30 hover:bg-fuchsia-900/30 transition-all active:scale-95 text-left">
                       <div>
                         <div className="font-bold text-white text-lg">⚡ {b.name}</div>
-                        <div className="text-xs text-fuchsia-200/70">🏆 {b.trophies} · {b.layout.filter(x => x.kind !== 'wall').length} buildings · live player{(() => { const f = b.layout.find(x => x.kind === 'hq')?.formation; return f && FORMATIONS[f as FormationKey] ? <span className="text-sky-300 font-bold"> · 📋 {FORMATIONS[f as FormationKey].name}</span> : null; })()}</div>
+                        <div className="text-xs text-fuchsia-200/70">🏆 {b.trophies} · {b.layout.length ? `${b.layout.filter(x => x.kind !== 'wall').length} buildings · live player` : 'protected club · defense revealed at kickoff'}{(() => { const f = b.layout.find(x => x.kind === 'hq')?.formation; return f && FORMATIONS[f as FormationKey] ? <span className="text-sky-300 font-bold"> · 📋 {FORMATIONS[f as FormationKey].name}</span> : null; })()}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-yellow-400 font-mono font-bold">+{500 + b.trophies * 3}</div>
@@ -1499,8 +1594,8 @@ function App() {
               {!pvpEnabled() && (
                 <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> — raiding real coaches' stadiums is coming soon.</div>
               )}
-              {raidTargets.map(b => (
-                <button key={b.id} onClick={() => { if (launchAttack({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) })) setAttackSelectOpen(false); }}
+              {raidTargets.map((b, choice) => (
+                <button key={b.id} onClick={() => { if (launchAttack({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) }, { kind: 'road', choice })) setAttackSelectOpen(false); }}
                   className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <img src={crestForTeam(b.name)} alt="" draggable={false}
@@ -1532,8 +1627,22 @@ function App() {
           key={battleConfig.practice ? `practice-${practiceTake}` : 'match'}
           config={battleConfig}
           onFinish={handleBattleFinish}
+          onKickoff={() => {
+            const open = authorityMatchRef.current;
+            if (!open || open.begun || !battleConfig.authority) return;
+            open.begun = true;
+            void authority.begin(open.matchId).then(r => { if (!r.ok) { authority.setNotice(`This game will not count: ${r.message}`); centerText('This game will not count', '#ef4444'); } });
+          }}
           onPracticeAgain={() => { setPracticeTake(take => take + 1); setBattleConfig(heroPracticeConfig(battleConfig.heroes?.[0]?.key ?? 'qb')); }}
           onExit={(beforeKickoff) => {
+            if (battleConfig.authority && authorityMatchRef.current) {
+              // The server releases the reservation; Energy comes back only if play never started.
+              const open = authorityMatchRef.current; authorityMatchRef.current = null;
+              void authority.cancel(open.matchId).then(ok => { if (!ok) authority.setNotice('The reserved game could not be released yet. It will be released on your next load.'); });
+              track('battle_abandon', { mode: battleConfig?.mode, campaign: !!battleConfig?.campaignStage, protected: true });
+              setBattleConfig(null);
+              return;
+            }
             // Energy is charged in launchAttack, before the battle mounts. Backing out of
             // the deploy screen used to eat it silently — no game, no loot, no refund, and
             // no analytics event, so the drop-off was invisible in the funnel too.
@@ -1589,6 +1698,8 @@ function App() {
             onRush={handleRushRecruit}
             onSign={handleSignRecruit}
             onUpgrade={handleUpgradeBuilding}
+            board={authority.active ? (gameState.recruitBoard?.candidates ?? []) : undefined}
+            onRefreshBoard={() => { protectedAction({ type: 'recruit.refresh' }); }}
           />
         );
       })()}
@@ -1932,6 +2043,35 @@ function App() {
                     </div>
                   </div>}
                   {onlineNotice && <p role="status" className="mt-3 text-sm text-amber-200">{onlineNotice}</p>}
+                  <div className="mt-4 pt-3 border-t border-slate-800">
+                    <div className="text-sm text-slate-300 mb-0.5 flex items-center justify-between">
+                      <span>🛡 Online protection</span>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${authority.active ? 'bg-emerald-700 text-white' : authority.locked ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400'}`}>{!authority.ready ? 'checking…' : authority.active ? 'protected' : authority.locked ? 'locked' : 'off'}</span>
+                    </div>
+                    {authority.active ? (
+                      <>
+                        <div className="text-[11px] text-slate-500 mb-2">Every upgrade, recruit and game is confirmed by the club server before it counts. Revision {authority.revision}{authority.pendingCount > 0 ? ` · ${authority.pendingCount} change${authority.pendingCount === 1 ? '' : 's'} awaiting confirmation` : ' · everything confirmed'}.</div>
+                        <div className="flex gap-2">
+                          <button onClick={() => { void authority.retry().then(() => authority.refresh()); }} className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors active:scale-95">{authority.pendingCount > 0 ? '↻ Retry pending' : '↻ Refresh club'}</button>
+                          {authority.match && <button onClick={() => { const id = authority.match!.id; void authority.cancel(id).then(ok => authority.setNotice(ok ? 'The open game was released.' : 'The open game could not be released yet.')); }} className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Release open game</button>}
+                        </div>
+                      </>
+                    ) : authority.locked ? (
+                      <div className="text-[11px] text-amber-200">This device holds a protected club for another account. Sign in as its owner to continue it; this copy cannot be changed.</div>
+                    ) : (
+                      <>
+                        <div className="text-[11px] text-slate-500 mb-2">Move this club to the server so rewards, upgrades and rival games are confirmed and cannot be lost or forged. Once protected, only other protected clubs appear as live rivals.</div>
+                        <button disabled={!authority.ready} onClick={async () => {
+                          authority.setNotice('Connecting your club…');
+                          try { localStorage.setItem('fhq_backup_preprotect', JSON.stringify(stateRef.current)); } catch { /* best effort */ }
+                          const r = await authority.enable(stateRef.current);
+                          authority.setNotice(r.message);
+                          if (r.ok) { pauseCloudSync(true); void unpublishBase(); track('authority_enable', { origin: 'settings' }); }
+                        }} className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold transition-colors active:scale-95">🛡 Protect this club online</button>
+                      </>
+                    )}
+                    {authority.notice && <p role="status" className="mt-2 text-[11px] text-amber-200">{authority.notice}</p>}
+                  </div>
                   {pendingAttackReports().map(report=><p key={report.operationId} className="mt-2 text-xs text-slate-400">{report.message}</p>)}
                   {cloudSyncPaused && <p className="mt-2 text-sm text-amber-200">Cloud sync is paused. Tap Sync when you want to upload this club again.</p>}
                   {cloudMsg && <div className="mt-2 text-[11px] text-slate-400">{cloudMsg}</div>}

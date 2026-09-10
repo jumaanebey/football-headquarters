@@ -510,7 +510,8 @@ export const makeRevengeBase = (defenseRating: number): BattleBuildingDef[] => {
 // instead of farming the same two bases.
 const RIVAL_NAMES = ['Riverside Rams', 'Coastal Cobras', 'Mesa Mavericks', 'Summit Stags', 'Delta Dragons', 'Harbor Hawks', 'Canyon Cougars', 'Prairie Pumas', 'Bayou Bandits', 'Ridge Raiders', 'Metro Mustangs', 'Vista Vipers'];
 
-export const generateRaidTargets = (trophies: number): EnemyBase[] => {
+/** `random` defaults to Math.random for local play; the authority passes a seeded source so a club's daily road targets are reproducible. */
+export const generateRaidTargets = (trophies: number, random: () => number = Math.random): EnemyBase[] => {
   // Wider easy/fair/hard choices are calibrated with the shared engine's actual
   // roster stats and signatures. Bot results are regression scenarios, not human
   // win-rate predictions. Trophy brackets keep increasing the challenge.
@@ -520,7 +521,7 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
     // The fortress covers more lanes with more equipment. Normalize each piece
     // to its density; keep a gentler fresh-to-trained transition for that layout.
     const strength = [0.62, 0.86, 0.75 + 0.3 * Math.exp(-bracket / 200)][i];
-    const variation = i === 2 ? 0.85 + Math.random() * 0.3 : 0.97 + Math.random() * 0.06;
+    const variation = i === 2 ? 0.85 + random() * 0.3 : 0.97 + random() * 0.06;
     const tier = base * strength * variation;
     const risk = tier * (i === 2 ? 1.6 : 1); // displayed rating/rewards include fortress coverage
     const template = ENEMY_BASES.find(candidate => candidate.id === ['valley', 'tech', 'ridge'][i])!;
@@ -541,8 +542,8 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
       buildings.push({ id: `xd${e}`, kind: 'defense', flavor: flavors[e], x, y, hp: Math.round(220 * tier), size: 5, damage: tDmg, range: 23 });
     }
     return {
-      id: `mm_${i}_${Math.floor(Math.random() * 99999)}`,
-      name: RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)],
+      id: `mm_${i}_${Math.floor(random() * 99999)}`,
+      name: RIVAL_NAMES[Math.floor(random() * RIVAL_NAMES.length)],
       difficulty: Math.round(risk * 10) / 10,
       reward: { coins: Math.round(420 * risk + 250), fans: Math.round(14 * risk + 6) },
       buildings,

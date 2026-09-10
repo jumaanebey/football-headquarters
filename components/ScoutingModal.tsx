@@ -19,6 +19,9 @@ interface Props {
   onRush: () => void;
   onSign: () => void;
   onUpgrade: (buildingId: string, cost: number) => void;
+  /** Protected clubs: the server-issued prospect board (never rolled on the device). */
+  board?: Player[];
+  onRefreshBoard?: () => void;
 }
 
 const fmt = (secs: number) => {
@@ -40,15 +43,17 @@ const StatPip: React.FC<{ icon: React.ReactNode; value: number }> = ({ icon, val
   </div>
 );
 
-export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade }) => {
-  const [board, setBoard] = useState<Player[]>(() => rollBoard());
+export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade, board: issuedBoard, onRefreshBoard }) => {
+  const [localBoard, setLocalBoard] = useState<Player[]>(() => issuedBoard ? [] : rollBoard());
+  const board = issuedBoard ?? localBoard;
 
   // When a scouting job clears (signed), refresh the prospect board.
   const prevSlot = useRef(recruitSlot);
   useEffect(() => {
-    if (prevSlot.current && !recruitSlot) setBoard(rollBoard());
+    if (prevSlot.current && !recruitSlot) { if (issuedBoard) onRefreshBoard?.(); else setLocalBoard(rollBoard()); }
     prevSlot.current = recruitSlot;
-  }, [recruitSlot]);
+  }, [recruitSlot, issuedBoard, onRefreshBoard]);
+  useEffect(() => { if (issuedBoard && issuedBoard.length === 0 && !recruitSlot) onRefreshBoard?.(); }, [issuedBoard, recruitSlot, onRefreshBoard]);
 
   const cap = rosterCap(academy.level);
   const rosterFull = roster.length >= cap;
@@ -211,7 +216,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
                   <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
                   Tap Scout to sign a prospect
                 </h3>
-                <button onClick={() => setBoard(rollBoard())} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors">
+                <button onClick={() => (issuedBoard ? onRefreshBoard?.() : setLocalBoard(rollBoard()))} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors">
                   <RefreshCw size={13} /> New Prospects
                 </button>
               </div>
