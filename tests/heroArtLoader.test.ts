@@ -108,3 +108,52 @@ describe('hero art loader', () => {
     expect(requests).toEqual(['/assets/heroes/elite/enforcer.webp']);
   });
 });
+
+describe('warming handles and decoded-art lifecycle', () => {
+  it('a newer warm supersedes the older one: stale selections never widen to the library, in-flight unretained requests are abandoned', async () => {
+    const { warmHeroArt, heroArtStats } = await load();
+    const first = warmHeroArt(['coach', 'kicker', 'burner', 'medic', 'captain'], { concurrency: 2 });
+    expect(requests.length).toBe(2); // two in flight, rest queued
+    const second = warmHeroArt(['qb'], { concurrency: 2 });
+    expect(second.generation).toBeGreaterThan(first.generation);
+    const firstOutcome = await first.done;
+    expect(firstOutcome.cancelled).toBe(true);
+    await flush(); await flush();
+    const heroes = new Set(requests.filter(Boolean).map(r => r.split('/').pop()!.replace('.webp', '')));
+    expect([...heroes].every(h => ['coach', 'kicker', 'qb'].includes(h))).toBe(true); // only what had started plus the new selection
+    for (const never of ['burner', 'medic', 'captain']) expect(heroes.has(never), never).toBe(false); // the queued rest of the stale selection is never requested
+    expect(heroArtStats().entries.some(e => e.key === 'burner')).toBe(false);
+    const secondOutcome = await second.done;
+    expect(secondOutcome).toMatchObject({ requested: 3, loaded: 3, failed: 0, cancelled: false });
+    expect(heroArtStats().entries.filter(e => e.key === 'qb').map(e => e.kind).sort()).toEqual(['elite', 'motion', 'reaction']);
+  });
+  it('cancellation abandons only unretained requests; retained entries survive release; stats track frames and subscribers', async () => {
+    const { loadHeroArt, retainHeroArt, cancelHeroArt, releaseUnretainedHeroArt, heroArtStats, subscribeHeroArt } = await load();
+    const motion = loadHeroArt('motion', 'qb'); const release = retainHeroArt('motion', 'qb');
+    await Promise.resolve();
+    expect(cancelHeroArt('motion', 'qb')).toBe(false); // retained by a mounted consumer: not abandonable
+    const elite = loadHeroArt('elite', 'qb'); await Promise.resolve();
+    expect(cancelHeroArt('elite', 'qb')).toBe(true); // nobody holds it: abandoned
+    await expect(elite).rejects.toThrow('abandoned');
+    await flush();
+    expect((await motion).length).toBe(32);
+    const unsubscribe = subscribeHeroArt(() => {});
+    const gate = await import('../game/artGate'); gate.openCampusArt();
+    const sig = loadHeroArt('signature', 'qb'); const campus = loadHeroArt('campus', 'coach'); await flush(); await sig; await campus;
+    let stats = heroArtStats();
+    expect(stats.retainedEntries).toBe(1); expect(stats.listeners).toBe(1);
+    expect(stats.entries.find(e => e.kind === 'signature')?.frames).toBe(4);
+    expect(releaseUnretainedHeroArt()).toBe(1); // the unretained signature frames go; retained motion and the campus sheet stay
+    stats = heroArtStats();
+    expect(stats.entries.map(e => `${e.kind}:${e.key}`).sort()).toEqual(['campus:coach', 'motion:qb']);
+    release(); unsubscribe();
+    expect(releaseUnretainedHeroArt({ keep: ['qb'] })).toBe(0); // kept on request
+    expect(releaseUnretainedHeroArt()).toBe(1);
+    expect(heroArtStats()).toMatchObject({ decodedFrames: 19, retainedEntries: 0, listeners: 0 });
+  });
+  it('heroesInConfig lists exactly the heroes a battle draws', async () => {
+    const { heroesInConfig } = await load();
+    expect(heroesInConfig({ heroes: [{ key: 'qb' }, { key: 'burner' }, { key: 'qb' }], guards: [{ heroKey: 'enforcer' }, {}] })).toEqual(['qb', 'burner', 'enforcer']);
+    expect(heroesInConfig(null)).toEqual([]);
+  });
+});

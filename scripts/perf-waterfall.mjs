@@ -26,6 +26,8 @@ const viewport = { width: 430, height: 932 };
 
 export const BUDGET = {
   namingTransferBytes: 5 * 1024 * 1024,
+  // Per-stage cold transfer budgets (bytes) beyond naming, measured on the integrated build with the derived atlases and rounded up with ~25 % headroom.
+  stageTransferBytes: { campus: 2.25 * 1024 * 1024, 'hero-inspection': 1.6 * 1024 * 1024, roster: 0.8 * 1024 * 1024, scouting: 0.8 * 1024 * 1024, prep: 2.6 * 1024 * 1024, 'first-deployed-hero': 6 * 1024 * 1024, 'first-signature': 2 * 1024 * 1024, result: 6 * 1024 * 1024 },
   // Sheets that exist only for battle playback: none may be requested before the battle stage.
   battleOnly: /\/assets\/heroes\/(motion|signatures|reactions|elite)\//,
 };
@@ -68,21 +70,43 @@ async function run(browser, label, { warmFrom } = {}) {
     for (let i = 0; i < count; i++) { const txt = (await buttons.nth(i).innerText()).trim(); if (txt && !/play|storm|game|change club name|random name/i.test(txt) && await buttons.nth(i).isVisible()) { await buttons.nth(i).click(); break; } }
     await stage('campus', t);
   }
+  const nav = (label) => page.click(`[aria-label="Club navigation"] button:has-text("${label}")`).catch(() => {});
+  const clickText = async (pattern) => { const b = page.getByRole('button', { name: pattern }).first(); if (await b.count()) { await b.click({ timeout: 4000 }).catch(() => {}); return true; } return false; };
+  const escape = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(250); };
+  // Hero inspection: the Heroes modal (nine cards + Film Room idle).
+  t = Date.now(); await nav('Heroes'); await stage('hero-inspection', t); await escape();
+  // Roster (player-first view) and Scouting (reachable from the roster).
+  t = Date.now(); await nav('Roster'); await stage('roster', t);
+  t = Date.now(); const scouting = await clickText(/Scout|Scouting|Recruit/i); await stage(scouting ? 'scouting' : 'scouting-unreachable', t); await escape(); await escape();
+  // Preparation sheet.
+  t = Date.now(); await nav('Game Day'); await page.waitForTimeout(400);
+  await clickText(/^Next$|Prepare|Preseason Opener|Play next/i); await stage('prep', t);
+  // First deployed hero: reserve, wait for the field, select the first hero card and tap the sideline.
   t = Date.now();
-  await page.click('[aria-label="Club navigation"] button:has-text("Heroes")').catch(() => {});
-  await stage('hero-detail', t);
-  await page.keyboard.press('Escape'); await page.waitForTimeout(200);
-  t = Date.now();
-  await page.click('[aria-label="Club navigation"] button:has-text("Game Day")').catch(() => {});
-  await page.waitForTimeout(500);
-  await page.click('button:has-text("Next")').catch(async () => { await page.click('text=Preseason Opener').catch(() => {}); });
-  await page.waitForTimeout(300);
   await page.getByRole('button', { name: /Reserve game|Kick off|Play/i }).first().click().catch(() => {});
   await page.waitForSelector('[aria-label="Battlefield"]', { timeout: 30000 }).catch(() => {});
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(1200);
   const field = page.locator('[aria-label="Battlefield"]');
-  if (await field.count()) { const box = await field.boundingBox(); for (let i = 0; i < 3; i++) { await page.mouse.click(box.x + box.width * 0.06, box.y + box.height * (0.2 + i * 0.1)); await page.waitForTimeout(150); } }
-  await stage('first-battle', t);
+  // Select the first hero card explicitly so the sideline tap deploys a hero, not a squad unit.
+  await page.locator('button:has-text("Select to send in")').first().click({ timeout: 3000 }).catch(() => {});
+  if (await field.count()) { const box = await field.boundingBox(); await page.mouse.click(box.x + box.width * 0.06, box.y + box.height * 0.25); await page.waitForTimeout(1500); }
+  await stage('first-deployed-hero', t);
+  // First signature: tap the ready signature card when it appears (bounded wait).
+  t = Date.now();
+  await page.waitForFunction(() => /Signature ready/i.test(document.body.innerText), null, { timeout: 12000 }).catch(() => {});
+  await page.locator('button:has-text("Signature ready")').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await stage('first-signature', t);
+  // Result: deploy the rest and let the clock run or blow the whistle.
+  t = Date.now();
+  if (await field.count()) { const box = await field.boundingBox(); for (let i = 1; i < 6; i++) { await page.mouse.click(box.x + box.width * 0.06, box.y + box.height * (0.2 + i * 0.1)); await page.waitForTimeout(120); } }
+  await page.waitForTimeout(6000);
+  const whistle = page.locator('button[title="Blow the whistle — see the result"]');
+  if (await whistle.count()) await whistle.first().click({ timeout: 5000, force: true }).catch(() => {});
+  await page.waitForFunction(() => /standouts|Collect|Continue|Back to club|Return/i.test(document.body.innerText), null, { timeout: 90000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  await stage('result', t);
+  await clickText(/Collect|Continue|Back to club|Return/i); await page.waitForTimeout(800);
   const ua = await page.evaluate(() => navigator.userAgent);
   await page.close();
   return { label, stages, context, ua };
@@ -99,14 +123,17 @@ const print = (label, stages) => { console.log(`\n${label}`); for (const s of st
 print(`COLD  (${profile} network, cpu ×${cpu}, server ${report.clubServer})`, cold.stages);
 print('WARM  (same context, return visit)', warm.stages);
 const cumulative = (stages, upto) => stages.slice(0, stages.findIndex(s => s.stage === upto) + 1).reduce((a, s) => a + s.transferBytes, 0);
-console.log(`\ncold cumulative through naming ${MB(cumulative(cold.stages, 'naming'))}, through campus ${MB(cumulative(cold.stages, 'campus'))}, through first battle ${MB(cold.stages.reduce((a, s) => a + s.transferBytes, 0))}`);
+console.log(`\ncold cumulative through naming ${MB(cumulative(cold.stages, 'naming'))}, through campus ${MB(cumulative(cold.stages, 'campus'))}, through result ${MB(cold.stages.reduce((a, s) => a + s.transferBytes, 0))}`);
 
 if (out) { await writeFile(out, JSON.stringify(report, null, 2) + '\n'); console.log(`wrote ${out}`); }
 if (budget) {
   const failures = [];
   const naming = cold.stages.find(s => s.stage === 'naming');
   if (naming && naming.transferBytes > BUDGET.namingTransferBytes) failures.push(`naming transfer ${MB(naming.transferBytes)} exceeds ${MB(BUDGET.namingTransferBytes)}; largest: ${naming.largest.slice(0, 5).map(l => `${l.name} (${KB(l.transfer)})`).join(', ')}`);
-  for (const s of cold.stages) if (s.stage !== 'first-battle' && s.battleOnly.length) failures.push(`${s.stage} requested battle-only sheets before use: ${s.battleOnly.join(', ')}`);
+  const battleStages = new Set(['first-deployed-hero', 'first-signature', 'result']);
+  for (const s of cold.stages) if (!battleStages.has(s.stage) && s.battleOnly.length) failures.push(`${s.stage} requested battle-only sheets before use: ${s.battleOnly.join(', ')}`);
+  // Measured stage budgets (transfer, cold). Established from the integrated build with derived atlases; a regression fails loudly.
+  for (const [stage, limit] of Object.entries(BUDGET.stageTransferBytes)) { const st = cold.stages.find(x => x.stage === stage); if (st && st.transferBytes > limit) failures.push(`${stage} transfer ${MB(st.transferBytes)} exceeds its budget ${MB(limit)}; largest: ${st.largest.slice(0, 4).map(l => `${l.name} (${KB(l.transfer)})`).join(', ')}`); }
   for (const f of failures) console.log(`FAIL  ${f}`);
   console.log(failures.length ? `RESULT: startup budget FAILED (${failures.length})` : `RESULT: startup budget holds (naming ≤ ${MB(BUDGET.namingTransferBytes)}, no battle sheets before the battle)`);
   process.exitCode = failures.length ? 1 : 0;

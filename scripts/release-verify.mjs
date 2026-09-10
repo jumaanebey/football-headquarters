@@ -32,6 +32,7 @@ step('authority parity (sources ↔ bundle ↔ artifacts ↔ deployment record)'
 step('hero atlas verification (non-destructive)', 'npm run -s art:verify');
 step('restore/rollback rehearsal (isolated)', 'npm run -s authority:rehearsal');
 step('derived art present (campus hero sheets)', 'npm run -s art:campus -- --check', { note: 'sheets are committed; regenerate with npm run art:campus after a reviewed art change' });
+step('derived alpha cutouts present', 'npm run -s art:cutouts -- --check');
 step('install icons present', 'node scripts/derive-brand-icons.mjs --check');
 step('production build (+ raster decode of every shipped asset via prebuild)', 'npm run -s build');
 step('build assets content-addressed', 'npm run -s build:verify');

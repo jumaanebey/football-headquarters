@@ -6,7 +6,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HeroAnimation, heroFrame, advanceHeroStride } from '../game/heroAnimation';
 import { advanceSignaturePlayback, battleSignatureBeat, heroSignaturePose, previewSignatureBeat, SIGNATURE_BEATS, type SignaturePlayback } from '../game/heroSignaturePresentation';
 import { paintHeroSignatureCue } from './paintHeroSignatureCue';
-import { hasReactionSheet, loadHeroArtWithRetry } from './heroArtLoader';
+import { hasReactionSheet, loadHeroArtWhileMounted, loadHeroArtWithRetry, retainHeroArt, type HeroArtKind } from './heroArtLoader';
 import { campusFrameMap } from '../game/heroCampusSheet';
 
 /** Which art a mount may request. `campus` (default): only the derived campus sheet — idle,
@@ -35,6 +35,10 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
     if (canvasRef.current) observer.observe(canvasRef.current);
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const signal = { disposed: false };
+    // Hold the frames this mount draws so a post-battle release never pulls them from under a live consumer.
+    const retainedKinds: HeroArtKind[] = tier === 'battle' ? ['elite', 'motion', ...(hasReactionSheet(heroKey) ? ['reaction' as const] : []), ...(loadSignatureArt ? ['signature' as const] : [])] : ['campus'];
+    const releases: Array<() => void> = [];
+    const retainAll = () => { for (const kind of retainedKinds) releases.push(retainHeroArt(kind, heroKey)); };
     let signatures: HTMLCanvasElement[] = [];
     let motion: HTMLCanvasElement[] = [];
     let reactions: HTMLCanvasElement[] = [];
@@ -42,9 +46,10 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
     const campusMap = campusFrameMap(heroKey);
     if (tier === 'battle') {
       // Independent requests: a slow signature sheet never delays stride frames, and vice versa.
-      loadHeroArtWithRetry('motion', heroKey, signal).then(frames => { if (!disposed) motion = frames; }).catch(() => { /* Elite poses keep animating. */ });
-      if (hasReactionSheet(heroKey)) loadHeroArtWithRetry('reaction', heroKey, signal).then(frames => { if (!disposed) reactions = frames; }).catch(() => {});
-      if (loadSignatureArt) loadHeroArtWithRetry('signature', heroKey, signal).then(frames => { if (!disposed) signatures = frames; }).catch(() => { /* Approved base poses remain available. */ });
+      // Elite poses keep animating while any of these is missing; each is re-requested on reconnect while mounted.
+      loadHeroArtWhileMounted('motion', heroKey, signal, frames => { motion = frames; });
+      if (hasReactionSheet(heroKey)) loadHeroArtWhileMounted('reaction', heroKey, signal, frames => { reactions = frames; });
+      if (loadSignatureArt) loadHeroArtWhileMounted('signature', heroKey, signal, frames => { signatures = frames; });
     }
     setReady(false);
     const base: Promise<Sheet> = tier === 'battle'
@@ -52,6 +57,7 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
       : loadHeroArtWithRetry('campus', heroKey, signal).then(frames => ({ frames: campusMap.elite.map(i => frames[i]), campus: frames }));
     base.then(sheet => {
       if (disposed) return;
+      retainAll();
       const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return;
       let previous = performance.now(), elapsed = 0, stride = 0, previousMode = playback.current.mode, previousTake = playback.current.playbackKey;
@@ -118,7 +124,7 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
       renderNowRef.current();
       unsubscribe = subscribeHeroAnimation(draw);
     }).catch(() => { if (!disposed) setReady(false); });
-    return () => { disposed = true; signal.disposed = true; unsubscribe(); observer.disconnect(); renderNowRef.current = null; };
+    return () => { disposed = true; signal.disposed = true; for (const release of releases) release(); unsubscribe(); observer.disconnect(); renderNowRef.current = null; };
   }, [heroKey, loadSignatureArt, tier]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}

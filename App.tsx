@@ -1,7 +1,8 @@
 import { BuildingSprite } from './components/BuildingArt';
 import { ClubConnectionControl } from './components/ClubConnectionControl';
 import { setUpdateGuard } from './pwa/register';
-import { warmHeroArt } from './components/heroArtLoader';
+import { EquipmentDetails } from './components/EquipmentDetails';
+import { warmHeroArt, heroesInConfig, releaseUnretainedHeroArt } from './components/heroArtLoader';
 import { productFunnel, observeVisit, observeGrowth } from './game/productFunnel';
 import { authorityClient as productAuthorityClient } from './pvp';
 import type { PostBattleDestination } from './game/battleDebrief';
@@ -123,6 +124,14 @@ function App() {
   const [preparedMatch, setPreparedMatch] = useState<{config: BattleConfig; choice?: MatchChoice} | null>(null);
   const [preparedPlan, setPreparedPlan] = useState<GamePlanKey>('balanced');
   const [openingHero, setOpeningHero] = useState<string | undefined>();
+  useEffect(() => {
+    if (!battleConfig) return;
+    const keys = heroesInConfig(battleConfig);
+    const ordered = openingHero && keys.includes(openingHero) ? [openingHero, ...keys.filter(key => key !== openingHero)] : keys;
+    // Warm the likely opener and one partner; other heroes load when actually drawn.
+    const warm = warmHeroArt(ordered, {maxHeroes:2});
+    return () => { warm.cancel(); queueMicrotask(() => releaseUnretainedHeroArt({kinds:['elite','motion','reaction','signature']})); };
+  }, [battleConfig, openingHero]);
   const [practiceTake, setPracticeTake] = useState(0);
   const [replayTake, setReplayTake] = useState(0);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
@@ -866,7 +875,6 @@ function App() {
       void authority.reserve(choice).then(reserved => {
         if ('error' in reserved) { sfx.error(); centerText(reserved.error, '#ef4444'); authority.setNotice(reserved.error); return; }
         authorityMatchRef.current = { matchId: reserved.matchId, begun: false };
-        void warmHeroArt((reserved.config.heroes ?? []).map(hero => hero.key));
         setBattleConfig({ ...reserved.config, attackerName: reserved.config.attackerName ?? stateRef.current.teamName });
       });
       return true;
@@ -881,7 +889,6 @@ function App() {
     // Respect an explicit attackerName. The tutorial launches the first game in the same
     // tick it sets the club name, so gameState.teamName is still the stale auto-generated
     // one here — the player would watch their first matchup card show a name they didn't pick.
-    void warmHeroArt((config.heroes ?? []).map(hero => hero.key));
     setBattleConfig({ ...config, attackerName: config.attackerName ?? gameState.teamName, squad: gameState.roster, preparation: rosterPreparation(gameState.roster,gameState.teamReadiness) }); // your club + your INDIVIDUALS
     return true;
   };
@@ -1615,7 +1622,7 @@ function App() {
         >
           <div className="p-5 pt-3 flex flex-col max-h-full">
             <div className="fhq-game-day-art">
-              <img src="/assets/gpt/game-day-tunnel.png" alt="Three players head through the tunnel toward the field" width="1536" height="1024" decoding="async" />
+              <picture><source srcSet="/assets/gpt/game-day-tunnel.webp" type="image/webp" /><img src="/assets/gpt/game-day-tunnel.png" alt="Three players head through the tunnel toward the field" width="1536" height="1024" decoding="async" /></picture>
               <div><span>{attackTab === 'season' ? `Season · Stage ${Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)}` : 'Away games'}</span><strong>{attackTab === 'season' ? CAMPAIGN_STAGES[Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length) - 1].name : 'Take their house'}</strong></div>
             </div>
             {attackTab === 'season' && (() => { const next = CAMPAIGN_STAGES[Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length)-1]; return <section className="mb-4 rounded-2xl border border-orange-500/50 bg-orange-500/10 p-4"><p className="text-xs uppercase tracking-wider text-orange-300">Your next matchup</p><h3 className="mt-1 text-xl font-bold text-white">{next.name}</h3><p className="mt-1 text-sm text-slate-300">vs {next.opponent} · Readiness {gameState.teamReadiness}%</p><button onClick={() => startCampaign(next.stage)} className="mt-3 w-full rounded-xl bg-orange-500 p-3 font-bold text-white">Prepare lineup & game plan →</button></section>; })()}
@@ -1816,6 +1823,7 @@ function App() {
       {isHeroOpen && (
         <Suspense fallback={<Sheet title="Hall of Heroes" icon={<span>🏈</span>} onClose={() => setIsHeroOpen(false)}><p className="p-5 text-slate-300" role="status">Opening the film room…</p></Sheet>}>
         <HeroModal
+          club={gameState}
           initialHero={focusedHero}
           onPractice={key => { setFocusedHero(key); setIsHeroOpen(false); setBattleConfig(heroPracticeConfig(key)); }}
           heroes={gameState.heroes}
@@ -1847,6 +1855,7 @@ function App() {
         if (!academy) return null;
         return (
           <ScoutingModal
+          club={gameState}
             resources={gameState.resources}
             roster={gameState.roster}
             recruitSlot={gameState.recruitSlot}
@@ -1974,6 +1983,7 @@ function App() {
                           </div>
                           <div className="text-sm text-slate-300 mt-1">{slot.covers} · {t.desc}</div>
                           {lvl > 0 && !maxed && <p className="mt-2 text-sm text-emerald-300">Next level: +{Math.round((slotHpMult(lvl+1)/slotHpMult(lvl)-1)*100)}% Grit · +{Math.round((slotDmgMult(lvl+1)/slotDmgMult(lvl)-1)*100)}% output.</p>}
+                          <EquipmentDetails club={gameState} slotId={slot.id} />
                           {/* 🛣 THE ROAD TO LEVELS — the gear itself visibly upgrades at L4 and L8 */}
                           {unlocked && lvl > 0 && (
                             <div className="flex items-center gap-1 mt-1.5">

@@ -1,0 +1,24 @@
+PASS  One failed sheet: naming and campus navigation completed in 1362 ms regardless of art
+PASS  One failed sheet: 5 campus heroes each show frames or a portrait fallback (5 decoded, 0 on fallback)
+PASS  One failed sheet: Heroes modal opens
+PASS  One failed sheet: reservation and battlefield reached
+PASS  One failed sheet: 1/1 hero sprites decoded on the field; 38 rig/portrait fallbacks present (no blank heroes)
+PASS  One failed sheet: result screen reached
+PASS  One failed sheet: the injected failure is visible in the log: /assets/heroes/motion/qb.e7cbacc6.webp (HTTP 500), /assets/heroes/motion/qb.e7cbacc6.webp (HTTP 500)
+PASS  QB motion is absent after the failure (["campus:19","reaction:4","signature:4","elite:9"]); QB drew from elite frames/portrait
+PASS  retry after reconnect decoded QB motion ([32]); failed requests seen: 2
+PASS  Slow sheets: naming and campus navigation completed in 1215 ms regardless of art
+PASS  Slow sheets: 5 campus heroes each show frames or a portrait fallback (0 decoded, 5 on fallback)
+PASS  Slow sheets: Heroes modal opens
+PASS  Slow sheets: reservation and battlefield reached
+PASS  Slow sheets: 1/1 hero sprites decoded on the field; 38 rig/portrait fallbacks present (no blank heroes)
+PASS  Slow sheets: result screen reached
+PASS  Save-Data + reduced motion: naming and campus navigation completed in 1217 ms regardless of art
+PASS  Save-Data + reduced motion: 5 campus heroes each show frames or a portrait fallback (5 decoded, 0 on fallback)
+PASS  Save-Data + reduced motion: Heroes modal opens
+PASS  Save-Data + reduced motion: reservation and battlefield reached
+PASS  Save-Data + reduced motion: 1/1 hero sprites decoded on the field; 38 rig/portrait fallbacks present (no blank heroes)
+PASS  Save-Data + reduced motion: result screen reached
+PASS  under Save-Data + reduced motion only 3 motion/reaction/signature requests happened, all in the battle (/assets/heroes/motion/qb.e7cbacc6.webp, /assets/heroes/reactions/qb.83cdab11.webp, /assets/heroes/signatures/qb.a3a947c8.webp)
+PASS  reduced motion frames drawn: ["0","0","0","0","0"]
+RESULT: art faults never block naming, navigation, reservation or results; failures name their request and recover

@@ -1,3 +1,5 @@
+import { heroProgression } from '../game/progression/heroProgression';
+import type { GameState } from '../types';
 import { HeroArt } from './HeroArt';
 import { HeroTrainingPreview } from './HeroTrainingPreview';
 
@@ -12,6 +14,7 @@ import { sfx } from '../sound';
 import { upgradeDurationSecs } from '../constants';
 
 interface Props {
+  club: GameState;
   initialHero?: string;
   onPractice?: (key: string) => void;
   heroes: HeroState[];
@@ -38,7 +41,7 @@ const heroHue = (hex: string): number => {
   return h < 0 ? h + 360 : h;
 };
 
-export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, upgrades = [], blocked = false, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
+export const HeroModal: React.FC<Props> = ({ club, initialHero, onPractice, heroes, upgrades = [], blocked = false, resources, stadiumLevel, lastRoll, onClose, onUpgrade, onUnlock, onRoll, onStarUp }) => {
   const [selectedKey, setSelectedKey] = useState(initialHero ?? 'qb');
   const [heroTab, setHeroTab] = useState<'growth' | 'practice'>('growth');
   const stateOf = (key: string) => heroes.find(h => h.key === key);
@@ -160,6 +163,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, up
         </div>
         <div className="p-5 grid grid-cols-1 gap-4 content-start auto-rows-max">
           {HERO_DEFS.filter(def => def.key === selectedKey).map(def => {
+            const model = heroProgression(club, def.key, Date.now())!;
             const st = stateOf(def.key);
             const unlocked = st?.unlocked ?? !!def.starter;
             const lvl = st?.level ?? 1;
@@ -167,19 +171,19 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, up
             const shards = st?.shards ?? 0;
             const m = heroLevelMult(lvl) * heroStarMult(strs);
             const nextM = heroLevelMult(lvl + 1) * heroStarMult(strs);
-            const hp = Math.round(def.baseHp * m);
-            const dps = Math.round(def.baseDps * m);
-            const cost = heroUpgradeCost(lvl);
+            const hp = model.current.grit;
+            const dps = Math.round(model.current.yardage);
+            const cost = model.nextLevel?.costCoins ?? heroUpgradeCost(lvl);
             const capped = lvl >= maxLevel;
             const training = upgrades.find(job => job.kind === 'hero' && job.key === def.key);
-            const canAfford = !blocked && !training && resources.COINS >= cost;
+            const canAfford = !blocked && model.canTrain;
             const starCost = STAR_UP_COSTS[strs]; // undefined at MAX_STARS
-            const canStarUp = !blocked && unlocked && strs < MAX_STARS && !!starCost && shards >= starCost;
+            const canStarUp = !blocked && model.canStarUp;
 
             // Unlock affordability
             const uCoins = def.unlock?.coins ?? 0;
             const uGems = def.unlock?.gems ?? 0;
-            const canUnlock = !blocked && resources.COINS >= uCoins && resources.GEMS >= uGems;
+            const canUnlock = !blocked && model.canUnlock;
 
             return (
               <article key={def.key} aria-label={`${def.name} · ${unlocked ? 'On your roster' : 'Locked'}`} className={`rounded-2xl border-2 bg-slate-900 overflow-hidden flex flex-col ${unlocked ? 'border-slate-700' : 'border-slate-800'}`}>
@@ -229,8 +233,9 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, up
                 <div className="p-4 flex flex-col gap-3 flex-1">
                   <div>
                     <div className="font-display font-bold text-lg text-white">{def.name}</div>
-                    <div className="text-sm text-slate-300">{def.role} · Level {lvl} · {strs}/{MAX_STARS} stars</div><p className="mt-2 text-sm text-slate-400">Speed {def.speed} · Range {def.range}. Levels and stars improve Grit and Yardage; speed and range stay fixed.</p>
+                    <div className="text-sm text-slate-300">{def.role} · Level {lvl} · {strs}/{MAX_STARS} stars</div><p className="mt-2 text-sm text-slate-400">Speed {model.current.speed} · Range {model.current.range}. Levels and stars improve Grit and Yardage; speed and range stay fixed.</p>
                   </div>
+                  <details className="rounded-xl border border-slate-700 p-3 text-sm text-slate-300"><summary className="cursor-pointer min-h-7 font-bold text-white">Signature & growth details</summary><p className="mt-2">{model.ability.implementation}</p><p className="mt-2">Signature cooldown: {model.ability.cooldownSeconds}s. {model.ability.scalesWith === 'yardage' ? 'More Yardage strengthens the signature’s damage.' : model.ability.scalesWith === 'grit' ? 'Recovery depends on maximum Grit.' : 'The signature’s fixed effects do not increase with levels or stars.'}</p>{model.stadiumGate.atMax && <p className="mt-2 text-amber-200">Upgrade Stadium to level {model.stadiumGate.nextStadiumLevel} to unlock more hero levels.</p>}</details>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="flex items-center gap-1.5 bg-slate-800/60 rounded-lg px-2 py-1.5"><Dumbbell size={14} className="text-red-400" /><span className="text-slate-400 text-xs">GRIT</span><span className="ml-auto font-mono font-bold text-white">{hp}</span></div>
                     <div className="flex items-center gap-1.5 bg-slate-800/60 rounded-lg px-2 py-1.5"><span className="text-sm leading-none">🏈</span><span className="text-slate-400 text-xs">YDS</span><span className="ml-auto font-mono font-bold text-white">{dps}</span></div>
