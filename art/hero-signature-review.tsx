@@ -6,7 +6,7 @@ import '../tailwind.css';
 import '../game-motion.css';
 
 // Local Vite-only art workbench. No club, gameplay, auth or network state.
-await Promise.all(['qb', 'enforcer'].map(loadHeroSignatures));
+await Promise.all(['qb', 'enforcer'].map(key => loadHeroSignatures(key)));
 function Review() {
   const [facing, setFacing] = useState(-1);
   const [take, setTake] = useState(0);
