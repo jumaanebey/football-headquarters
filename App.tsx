@@ -58,6 +58,7 @@ import { loadState, SAVE_KEY, TUTORIAL_KEY, parseSavedClub } from './game/persis
 import { layoutFromFixedBase } from './game/defenseLayout';
 import { createDefenseSnapshot, defenseBattleFields } from './game/defenseSnapshot';
 import { useAuthority, type AuthorityActionReceipt } from './game/online/useAuthority';
+import { checkClubName } from './game/clubName';
 import type { MatchChoice } from './game/authority/matches';
 import { finishUpgradeNow } from './game/upgrades';
 import { rosterPreparation } from './game/combat/roster';
@@ -175,20 +176,39 @@ function App() {
     location.reload();
   };
 
-  const finishTutorial = (teamName: string, startRaid: boolean) => {
+  const finishTutorial = (rawName: string, startRaid: boolean) => {
+    // One club-name rule (game/clubName.ts): the tutorial input caps at 24, but the stored
+    // name is whatever the shared rule accepts; a name it refuses keeps the generated one.
+    const named = checkClubName(rawName);
+    const teamName = named.ok ? named.name : stateRef.current.teamName;
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     track('club_created', { startRaid, nameLen: teamName.length });
     track('tutorial_choice', { stormFirst: startRaid });
     setShowTutorial(false);
-    if (authorityRef.current.active) { void authorityRef.current.dispatch({ type: 'club.rename', name: teamName.trim().slice(0, 24) }); }
-    else setGameState(prev => ({ ...prev, teamName }));
-    if (pvpEnabled() && !authorityRef.current.active) setTimeout(() => publishBase(teamName, gameState.trophies, layoutFromFixedBase(gameState.buildings, gameState.roster, gameState.defenseSlots, gameState.parkingLot, gameState.formation, gameState.formationMastery[gameState.formation] ?? 0)), 400);
+    void (async () => {
+      const authority = authorityRef.current;
+      if (authority.isActiveNow()) { void authority.dispatch({ type: 'club.rename', name: teamName }); }
+      else {
+        setGameState(prev => ({ ...prev, teamName }));
+        // New clubs are protected from the first minute when the club server is reachable:
+        // the pristine club is admitted with its chosen name and every later change is
+        // confirmed by the server. If the service is unreachable or refuses, local play
+        // continues unchanged and Settings offers protection later.
+        if (pvpEnabled() && authority.ready && !authority.locked) {
+          const admitted = await authority.enable({ ...stateRef.current, teamName });
+          track('authority_enable', { origin: 'tutorial', ok: admitted.ok });
+          if (!admitted.ok) authority.setNotice(admitted.message);
+        }
+        if (pvpEnabled() && !authorityRef.current.isActiveNow()) setTimeout(() => publishBase(teamName, stateRef.current.trophies, layoutFromFixedBase(stateRef.current.buildings, stateRef.current.roster, stateRef.current.defenseSlots, stateRef.current.parkingLot, stateRef.current.formation, stateRef.current.formationMastery[stateRef.current.formation] ?? 0)), 400);
+      }
+      if (startRaid && !startCampaign(1, teamName)) openRaid(); // fall back if the game can't launch
+    })();
+    return;
     // "Storm your first rival!" must actually storm a rival. It used to open the GAME DAY
     // panel — four tabs, a currency lesson, and a wall of jargon — so a first-timer who
     // asked to play got a manual instead. 19 of the first 20 coaches never reached a
     // single trophy. Drop them straight into the Preseason Opener; the systems can
     // introduce themselves once the player has actually snapped a ball.
-    if (startRaid && !startCampaign(1, teamName)) openRaid(); // fall back if the game can't launch
   };
 
   // ⌨️ Esc closes the topmost sheet (D5: minimum keyboard support).
@@ -404,7 +424,9 @@ function App() {
   // The transition is deterministic and side-effect free; presentation follows commits.
   useUpgradeCelebrations(gameState.upgrades, gameState.buildings, setCelebration);
   useEffect(() => {
-    const tick = () => { if (document.hidden) return; const now = Date.now(); setGameState(prev => advanceCampus(prev, now)); };
+    // Protected clubs keep the club server's calendar (UTC day) so daily quests and Gauntlet
+    // attempts never flip between two calendars; guest clubs keep the local-midnight reset.
+    const tick = () => { if (document.hidden) return; const now = Date.now(); setGameState(prev => advanceCampus(prev, now, authorityRef.current.isActiveNow() ? new Date(now).toISOString().slice(0, 10) : undefined)); };
     const loop = setInterval(tick, 100);
     document.addEventListener('visibilitychange', tick);
     return () => { clearInterval(loop); document.removeEventListener('visibilitychange', tick); };
@@ -423,7 +445,7 @@ function App() {
   // the server's confirmation; a pending answer is retried by the ledger and surfaced in Settings.
   const protectedAction = (action: Record<string, unknown>, onConfirmed?: (receipt: AuthorityActionReceipt | null) => void): boolean => {
     if (authority.locked) { sfx.error(); spawnText('Sign in as this club\'s owner to make changes', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return true; }
-    if (!authority.active) return false;
+    if (!authority.isActiveNow()) return false;
     void authority.dispatch(action).then(outcome => {
       if (outcome.status === 'confirmed') { authority.setNotice(null); onConfirmed?.((outcome.answer.result as AuthorityActionReceipt | null) ?? null); }
       else if (outcome.status === 'failed') { sfx.error(); spawnText(outcome.message, window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); authority.setNotice(outcome.message); }
@@ -780,7 +802,7 @@ function App() {
   // (Defense scrimmages stay free; you're not choosing to be raided.)
   const launchAttack = (config: BattleConfig, choice?: MatchChoice): boolean => {
     if (authority.locked) { sfx.error(); centerText('Sign in as this club\'s owner to play online', '#ef4444'); return false; }
-    if (authority.active) {
+    if (authority.isActiveNow()) {
       // The server issues the match: seed, rules, the rival's defense snapshot and the Energy
       // reservation all come back in one answer. Local Energy is not touched here.
       if (!choice) { sfx.error(); centerText('This game is not available for a protected club', '#94a3b8'); return false; }
@@ -2003,7 +2025,7 @@ function App() {
                       <div className="flex gap-2">
                         <button onClick={async () => { pauseCloudSync(false);setCloudMsg('Syncing…'); const r = await syncWithCloud(); setCloudMsg(r === 'conflict' ? 'Another device changed this club. Choose which progress to keep below.' : r === 'pushed' ? 'Club saved to the cloud ✓' : r === 'error' || r === 'none' ? "Couldn't reach the cloud — your club is safe on this device. We'll retry." : null); }}
                           className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors active:scale-95">☁️ Sync now</button>
-                        <button onClick={() => { setCloudConflict(undefined); signOutToGuest(); setProfile(null); setCloudMsg('Signed out — this device plays as a new guest.'); }}
+                        <button onClick={() => { setCloudConflict(undefined); signOutToGuest(); setProfile(null); setCloudMsg('Signed out — this device plays as a new guest.'); void authority.resync(); }}
                           className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-bold transition-colors active:scale-95">Sign out</button>
                       </div>
                       <button onClick={async () => {
@@ -2029,6 +2051,7 @@ function App() {
                           const r = await linkAccount(email, pass);
                           if (!r.ok) { setCloudMsg(r.error ?? 'Could not create the account.'); return; }
                           const p = await getProfile(); setProfile(p);
+                          void authority.resync();
                           const pushed = await pushSaveToCloud();
                           setCloudMsg(p?.email
                             ? (pushed ? 'Account created — club saved to the cloud ✓' : 'Account created ✓ — cloud sync will start on the next connection.')
@@ -2043,6 +2066,8 @@ function App() {
                           if (!r.ok) { setCloudMsg(r.error ?? 'Sign-in failed.'); return; }
                           const p = await getProfile(); setProfile(p);
                           setCloudMsg('Signed in — loading your club…');
+                          await authority.resync(); // a protected club on this account wins over any cloud save
+                          if (authorityRef.current.isActiveNow()) { setCloudMsg('Signed in — your protected club is loaded.'); return; }
                           // On success this reloads into the cloud club. On a failed lookup it now
                           // backs off instead of pushing this device's save over the real one.
                           const sync = await syncWithCloud(true); // fresh device: the cloud club wins (local backed up first)
@@ -2089,6 +2114,19 @@ function App() {
                       </>
                     )}
                     {authority.notice && <p role="status" className="mt-2 text-[11px] text-amber-200">{authority.notice}</p>}
+                    {(authority.active || authority.locked) && (() => {
+                      const diag = authority.diagnostics();
+                      const recent = diag.events.filter(e => e.outcome !== 'query').slice(-5).reverse();
+                      const needsSignIn = diag.availability.status === 'unauthorized' || recent.some(e => e.code === 'unauthorized');
+                      return (
+                        <details className="mt-2 text-[11px] text-slate-400">
+                          <summary className="cursor-pointer text-slate-300">Connection details · {diag.availability.status === 'ok' ? 'club server reachable' : diag.availability.status === 'unknown' ? 'not checked yet' : `club server ${diag.availability.status}`}{diag.averageConfirmLatencyMs != null ? ` · ~${diag.averageConfirmLatencyMs} ms to confirm` : ''}</summary>
+                          <div className="mt-1">{diag.confirmed} confirmed · {diag.pending} pending · {diag.failed} refused on this device</div>
+                          {needsSignIn && <div className="mt-1 text-amber-200">Your session expired. Sign in above to confirm pending changes.</div>}
+                          <ul className="mt-1 space-y-0.5">{recent.map((e, i) => <li key={i} className="font-mono">{new Date(e.at).toLocaleTimeString()} · {e.kind}{e.operationId ? ` #${e.operationId}` : ''} · {e.outcome}{e.code ? ` (${e.code})` : ''}{e.latencyMs != null ? ` · ${e.latencyMs} ms` : ''}</li>)}</ul>
+                        </details>
+                      );
+                    })()}
                   </div>
                   {pendingAttackReports().map(report=><p key={report.operationId} className="mt-2 text-xs text-slate-400">{report.message}</p>)}
                   {cloudSyncPaused && <p className="mt-2 text-sm text-amber-200">Cloud sync is paused. Tap Sync when you want to upload this club again.</p>}

@@ -73,7 +73,20 @@ Rerun after the script fix: **57 passed, 0 failed**. Test accounts: `d38b8c11-9e
 
 `node scripts/authority-browser-check.mjs` against `vite preview` of the merged branch (build stamp 2026-09-10 04:20 UTC), Chrome 151 headless at 430×932, run by the owner from this session. Observed: fresh guest → tutorial ("Look around first") → Settings showed **Online protection: OFF** → "Protect this club online" → **PROTECTED, revision 0**, notice "A fresh protected club is ready" → Game Day → Season game 1 reserved through the authority → deploy taps, kickoff (`match.begin`), drive played, whistle → debrief → "Collect rewards" → Settings showed **revision 3 · everything confirmed** (reserve + begin + finish) and the HUD reflected the server-settled club: coins 500 → 677, fans 0 → 6, Crowns 10 → 18 (first-clear bonus). No console errors. Screenshots 01–12 in the scratch directory of that session. The transient "Confirmed" toast had already cleared by the time the script sampled the page (it checks four seconds after leaving the debrief), so its boolean printed false; the revision and balances are the confirmation evidence. The script's optional Stadium-tap step failed on an off-viewport click and is not part of the acceptance.
 
-Still open: physical-device play, observed-player acceptance, and the owner decisions in `docs/AUTHORITY-CONTRACTS.md`.
+Still open: physical-device play and observed-player acceptance. Reliability hardening (recovery, coverage matrix, admission boundaries, name rule, diagnostics) is in `docs/AUTHORITY-RELIABILITY.md`.
+
+## Recovery and rollback procedure (v3 baseline)
+
+Working baseline: `club-authority` **version 3**, deployed 2026-09-10 from commit `e5d8238` (artifact `supabase/recovery/club-authority.v3.min.js`, sha256 `9ebeed1b…`), rules `hero-actions-3`, request/answer shapes as in `docs/AUTHORITY-CONTRACTS.md`. The preserved v2 bundle **crashes at startup and is not a rollback target**.
+
+Compatibility rules for any new build:
+1. Build from source: `npm run authority:build` (readable `index.ts`) and, for deployment, `esbuild main.ts --bundle --minify --line-limit=220` into `supabase/recovery/club-authority.vN.min.js`; commit and push; record the commit and sha256 here; deploy a one-line `index.ts` that imports the artifact pinned to that commit (`https://cdn.jsdelivr.net/gh/jumaanebey/football-headquarters@<commit>/supabase/recovery/club-authority.vN.min.js`), `verify_jwt: true`.
+2. Keep `COMBAT_RULES_VERSION` and the request/answer contract unchanged unless the client ships first; the server re-simulates films with the rules it embeds, so a rules change requires bumping the version and deploying server and client together. Pending client operations survive a redeploy: they are replayed with their original id and request, and the server answers duplicates from `fhq_authority_operations`.
+3. Verify after deploy: `OPTIONS` preflight → 204; `POST` without bearer → 401; `npm run authority:evidence` (two anonymous accounts; record the IDs in the cleanup list); `node scripts/authority-browser-check.mjs` on a preview.
+
+Rollback (tested in principle by the v2→v3 replacement; not drilled in production): redeploy the previous **healthy** pinned entry — currently the v3 entry (commit `e5d8238`) — with the same `deploy_edge_function` call. Client compatibility: any client built from PR #29 or later works against v3. If a future client depends on a newer server field, keep the older client tolerant (unknown answer fields are ignored by `parseAuthorityAnswer`) and gate new features on the answer's presence. Database: no migration is involved in function rollbacks; the authority tables are only ever changed by `fhq_authority_commit`.
+
+Operational signals: Supabase `function_logs` (`event loop error` lines mean a startup crash, as in v2), `function_edge_logs` status codes, and on the client Settings › Online protection › Connection details (availability, confirmation latency, pending/refused counts).
 
 ## Release: what deploying the fix involves
 

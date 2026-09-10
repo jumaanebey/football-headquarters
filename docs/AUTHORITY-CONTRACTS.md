@@ -38,11 +38,21 @@ Match choices: `{kind:'campaign', stage}`, `{kind:'road', choice:0..2}` (targets
 - A reservation that survives a reload is cancelled on the next load (Energy refunded only if the game never kicked off).
 - Two devices: the second device adopts the server club on sign-in; a stale request gets `revision_conflict` and the latest club.
 
+## Client reliability contract (this branch)
+
+- Operations for one account are sent one at a time; a request queued behind an unanswered one waits for that receipt and then sends with the confirmed revision. `expectedRevision` is frozen at first send and reused verbatim on retry.
+- A second identical request while the first is unconfirmed rides the first ledger entry (one operation). Answered entries are never resent.
+- `revision_conflict` → adopt the returned club, mark the request failed, never replay it; `unavailable`/offline/unauthorized → keep pending and retry on `online`, on load, or after sign-in.
+- Account changes call `resync()`: in-memory club views are dropped and the account is re-detected; a ledger entry is only ever sent under its own owner, and an answer for another account is never adopted.
+- Diagnostics (`authorityClient.diagnostics()`) are bounded to 40 events with no payloads.
+- Calendar: protected clubs use the server's UTC day for dailies and Gauntlet attempts (`advanceCampus(state, now, utcDay)`); guest clubs keep the local day.
+- Club names: `game/clubName.ts` is the single rule (2–24 UTF-16 code units, no control characters), identical to the server's `club.rename` guard.
+
 ## Unresolved decisions for the owner
 
-1. **Deploy the rebuilt function** (`supabase/functions/club-authority/index.ts`, v3) — required for any of this to work online. Rollback is the preserved v2 bundle.
+1. ~~Deploy the rebuilt function~~ — done: v3 deployed 2026-09-10 (see the deployment record in `docs/AUTHORITY-RECOVERY.md`). Rollback target is the healthy v3 pinned entry, never v2.
 2. **Legacy carry-over policy**: the deployed rule admits a played save only for accounts created before `2026-09-10 00:47:31 UTC`; later accounts must be pristine. The client explains the refusal and keeps the local club. Alternative (not built): let such players start a fresh protected club and keep the local one as a backup.
-3. **Rollout**: protection is opt-in from Settings. Auto-protecting new clubs at tutorial completion is a one-line change in `finishTutorial` once the deploy is verified.
+3. **Rollout** — decided 2026-09-10: new clubs are protected automatically at tutorial completion when the server is reachable (fallback: local play, opt-in later from Settings). Existing guest clubs remain opt-in.
 4. **Legacy publish path**: carrying the full snapshot to `fhq_bases` (additive `defense jsonb` column + client probe) is deferred; today only protected clubs get snapshot-consistent rival attacks.
 5. **Rename limit**: the server caps club names at 24 characters (tutorial allows 40); protected renames are truncated.
 
