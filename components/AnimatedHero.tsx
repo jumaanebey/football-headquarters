@@ -1,71 +1,24 @@
 import { subscribeHeroAnimation } from './heroAnimationClock';
 import { heroMotionColumns } from '../game/heroMotion';
 import { HERO_MOVEMENT_STYLE } from '../game/heroMovementStyle';
-import { loadHeroMotion } from './loadHeroMotion';
+import { HERO_MOTION_BOUNDS } from '../game/heroMotionBounds';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { HeroAnimation, heroFrame, keyHeroPixels, advanceHeroStride } from '../game/heroAnimation';
-
-import { HERO_ATLAS } from '../game/heroAtlas';
-import { heroPixelOwners } from '../game/heroPixelOwners';
+import { HeroAnimation, heroFrame, advanceHeroStride } from '../game/heroAnimation';
 import { advanceSignaturePlayback, battleSignatureBeat, heroSignaturePose, previewSignatureBeat, SIGNATURE_BEATS, type SignaturePlayback } from '../game/heroSignaturePresentation';
-import { loadHeroSignatures } from './loadHeroSignatures';
 import { paintHeroSignatureCue } from './paintHeroSignatureCue';
+import { hasReactionSheet, loadHeroArtWithRetry } from './heroArtLoader';
+import { campusFrameMap } from '../game/heroCampusSheet';
 
-type Sheet = { frames: HTMLCanvasElement[] };
-const sheets = new Map<string, Promise<Sheet>>();
-function loadSheet(key: string): Promise<Sheet> {
-  if (!sheets.has(key)) sheets.set(key, new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      try {
-        const bounds = HERO_ATLAS[key];
-        if (!bounds || bounds.length !== 9) throw new Error('Incomplete hero atlas');
-        const canvas = document.createElement('canvas');
-        canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) throw new Error('Canvas unavailable');
-        ctx.drawImage(image, 0, 0);
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        keyHeroPixels(data.data); ctx.putImageData(data, 0, 0);
-        const owners = heroPixelOwners(data.data, canvas.width, canvas.height, bounds);
-        // One scale for the whole actor: no size pumping between poses.
-        const scale = Math.min(340 / Math.max(...bounds.map(b => b[2] - b[0])), 346 / Math.max(...bounds.map(b => b[3] - b[1])));
-        const frames = bounds.map((b, frame) => {
-          const out = document.createElement('canvas'); out.width = out.height = 256;
-          const target = out.getContext('2d');
-          if (!target) throw new Error('Canvas unavailable');
-          target.scale(2 / 3, 2 / 3);
-          const [x, y, right, bottom] = b, w = right - x, h = bottom - y;
-          const crop = document.createElement('canvas'); crop.width = w; crop.height = h;
-          const cropCtx = crop.getContext('2d')!;
-          const clean = ctx.getImageData(x, y, w, h);
-          for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
-            const owner = owners[(y + yy) * canvas.width + x + xx];
-            if (owner >= 0 && owner !== frame) clean.data[(yy * w + xx) * 4 + 3] = 0;
-          }
-          cropCtx.putImageData(clean, 0, 0);
-          // Anchor around head/torso, rather than the extremity of a swinging arm.
-          let sum = 0, count = 0;
-          for (let yy = Math.ceil(y + h * .06); yy < y + h * .30; yy++) {
-            for (let xx = x; xx < right; xx++) if (owners[yy * canvas.width + xx] === frame && data.data[(yy * canvas.width + xx) * 4 + 3] > 128) { sum += xx; count++; }
-          }
-          const anchor = count ? sum / count - x : w / 2;
-          const left = Math.max(12, Math.min(372 - w * scale, 192 - anchor * scale));
-          const lift = frame === 3 || frame === 6 ? (HERO_MOVEMENT_STYLE[key]?.lift ?? 5) : 0;
-          target.drawImage(crop, left, 370 - h * scale - lift, w * scale, h * scale);
-          return out;
-        });
-        resolve({ frames });
-      } catch (error) { sheets.delete(key); reject(error); }
-    };
-    image.onerror = () => { sheets.delete(key); reject(new Error(`Hero art unavailable: ${key}`)); };
-    image.src = `/assets/heroes/elite/${key}.webp`;
-  }));
-  return sheets.get(key)!;
-}
+/** Which art a mount may request. `campus` (default): only the derived campus sheet — idle,
+ *  stride and the nine poses at card quality, ~200 KB per hero, held until the campus art gate
+ *  opens. `battle`: the authored elite atlas, directional motion, hit reactions and (when asked)
+ *  signature poses, each an independent request that starts at mount and never waits on the
+ *  others. Battle mounts are the only ones that may cost multi-megabyte sheets. */
+export type HeroArtTier = 'campus' | 'battle';
+type Sheet = { frames: HTMLCanvasElement[]; campus?: HTMLCanvasElement[] };
 
-export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame }: {
-  motionFrame?: number; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
+export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame }: {
+  tier?: HeroArtTier; motionFrame?: number; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderNowRef = useRef<(() => void) | null>(null);
@@ -81,12 +34,23 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
     const observer = new IntersectionObserver(entries => { visible = entries[0]?.isIntersecting ?? true; });
     if (canvasRef.current) observer.observe(canvasRef.current);
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const signal = { disposed: false };
     let signatures: HTMLCanvasElement[] = [];
     let motion: HTMLCanvasElement[] = [];
-    loadHeroMotion(heroKey).then(frames => { if (!disposed) motion = frames; }).catch(() => {});
-    if (loadSignatureArt) loadHeroSignatures(heroKey).then(frames => { if (!disposed) signatures = frames; }).catch(() => { /* Approved base poses remain available. */ });
+    let reactions: HTMLCanvasElement[] = [];
+    const motionFrameCount = HERO_MOTION_BOUNDS[heroKey]?.length ?? 0;
+    const campusMap = campusFrameMap(heroKey);
+    if (tier === 'battle') {
+      // Independent requests: a slow signature sheet never delays stride frames, and vice versa.
+      loadHeroArtWithRetry('motion', heroKey, signal).then(frames => { if (!disposed) motion = frames; }).catch(() => { /* Elite poses keep animating. */ });
+      if (hasReactionSheet(heroKey)) loadHeroArtWithRetry('reaction', heroKey, signal).then(frames => { if (!disposed) reactions = frames; }).catch(() => {});
+      if (loadSignatureArt) loadHeroArtWithRetry('signature', heroKey, signal).then(frames => { if (!disposed) signatures = frames; }).catch(() => { /* Approved base poses remain available. */ });
+    }
     setReady(false);
-    loadSheet(heroKey).then(sheet => {
+    const base: Promise<Sheet> = tier === 'battle'
+      ? loadHeroArtWithRetry('elite', heroKey, signal).then(frames => ({ frames }))
+      : loadHeroArtWithRetry('campus', heroKey, signal).then(frames => ({ frames: campusMap.elite.map(i => frames[i]), campus: frames }));
+    base.then(sheet => {
       if (disposed) return;
       const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return;
@@ -123,7 +87,9 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
         const signatureCanvas = !media.matches && signaturePlayback.authored && beat !== undefined ? signatures[beat] : undefined;
         const previewMotion = playback.current.mode === 'walk' ? (playback.current.facing > 0 ? heroMotionColumns(heroKey) : 0) + 2 + Math.floor((((frameElapsed % 1) + 1) % 1) * 4) : playback.current.mode === 'idle' ? (playback.current.facing > 0 ? heroMotionColumns(heroKey) : 0) : undefined;
         const selectedMotion = playback.current.motionFrame ?? previewMotion;
-        const motionCanvas = !media.matches && !signatureCanvas && beat === undefined && selectedMotion !== undefined ? motion[selectedMotion] : undefined;
+        const motionCanvas = !media.matches && !signatureCanvas && beat === undefined && selectedMotion !== undefined
+          ? (tier === 'battle' ? (selectedMotion < motionFrameCount ? motion[selectedMotion] : reactions[selectedMotion - motionFrameCount]) : (campusMap.motion[selectedMotion] !== undefined ? sheet.campus?.[campusMap.motion[selectedMotion]] : undefined))
+          : undefined;
         const idleCanvas = !motionCanvas && beat === undefined && playback.current.mode === 'idle' && !['qb','enforcer'].includes(heroKey) ? signatures[0] : undefined;
         const frame = idleCanvas ? 100 : signatureCanvas ? 100 + beat! : motionCanvas ? 200 + selectedMotion! : baseFrame;
         const drive = walking && playback.current.driving && !media.matches;
@@ -152,8 +118,8 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
       renderNowRef.current();
       unsubscribe = subscribeHeroAnimation(draw);
     }).catch(() => { if (!disposed) setReady(false); });
-    return () => { disposed = true; unsubscribe(); observer.disconnect(); renderNowRef.current = null; };
-  }, [heroKey, loadSignatureArt]);
+    return () => { disposed = true; signal.disposed = true; unsubscribe(); observer.disconnect(); renderNowRef.current = null; };
+  }, [heroKey, loadSignatureArt, tier]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
     style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? `fhq-modern-breathe ${HERO_MOVEMENT_STYLE[heroKey]?.breath ?? 2.8}s ease-in-out infinite` : mode === 'celebrate' ? 'fhq-hero-victory 1.2s ease-in-out infinite' : undefined }} />;

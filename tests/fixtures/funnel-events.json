@@ -1,0 +1,843 @@
+[
+{
+"pid": "old00000-0000-4000-8000-000000000001",
+"event": "session_start",
+"props": {},
+"ts": "2026-08-21T12:00:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-04T09:00:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-04T09:00:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-04T09:01:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-04T09:01:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-04T09:01:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "campaign_start",
+"props": {
+"stage": 1
+},
+"ts": "2026-09-04T09:02:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "funnel_first_kickoff",
+"props": {
+"mode": "attack"
+},
+"ts": "2026-09-04T09:02:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "battle_result",
+"props": {
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-04T09:04:00Z"
+},
+{
+"pid": "p05000000-0000-4000-8000-000000000005",
+"event": "funnel_result",
+"props": {
+"matchId": "m5",
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-04T09:04:00Z"
+},
+{
+"pid": "p11000000-0000-4000-8000-000000000011",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-04T11:00:00Z"
+},
+{
+"pid": "p11000000-0000-4000-8000-000000000011",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-04T11:00:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-04T12:00:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-04T12:00:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-04T12:01:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-04T12:01:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-04T12:01:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "campaign_start",
+"props": {
+"stage": 1
+},
+"ts": "2026-09-04T12:02:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "funnel_first_kickoff",
+"props": {
+"mode": "attack"
+},
+"ts": "2026-09-04T12:02:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "battle_result",
+"props": {
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-04T12:04:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "funnel_result",
+"props": {
+"matchId": "m4",
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-04T12:04:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "battle_confirmed",
+"props": {
+"won": true
+},
+"ts": "2026-09-04T12:04:30Z"
+},
+{
+"pid": "p07000000-0000-4000-8000-000000000007",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-05T06:00:00Z"
+},
+{
+"pid": "p07000000-0000-4000-8000-000000000007",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-05T06:00:00Z"
+},
+{
+"pid": "p07000000-0000-4000-8000-000000000007",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-05T06:01:00Z"
+},
+{
+"pid": "p07000000-0000-4000-8000-000000000007",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-05T06:01:00Z"
+},
+{
+"pid": "p07000000-0000-4000-8000-000000000007",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-05T06:01:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-05T12:00:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-05T12:00:00Z"
+},
+{
+"pid": "p10000000-0000-4000-8000-000000000010",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-05T12:00:00Z"
+},
+{
+"pid": "p10000000-0000-4000-8000-000000000010",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-05T12:00:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-05T12:01:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-05T12:01:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-05T12:01:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "campaign_start",
+"props": {
+"stage": 1
+},
+"ts": "2026-09-05T12:02:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "funnel_first_kickoff",
+"props": {
+"mode": "attack"
+},
+"ts": "2026-09-05T12:02:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "battle_result",
+"props": {
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-05T12:04:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "funnel_result",
+"props": {
+"matchId": "m1",
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-05T12:04:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "battle_confirmed",
+"props": {
+"won": true
+},
+"ts": "2026-09-05T12:04:30Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "building_upgrade",
+"props": {
+"type": "STADIUM",
+"toLevel": 2
+},
+"ts": "2026-09-05T12:06:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "funnel_backup_prompt_viewed",
+"props": {
+"reason": "first_upgrade"
+},
+"ts": "2026-09-05T12:08:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "session_start",
+"props": {
+"returning": true
+},
+"ts": "2026-09-05T14:00:00Z"
+},
+{
+"pid": "p04000000-0000-4000-8000-000000000004",
+"event": "funnel_return_visit",
+"props": {
+"daysSinceFirst": 1
+},
+"ts": "2026-09-05T14:00:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "session_start",
+"props": {
+"returning": true
+},
+"ts": "2026-09-06T14:00:00Z"
+},
+{
+"pid": "p01000000-0000-4000-8000-000000000001",
+"event": "funnel_return_visit",
+"props": {
+"daysSinceFirst": 1
+},
+"ts": "2026-09-06T14:00:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-07T10:00:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-07T10:00:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-07T10:01:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-07T10:01:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-07T10:01:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "campaign_start",
+"props": {
+"stage": 1
+},
+"ts": "2026-09-07T10:02:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "funnel_first_kickoff",
+"props": {
+"mode": "attack"
+},
+"ts": "2026-09-07T10:02:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "battle_result",
+"props": {
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-07T10:04:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "funnel_result",
+"props": {
+"matchId": "m0",
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-07T10:04:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "battle_confirmed",
+"props": {
+"won": true
+},
+"ts": "2026-09-07T10:04:30Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "building_upgrade",
+"props": {
+"type": "STADIUM",
+"toLevel": 2
+},
+"ts": "2026-09-07T10:06:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "funnel_backup_prompt_viewed",
+"props": {
+"reason": "first_upgrade"
+},
+"ts": "2026-09-07T10:08:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "funnel_backup_completed",
+"props": {
+"method": "export"
+},
+"ts": "2026-09-07T10:09:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "session_start",
+"props": {
+"returning": true
+},
+"ts": "2026-09-08T12:00:00Z"
+},
+{
+"pid": "p00000000-0000-4000-8000-000000000000",
+"event": "funnel_return_visit",
+"props": {
+"daysSinceFirst": 1
+},
+"ts": "2026-09-08T12:00:00Z"
+},
+{
+"pid": "e786415f-bc5a-48c4-a006-17e7955884b0",
+"event": "session_start",
+"props": {},
+"ts": "2026-09-08T12:00:00Z"
+},
+{
+"pid": "e786415f-bc5a-48c4-a006-17e7955884b0",
+"event": "club_created",
+"props": {},
+"ts": "2026-09-08T12:00:00Z"
+},
+{
+"pid": "e786415f-bc5a-48c4-a006-17e7955884b0",
+"event": "battle_result",
+"props": {},
+"ts": "2026-09-08T12:00:00Z"
+},
+{
+"pid": "old00000-0000-4000-8000-000000000001",
+"event": "session_start",
+"props": {
+"returning": true
+},
+"ts": "2026-09-08T12:00:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-09T04:00:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-09T04:00:00Z"
+},
+{
+"pid": "p09000000-0000-4000-8000-000000000009",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-09T04:00:00Z"
+},
+{
+"pid": "p09000000-0000-4000-8000-000000000009",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-09T04:00:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T04:01:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T04:01:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-09T04:01:00Z"
+},
+{
+"pid": "p09000000-0000-4000-8000-000000000009",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T04:01:00Z"
+},
+{
+"pid": "p09000000-0000-4000-8000-000000000009",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T04:01:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "campaign_start",
+"props": {
+"stage": 1
+},
+"ts": "2026-09-09T04:02:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "funnel_first_kickoff",
+"props": {
+"mode": "attack"
+},
+"ts": "2026-09-09T04:02:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "battle_result",
+"props": {
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-09T04:04:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "funnel_result",
+"props": {
+"matchId": "m2",
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-09T04:04:00Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "battle_confirmed",
+"props": {
+"won": true
+},
+"ts": "2026-09-09T04:04:30Z"
+},
+{
+"pid": "p02000000-0000-4000-8000-000000000002",
+"event": "building_upgrade",
+"props": {
+"type": "STADIUM",
+"toLevel": 2
+},
+"ts": "2026-09-09T04:06:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-09T07:00:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-09T07:00:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T07:01:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T07:01:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-09T07:01:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "campaign_start",
+"props": {
+"stage": 1
+},
+"ts": "2026-09-09T07:02:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "funnel_first_kickoff",
+"props": {
+"mode": "attack"
+},
+"ts": "2026-09-09T07:02:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "battle_result",
+"props": {
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-09T07:04:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "funnel_result",
+"props": {
+"matchId": "m3",
+"won": true,
+"stars": 3
+},
+"ts": "2026-09-09T07:04:00Z"
+},
+{
+"pid": "p03000000-0000-4000-8000-000000000003",
+"event": "battle_confirmed",
+"props": {
+"won": true
+},
+"ts": "2026-09-09T07:04:30Z"
+},
+{
+"pid": "p08000000-0000-4000-8000-000000000008",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-09T09:00:00Z"
+},
+{
+"pid": "p08000000-0000-4000-8000-000000000008",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-09T09:00:00Z"
+},
+{
+"pid": "p08000000-0000-4000-8000-000000000008",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T09:01:00Z"
+},
+{
+"pid": "p08000000-0000-4000-8000-000000000008",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T09:01:00Z"
+},
+{
+"pid": "p08000000-0000-4000-8000-000000000008",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-09T09:01:00Z"
+},
+{
+"pid": "p06000000-0000-4000-8000-000000000006",
+"event": "session_start",
+"props": {
+"returning": false,
+"source": "direct"
+},
+"ts": "2026-09-09T11:00:00Z"
+},
+{
+"pid": "p06000000-0000-4000-8000-000000000006",
+"event": "funnel_visible_start",
+"props": {
+"returning": false
+},
+"ts": "2026-09-09T11:00:00Z"
+},
+{
+"pid": "p06000000-0000-4000-8000-000000000006",
+"event": "club_created",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T11:01:00Z"
+},
+{
+"pid": "p06000000-0000-4000-8000-000000000006",
+"event": "funnel_naming_complete",
+"props": {
+"nameLen": 10
+},
+"ts": "2026-09-09T11:01:00Z"
+},
+{
+"pid": "p06000000-0000-4000-8000-000000000006",
+"event": "tutorial_choice",
+"props": {
+"stormFirst": true
+},
+"ts": "2026-09-09T11:01:00Z"
+},
+{
+"pid": "p06000000-0000-4000-8000-000000000006",
+"event": "campaign_start",
+"props": {
+"stage": 1
+},
+"ts": "2026-09-09T11:02:00Z"
+},
+{
+"pid": "p06000000-0000-4000-8000-000000000006",
+"event": "funnel_first_kickoff",
+"props": {
+"mode": "attack"
+},
+"ts": "2026-09-09T11:02:00Z"
+},
+{
+"pid": "qa000000-0000-4000-8000-000000000099",
+"event": "session_start",
+"props": {
+"qa": true
+},
+"ts": "2026-09-09T12:00:00Z"
+}
+]

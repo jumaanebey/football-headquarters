@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { keySceneryPixels } from '../game/sceneryMatte';
+import { assetUrl } from '../game/assetUrl';
+import { campusArtOpen, campusArtReady } from '../game/artGate';
 
 const sheets = new Map<string, Promise<HTMLCanvasElement>>();
 function loadSheet(src: string) {
   if (!sheets.has(src)) {
     sheets.set(src, new Promise<HTMLCanvasElement>((resolve, reject) => {
       const image = new Image();
+      image.decoding = 'async';
       const fail = () => { sheets.delete(src); reject(new Error('Sprite unavailable')); };
       image.onload = () => {
         try {
@@ -21,11 +24,16 @@ function loadSheet(src: string) {
         } catch { fail(); }
       };
       image.onerror = fail;
-      image.src = src;
+      // Campus scenery waits for the naming step; battle scenery never does.
+      const gated = !src.includes('/battle/') && !campusArtOpen();
+      (gated ? campusArtReady() : Promise.resolve()).then(() => { image.src = assetUrl(src); });
     }));
   }
   return sheets.get(src)!;
 }
+
+/** Fallback portraits follow the same gate as the sheet so the naming card costs nothing. */
+function gatedSrc(src: string): string | undefined { return src.includes('/battle/') || campusArtOpen() ? assetUrl(src) : undefined; }
 
 /** A normalized atlas region retains the source sprite's framing and aspect ratio. */
 export function MatteSprite({ src, fallback, alt = '', className, style, region = [0, 0, 1, 1], underlay }: {
@@ -40,6 +48,8 @@ export function MatteSprite({ src, fallback, alt = '', className, style, region 
   // building while the next cell is preparing, or redraw on unrelated ticks.
   const sourceKey = `${src}:${x},${y},${width},${height}`;
   const ready = readySource === sourceKey;
+  const [, gateOpened] = useState(campusArtOpen());
+  useEffect(() => { if (!campusArtOpen()) { let live = true; campusArtReady().then(() => { if (live) gateOpened(true); }); return () => { live = false; }; } }, []);
   useEffect(() => {
     let disposed = false;
     loadSheet(src).then(sheet => {
@@ -56,7 +66,7 @@ export function MatteSprite({ src, fallback, alt = '', className, style, region 
     return () => { disposed = true; };
   }, [src, sourceKey, x, y, width, height]);
   return <span className={className} style={{ display: 'block', position: 'relative', ...style }}>
-    <img src={fallback} alt={ready ? '' : alt} draggable={false}
+    <img src={gatedSrc(fallback)} alt={ready ? '' : alt} draggable={false}
       style={{ display: 'block', width: '100%', height: 'auto', visibility: ready ? 'hidden' : undefined }} />
     {ready && underlay}
     <canvas ref={ref} width={512} height={512} role={alt ? 'img' : undefined} aria-label={alt || undefined}

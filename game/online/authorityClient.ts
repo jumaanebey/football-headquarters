@@ -9,6 +9,7 @@ import type { GameState } from '../../types';
 import { parseSavedClub } from '../saveValidation';
 import { canonicalJson } from '../combat/canonical';
 import { isPlayerId, isRecord } from './validation';
+import { reportClubServer } from '../../pwa/connection';
 
 export interface AuthorityClubView { owner: string; state: GameState; revision: number; activeMatch: string | null; origin: string }
 export interface AuthorityMatchView { id: string; owner: string; status: 'reserved' | 'started' | 'settled' | 'cancelled'; config: Record<string, unknown>; seed: number; issuedAt: number; expiresAt: number; metadata: Record<string, unknown> }
@@ -140,11 +141,12 @@ export class AuthorityClient {
 
   private async send(body: Record<string, unknown>, owner: string): Promise<{ status: 'ok'; answer: AuthorityAnswer } | { status: 'offline' | 'unauthorized' | 'other-account' }> {
     const sent = await this.transport(body);
-    if (sent.status !== 'ok') { this.availability = { status: sent.status, at: this.now() }; return sent; }
+    if (sent.status !== 'ok') { this.availability = { status: sent.status, at: this.now() }; reportClubServer(sent.status); return sent; }
     if (sent.owner !== owner) return { status: 'other-account' };
     const answer = parseAuthorityAnswer(sent.body);
     if (!answer) { this.availability = { status: 'offline', at: this.now() }; return { status: 'offline' }; }
     this.availability = { status: 'ok', at: this.now() };
+    reportClubServer('ok');
     this.adopt(owner, answer);
     return { status: 'ok', answer };
   }
