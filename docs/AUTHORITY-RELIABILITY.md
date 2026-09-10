@@ -57,6 +57,10 @@ One rule in `game/clubName.ts`: trim, 2–24 UTF-16 code units, no control chara
 - **Automatic protection at tutorial completion** (owner decision, 2026-09-10): when the club server is reachable, the new club is admitted before the first game; otherwise local play continues and Settings offers protection later.
 - **Calendar**: protected clubs advance daily quests and Gauntlet attempts on the server's UTC day (the client passes that day to `advanceCampus`); guest clubs keep the local-midnight reset recorded in `dailies.ts`. Without this, a protected club near the UTC boundary lost daily progress on every server action.
 
+## Browser run record
+
+2026-09-10 ~04:55 UTC, `node scripts/authority-browser-check.mjs` on `vite preview` of commit `cd2c080` (build stamp 04:53 UTC), Chrome 151 headless at 430×932, run by the owner. Tutorial ("Look around first") → Settings already showed **PROTECTED, revision 0, club server reachable** (automatic protection at tutorial completion) → Game Day → Season game 1 reserved/begun/played/settled through the authority → "Collect rewards" → Settings: **revision 3 · everything confirmed · ~438 ms to confirm**; HUD coins 664 from the settled answer. Required assertions passed (`RESULT: required journey passed`, exit 0). Optional Stadium step: accessible target reached and reported "Level Up correctly disabled (unaffordable on a fresh club)". No console errors. One more anonymous test account was created (club "Protected Preview FC"); its ID is not printed by the script and belongs to the deferred cleanup inventory by club name.
+
 ## Remaining gaps
 
 - Expired-session and second-device flows are covered deterministically at the transport level and by the hook's `resync`; they are not browser-automated because they need real credentials.
