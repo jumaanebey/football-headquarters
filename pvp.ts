@@ -10,7 +10,8 @@
 import { BattleBuildingDef } from './battle';
 import { CloudSaveStore, jsonBytes, type CloudWriteResult, type CloudReadResult, type CloudSaveRow } from './game/online/cloudStore';
 export type { CloudWriteResult } from './game/online/cloudStore';
-import { finiteWithin, isPlayerId, validAttack, validLayout, validLeader, validLiveBase } from './game/online/validation';
+import { finiteWithin, isPlayerId, isRecord, validAttack, validLayout, validLeader, validLiveBase } from './game/online/validation';
+import { AuthorityClient, type AuthorityTransportResult } from './game/online/authorityClient';
 import { AttackOutbox, type AttackReportResult } from './game/online/attackOutbox';
 import { validateReplay } from './game/combat/replay';
 export type { AttackReportResult } from './game/online/attackOutbox';
@@ -174,6 +175,17 @@ export const publishBase = async (name: string, trophies: number, layout: Battle
       });
       return isCurrentContext(context) && res.ok;
     });
+  } catch { return false; }
+};
+
+/** Remove my published base (protected clubs are raided through the authority, not this table). */
+export const unpublishBase = async (): Promise<boolean> => {
+  if (!pvpEnabled()) return false;
+  try {
+    const context = await authedContext();
+    if (!context) return false;
+    const res = await tfetch(`${URL_}/rest/v1/fhq_bases?pid=eq.${encodeURIComponent(context.uid)}`, { method: 'DELETE', headers: context.headers });
+    return isCurrentContext(context) && res.ok;
   } catch { return false; }
 };
 
@@ -394,6 +406,27 @@ export const deleteCloudData = async (): Promise<boolean> => {
   } catch { return false; }
   finally { deletingOwners.delete(context.uid); }
 };
+
+// ── CLUB AUTHORITY (protected clubs) ──────────────────────────────────────────
+// The club-authority Edge Function settles protected clubs. The transport is bound to the
+// signed-in session: the answer names the account it was issued for so a sign-out mid-flight
+// can never apply another account's club to this one.
+export const postAuthority = async (body: unknown): Promise<AuthorityTransportResult> => {
+  if (!pvpEnabled()) return { status: 'offline' };
+  const context = await authedContext();
+  if (!context) return { status: 'unauthorized' };
+  try {
+    const res = await tfetch(`${URL_}/functions/v1/club-authority`, { method: 'POST', headers: context.headers, body: JSON.stringify(body) });
+    if (res.status === 401) return { status: 'unauthorized' };
+    const json: unknown = await res.json().catch(() => null);
+    if (!isCurrentContext(context) || !isRecord(json) || typeof json.ok !== 'boolean') return { status: 'offline' };
+    return { status: 'ok', owner: context.uid, body: json };
+  } catch { return { status: 'offline' }; }
+};
+export const authorityClient = new AuthorityClient(postAuthority, {
+  getItem: key => { try { return localStorage.getItem(key); } catch { return null; } },
+  setItem: (key, value) => { localStorage.setItem(key, value); },
+});
 
 export interface AttackCursor { createdAt: string; id: number }
 export type AttackInbox =

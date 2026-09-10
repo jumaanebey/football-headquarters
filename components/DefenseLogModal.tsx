@@ -81,7 +81,7 @@ export const DefenseLogModal: React.FC<Props> = ({ log, onClose, onWatchLive, on
                     {held ? 'HELD' : `−${e.coinsLost}`}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {!!e.replay && (
+                    {(!!e.replay || !!e.authorityMatchId) && (
                       <button onClick={() => onWatchReplay(e)} title="Watch the actual attack, move for move"
                         className="text-[11px] font-bold px-2 py-1 rounded-lg bg-red-700 hover:bg-red-600 text-white flex items-center gap-1 transition-colors active:scale-95">
                         ▶ Watch
