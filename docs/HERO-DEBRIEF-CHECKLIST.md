@@ -29,24 +29,36 @@ It does not complete the remaining authored animation or online launch gates.
 - [x] All 528 shipped raster assets fully decode.
 - [x] Production build passes; existing bundle-size warning remains.
 - [x] Shared-engine balance regression passes all gates across 219 deterministic matches.
-- [ ] Preview: practice, signature, result, retry and return journey.
-- [ ] Preview: result scrolling, disclosure and keyboard controls.
-- [ ] Preview: defending hero size, planted contact and movement.
-- [ ] Remote CI and preview deployment succeed.
-- [ ] Publish and verify production.
+- [x] Preview: practice, signature, result, retry and return journey.
+- [x] Preview: result scrolling, disclosure and keyboard controls.
+- [x] Preview: defending hero size, planted contact and movement.
+- [x] Remote CI and preview deployment succeed.
+- [x] Publish and verify production.
 
-## Publication status
+## Release evidence
 
-The local implementation is committed on `gpt/hero-results-and-defense`.
-The user reconfirmed approval to push and publish in the current chat after the
-automatic review did not accept the prior standing authorization. Publishing
-and preview verification are now in progress. Browser access to the local
-development server was unavailable; browser gates are checked on the deployed
-preview before production publication.
+- PR #26 merged as `2803c0f`; its exact preview payload passed remote CI run 78.
+- Vercel production deployment `dpl_5GhA9pbHdbEQF1kjWvy1m76zCEuF`
+  reached READY with `football-headquarters.vercel.app` assigned to that commit.
+- Preview: locked Dr. Sloane deployed and used Field Medic. The new debrief
+  separately credited 401 yards and 166 recovered grit. Opening all hero stats
+  made the body scroll (641px content / 582px visible); footer controls remained
+  inside the viewport. Tab reached the disclosure; Tab from the final return
+  control wrapped to Close. Free retry reset to 1:00 and 0% with fresh deployment.
+- Return to the Film Room preserved the displayed 100 Energy, 500 Coins,
+  0 Fans and 10 Crowns. Dr. Sloane remained locked.
+- Preview defense: Enforcer and Burner rendered at 68.66px with the shared
+  `translate(-50%, -96%)` anchor and no wrapper animation. Sampled Enforcer run
+  frames 4, 5, 1, 2, 6, 1 as position changed; Burner transitioned from moving
+  frames to a fixed contact location and frame 7. The defense test ended in a
+  hold at 34% damage and zero coin loss.
+- Production browser: Heroes → Hail Mary practice → deploy → signature → End
+  showed the new debrief, The Franchise credited with 995 yards, expandable
+  hero stats, free retry and return controls. The live page was verified at
+  https://football-headquarters.vercel.app/.
 
-Release sequence: push the prepared branch to
-`jumaanebey/football-headquarters`, open a PR, verify the preview journeys and
-remote CI, resolve any observed failures, then merge and verify production.
+The browser observations above used a desktop viewport. They do not claim
+physical-phone, all-nine directional-art, or online two-account acceptance.
 
 ## Remaining evidence and scope
 
