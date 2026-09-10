@@ -51,6 +51,12 @@ Every request to `club-authority` — including CORS preflight — returned HTTP
 | Risk: two tabs / two devices | Handled by revision conflicts (latest club adopted, stale request fails), stale reservations released on load | tests + hook |
 | Risk: rewards displayed before confirmation | Prevented | `handleBattleFinish` credits nothing locally for authority matches |
 
+## Deployment record
+
+- 2026-09-10 ~03:24 UTC: `club-authority` **version 3** deployed (owner-authorized), `verify_jwt: true`, eszip digest `dce9609573f3082695e4e5ffb681bd0d409f6caaf1da7adeb42b1dad2cb2e916`. The deployed `index.ts` is a one-line entry that imports the commit-pinned artifact `supabase/recovery/club-authority.v3.min.js` (sha256 `9ebeed1b…`, commit `e5d8238`) through jsDelivr; the bundler embeds it at deploy time, so repository changes cannot alter the deployment. Reason for the indirection: the deploy tool takes file contents inline and the 225 KB bundle exceeded what one call could carry.
+- Verified after deploy: CORS preflight `OPTIONS` → 204 (was 500); `POST` without a bearer → gateway 401 `UNAUTHORIZED_NO_AUTH_HEADER` (was 500).
+- Rollback: redeploy the preserved v2 bundle (`supabase/recovery/club-authority.v2.bundle.js`) as `index.ts`, or an entry importing it by commit.
+
 ## Release: what deploying the fix involves
 
 1. `npm run authority:build` (already run; `supabase/functions/club-authority/index.ts` sha256 `10df7c51…`).
