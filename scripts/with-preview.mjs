@@ -2,6 +2,9 @@
 //   node scripts/with-preview.mjs <port> <command...>
 import { spawn, spawnSync } from 'node:child_process';
 const [port, ...command] = process.argv.slice(2);
+// Refuse a port that is already answering: otherwise another server (a dev server from a parallel
+// task, another checkout's preview) would silently receive the checks and invalidate them.
+try { await fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(1500) }); console.error(`port ${port} is already serving something; choose a free port`); process.exit(1); } catch { /* free */ }
 const server = spawn('npx', ['vite', 'preview', '--port', port, '--strictPort'], { stdio: ['ignore', 'ignore', 'inherit'] });
 let exited = false; server.on('exit', () => { exited = true; });
 const url = `http://127.0.0.1:${port}/`;
