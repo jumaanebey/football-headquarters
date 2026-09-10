@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { computeFunnel, renderFunnel, FUNNEL } from '../scripts/funnel-report.mjs';
 
 const rows = JSON.parse(readFileSync('tests/fixtures/funnel-events.json', 'utf8'));
-const qa = new Set(JSON.parse(readFileSync('scripts/qa-accounts.json', 'utf8')).accounts.map((a: { id: string }) => a.id));
+const qa = new Set<string>(JSON.parse(readFileSync('scripts/qa-accounts.json', 'utf8')).accounts.map((a: { id: string }) => a.id));
 const NOW = Date.parse('2026-09-10T12:00:00Z');
 
 describe('weekly funnel report', () => {

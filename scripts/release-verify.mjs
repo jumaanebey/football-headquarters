@@ -3,7 +3,7 @@
 // the exact owner command unless `--live` is passed and the credentials file exists.
 //
 //   npm run release:verify                offline: typecheck, tests, authority parity, hero atlases, production build (runs the raster decode via prebuild), balance guard
-//   npm run release:verify -- --browser   also the Chrome determinism corpus (needs the installed Chrome)
+//   npm run release:verify -- --browser   also the Chrome determinism corpus, the startup budget and the PWA behaviour on a built preview (needs the installed Chrome)
 //   npm run release:verify -- --live      also the credentialed live evidence (creates anonymous evidence accounts: owner-run only)
 //   npm run release:verify -- --strict    treat a lagging authority deployment as a failure (before shipping a client that needs the staged server)
 import { spawnSync } from 'node:child_process';
@@ -31,9 +31,15 @@ step('unit and service tests', 'npm run -s test -- --reporter=dot');
 step('authority parity (sources ↔ bundle ↔ artifacts ↔ deployment record)', `node scripts/build-authority.mjs --check${args.has('--strict') ? ' --require-deployed-current' : ''}`, { note: args.has('--strict') ? 'strict: lagging deployment fails' : 'lagging deployment is informational' });
 step('hero atlas verification (non-destructive)', 'npm run -s art:verify');
 step('restore/rollback rehearsal (isolated)', 'npm run -s authority:rehearsal');
+step('derived art present (campus hero sheets)', 'npm run -s art:campus -- --check', { note: 'sheets are committed; regenerate with npm run art:campus after a reviewed art change' });
+step('install icons present', 'node scripts/derive-brand-icons.mjs --check');
 step('production build (+ raster decode of every shipped asset via prebuild)', 'npm run -s build');
+step('build assets content-addressed', 'npm run -s build:verify');
 step('balance regression guard', 'npm run -s balance');
 step('Chrome determinism corpus', 'npm run -s determinism:browser', { skip: args.has('--browser') ? null : 'pass --browser (needs the installed Chrome; ~20 s)' });
+// Rendered checks against a preview of the build just produced: startup transfer budget and the offline/update behaviour.
+step('startup transfer budget on the built preview', 'node scripts/with-preview.mjs 4187 node scripts/perf-waterfall.mjs --url http://127.0.0.1:4187/ --block-server --budget --out docs/evidence/perf-latest-local-preview.json', { skip: args.has('--browser') ? null : 'pass --browser (Chrome; ~60 s)' });
+step('offline shell and update flow on the built preview', 'node scripts/with-preview.mjs 4188 node scripts/pwa-check.mjs http://127.0.0.1:4188/', { skip: args.has('--browser') ? null : 'pass --browser (Chrome; ~30 s)' });
 
 // Credentialed — creates anonymous evidence accounts against the deployed function. Owner-run only.
 const env = '.env.production';
