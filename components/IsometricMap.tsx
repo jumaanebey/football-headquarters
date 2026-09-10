@@ -725,7 +725,7 @@ const BuildingSprite: React.FC<{
           (one tap target per building, no separate button to fight the sprite). */}
       {/* centering lives on an animation-free wrapper — bounce-sm's transform used to REPLACE the -translate-x-1/2 */}
       {showBubble && (
-        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; onCollectResource?.(building, {x:e.clientX,y:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto" style={{ left: 30, top: -30, zIndex: 44 }}>
+        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; onCollectResource?.(building, {x:e.clientX,y:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto" style={{ left: 0, top: TILE_H - (SPRITE_W > TILE_W * 3 ? SPRITE_W * 0.8 : TILE_H * 2.3) - 65, zIndex: 44 }}>
           <div className="flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl bg-amber-400 animate-bounce-sm">
             <Coins size={18} className="text-yellow-900 fill-yellow-800" />
             <span className="text-sm font-display font-bold text-yellow-950">{banked}</span>
