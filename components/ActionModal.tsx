@@ -1,4 +1,5 @@
 import { BuildingArt } from './BuildingArt';
+import { Sheet } from './ui';
 
 import React from 'react';
 import { BuildingInstance, BuildingType, ResourceType, UpgradeJob } from '../types';
@@ -45,10 +46,8 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
   const hireCost = builderHireCost(builders);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose}></div>
-
-      <div className="bg-slate-900 w-[90%] max-w-sm max-h-[92vh] overflow-y-auto rounded-2xl border border-slate-700 shadow-2xl pointer-events-auto relative">
+    <Sheet title={info.name} subtitle={`Level ${building.level}${job ? ` → ${job.toLevel}` : ''}`} onClose={onClose} maxWidth="max-w-sm">
+      <div className="bg-slate-900">
         <div className={`h-28 ${info.color} bg-opacity-20 relative flex items-center justify-center overflow-hidden`}>
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
           <Hammer size={56} className="text-white/10" />
@@ -56,7 +55,6 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
             <h2 className="text-2xl font-bold text-white drop-shadow-md">{info.name}</h2>
             <div className="text-xs font-bold bg-black/50 px-2 py-1 rounded text-white/80 w-fit">LVL {building.level}{job ? ` → ${job.toLevel}` : ''}</div>
           </div>
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/30 hover:bg-black/50 rounded-full text-white transition-colors"><X size={20} /></button>
         </div>
 
         <div className="p-6">
@@ -161,6 +159,6 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
           </div>
         </div>
       </div>
-    </div>
+    </Sheet>
   );
 };

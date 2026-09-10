@@ -61,6 +61,7 @@ try {
   await page.waitForTimeout(800);
   await shot('game-day');
   await page.click('button:has-text("Next")').catch(async () => { await page.click('text=Preseason Opener'); });
+  await page.getByRole('button', { name: /Reserve game/ }).click();
   await page.waitForSelector('[aria-label="Battlefield"]', { timeout: 30000 });
   await page.waitForTimeout(1500);
   await shot('battle-deploy');
@@ -110,7 +111,18 @@ try {
     const levelUp = page.locator('button:has-text("Level Up")').first();
     const disabled = await levelUp.isDisabled().catch(() => true);
     if (disabled) optional = 'stadium upgrade unaffordable on this club (expected for a fresh club); Level Up was correctly disabled';
-    else { await levelUp.click(); await page.waitForTimeout(2500); await shot('stadium-upgrade'); await page.click('button:has(svg.lucide-settings)'); await waitText('Online protection'); const t = await text(); const rev = Number((t.match(/Revision (\d+)/) ?? [])[1] ?? NaN); optional = rev > revisionAfterMatch ? `stadium upgrade confirmed at revision ${rev}` : `stadium upgrade not confirmed (revision ${rev})`; await page.keyboard.press('Escape'); }
+    else {
+      await levelUp.click();
+      await page.getByRole('button', { name: /^UPGRADE/ }).click();
+      await page.waitForTimeout(2500);
+      await shot('stadium-upgrade');
+      await page.getByRole('button', { name: 'Close dialog' }).click();
+      await page.click('button:has(svg.lucide-settings)');
+      await waitText('Online protection');
+      const t = await text(); const rev = Number((t.match(/Revision (\d+)/) ?? [])[1] ?? NaN);
+      optional = rev > revisionAfterMatch ? `stadium upgrade confirmed at revision ${rev}` : `stadium upgrade not confirmed (revision ${rev})`;
+      await page.keyboard.press('Escape');
+    }
   } catch (error) { optional = `stadium step could not run: ${error.message.split('\n')[0]}`; }
   console.log('optional:', optional);
   console.log('console problems:', logs.slice(0, 10));
