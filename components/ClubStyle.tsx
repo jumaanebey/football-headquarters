@@ -1,3 +1,4 @@
+import { AnimatedHero } from './AnimatedHero';
 import React, { useEffect, useState } from 'react';
 import { CLUB_STYLES, clubStyle, clubInitials } from '../game/clubStyle';
 type Style = typeof CLUB_STYLES[number];
@@ -46,7 +47,7 @@ export function ClubStylePicker({ name }: { name: string }) {
   };
   return <section className="rounded-xl border border-slate-700 p-3" aria-label="Club identity">
     <h3 className="font-bold text-white">Club identity</h3>
-    <p className="my-2 text-xs text-slate-300">Preview your crest and field colors. Apply when ready.</p>
+    <p className="my-2 text-xs text-slate-300">Preview uniforms, crest and field colors. Apply when ready.</p>
     <div className="mb-3 flex items-center gap-3 rounded-lg p-3" style={{ background: preview.primary, color: preview.secondary }}>
       <ClubEmblem name={name} style={preview} size={64} />
       <div className="min-w-0"><p className="break-words font-black">{name}</p><p className="text-xs">{preview.name} · {changed ? 'Preview' : 'Current style'}</p></div>
@@ -56,8 +57,11 @@ export function ClubStylePicker({ name }: { name: string }) {
       <div className="relative flex flex-1 items-center justify-center bg-emerald-900" style={{ backgroundImage: 'repeating-linear-gradient(90deg,transparent 0,transparent calc(20% - 1px),#ffffff55 calc(20% - 1px),#ffffff55 20%)' }}><span className="rounded-full border border-white/50 px-3 py-1 text-xs font-black text-white">50</span></div>
       <div className="flex w-1/4 items-center justify-center text-xs font-black" style={{ background: preview.secondary, color: preview.primary }}>AWAY</div>
     </div>
+    <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-slate-700 bg-slate-900 p-2" aria-label="Uniform preview">
+      {['qb','enforcer'].map(heroKey=><div key={heroKey} className="relative h-24"><AnimatedHero heroKey={heroKey} kit={preview} label={`${preview.name} ${heroKey==='qb'?'quarterback':'lineman'} uniform`} /></div>)}
+    </div>
     <div className="grid grid-cols-2 gap-2" role="group" aria-label="Preview a club style">{CLUB_STYLES.map(s => <button key={s.id} aria-pressed={preview.id === s.id} onClick={() => { setPreviewId(s.id); setMessage(''); }} className="flex min-h-14 items-center gap-2 rounded-lg border-2 p-2 text-left text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" style={{ background: s.primary, color: s.secondary, borderColor: preview.id === s.id ? 'white' : 'transparent' }}><ClubEmblem name={name} style={s} size={32} /><span>{s.name}{saved.id === s.id && <span className="block text-[10px]">Applied</span>}</span></button>)}</div>
     <div className="mt-3 flex gap-2"><button disabled={!changed} onClick={apply} className="min-h-11 flex-1 rounded-lg bg-white px-3 font-bold text-slate-950 disabled:opacity-40">Apply style</button>{changed && <button onClick={() => { setPreviewId(saved.id); setMessage(''); }} className="min-h-11 rounded-lg border border-slate-500 px-3 text-sm text-white">Cancel</button>}</div>
-    <p role="status" className="mt-2 text-xs text-slate-300">{message || 'Saved on this device. Changes crest and field paint; player uniforms stay the same.'}</p>
+    <p role="status" className="mt-2 text-xs text-slate-300">{message || 'Uniforms, crest and field colors are saved on this device.'}</p>
   </section>;
 }

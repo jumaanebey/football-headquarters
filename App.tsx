@@ -1,3 +1,4 @@
+import {TeamKitProvider} from './components/TeamKit';
 import { COMBAT_RULES_VERSION } from './game/combat/actions';
 import { ClubStylePicker } from './components/ClubStyle';
 import { LandscapePlay } from './components/LandscapePlay';
@@ -1480,6 +1481,7 @@ function App() {
   };
 
   return (
+    <TeamKitProvider name={gameState.teamName}>
     <div className="fhq-game relative w-full h-screen bg-slate-900 overflow-hidden font-sans select-none">
       {shareOwner === (playerId() ?? 'local') && gameState.matchHistory[0] && <ResultShare key={`result:${shareOwner}`} club={gameState.teamName} match={gameState.matchHistory[0]} onClose={() => setShareOwner(null)} />}
       <ClubReturnCard key={`return:${playerId() ?? 'local'}`} owner={playerId() ?? 'local'} eligible={!selectedBuilding && !confirmingReset && !importPending && !showTutorial && !battleConfig && !preparedMatch && !settingsOpen && !isHeroOpen && !isSquadOpen && !isScoutingOpen && !isStandingsOpen && !attackSelectOpen && !defenseLogOpen && !frontOfficeOpen && !campusEditorOpen && !dashboardOpen && !isDailyOpen && shareOwner !== (playerId() ?? 'local') && !profile?.email && !profile?.pendingEmail && authority.ready && !authority.locked && authority.pendingCount === 0 && (stadiumLevel > 1 || gameState.defenseLog.some(entry => !!entry.attackerPid || !!entry.authorityMatchId))} onBackup={() => setSettingsOpen(true)} />
@@ -2319,6 +2321,7 @@ function App() {
         onDefense={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }}
       />
     </div>
+    </TeamKitProvider>
   );
 }
 
