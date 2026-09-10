@@ -1,7 +1,7 @@
 // Startup transfer measurement and budget check for the live game or a preview/local build.
 //
 //   node scripts/perf-waterfall.mjs [--url https://…] [--profile none|slow4g|fast3g] [--cpu 1|4]
-//                                   [--block-server] [--budget] [--out docs/evidence/perf.json] [--shots DIR]
+//                                   [--block-server] [--budget] [--with-sw] [--out docs/evidence/perf.json] [--shots DIR]
 //
 // Records the request waterfall through four stages — naming (the tutorial card), campus (after
 // naming), hero detail (Heroes modal) and first battle — for a COLD context and then a WARM
@@ -43,10 +43,14 @@ const summarize = (name, entries, ms) => ({
 });
 
 async function run(browser, label, { warmFrom } = {}) {
-  const context = warmFrom ?? await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-  if (blockServer && !warmFrom) await context.route(/supabase\.co/, r => r.abort());
+    // Service workers are blocked by default: a worker-served response reports transferSize 0, which
+  // would hide real bytes. Pass --with-sw to measure what an installed player actually transfers.
+  const context = warmFrom ?? await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: has('--with-sw') ? 'allow' : 'block' });
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
+  // Block the club server through CDP rather than context.route(): Playwright's request interception
+  // disables the HTTP cache, which would make every warm visit look like a cold one.
+  if (blockServer) { await cdp.send('Network.enable'); await cdp.send('Network.setBlockedURLs', { urls: ['*supabase.co*'] }); }
   if (PROFILES[profile]) { await cdp.send('Network.enable'); await cdp.send('Network.emulateNetworkConditions', { offline: false, ...PROFILES[profile] }); }
   if (cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpu });
   const seen = new Set(); const stages = []; let shot = 0;
@@ -90,7 +94,7 @@ const warm = await run(browser, 'warm', { warmFrom: cold.context });
 await cold.context.close();
 await browser.close();
 
-const report = { url, measuredAt: new Date().toISOString(), viewport, deviceScaleFactor: 2, network: profile, cpuThrottle: cpu, clubServer: blockServer ? 'blocked (no account created)' : 'reachable', userAgent: cold.ua, cold: cold.stages, warm: warm.stages };
+const report = { url, measuredAt: new Date().toISOString(), viewport, deviceScaleFactor: 2, network: profile, cpuThrottle: cpu, serviceWorker: has('--with-sw') ? 'allowed' : 'blocked (bytes are real network transfers)', clubServer: blockServer ? 'blocked (no account created)' : 'reachable', userAgent: cold.ua, cold: cold.stages, warm: warm.stages };
 const print = (label, stages) => { console.log(`\n${label}`); for (const s of stages) { console.log(`  ${s.stage.padEnd(14)} ${String(s.requests).padStart(4)} req  transfer ${MB(s.transferBytes).padStart(9)}  encoded ${MB(s.encodedBytes).padStart(9)}  decoded ${MB(s.decodedBytes).padStart(9)}  ${(s.ms / 1000).toFixed(1)} s`); for (const l of s.largest.slice(0, 4)) console.log(`      ${KB(l.transfer).padStart(8)}  ${l.name}`); } };
 print(`COLD  (${profile} network, cpu ×${cpu}, server ${report.clubServer})`, cold.stages);
 print('WARM  (same context, return visit)', warm.stages);

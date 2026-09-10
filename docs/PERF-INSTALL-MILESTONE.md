@@ -107,3 +107,29 @@ No schedule or notification was created.
 7. **Share**: `shareUrl('result-card')` or similar sources; keep the OG image as is.
 8. **Art decisions listed above**: lossy/derived campus cutouts (−4.4 MB per campus load), `game-day-tunnel.png` → WebP, `field-equipment-cutouts` re-encode.
 9. **QA scripts**: `window.__fhqPwa` exposes `install()`, `connection()`, `update()`, `applyUpdate()`, `checkForUpdate()` for rendered checks.
+
+## Vercel preview evidence (appended 2026-09-10)
+
+Preview deployment of `b372bb9` (`football-headquarters-8ihnzk32y-jumaane-beys-projects.vercel.app`, no deployment protection). Response headers observed with curl:
+
+| URL | Cache-Control |
+| --- | --- |
+| `/`, `/sw.js`, `/manifest.webmanifest`, `/asset-manifest.json`, `/robots.txt`, `/sitemap.xml` | `public, max-age=0, must-revalidate` |
+| `/assets/index-CO_w3483.js` (Vite bundle) | `public, max-age=31536000, immutable` |
+| `/assets/heroes/campus/qb.71a1b63d.webp`, `/assets/buildings/starter-campus-cutouts.e5622ee4.webp` (fingerprinted art) | `public, max-age=31536000, immutable` |
+| `/assets/units/mascot.webp` (fixed URL) | `public, max-age=0, must-revalidate` |
+| `/assets/heroes/campus/qb.webp` (loader-only fixed URL, intentionally absent) | 404 |
+
+The first preview (`3o7cly26g`) showed that Vercel's path matcher does not accept `{8}` quantifiers: the bundle rule matched, the art rule did not; the pattern now spells out the eight hex characters. Measurement on the corrected preview (`docs/evidence/perf-after-vercel-preview.json`; service worker blocked so bytes are real network transfers, club server blocked through CDP so the browser cache stays enabled):
+
+| Stage | Cold transfer | Warm return (same browser) |
+| --- | --- | --- |
+| naming | 1.16 MB (47 requests) | — |
+| campus | 5.44 MB | 0.01 MB (63 requests, all cache hits or 304s) |
+| hero detail | 1.13 MB | 0.00 MB |
+| first battle | 9.70 MB | 0.01 MB |
+| **cumulative through naming / campus / battle** | **1.16 / 6.60 / 17.43 MB** | baseline warm was 22.69 MB at the campus alone |
+
+Measurement caveats: HeadlessChrome 152 on a Mac, no network throttling (transfer sizes are network-independent; wall times are not representative of a phone), no physical device. Two artifacts were found and fixed in the tool itself while measuring: a page controlled by the service worker reports `transferSize 0` (so the worker is blocked during measurement, `--with-sw` opts in), and Playwright's `context.route()` disables the HTTP cache (so the club server is blocked through CDP instead).
+
+**Implemented, tested, deployed, verified live** — everything above is implemented and tested on this branch and verified on the Vercel preview; nothing is deployed to production until Codex ships its product milestone, and the funnel report has not run on real data (no service-role key here).
