@@ -32,8 +32,8 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 
 ## Known launch gates requiring further evidence or access
 
-- Existing production Supabase project `football-headquarters` is INACTIVE. Authorized restore returned Project not found through the current connection; no project, plan, account or schema was changed. The exact project is absent from connected organization listing. Backend restoration/access is required for live saves, rival reports, two-account verification and server settlement.
-- Online client checks are not server-authoritative score validation. Candidate schema changes remain undeployed until the actual backend schema is available and reviewed.
+- Superseded 2026-09-10: project `ruzkpbvgzvqrrnexrffz` is ACTIVE_HEALTHY; the authority migration and function were recovered into version control (`docs/AUTHORITY-RECOVERY.md`). The deployed function v2 crashes at startup; the fixed v3 bundle is staged and awaits deploy authorization.
+- Server-authoritative clubs/matches are implemented and unit/acceptance tested; two-account live evidence and the browser journey remain open until v3 is deployed (`docs/AUTHORITY-CONTRACTS.md`).
 - Seven heroes retain one authored contact pose with procedural anticipation/recovery. The full authored directional cast remains open.
 - Browser viewport checks do not replace actual iPhone/Android touch, sustained frame pacing, heat/battery and player-observation gates.
 
@@ -110,8 +110,8 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 
 ## Milestone 5 — trustworthy online progress
 
-- [ ] Pending, failed, and confirmed saves/publications/attack reports are distinguishable.
-- [ ] Revisioned state, durable operation IDs, retry queue, and conflict/recovery rules.
+- [x] Pending, failed, and confirmed saves/publications/attack reports are distinguishable (protected clubs: Settings › Online protection; results confirm only on the server answer).
+- [x] Revisioned state, durable operation IDs, retry queue, and conflict/recovery rules (`game/online/authorityClient.ts`, `tests/authorityClient.test.ts`, `tests/authorityService.test.ts`). Live two-account evidence: open until the v3 function deploy.
 - [ ] Account linking and existing-club sign-in preserve recoverable ownership.
 - [ ] Server-issued match snapshot/seed/rules and Energy reservation.
 - [ ] Server validates commands with shared engine; settles rewards exactly once.

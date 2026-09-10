@@ -2,7 +2,11 @@
 
 These changes protect honest clients against lost replies and stale devices. They do not make client-authored scores authoritative.
 
-## Current backend blocker
+## Status update 2026-09-10
+
+The project is ACTIVE_HEALTHY and the authority backend has been recovered and connected; see `docs/AUTHORITY-RECOVERY.md` and `docs/AUTHORITY-CONTRACTS.md`. The section below is the historical note from the inactive period.
+
+## Historical backend blocker (2026-09-09)
 
 The production configuration points to Supabase project `ruzkpbvgzvqrrnexrffz`, named `football-headquarters`. `get_project` returns `INACTIVE`. A read-only schema query timed out. The authorized restore call returned `NotFoundException: Project not found`. No schema, plan, account, or data was changed. The connected project listing does not include this project's organization. Server-authoritative rewards and two-account live checks remain blocked until this existing project is accessible and restored.
 
