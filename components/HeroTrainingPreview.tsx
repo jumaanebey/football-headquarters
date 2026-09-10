@@ -18,9 +18,9 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
       <span className="text-sm text-slate-400">Free animation preview · all heroes</span>
     </div>
     <div className="p-4 grid sm:grid-cols-[190px_1fr] gap-5 items-center">
-      <div className="relative h-52 rounded-xl flex items-end justify-center overflow-hidden" style={{ background: `radial-gradient(ellipse at 50% 70%, ${hero.color}44, #0f172a 75%)` }}>
+      <div className="relative h-44 sm:h-52 rounded-xl flex items-end justify-center overflow-hidden" style={{ background: `radial-gradient(ellipse at 50% 70%, ${hero.color}44, #0f172a 75%)` }}>
         <div className="absolute bottom-3 rounded-[50%] w-24 h-4 bg-black/40" />
-        <div key={heroKey} className="fhq-unit relative w-48 h-48">
+        <div key={heroKey} className="fhq-unit relative w-40 h-40 sm:w-48 sm:h-48">
           <img src={hero.art} alt={hero.name} className="fhq-flat absolute inset-0 w-full h-full object-contain" />
           <AnimatedHero heroKey={heroKey} mode={mode === 'run' ? 'walk' : mode} facing={facing} cycle={.58} playbackKey={take} playbackRate={slowMotion ? .5 : 1} loadSignatureArt
             onSignatureComplete={() => setMode('idle')}
@@ -32,8 +32,6 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
         <select id="film-room-hero" value={heroKey} onChange={e => { setHeroKey(e.target.value); setMode('idle'); }} className="w-full rounded-lg bg-slate-800 border border-slate-600 p-2 text-base text-white">
           {HERO_DEFS.map(h => <option key={h.key} value={h.key}>{h.name} · {h.role}</option>)}
         </select>
-        <p className="mt-3 font-bold text-white">{guide.identity}</p>
-        <p className="mt-1 text-sm leading-relaxed text-slate-300"><strong style={{ color: hero.color }}>{hero.abilityName}:</strong> {hero.abilityDesc}</p>
         <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Preview animation">
           {(['idle', 'run', 'signature', 'celebrate'] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value); setTake(t => t + 1); }}
             className={`rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline focus-visible:outline-orange-400 ${mode === value ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}>
@@ -43,6 +41,8 @@ export function HeroTrainingPreview({ initialHero = 'qb', onPractice }: { initia
           <button type="button" aria-pressed={slowMotion} onClick={() => { setSlowMotion(slow => !slow); setTake(t => t + 1); }}
             className={`rounded-lg px-3 py-2 text-sm border focus-visible:outline focus-visible:outline-orange-400 ${slowMotion ? 'border-orange-400 bg-orange-500/15 text-orange-200' : 'border-slate-700 text-slate-300'}`}>Half speed</button>
         </div>
+        <p className="mt-3 font-bold text-white">{guide.identity}</p>
+        <p className="mt-1 text-sm leading-relaxed text-slate-300"><strong style={{ color: hero.color }}>{hero.abilityName}:</strong> {hero.abilityDesc}</p>
         <p className="sr-only" role="status">{hero.name}: {mode === 'signature' ? hero.abilityName : mode}</p>
         <p className="mt-3 text-xs text-slate-400">Signature sequence: set your feet, load, release, recover. Replay it to study the timing.</p>
         {onPractice && <button type="button" onClick={() => onPractice(heroKey)} className="mt-4 min-h-11 w-full rounded-xl bg-orange-500 px-4 py-3 font-bold text-white hover:bg-orange-400 focus-visible:outline focus-visible:outline-white">Practice {hero.abilityName} · Free</button>}
