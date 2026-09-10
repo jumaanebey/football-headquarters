@@ -9,6 +9,12 @@ const listeners = new Set<Listener>();
 let state: UpdateState = { available: false, version: null, applying: false };
 let waiting: ServiceWorker | null = null;
 let registration: ServiceWorkerRegistration | null = null;
+let updateGuard: () => boolean = () => false;
+/** Product must declare it safe at click time, including ledger entries not yet rendered. */
+export function setUpdateGuard(guard: () => boolean): () => void {
+  updateGuard = guard;
+  return () => { if (updateGuard === guard) updateGuard = () => false; };
+}
 const emit = () => { for (const l of listeners) { try { l(state); } catch { /* never break the page */ } } };
 
 export const updateState = (): UpdateState => state;
@@ -40,7 +46,7 @@ export async function checkForUpdate(): Promise<void> { try { await registration
 
 /** Activate the waiting worker and reload. Only call when the product UI knows it is safe. */
 export function applyUpdate(): boolean {
-  if (!waiting) return false;
+  if (!waiting || !updateGuard()) return false;
   state = { ...state, applying: true }; emit();
   waiting.postMessage({ type: 'SKIP_WAITING' });
   return true;

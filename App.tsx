@@ -1,3 +1,9 @@
+import { BuildingSprite } from './components/BuildingArt';
+import { ClubConnectionControl } from './components/ClubConnectionControl';
+import { setUpdateGuard } from './pwa/register';
+import { warmHeroArt } from './components/heroArtLoader';
+import { productFunnel, observeVisit, observeGrowth } from './game/productFunnel';
+import { authorityClient as productAuthorityClient } from './pvp';
 import type { PostBattleDestination } from './game/battleDebrief';
 import { CopyDiagnostics } from './components/CopyDiagnostics';
 
@@ -112,6 +118,8 @@ function App() {
   const [standingsTab, setStandingsTab] = useState<'live' | 'ladder' | undefined>(undefined);
   const [attackSelectOpen, setAttackSelectOpen] = useState(false);
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
+  const localMatchId = useRef(crypto.randomUUID());
+  useEffect(() => { if (!battleConfig) localMatchId.current = crypto.randomUUID(); }, [battleConfig]);
   const [preparedMatch, setPreparedMatch] = useState<{config: BattleConfig; choice?: MatchChoice} | null>(null);
   const [preparedPlan, setPreparedPlan] = useState<GamePlanKey>('balanced');
   const [openingHero, setOpeningHero] = useState<string | undefined>();
@@ -154,6 +162,8 @@ function App() {
   const [defenseLogOpen, setDefenseLogOpen] = useState(false);
   const [raidTargets, setRaidTargets] = useState<EnemyBase[]>([]);
   const [attackTab, setAttackTab] = useState<'season' | 'raid'>('season');
+  const [rosterFilter, setRosterFilter] = useState<UnitGroup | null>(null);
+  const [defenseTab, setDefenseTab] = useState<'equipment' | 'formation' | 'gates'>('equipment');
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
   const [isDailyOpen, setIsDailyOpen] = useState(false);
   const [liveTargets, setLiveTargets] = useState<LiveBase[]>([]);
@@ -162,8 +172,14 @@ function App() {
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shareOwner, setShareOwner] = useState<string | null>(null);
+  const updateSafety = useRef<() => boolean>(() => false);
+  updateSafety.current = () => !battleConfig && !preparedMatch && !showTutorial && !importPendingRef.current && authorityRef.current.ready && !authorityRef.current.locked && !authorityMatchRef.current && (!authorityRef.current.match || !["reserved", "started"].includes(authorityRef.current.match.status)) && (productAuthorityClient.pending(playerId() ?? '').length === 0);
+  useEffect(() => setUpdateGuard(() => updateSafety.current()), []);
+  const importPendingRef = useRef(false);
   const [hasExported, setHasExported] = useState(() => { try { return localStorage.getItem('fhq_exported_v1') === '1'; } catch { return false; } });
   const [importPending, setImportPending] = useState<Record<string, string | null> | null>(null);
+
+  importPendingRef.current = !!importPending;
 
   // 💾 DATA SAFETY: localStorage is the only home your club has — one cleared browser
   // and it's gone. Export progress only; sign-in credentials stay on the device.
@@ -177,6 +193,7 @@ function App() {
     URL.revokeObjectURL(a.href);
     try { localStorage.setItem('fhq_exported_v1', '1'); } catch { /* ignore */ }
     setHasExported(true);
+    productFunnel('backup_completed', { method: 'export' });
     spawnText('Club backed up 💾', window.innerWidth / 2, window.innerHeight / 2, '#4ade80');
   };
   const handleImportFile = (file: File) => {
@@ -208,6 +225,8 @@ function App() {
     const teamName = named.ok ? named.name : stateRef.current.teamName;
     try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* ignore */ }
     openCampusArt(); // naming is done: the campus may now request its art (see game/artGate.ts)
+    productFunnel('naming_complete', { nameLen: teamName.length });
+    productFunnel('tutorial_complete', { choice: startRaid ? 'play' : 'look' });
     track('club_created', { startRaid, nameLen: teamName.length });
     track('tutorial_choice', { stormFirst: startRaid });
     setShowTutorial(false);
@@ -486,7 +505,7 @@ function App() {
 
   // --- HANDLERS ---
   const handleTrainGroup = (unit: UnitGroup, drillId: string) => {
-    if (protectedAction({ type: 'training.start', drillId, unit }, () => { sfx.click(); setIsSquadOpen(false); })) return;
+    if (protectedAction({ type: 'training.start', drillId, unit }, () => { sfx.click(); })) return;
     const drill = DRILLS[drillId];
     if (gameState.resources.ENERGY < drill.costEnergy) {
       spawnText("Low Energy!", window.innerWidth/2, window.innerHeight/2, '#ef4444');
@@ -524,7 +543,6 @@ function App() {
       };
     });
 
-    setIsSquadOpen(false);
   };
 
   const handleCollect = (building: BuildingInstance, screenPos: {x: number, y: number}) => {
@@ -537,6 +555,8 @@ function App() {
      const drillCoins = Math.round(drill.rewardCoins * trainingYieldMult(pitch ? pitch.level : 1));
 
      setGameState(prev => {
+       const livePitch = prev.buildings.find(value => value.id === building.id);
+       if (!livePitch || livePitch.state !== DrillState.COMPLETED || livePitch.activeDrillId !== building.activeDrillId || !livePitch.finishTime || livePitch.finishTime > Date.now()) return prev;
        // War Room (Tactics) sharpens the game plan → more readiness per drill.
        const warRoom = prev.buildings.find(b => b.type === 'TACTICS_ROOM');
        const readinessGain = drill.readinessGain * warRoomReadinessMult(warRoom ? warRoom.level : 1);
@@ -584,7 +604,7 @@ function App() {
   const handleUpgradeBuilding = (buildingId: string, cost: number) => {
     const building = gameState.buildings.find(b => b.id === buildingId);
     if (!building) return;
-    if (protectedAction({ type: 'facility.upgrade', buildingId }, receipt => { setSelectedBuilding(null); sfx.click(); centerText('Under construction…', '#60a5fa'); track('building_upgrade', { type: building.type, toLevel: Number(receipt?.toLevel ?? building.level + 1), protected: true }); })) return;
+    if (protectedAction({ type: 'facility.upgrade', buildingId }, receipt => { sfx.click(); centerText('Under construction…', '#60a5fa'); track('building_upgrade', { type: building.type, toLevel: Number(receipt?.toLevel ?? building.level + 1), protected: true }); })) return;
     if (gameState.upgrades.length >= gameState.builders) { spawnText('All builders busy!', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); sfx.error(); return; }
     if (gameState.upgrades.some(u => u.kind === 'building' && u.key === buildingId)) return;
     if (gameState.resources.COINS < cost) { sfx.error(); return; }
@@ -599,7 +619,6 @@ function App() {
       if (prev.resources.COINS < cost) return prev;
       return { ...prev, resources: { ...prev.resources, [ResourceType.COINS]: prev.resources.COINS - cost }, upgrades: [...prev.upgrades, job] };
     });
-    setSelectedBuilding(null);
     sfx.click();
     spawnText('Under construction…', window.innerWidth / 2, window.innerHeight / 2, '#60a5fa');
     track('building_upgrade', { type: building.type, toLevel });
@@ -733,7 +752,7 @@ function App() {
       case 'campaign': { const next = Math.min(gameState.campaign.unlocked, CAMPAIGN_STAGES.length); if (!startCampaign(next)) setAttackSelectOpen(true); break; }
       case 'fortify': setFrontOfficeOpen(true); setSelectedBuilding(null); break;
       case 'train': setIsSquadOpen(true); break;
-      case 'upgrade': { const st = find(BuildingType.STADIUM); if (st) setSelectedBuilding(st); break; }
+      case 'upgrade': { const st = find(BuildingType.STADIUM); if (st) { setSelectedBuilding(st); setBuildingInfoOpen(true); } break; }
       case 'recruit': setIsScoutingOpen(true); break;
       case 'raid': openRaid(); break;
     }
@@ -847,6 +866,7 @@ function App() {
       void authority.reserve(choice).then(reserved => {
         if ('error' in reserved) { sfx.error(); centerText(reserved.error, '#ef4444'); authority.setNotice(reserved.error); return; }
         authorityMatchRef.current = { matchId: reserved.matchId, begun: false };
+        void warmHeroArt((reserved.config.heroes ?? []).map(hero => hero.key));
         setBattleConfig({ ...reserved.config, attackerName: reserved.config.attackerName ?? stateRef.current.teamName });
       });
       return true;
@@ -861,6 +881,7 @@ function App() {
     // Respect an explicit attackerName. The tutorial launches the first game in the same
     // tick it sets the club name, so gameState.teamName is still the stale auto-generated
     // one here — the player would watch their first matchup card show a name they didn't pick.
+    void warmHeroArt((config.heroes ?? []).map(hero => hero.key));
     setBattleConfig({ ...config, attackerName: config.attackerName ?? gameState.teamName, squad: gameState.roster, preparation: rosterPreparation(gameState.roster,gameState.teamReadiness) }); // your club + your INDIVIDUALS
     return true;
   };
@@ -1071,6 +1092,7 @@ function App() {
       else spawnText('Base defended!', window.innerWidth / 2, window.innerHeight / 2, '#10b981');
     }
     if (r.won) sfx.victory(); else sfx.defeat();
+    if (r.mode === 'attack' || r.gauntletTier !== undefined) productFunnel('confirmed_reward', {matchId: localMatchId.current, mode: r.mode, won: r.won});
     setBattleConfig(null);
     continueJourney();
   };
@@ -1191,6 +1213,27 @@ function App() {
     track('base_publish', { trophies: s.trophies });
   };
   useEffect(() => { if (authority.ready && !authority.active) publishMyBase(); }, [authority.ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!authority.ready) return;
+    const owner = playerId() ?? 'local';
+    observeVisit(owner, install.installed, !showTutorial, new URLSearchParams(location.search).get('src') ?? 'direct');
+    const inspect = () => {
+      if (playerId() !== owner) return;
+      for (const entry of productAuthorityClient.ledger(owner)) {
+        if (entry.kind === 'match.finish' && entry.state === 'confirmed') productFunnel('confirmed_reward', { matchId: entry.request.matchId }, owner);
+      }
+    };
+    inspect();
+    return productAuthorityClient.subscribe(inspect);
+  }, [authority.ready, authority.owner, install.installed]);
+  useEffect(() => {
+    if (!authority.ready || authority.locked) return;
+    const owner = playerId() ?? 'local';
+    const levels = Object.fromEntries([...gameState.buildings.filter(b => b.type === BuildingType.STADIUM).map(b => ['stadium', b.level] as const), ...gameState.heroes.map(h => [h.key, h.level] as const)]);
+    observeGrowth(owner, levels, authority.active);
+  }, [gameState.buildings, gameState.heroes, authority.ready, authority.owner, authority.locked]);
+  useEffect(() => { if (profile?.email) productFunnel('backup_completed', {method:'account'}); }, [profile?.email]);
 
   // One session_start per load — the denominator for every retention/funnel metric.
   useEffect(() => {
@@ -1397,7 +1440,7 @@ function App() {
       // Last-chance local backup — for a linked club the 60s trickle would otherwise
       // push the empty franchise over the cloud copy with nothing to recover from.
       try { const cur = localStorage.getItem(SAVE_KEY); if (cur) localStorage.setItem('fhq_backup_prereset', cur); } catch { /* best effort */ }
-      try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(TUTORIAL_KEY); } catch (e) { /* ignore */ }
+      try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(TUTORIAL_KEY); localStorage.removeItem('fhq_growth:local'); localStorage.removeItem('fhq_first_seen:local'); localStorage.removeItem('fhq_product:local:fhq_funnel_v1'); } catch (e) { /* ignore */ }
       setGameState(createInitialState());
 
       setSelectedBuilding(null);
@@ -1479,12 +1522,13 @@ function App() {
         <SquadModal
           roster={gameState.roster}
           resources={gameState.resources}
-          heroes={gameState.heroes}
-          upgrades={gameState.upgrades}
-          stadiumLevel={stadiumLevel}
+          club={gameState}
+          blocked={authority.pendingCount > 0 || authority.locked}
+          playerFilter={rosterFilter}
+          onFilterChange={setRosterFilter}
+          onCollect={b => handleCollect(b, {x: window.innerWidth / 2, y: window.innerHeight / 2})}
           onClose={() => setIsSquadOpen(false)}
           onTrainGroup={handleTrainGroup}
-          onTrainHero={handleUpgradeHero}
           onCutPlayer={handleCutPlayer}
           onOpenHeroes={() => { setIsSquadOpen(false); setIsHeroOpen(true); }}
           onScout={() => { setIsSquadOpen(false); setIsScoutingOpen(true); }}
@@ -1493,6 +1537,9 @@ function App() {
 
       {selectedBuilding && buildingInfoOpen && (
           <ActionModal
+             blocked={authority.pendingCount > 0 || authority.locked}
+             club={gameState}
+             onDefense={() => {setSelectedBuilding(null);setBuildingInfoOpen(false);setFrontOfficeOpen(true);}}
              building={gameState.buildings.find(b => b.id === selectedBuilding.id) ?? selectedBuilding}
              resources={gameState.resources}
              stadiumLevel={stadiumLevel}
@@ -1631,7 +1678,7 @@ function App() {
             </div>
 
             {attackTab === 'season' ? (
-              <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+              <details className="rounded-xl border border-slate-700 p-3"><summary className="cursor-pointer py-2 font-bold text-slate-200">Season schedule & replays</summary><div className="space-y-2 pt-2">
                 {CAMPAIGN_STAGES.map(st => {
                   const locked = st.stage > gameState.campaign.unlocked;
                   const earned = gameState.campaign.stars[st.stage] || 0;
@@ -1667,7 +1714,7 @@ function App() {
                     </button>
                   );
                 })}
-              </div>
+              </div></details>
             ) : (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               {/* LIVE RIVALS — real players' published bases (async PvP) */}
@@ -1734,7 +1781,9 @@ function App() {
           openingHero={battleConfig.practice ? undefined : openingHero}
           onFinish={handleBattleFinish}
           onReplayAgain={() => setReplayTake(take => take + 1)}
+          onResultViewed={result => { if (!battleConfig.practice && !battleConfig.replay) productFunnel('result', { matchId: authorityMatchRef.current?.matchId ?? localMatchId.current, mode: result.mode, won: result.won, stars: result.stars, protected: !!battleConfig.authority }); }}
           onKickoff={() => {
+            if (!battleConfig.practice && !battleConfig.replay) productFunnel('first_kickoff', { mode: battleConfig.mode, protected: !!battleConfig.authority });
             const open = authorityMatchRef.current;
             if (!open || open.begun || !battleConfig.authority) return;
             open.begun = true;
@@ -1802,8 +1851,9 @@ function App() {
             roster={gameState.roster}
             recruitSlot={gameState.recruitSlot}
             academy={academy}
+            blocked={authority.pendingCount > 0 || authority.locked}
             upgradeJob={gameState.upgrades.find(job => job.kind === "building" && job.key === academy.id)}
-            onRoster={() => { setIsScoutingOpen(false); setIsSquadOpen(true); }}
+            onRoster={() => { setIsScoutingOpen(false); setRosterFilter(null); setIsSquadOpen(true); }}
             stadiumLevel={stadiumLevel}
             onClose={() => setIsScoutingOpen(false)}
             onStartRecruit={handleStartRecruit}
@@ -1857,6 +1907,8 @@ function App() {
                 'Tap 🧪 Test Defense to watch your setup fight off a raid.',
                 'Mastery ★s pay off LIVE: each ★ adds a 📣 Crowd Noise charge, ★★ adds a 🛡 Goal-Line charge, ★★★ unlocks 🧊 TIMEOUT.',
               ]} />
+              <div className="flex gap-2" role="group" aria-label="Defense workshop sections">{(['equipment','formation','gates'] as const).map(tab => <button key={tab} aria-pressed={defenseTab === tab} onClick={() => setDefenseTab(tab)} className={`flex-1 rounded-xl px-2 py-3 font-bold capitalize ${defenseTab === tab ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>{tab}</button>)}</div>
+              {defenseTab === 'formation' && <>
               {/* 📋 FORMATION — call your defensive scheme. Free to switch; emplacement
                   levels carry over, only the geometry changes. Rivals see your scheme. */}
               <div>
@@ -1893,6 +1945,8 @@ function App() {
                   })}
                 </div>
               </div>
+              </>}
+              {defenseTab === 'equipment' && <>
               {/* Emplacements */}
               <div>
                 <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">🛡 Defense Emplacements</div>
@@ -1908,11 +1962,9 @@ function App() {
                     const crownCost = isCrown ? EXTRA_SLOT_COSTS[slot.crownIndex!] : 0;
                     return (
                       <div key={slot.id} className={`flex flex-wrap items-center gap-4 rounded-2xl border p-4 ${unlocked ? 'border-slate-700 bg-slate-800/50' : 'border-slate-800 bg-slate-900/40 opacity-60'}`}>
-                        {/* current-tier art (emoji shows until it loads) */}
+                        {/* Match the equipment renderer used on the field. */}
                         <span className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-                          <span className="text-xl">{t.emoji}</span>
-                          <img src={defenseSprite(slot.kind, Math.max(1, lvl))} alt="" draggable={false}
-                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          <BuildingSprite src={defenseSprite(slot.kind, Math.max(1, lvl))} alt={t.name}
                             className="absolute inset-0 w-full h-full object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))' }} />
                         </span>
                         <div className="min-w-[150px] flex-1">
@@ -1921,6 +1973,7 @@ function App() {
                             {lvl > 1 && <span className="text-[10px] text-green-400 font-mono ml-1.5">+{Math.round((slotHpMult(lvl) - 1) * 100)}% Grit · +{Math.round((slotDmgMult(lvl) - 1) * 100)}% yards</span>}
                           </div>
                           <div className="text-sm text-slate-300 mt-1">{slot.covers} · {t.desc}</div>
+                          {lvl > 0 && !maxed && <p className="mt-2 text-sm text-emerald-300">Next level: +{Math.round((slotHpMult(lvl+1)/slotHpMult(lvl)-1)*100)}% Grit · +{Math.round((slotDmgMult(lvl+1)/slotDmgMult(lvl)-1)*100)}% output.</p>}
                           {/* 🛣 THE ROAD TO LEVELS — the gear itself visibly upgrades at L4 and L8 */}
                           {unlocked && lvl > 0 && (
                             <div className="flex items-center gap-1 mt-1.5">
@@ -1930,8 +1983,7 @@ function App() {
                                   <React.Fragment key={gate}>
                                     {ti > 0 && <span className={`text-[10px] ${reached ? 'text-orange-400' : 'text-slate-600'}`}>›</span>}
                                     <span className={`relative w-9 h-9 rounded-lg border flex items-center justify-center overflow-visible ${reached ? 'border-orange-500/70 bg-slate-900/70' : 'border-slate-700 bg-slate-900/40'}`}>
-                                      <img src={defenseSprite(slot.kind, gate)} alt="" draggable={false}
-                                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                      <BuildingSprite src={defenseSprite(slot.kind, gate)} alt={`Level ${gate} ${t.name}`}
                                         className="w-full h-full object-contain" style={{ filter: reached ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' : 'grayscale(1) brightness(0.55)' }} />
                                       <span className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-1 rounded text-[8px] font-black leading-tight ${reached ? 'bg-orange-500 text-black' : 'bg-slate-800 text-slate-400'}`}>L{gate}</span>
                                     </span>
@@ -1977,6 +2029,8 @@ function App() {
                 ) : <span className="text-[11px] text-green-400 font-bold shrink-0">MAX</span>}
               </div>
 
+              </>}
+              {defenseTab === 'gates' && <>
               {/* ⭐ HERO GATES — who holds each gate when your stadium is stormed */}
               <div>
                 <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">⭐ Hero Gate Assignment</div>
@@ -1985,7 +2039,7 @@ function App() {
                     const unlockedHeroes = gameState.heroes.filter(h => h.unlocked !== false);
                     const assignedKey = gameState.heroGates[post.id];
                     return (
-                      <div key={post.id} className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2">
+                      <div key={post.id} className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
                         <span className="text-[12px] font-bold text-white w-32 shrink-0 truncate">🚪 {post.label}</span>
                         <div className="flex gap-1.5 flex-wrap min-w-0">
                           {unlockedHeroes.map(h => {
@@ -1993,11 +2047,11 @@ function App() {
                             if (!def) return null;
                             const active = assignedKey === h.key;
                             return (
-                              <button key={h.key} onClick={() => handleAssignHeroGate(post.id, h.key)} title={`${def.name} — Lv${h.level}`}
-                                className={`w-9 h-9 rounded-full overflow-hidden relative flex items-center justify-center border-2 transition-all active:scale-90 ${active ? 'border-yellow-400 ring-2 ring-yellow-400/40' : 'border-slate-600 opacity-60 hover:opacity-100'}`}
+                              <button key={h.key} onClick={() => handleAssignHeroGate(post.id, h.key)} aria-pressed={active} aria-label={`Assign ${def.name} to ${post.label}`} title={`${def.name} — Lv${h.level}`}
+                                className={`min-h-14 rounded-xl overflow-hidden relative flex items-center gap-2 px-3 py-2 border-2 transition-all active:scale-90 ${active ? 'border-yellow-400 ring-2 ring-yellow-400/40' : 'border-slate-600 opacity-60 hover:opacity-100'}`}
                                 style={{ background: `radial-gradient(circle at 50% 35%, ${def.color}cc, #0f172a 90%)` }}>
-                                <span className="absolute text-sm">{def.emoji}</span>
-                                <img src={def.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="relative w-full h-full object-cover" />
+                                <span className="text-sm">{def.emoji}</span><span className="text-left text-sm text-white">{def.name}<small className="block text-slate-300">{def.role} · Level {h.level}</small></span>
+                                <img src={def.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="w-10 h-10 object-contain" />
                               </button>
                             );
                           })}
@@ -2009,6 +2063,7 @@ function App() {
                 </div>
               </div>
 
+              </>}
               {/* Perimeter + crowd — automatic layers, shown so the player knows they exist */}
               <div className="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2.5 space-y-1">
                 <div className="text-[12px] text-slate-300"><b>🛑 Perimeter:</b> {walls.length} Blocking Sleds at {wallHpFor(stadiumLevel)} Grit — hardens automatically with your Stadium (L{stadiumLevel}).</div>
@@ -2078,12 +2133,14 @@ function App() {
                   </div>
                 )}
               </div>
+              {gameState.matchHistory.length > 0 && <InstallClubControl install={install} />}
+              <ClubConnectionControl blocked={!!battleConfig || !!preparedMatch || authority.pendingCount > 0 || !authority.ready || !!(authority.match && ["reserved", "started"].includes(authority.match.status))} protectedClub={authority.active || authority.locked} />
               {/* ☁️ PROFILE & CLOUD SAVE — anonymous-first: linking an email upgrades
                   this device's identity in place (club, base, and raid history keep) */}
               {pvpEnabled() && (
                 <div className="pt-2 border-t border-slate-800">
                   <div className="text-sm text-slate-300 mb-0.5">Profile & cloud save</div>
-                  <InstallClubControl install={install} />
+
                   {profile?.email || profile?.pendingEmail ? (
                     <>
                       <div className="text-[11px] text-slate-500 mb-2">

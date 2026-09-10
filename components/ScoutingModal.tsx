@@ -16,6 +16,7 @@ interface Props {
   stadiumLevel: number;
   upgradeJob?: UpgradeJob;
   onRoster?: () => void;
+  blocked?: boolean;
   onClose: () => void;
   onStartRecruit: (candidate: Player, cost: number) => void;
   onRush: () => void;
@@ -45,7 +46,7 @@ const StatPip: React.FC<{ icon: React.ReactNode; value: number }> = ({ icon, val
   </div>
 );
 
-export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade, board: issuedBoard, onRefreshBoard, upgradeJob, onRoster }) => {
+export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade, board: issuedBoard, onRefreshBoard, upgradeJob, onRoster, blocked: operationPending = false }) => {
   const [localBoard, setLocalBoard] = useState<Player[]>(() => issuedBoard ? [] : rollBoard());
   const board = issuedBoard ?? localBoard;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -54,10 +55,11 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
   // When a scouting job clears (signed), refresh the prospect board.
   const prevSlot = useRef(recruitSlot);
   useEffect(() => {
-    if (prevSlot.current && !recruitSlot) { if (issuedBoard) onRefreshBoard?.(); else setLocalBoard(rollBoard()); }
+    if (prevSlot.current && !recruitSlot && !issuedBoard) setLocalBoard(rollBoard());
     prevSlot.current = recruitSlot;
   }, [recruitSlot, issuedBoard, onRefreshBoard]);
-  useEffect(() => { if (issuedBoard && issuedBoard.length === 0 && !recruitSlot) onRefreshBoard?.(); }, [issuedBoard, recruitSlot, onRefreshBoard]);
+  const boardRequested = useRef(false);
+  useEffect(() => { if (issuedBoard?.length) boardRequested.current = false; else if (issuedBoard && !recruitSlot && !operationPending && !boardRequested.current) { boardRequested.current = true; onRefreshBoard?.(); } }, [issuedBoard, recruitSlot, onRefreshBoard, operationPending]);
 
   const cap = rosterCap(academy.level);
   const rosterFull = roster.length >= cap;
@@ -72,7 +74,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
     const cost = recruitCost(c);
     const secs = recruitSeconds(c);
     const canAfford = resources.COINS >= cost;
-    const blocked = rosterFull || !!recruitSlot;
+    const blocked = operationPending || rosterFull || !!recruitSlot;
     const disabled = !canAfford || blocked;
     const peers = roster.filter(p => p.role === c.role);
     const best = peers.reduce<Player | undefined>((current, p) => !current || candidateOvr(p) > candidateOvr(current) ? p : current, undefined);
@@ -149,7 +151,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
         </div>
 
         {slotReady ? (
-          <button onClick={onSign} className="w-full max-w-xs py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-xl uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl animate-bounce-sm">
+          <button disabled={operationPending || rosterFull} onClick={onSign} className="w-full max-w-xs py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-xl uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl animate-bounce-sm">
             <CheckCircle2 size={24} /> Sign Player
           </button>
         ) : (
@@ -163,7 +165,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
             </div>
             <button
               onClick={onRush}
-              disabled={!canRush}
+              disabled={operationPending || !canRush}
               className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95
                 ${canRush ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
             >
@@ -195,7 +197,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
           ) : (
             <button
               onClick={() => onUpgrade(academy.id, upgradeCost)}
-              disabled={resources.COINS < upgradeCost}
+              disabled={operationPending || resources.COINS < upgradeCost}
               className={`py-2.5 px-4 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
                 ${resources.COINS >= upgradeCost ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
             >
@@ -207,6 +209,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
       }
     >
         <div className="p-5">
+          {operationPending && <p role="status" className="mb-3 rounded-xl bg-blue-950 p-3 text-sm text-blue-200">Confirming your club change…</p>}
           <div className="mb-4">
             <HowTo defaultCollapsed id="scouting" lines={[
               'Scout new players with Coins — rarer prospects cost more and take longer to sign.',
@@ -231,7 +234,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
                   <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
                   Choose a prospect to scout
                 </h3>
-                <button onClick={() => (issuedBoard ? onRefreshBoard?.() : setLocalBoard(rollBoard()))} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors">
+                <button disabled={operationPending} onClick={() => (issuedBoard ? onRefreshBoard?.() : setLocalBoard(rollBoard()))} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors">
                   <RefreshCw size={13} /> New Prospects
                 </button>
               </div>
@@ -242,6 +245,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
             </>
           )}
 
+          <button onClick={onRoster} className="mt-4 min-h-11 w-full rounded-xl border border-slate-600 p-3 font-bold text-white">View roster · {roster.length}/{cap} players</button>
           {/* 📸 THE DRAFT BOARD STORY — the department's era-by-era progression photos,
               from an easel under a canopy to Draft Command. Current era highlighted. */}
           {(() => {

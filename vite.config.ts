@@ -17,6 +17,6 @@ export default defineConfig(({ mode }) => {
     },
     // Authority acceptance tests simulate several full matches each; under parallel workers they
     // can exceed vitest's 5 s default. Thirty seconds keeps a hang visible without false failures.
-    test: { testTimeout: 30_000 },
+    test: { testTimeout: 30_000, include: ['tests/**/*.{test,spec}.{ts,tsx}', '*.{test,spec}.{ts,tsx}'] },
   };
 });

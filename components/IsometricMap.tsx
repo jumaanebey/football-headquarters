@@ -1,3 +1,5 @@
+import { Sheet } from './ui';
+import { frameCampus } from '../game/campusFraming';
 import { BuildingArt, isStarterFacility } from './BuildingArt';
 import { ScenerySprite } from './ScenerySprite';
 import { CampusHero } from './CampusHero';
@@ -73,19 +75,19 @@ const tileToScreen = (gx: number, gy: number) => ({
 const worldToScreen = (wx: number, wy: number) => tileToScreen((wx / 100) * GRID, (wy / 100) * GRID);
 
 /** Fit the whole board into the viewport (both axes), leaving room for HUD + nav. */
-const useBoardScale = (container: React.RefObject<HTMLDivElement | null>) => {
-  const [scale, setScale] = useState(0.5);
+const useCampusViewport = (container: React.RefObject<HTMLDivElement | null>) => {
+  const [viewport, setViewport] = useState({width:390,height:844});
   useEffect(() => {
     const element = container.current;
     if (!element) return;
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      setScale(Math.min(1.15, (width - 24) / BOARD_W, Math.max(180, height - 240) / BOARD_H));
+      setViewport({width, height});
     });
     observer.observe(element);
     return () => observer.disconnect();
   }, [container]);
-  return scale;
+  return viewport;
 };
 
 // URL flags: ?grid=1 debug grid · ?edit=1 layout editor (implies grid).
@@ -802,8 +804,16 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
 };
 
 export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const campusRef = React.useRef<HTMLDivElement>(null);
-  const scale = useBoardScale(campusRef);
+  const viewport = useCampusViewport(campusRef);
+  const framing = frameCampus(buildings.map(b => {
+    const anchor = customLayout ? b : HOME_DISPLAY_ANCHORS[b.type] ?? b;
+    const point = tileToScreen(anchor.gridX + .5, anchor.gridY + .5);
+    const width = TILE_W * (b.type === BuildingType.STADIUM && !customLayout ? 3.2 : 2.3);
+    return {left:point.x-width/2, right:point.x+width/2,top:point.y-width+TILE_H/2,bottom:point.y+80};
+  }),viewport.width,viewport.height);
+  const scale = framing.scale;
   const boardRef = React.useRef<HTMLDivElement>(null);
 
   // 📷 CAMERA: pinch to zoom, one-finger drag to pan, double-tap to recenter.
@@ -817,8 +827,10 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
   const camClamp = (c: { z: number; x: number; y: number }) => {
     const z = Math.min(3, Math.max(0.85, c.z)); // floor raised: below ~0.85 the grounds rim could peek in
 
-    const lim = 650 * z;
-    return { z, x: Math.min(lim, Math.max(-lim, c.x)), y: Math.min(lim, Math.max(-lim, c.y)) };
+    // Keep at least half the fitted campus in reach even after a long drag.
+    const limitX = Math.max(40,(framing.bounds.right-framing.bounds.left)*scale*z*.5);
+    const limitY = Math.max(40,(framing.bounds.bottom-framing.bounds.top)*scale*z*.5);
+    return { z, x: Math.min(limitX, Math.max(-limitX, c.x)), y: Math.min(limitY, Math.max(-limitY, c.y)) };
   };
   const pointersRef = React.useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = React.useRef<{ d: number; z: number; cx: number; cy: number; camX: number; camY: number } | null>(null);
@@ -842,7 +854,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [scale, viewport.width, viewport.height]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!boardRef.current) return;
@@ -1098,10 +1110,10 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
           flex: Safari START-aligns oversized flex children (Chrome centers them), which
           shoved the whole island off-screen on iPhones. translate(-50%,-50%) is identical
           in every browser. */}
-      <div className="absolute left-0 right-0 overflow-visible" style={{ top: 88, bottom: 88 }}>
+      <div className="absolute left-0 right-0 overflow-visible" style={{ top: viewport.height < 500 ? 90 : 138, bottom: 132 }}>
         <div ref={boardRef} data-fhq-board onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onDoubleClick={resetCam}
           className="absolute"
-          style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x}px), calc(-50% + ${cam.y}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
+          style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x + (BOARD_W/2-framing.centerX)*scale*cam.z}px), calc(-50% + ${cam.y + (BOARD_H/2-framing.centerY)*scale*cam.z}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
           <GroundLayer buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
@@ -1243,7 +1255,10 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
       </div>
 
       <div className="absolute bottom-24 inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none">
-      {onEditCampus && <button type="button" onClick={onEditCampus} className="pointer-events-auto min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-4 py-2 text-sm font-bold text-white shadow-xl">Edit campus</button>}
+      <div className="flex gap-2 pointer-events-auto">
+        <button type="button" onClick={() => setDirectoryOpen(true)} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Facilities</button>
+        {onEditCampus && <button type="button" aria-label="Edit campus" onClick={onEditCampus} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Edit</button>}
+      </div>
       <div role="group" aria-label="Campus camera" className="pointer-events-auto ml-auto flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
         <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomCam(1 / 1.2)} disabled={cam.z <= .85}
           className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Minus size={18} /></button>
@@ -1254,6 +1269,14 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
       </div>
 
       </div>
+
+      {directoryOpen && <Sheet title="Campus facilities" subtitle="Open a department without moving the camera." onClose={() => setDirectoryOpen(false)} maxWidth="max-w-lg">
+        <div className="p-4 space-y-3">{buildings.map(b => {
+          const job = upgrades.find(u => u.kind === 'building' && u.key === b.id);
+          const status = job ? `Upgrading to level ${job.toLevel}` : b.state === DrillState.COMPLETED ? 'Training ready to collect' : b.state === DrillState.ACTIVE ? 'Training in progress' : b.type === BuildingType.STADIUM ? `${Math.floor(b.accrued ?? 0)} Coins stored` : b.type === BuildingType.YOUTH_ACADEMY && recruitSlot ? (recruitSlot.finishTime <= Date.now() ? 'Recruit ready to sign' : 'Scouting in progress') : BUILDING_INFO[b.type].description;
+          return <button key={b.id} onClick={e => {e.stopPropagation();setDirectoryOpen(false);onBuildingClick(b,{x:viewport.width/2,y:viewport.height/2});}} className="w-full min-h-16 rounded-xl border border-slate-700 bg-slate-800 p-4 text-left"><strong className="block text-white">{BUILDING_INFO[b.type].name} · Level {b.level}</strong><span className="mt-1 block text-sm text-slate-300">{status}</span></button>;
+        })}</div>
+      </Sheet>}
 
       {/* 🏙 stage-up banner — one keyframe owns bounce/hold/fade; unmounts at 4.2s */}
       {growthCeleb !== null && (

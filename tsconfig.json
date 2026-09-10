@@ -16,5 +16,5 @@
     "paths": { "@/*": ["./*"] }
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "dist", "supabase/functions/**/index.ts"]
+  "exclude": ["node_modules", "dist", ".claude/worktrees", "work", "supabase/functions/**/index.ts"]
 }

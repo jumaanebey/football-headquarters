@@ -60,6 +60,7 @@ interface Props {
   onReplayAgain?: () => void;
   /** Fires once when play actually starts (first deploy). Protected clubs acknowledge kickoff to the authority here. */
   onKickoff?: () => void;
+  onResultViewed?: (result: BattleResult) => void;
 }
 
 // A defense "shot" is now a football lobbed from a defender to a target — an arcing
@@ -157,7 +158,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
   targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, special: def.key,
 });
 
-export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff }) => {
+export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff, onResultViewed }) => {
   const [showThreats, setShowThreats] = useState(false);
   const [showPlayerLabels, setShowPlayerLabels] = useState(false);
   const [replayPaused, setReplayPaused] = useState(false);
@@ -486,6 +487,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
     }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => crowdBedStop(), []); // never leak the loop on exit
+  useEffect(() => { if (phase === 'result' && result) onResultViewed?.(result); }, [phase, result]);
   const kickoffNotifiedRef = useRef(false);
   useEffect(() => { if (phase === 'fighting' && !kickoffNotifiedRef.current) { kickoffNotifiedRef.current = true; onKickoff?.(); } }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 

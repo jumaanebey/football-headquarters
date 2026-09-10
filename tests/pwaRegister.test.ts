@@ -25,7 +25,7 @@ describe('service worker registration and updates', () => {
     const reload = vi.fn();
     vi.stubGlobal('navigator', { serviceWorker: { register, controller: {}, addEventListener: (t: string, h: () => void) => { swListeners[t] = h; } } });
     vi.stubGlobal('window', { isSecureContext: true, location: { reload } });
-    const { registerServiceWorker, onUpdateAvailable, applyUpdate, updateState, checkForUpdate } = await import('../pwa/register');
+    const { registerServiceWorker, onUpdateAvailable, applyUpdate, updateState, checkForUpdate, setUpdateGuard } = await import('../pwa/register');
     const seen: boolean[] = []; onUpdateAvailable(s => seen.push(s.available));
     expect(await registerServiceWorker()).toBe(registration);
     expect(register).toHaveBeenCalledWith('/sw.js', { scope: '/' });
@@ -34,6 +34,12 @@ describe('service worker registration and updates', () => {
     expect(updateState().available).toBe(true); expect(seen).toEqual([true]);
     expect(installing.postMessage).not.toHaveBeenCalled(); // never applied automatically
     swListeners.controllerchange(); expect(reload).not.toHaveBeenCalled(); // a control change without applyUpdate never reloads
+    expect(applyUpdate()).toBe(false); // no product safety declaration
+    let busy = true;
+    setUpdateGuard(() => !busy);
+    expect(applyUpdate()).toBe(false); // waiting banner must not override a pending game
+    expect(installing.postMessage).not.toHaveBeenCalled();
+    busy = false;
     expect(applyUpdate()).toBe(true);
     expect(installing.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
     swListeners.controllerchange(); swListeners.controllerchange();
