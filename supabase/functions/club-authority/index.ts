@@ -3405,6 +3405,7 @@ function applyClubAction(previous, input, context) {
     case "campus.apply": {
       const layout2 = parseCampusLayout(command.layout, state.buildings);
       if (!layout2) return fail2("invalid_command", "Keep every owned facility and a valid route through the campus.");
+      if (!formationUnlocked(layout2.formation, stadiumLevel)) return fail2("locked", "That formation is not available.");
       return success(applyCampusLayout(state, layout2));
     }
     case "gate.assign": {
@@ -3818,6 +3819,8 @@ function admitClub(legacy, createdAt, activationAt, now) {
   } catch {
     return reject();
   }
+  const stadiumLevel = normalized.buildings.find((b) => b.type === "STADIUM" /* STADIUM */)?.level ?? 1;
+  if (Object.values(normalized.defenseSlots).some((n) => n > stadiumLevel) || normalized.heroes.some((h) => h.level > heroMaxLevel(stadiumLevel))) return reject();
   if (!integer2(normalized.builders, 1, MAX_BUILDERS) || !integer2(normalized.parkingLot, 0, 3) || !integer2(normalized.bonusDefSlots, 0, 3) || !Object.prototype.hasOwnProperty.call(FORMATIONS, normalized.formation) || normalized.heroes.length !== HERO_DEFS.length || new Set(normalized.heroes.map((h) => h.key)).size !== HERO_DEFS.length || !normalized.heroes.every((h) => HERO_DEFS.some((d) => d.key === h.key) && integer2(h.level, 1, 100) && integer2(h.stars, 1, 5) && integer2(h.shards, 0, 1e7) && typeof h.unlocked === "boolean") || Object.entries(normalized.defenseSlots).some(([key, n]) => !FORMATION_ORDER.some((f) => slotsFor(f).some((slot) => slot.id === key)) || !integer2(n, 0, MAX_SLOT_LEVEL)) || Object.entries(normalized.formationMastery).some(([key, n]) => !FORMATION_ORDER.includes(key) || !integer2(n, 0, 1e7)) || Object.entries(normalized.heroGates).some(([post, hero]) => !FORMATION_ORDER.some((f) => gatePostsFor(f).some((p) => p.id === post)) || !normalized.heroes.some((h) => h.key === hero && h.unlocked)) || !integer2(normalized.gauntlet.best, 0, 20) || !integer2(normalized.gauntlet.attempts, 0, 3) || !date(normalized.gauntlet.date) || !integer2(normalized.campaign.unlocked, 1, CAMPAIGN_STAGES.length) || Object.entries(normalized.campaign.stars).some(([key, n]) => !integer2(Number(key), 1, CAMPAIGN_STAGES.length) || !integer2(n, 0, 3)) || normalized.campaign.claimed.some((n) => !integer2(n, 1, CAMPAIGN_STAGES.length)) || new Set(normalized.campaign.claimed).size !== normalized.campaign.claimed.length || !date(normalized.dailies.date) || Object.entries(normalized.dailies.progress).some(([key, n]) => !ALL_QUESTS.some((q) => q.id === key) || !bounded(n, 0, 1e8)) || normalized.dailies.claimed.some((key) => !ALL_QUESTS.some((q) => q.id === key)) || new Set(normalized.dailies.claimed).size !== normalized.dailies.claimed.length || normalized.upgrades.length > 20 || normalized.upgrades.some((j) => !bounded(j.toLevel, 1, 100) || !bounded(j.startTime, 0, now) || !bounded(j.finishTime, j.startTime, now + 7 * 864e5))) return reject();
   const state = createInitialState(now);
   for (const key of Object.keys(state)) state[key] = normalized[key];

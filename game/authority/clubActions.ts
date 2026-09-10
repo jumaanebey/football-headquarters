@@ -394,6 +394,8 @@ export function applyClubAction(previous: GameState, input: unknown, context: Cl
     case 'campus.apply': {
       const layout = parseCampusLayout(command.layout, state.buildings);
       if (!layout) return fail('invalid_command', 'Keep every owned facility and a valid route through the campus.');
+      // A custom layout is also a formation choice: it must clear the same gate as formation.set.
+      if (!formationUnlocked(layout.formation, stadiumLevel)) return fail('locked', 'That formation is not available.');
       return success(applyCampusLayout(state, layout));
     }
     case 'gate.assign': {

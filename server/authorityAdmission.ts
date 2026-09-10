@@ -2,7 +2,7 @@
 import { BuildingType, DrillState, PlayerRarity, SeasonPhase } from '../types';
 import type { GameState, Player, PlayerRole, PlayerStats, UnitGroup, WorldPosition } from '../types';
 import { DRILLS, INITIAL_BUILDINGS, INITIAL_ROSTER, MAX_BUILDERS, RARITY_CONFIG, ROLE_UNIT, UNIT_COLOR, tendencyFromId } from '../constants';
-import { HERO_DEFS } from '../battle';
+import { HERO_DEFS, heroMaxLevel } from '../battle';
 import { CAMPAIGN_STAGES } from '../campaign';
 import { ALL_QUESTS } from '../dailies';
 import { FORMATIONS, FORMATION_ORDER, MAX_SLOT_LEVEL, gatePostsFor, slotsFor } from '../fixedBase';
@@ -90,6 +90,11 @@ export function admitClub(legacy: unknown, createdAt: number, activationAt: numb
   } catch {
     return reject();
   }
+  // Entitlement bounds the legacy client always enforced: equipment levels never exceed the
+  // Stadium level and hero levels never exceed the Stadium's training cap. A save outside
+  // them was not produced by the game and is not admitted.
+  const stadiumLevel = normalized.buildings.find((b) => b.type === BuildingType.STADIUM)?.level ?? 1;
+  if (Object.values(normalized.defenseSlots).some((n) => n > stadiumLevel) || normalized.heroes.some((h) => h.level > heroMaxLevel(stadiumLevel))) return reject();
   if (!integer(normalized.builders, 1, MAX_BUILDERS) || !integer(normalized.parkingLot, 0, 3) || !integer(normalized.bonusDefSlots, 0, 3) || !Object.prototype.hasOwnProperty.call(FORMATIONS, normalized.formation) || normalized.heroes.length !== HERO_DEFS.length || new Set(normalized.heroes.map((h) => h.key)).size !== HERO_DEFS.length || !normalized.heroes.every((h) => HERO_DEFS.some((d) => d.key === h.key) && integer(h.level, 1, 100) && integer(h.stars, 1, 5) && integer(h.shards, 0, 1e7) && typeof h.unlocked === 'boolean') || Object.entries(normalized.defenseSlots).some(([key, n]) => !FORMATION_ORDER.some((f) => slotsFor(f).some((slot) => slot.id === key)) || !integer(n, 0, MAX_SLOT_LEVEL)) || Object.entries(normalized.formationMastery).some(([key, n]) => !FORMATION_ORDER.includes(key as FormationKey) || !integer(n, 0, 1e7)) || Object.entries(normalized.heroGates).some(([post, hero]) => !FORMATION_ORDER.some((f) => gatePostsFor(f).some((p) => p.id === post)) || !normalized.heroes.some((h) => h.key === hero && h.unlocked)) || !integer(normalized.gauntlet.best, 0, 20) || !integer(normalized.gauntlet.attempts, 0, 3) || !date(normalized.gauntlet.date) || !integer(normalized.campaign.unlocked, 1, CAMPAIGN_STAGES.length) || Object.entries(normalized.campaign.stars).some(([key, n]) => !integer(Number(key), 1, CAMPAIGN_STAGES.length) || !integer(n, 0, 3)) || normalized.campaign.claimed.some((n) => !integer(n, 1, CAMPAIGN_STAGES.length)) || new Set(normalized.campaign.claimed).size !== normalized.campaign.claimed.length || !date(normalized.dailies.date) || Object.entries(normalized.dailies.progress).some(([key, n]) => !ALL_QUESTS.some((q) => q.id === key) || !bounded(n, 0, 1e8)) || normalized.dailies.claimed.some((key) => !ALL_QUESTS.some((q) => q.id === key)) || new Set(normalized.dailies.claimed).size !== normalized.dailies.claimed.length || normalized.upgrades.length > 20 || normalized.upgrades.some((j) => !bounded(j.toLevel, 1, 100) || !bounded(j.startTime, 0, now) || !bounded(j.finishTime, j.startTime, now + 7 * 864e5))) return reject();
   const state: SavedClub = createInitialState(now);
   for (const key of Object.keys(state) as (keyof GameState)[]) (state as Record<keyof GameState, unknown>)[key] = normalized[key];
