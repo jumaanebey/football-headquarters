@@ -1,8 +1,8 @@
-export type HeroAnimation = 'idle' | 'walk' | 'attack' | 'celebrate' | 'showcase';
+export type HeroAnimation = 'idle' | 'walk' | 'attack' | 'signature' | 'celebrate' | 'showcase';
 export const MODERN_HEROES = ['qb', 'enforcer', 'coach', 'kicker', 'burner', 'medic', 'captain', 'playmaker', 'legend'] as const;
 export const hasModernHero = (key: string) => MODERN_HEROES.some(k => k === key);
 export function heroFrame(mode: HeroAnimation, elapsed: number, cycle = 0.48, reduced = false): number {
-  if (reduced || mode === 'idle') return 0;
+  if (reduced || mode === 'idle' || mode === 'signature') return 0;
   if (mode === 'walk') {
     const duration = Number.isFinite(cycle) && cycle > 0 ? cycle : 0.48;
     const phase = elapsed < 0 ? ((elapsed % duration) + duration) % duration : elapsed % duration;
@@ -10,7 +10,7 @@ export function heroFrame(mode: HeroAnimation, elapsed: number, cycle = 0.48, re
   }
   if (mode === 'celebrate') return 8;
   if (mode === 'attack') {
-    const beat = elapsed % 0.7;
+    const beat = Math.max(0, elapsed);
     return beat >= 0.14 && beat < 0.46 ? 7 : 0;
   }
   const beat = elapsed % 7;

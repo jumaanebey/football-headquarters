@@ -1,3 +1,5 @@
+> The combat model and balance curves below are historical. New matches use the shared simulation; see [Shared engine balance](docs/BALANCE-SHARED-ENGINE.md) for the current September 9 calibration, bot policy and measured gates. Economy and scouting sections remain useful unless superseded there.
+
 # Balance Bible — targets, tuned curves, and how to re-verify
 
 Every difficulty/economy curve in the game is tuned against a headless simulation of the

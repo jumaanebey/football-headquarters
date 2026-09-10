@@ -27,6 +27,7 @@ const ICONS: Record<IconKey, React.ReactNode> = {
 
 export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal, dailyClaimable = 0, onOpenDailies }) => {
   const goals = getObjectives(gameState);
+  const contentId = React.useId();
   // Docked top-left (off the board) and collapsible; the tuck preference persists.
   // PHONES default COLLAPSED — the panel was eating a third of the screen (Phase C).
   const [collapsed, setCollapsed] = React.useState(() => {
@@ -40,7 +41,7 @@ export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal, dailyClaim
   return (
     <div className="fhq-objectives fixed z-30 w-[min(72vw,290px)]">
       <div className="bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden">
-        <button aria-expanded={!collapsed} onClick={toggle} className="w-full flex items-center gap-1.5 px-3 pt-2 pb-1.5 text-left">
+        <button type="button" aria-expanded={!collapsed} aria-controls={contentId} onClick={toggle} className="min-h-11 w-full flex items-center gap-1.5 px-3 py-2 text-left">
           <span className="text-[12px] uppercase tracking-widest text-slate-400 font-bold">Coach’s checklist</span>
           <span className="text-[12px] font-mono text-slate-400">({goals.length})</span>
           {collapsed && dailyClaimable > 0 && (
@@ -49,8 +50,8 @@ export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal, dailyClaim
           <ChevronRight size={13} className={`ml-auto text-slate-400 transition-transform ${collapsed ? '' : 'rotate-90'}`} />
         </button>
         {!collapsed && onOpenDailies && (
-          <button onClick={onOpenDailies}
-            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left transition-colors hover:bg-slate-800/50 border-b border-slate-800/60">
+          <button type="button" onClick={onOpenDailies}
+            className="min-h-11 w-full flex items-center gap-2.5 px-4 py-2 text-left transition-colors hover:bg-slate-800/50 border-b border-slate-800/60">
             <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${dailyClaimable > 0 ? 'bg-rose-600 animate-pulse' : 'bg-slate-700'}`}>🎁</span>
             <div className="min-w-0 flex-1">
               <div className="text-[14px] font-bold leading-tight text-slate-200">Daily Practice</div>
@@ -60,12 +61,13 @@ export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal, dailyClaim
           </button>
         )}
         {!collapsed && (
-        <div className="pb-1.5 overflow-y-auto" style={{ maxHeight: '34vh' }}>{/* phones: the open panel must never bury the base */}
+        <div id={contentId} className="pb-1.5 overflow-y-auto overscroll-contain" style={{ maxHeight: '34dvh' }}>{/* phones: the open panel must never bury the base */}
           {goals.map((g, i) => (
             <button
               key={g.id}
+              type="button"
               onClick={() => onGoal(g.id)}
-              className={`w-full flex items-center gap-2.5 px-4 py-1.5 text-left transition-colors active:scale-[0.99] ${i === 0 ? 'text-white' : 'text-slate-300 hover:bg-slate-800/50'}`}
+              className={`min-h-11 w-full flex items-center gap-2.5 px-4 py-2 text-left transition-colors active:scale-[0.99] ${i === 0 ? 'text-white' : 'text-slate-300 hover:bg-slate-800/50'}`}
             >
               <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${i === 0 ? 'bg-blue-600 animate-pulse' : 'bg-slate-700'}`}>
                 {ICONS[g.iconKey]}

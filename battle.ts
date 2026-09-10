@@ -70,6 +70,7 @@ export interface BTroop {
   abilityCd?: number; // seconds until ability ready (0 = ready)
   activeAction?: string; // semantic signature action ID; blocks locomotion during the plant/release
   signatureFrame?: number; // event-clock pose: set, load, release, recovery
+  truckT?: number; // continuous shoulder drive; one contact burst, never a teleport
   sprintT?: number; // continuous jet sweep, resolved through normal pathfinding
   chargeRate?: number; // IQ-derived route awareness
   stridePhase?: number; // distance-driven phase, updated only by the simulation
@@ -261,7 +262,7 @@ export interface HeroDef {
 export const HERO_DEFS: HeroDef[] = [
   // --- Starters (owned from the start) ---
   { key: 'qb', name: 'The Franchise', role: 'QB', unit: UnitGroup.OFFENSE_SKILL, ability: 'hailmary', abilityName: 'Hail Mary', abilityDesc: 'Gain 300 + 4× your yardage stat against the closest facility', baseHp: 240, baseDps: 28, speed: 13, range: 9, color: '#f59e0b', emoji: '🎯', art: '/assets/heroes/qb.webp', starter: true },
-  { key: 'enforcer', name: 'The Enforcer', role: 'RB', unit: UnitGroup.DEFENSE_LINE, ability: 'truckstick', abilityName: 'Truck Stick', abilityDesc: 'Refill grit and gain 6 seconds of Blitz: double yardage', baseHp: 460, baseDps: 24, speed: 10, range: 4, color: '#7c3aed', emoji: '🚛', art: '/assets/heroes/enforcer.webp', starter: true },
+  { key: 'enforcer', name: 'The Enforcer', role: 'RB', unit: UnitGroup.DEFENSE_LINE, ability: 'truckstick', abilityName: 'Truck Stick', abilityDesc: 'Plant, drive forward and burst on contact. Refill grit and gain 6 seconds of double yardage.', baseHp: 460, baseDps: 24, speed: 10, range: 4, color: '#7c3aed', emoji: '🚛', art: '/assets/heroes/enforcer.webp', starter: true },
   { key: 'coach', name: 'The General', role: 'HC', unit: UnitGroup.OFFENSE_LINE, ability: 'motivation', abilityName: 'Inspire', abilityDesc: 'Give nearby teammates 4 seconds of Blitz', baseHp: 380, baseDps: 18, speed: 8, range: 4, color: '#10b981', emoji: '📋', art: '/assets/heroes/coach.webp', starter: true },
   { key: 'kicker', name: 'The Specialist', role: 'K', unit: UnitGroup.OFFENSE_SKILL, ability: 'onside_bomb', abilityName: 'Onside Bomb', abilityDesc: 'Gain 500 yards against the closest facility and 250 against nearby facilities', baseHp: 190, baseDps: 35, speed: 12, range: 12, color: '#3b82f6', emoji: '🏈', art: '/assets/heroes/kicker.webp', starter: true },
   { key: 'burner', name: 'The Burner', role: 'WR', unit: UnitGroup.OFFENSE_SKILL, ability: 'burner_dash', abilityName: 'Jet Sweep', abilityDesc: 'Dash to the closest facility with 2.5 seconds of Blitz', baseHp: 220, baseDps: 32, speed: 18, range: 5, color: '#ef4444', emoji: '🔥', art: '/assets/heroes/burner.webp', starter: true },
@@ -510,21 +511,30 @@ export const makeRevengeBase = (defenseRating: number): BattleBuildingDef[] => {
 const RIVAL_NAMES = ['Riverside Rams', 'Coastal Cobras', 'Mesa Mavericks', 'Summit Stags', 'Delta Dragons', 'Harbor Hawks', 'Canyon Cougars', 'Prairie Pumas', 'Bayou Bandits', 'Ridge Raiders', 'Metro Mustangs', 'Vista Vipers'];
 
 export const generateRaidTargets = (trophies: number): EnemyBase[] => {
-  // Superlinear with the ladder (player power compounds via hero levels × stars), and higher
-  // brackets field MORE turrets, not just fatter HP bars. Balance-sim tuned to ~60-75% win rates.
-  const base = 1.0 + trophies / 300 + Math.pow(trophies / 750, 1.7);
+  // Wider easy/fair/hard choices are calibrated with the shared engine's actual
+  // roster stats and signatures. Bot results are regression scenarios, not human
+  // win-rate predictions. Trophy brackets keep increasing the challenge.
+  const bracket = Math.max(0, Number.isFinite(trophies) ? trophies : 0);
+  const base = 2.2 + bracket / 120 + Math.pow(bracket / 700, 1.45);
   return Array.from({ length: 3 }, (_, i) => {
-    const tier = Math.max(0.9, base * (0.85 + i * 0.2) + Math.random() * 0.3); // easy/fair/spicy
-    const template = ENEMY_BASES[i % ENEMY_BASES.length];
-    // Loot targets scale linearly, but turret LETHALITY scales superlinearly — attacker power
-    // compounds (levels × stars × roster), so defenses must actually kill units at high tiers.
+    // The fortress covers more lanes with more equipment. Normalize each piece
+    // to its density; keep a gentler fresh-to-trained transition for that layout.
+    const strength = [0.62, 0.86, 0.75 + 0.3 * Math.exp(-bracket / 200)][i];
+    const variation = i === 2 ? 0.85 + Math.random() * 0.3 : 0.97 + Math.random() * 0.06;
+    const tier = base * strength * variation;
+    const risk = tier * (i === 2 ? 1.6 : 1); // displayed rating/rewards include fortress coverage
+    const template = ENEMY_BASES.find(candidate => candidate.id === ['valley', 'tech', 'ridge'][i])!;
+    // Hard picks include fortress geometry, so better deployment and plan choice
+    // matter as well as the roster's raw strength.
     const tDmg = Math.round(14 * Math.pow(tier, 1.3));
     // Every bot RUNS A SCHEME too — the ladder teaches plan-vs-formation counterplay
     // before you ever meet a live rival. Harder tiers call smarter schemes.
     const botFormation = tier >= 2.2 ? 'maxprotect' : tier >= 1.4 ? 'cover3' : 'goalline';
     const buildings: BattleBuildingDef[] = template.buildings.map(b => ({ ...b, hp: Math.round(b.hp * tier), damage: b.damage ? tDmg : b.damage, formation: b.kind === 'hq' ? botFormation : undefined }));
     const extraSpots: [number, number][] = [[30, 50], [70, 50], [50, 30], [50, 70], [38, 64]];
-    const extras = Math.min(extraSpots.length, 1 + Math.floor(tier / 1.1)); // was min(6,...) with 5 spots — guaranteed TypeError opening the raid picker above ~700 trophies // every bot fields real turret coverage — empty bases read as no game
+    // Fortress picks retain their coverage at every bracket. Easy/fair equipment
+    // unlocks gradually; count never exceeds the available coordinates.
+    const extras = i === 2 ? extraSpots.length : Math.min(extraSpots.length, 1 + Math.floor(tier / 1.1));
     const flavors: BattleBuildingDef['flavor'][] = ['tshirt', 'ref', 'sled', 'cooler', 'ref']; // varied looks at higher tiers
     for (let e = 0; e < extras; e++) {
       const [x, y] = extraSpots[e];
@@ -533,8 +543,8 @@ export const generateRaidTargets = (trophies: number): EnemyBase[] => {
     return {
       id: `mm_${i}_${Math.floor(Math.random() * 99999)}`,
       name: RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)],
-      difficulty: Math.round(tier * 10) / 10,
-      reward: { coins: Math.round(420 * tier + 250), fans: Math.round(14 * tier + 6) },
+      difficulty: Math.round(risk * 10) / 10,
+      reward: { coins: Math.round(420 * risk + 250), fans: Math.round(14 * risk + 6) },
       buildings,
     };
   });
@@ -816,9 +826,13 @@ export const mulberry32 = (seed: number) => {
   };
 };
 
-export interface ReplayAction { tick: number; k: 't' | 'h' | 's' | 'p' | 'a' | 'e'; u?: UnitGroup; key?: string; x?: number; y?: number; } // 'e' = the attacker's whistle
+export interface ReplayAction { tick: number; k: 't' | 'h' | 's' | 'p' | 'a' | 'e' | 'd'; u?: UnitGroup; key?: string; x?: number; y?: number; } // 'e' = the attacker's whistle
 export interface ReplayData {
-  v: 1;
+  v: 1 | 2;
+  rules?: string;
+  snapshot?: import('./game/combat/contracts').BattleConfig;
+  finalHash?: string;
+  ticks?: number;
   seed: number;
   plan: string;                       // GamePlanKey the attacker locked in
   power?: Record<UnitGroup, number>;  // attacker's troop multipliers

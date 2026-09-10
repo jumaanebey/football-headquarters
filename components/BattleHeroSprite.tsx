@@ -7,16 +7,19 @@ import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 
 /** Both teams and all nine heroes share action timing and fallback behavior. */
 export function BattleHeroSprite({ heroKey, actor, fighting, filter }: {
-  heroKey: string; actor: Pick<BTroop, 'moving' | 'actionPoseT' | 'abilityPoseT' | 'face' | 'strideSeconds' | 'stridePhase'>; fighting: boolean; filter?: string;
+  heroKey: string; actor: Pick<BTroop, 'moving' | 'actionPoseT' | 'abilityPoseT' | 'face' | 'strideSeconds' | 'stridePhase' | 'signatureFrame' | 'truckT'>; fighting: boolean; filter?: string;
 }) {
   const mode = heroBattlePose(actor, fighting);
   const base = `/assets/heroes/rig/${heroKey}`;
   const idle = heroKey === 'qb' ? '/assets/heroes/franchise-rig/body.webp' : `${base}-body.webp`;
   const action = heroKey === 'qb' ? '/assets/heroes/franchise-rig/body-followthrough.webp' : `${base}-action.webp`;
-  const sources = mode === 'walk' ? WALK_FRAMES.map(frame => `${base}-${frame}.webp`) : [mode === 'attack' ? action : idle];
+  const contact = mode === 'attack' || (mode === 'signature' && actor.signatureFrame === 2);
+  const sources = mode === 'walk' ? WALK_FRAMES.map(frame => `${base}-${frame}.webp`) : [contact ? action : idle];
   return <>
     <SpriteFrames sources={sources} duration={actor.strideSeconds} style={{ filter, transform: (actor.face ?? 1) > 0 ? 'scaleX(-1)' : undefined }} />
-    {hasModernHero(heroKey) && <AnimatedHero heroKey={heroKey} mode={mode} facing={actor.face} cycle={actor.strideSeconds}
+    {hasModernHero(heroKey) && <AnimatedHero heroKey={heroKey} mode={mode} facing={actor.face} cycle={actor.strideSeconds} loadSignatureArt
+      signatureFrame={fighting ? actor.signatureFrame : undefined}
+      driving={heroKey === 'enforcer' && (actor.truckT ?? 0) > 0}
       elapsedSeconds={mode === 'attack' ? 0.2 : mode === 'walk' ? actor.stridePhase : undefined} filter={filter} />}
   </>;
 }

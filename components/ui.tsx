@@ -50,10 +50,11 @@ export const Btn: React.FC<{
   children: React.ReactNode;
 }> = ({ variant = 'primary', size = 'md', disabled, title, className = '', onClick, children }) => (
   <button
+    type="button"
     onClick={onClick}
     disabled={disabled}
     title={title}
-    className={`font-bold transition-all active:scale-95 flex items-center justify-center gap-2
+    className={`min-h-11 font-bold transition-all active:scale-95 flex items-center justify-center gap-2
       ${BTN_VARIANTS[variant]} ${BTN_SIZES[size]}
       ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''} ${className}`}
   >
@@ -66,17 +67,18 @@ export const Btn: React.FC<{
  *  `id` keys the seen-flag in localStorage; `lines` are short, plain-football bullets. */
 export const HowTo: React.FC<{ id: string; lines: string[] }> = ({ id, lines }) => {
   const KEY = `fhq_howto_${id}`;
+  const contentId = useId();
   const [open, setOpen] = useState(() => { try { return localStorage.getItem(KEY) !== '1'; } catch { return true; } });
   const toggle = () => setOpen(o => { try { localStorage.setItem(KEY, '1'); } catch { /* ignore */ } return !o; });
   return (
     <div className="rounded-xl border border-sky-900/60 bg-sky-950/20 overflow-hidden">
-      <button onClick={toggle} className="w-full flex items-center gap-2 px-3 py-2 text-left">
+      <button type="button" aria-expanded={open} aria-controls={contentId} onClick={toggle} className="min-h-11 w-full flex items-center gap-2 px-3 py-2 text-left">
         <Info size={13} className="text-sky-400 shrink-0" />
         <span className="text-[12px] font-bold text-sky-200">How this works</span>
         <ChevronRight size={13} className={`ml-auto text-sky-600 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
-        <ul className="px-3 pb-2.5 space-y-1">
+        <ul id={contentId} className="px-3 pb-2.5 space-y-1">
           {lines.map((l, i) => <li key={i} className="text-[12px] text-slate-300 leading-snug flex gap-1.5"><span className="text-sky-500 shrink-0">•</span><span>{l}</span></li>)}
         </ul>
       )}
@@ -108,9 +110,15 @@ export const Sheet: React.FC<{
     return () => { if (opener?.isConnected) opener.focus(); };
   }, []);
   const containFocus = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+      return;
+    }
     if (e.key !== 'Tab') return;
-    const controls = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]') ?? [])
-      .filter(el => el.getClientRects().length > 0 && !el.closest('[hidden], [inert]'));
+    const controls = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]') ?? [])
+      .filter(el => el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.closest('[hidden], [inert]'));
     const first = controls[0], last = controls[controls.length - 1];
     if (!first) { e.preventDefault(); panel.current?.focus(); return; }
     if (e.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) { e.preventDefault(); last.focus(); }
@@ -132,13 +140,13 @@ export const Sheet: React.FC<{
           <h2 id={titleId} className="text-lg sm:text-xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2.5 min-w-0 flex-wrap">
             {icon}{title}
           </h2>
-          <button aria-label="Close dialog" onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shrink-0"><X size={18} /></button>
+          <button type="button" aria-label="Close dialog" onClick={onClose} className="min-h-11 min-w-11 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shrink-0"><X size={18} aria-hidden="true" /></button>
         </div>
         {subtitle && <p id={subtitleId} className="text-slate-400 text-[12px] mt-1">{subtitle}</p>}
         {actions && <div className="mt-2.5 flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      <div className={scroll ? 'flex-1 overflow-y-auto min-h-0' : 'flex-1 min-h-0 overflow-hidden flex flex-col'}>{children}</div>
-      {footer && <div className="p-4 border-t border-slate-800 bg-[#111827] shrink-0">{footer}</div>}
+      <div className={`fhq-sheet-body ${scroll ? 'flex-1 overflow-y-auto min-h-0 overscroll-contain' : 'flex-1 min-h-0 overflow-hidden flex flex-col'}`}>{children}</div>
+      {footer && <div className="fhq-sheet-footer p-4 border-t border-slate-800 bg-[#111827] shrink-0">{footer}</div>}
     </div>
   </div>
 );

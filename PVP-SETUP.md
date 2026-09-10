@@ -1,7 +1,6 @@
 # Live Rivals — PvP setup & security model
 
-> Updated 2026-07-05 for the HARDENED stack. The old honor-system notes are obsolete —
-> this file describes what actually runs in production.
+> Updated 2026-09-09. The existing Supabase project is currently `INACTIVE`; its authorized restore attempt returned `Project not found` through the connected account. Online verification is blocked. See `docs/ONLINE-INTEGRATION.md` for client protections, exact status, and the unapplied SQL candidate.
 
 ## What Live Rivals is
 Asynchronous, Clash-style PvP. You never fight a live-controlled opponent: you raid a
@@ -27,8 +26,7 @@ against **your** real base.
 | Rate limiting | trigger: max 4 attack reports/min and 30/hour per attacker |
 | Reads | public (leaderboard + matchmaking are open data) |
 
-Verified with 9 live negative tests (unauthenticated write, forged pid, insane values,
-self-attack, ghost target, rate-flood) — all rejected at the database.
+Historical notes recorded 9 negative tests against the earlier deployment. Those results are not current verification: the inactive database could not be queried during the 2026-09-09 work.
 
 ## Env configuration
 ```
@@ -43,15 +41,12 @@ project (Dashboard → Auth → Providers → Anonymous, or Management API
 ## Data flows
 - `publishBase` — upsert your layout/trophies on load and after battles (JWT-signed).
 - `findOpponents` — 3 bases near your trophy count (±200/+400, widens when empty).
-- `reportAttack` — stars/pct/coins + the recorded replay (seed + deploy script + the
-  defender's layout as attacked).
-- `fetchAttacksOnMe` — new attacks since the `fhq_pvp_since` watermark → defense log,
-  with replay and `attacker_pid` (revenge fetches their REAL current base via `fetchBase`).
+- `reportAttack` — validated replay and client-reported result, saved to an account-owned outbox. Delivery is explicitly reported as delivered, pending, unconfirmed, or rejected. Unique operation keys allow safe retries only after the additive server migration is verified and applied.
+- `fetchAttackInbox` — owner-bound `(created_at,id)` cursor persisted atomically with defense consequences. A first upgrade establishes the newest server baseline without repeating unverified historical losses. Replays are validated before playback.
 - `fetchLeaderboard` — top 20 by trophies for Standings → Live Rankings.
 
 ## Known limits (be honest)
 - Trophy counts are still client-computed (bounded, but not simulation-verified).
   Server-side battle validation is a future project.
-- One anonymous identity per browser profile; clearing site data loses it — players
-  should use Settings → Export to back up (bundle includes the session).
+- One anonymous identity per browser profile; clearing site data loses guest identity. Link an account for identity recovery. Portable exports contain club progress only and deliberately exclude sessions and credentials.
 - Rate limits protect the defender's log, not matchmaking fairness.

@@ -2,7 +2,7 @@ import type { BBuilding, BTroop } from '../../battle';
 import { ABILITY_CD, dist, nearestBuilding } from '../../battle';
 import { signatureFrameAt } from './actionTiming';
 
-export const COMBAT_RULES_VERSION = 'hero-actions-2';
+export const COMBAT_RULES_VERSION = 'hero-actions-3';
 export type HeroAction = {
   id: string; actorId: string; heroKey: string; ability: NonNullable<BTroop['ability']>;
   elapsed: number; windup: number; travel: number; recovery: number; released: boolean; resolved: boolean;
@@ -34,7 +34,7 @@ export function applyBuildingYardage(actor: BTroop, target: BBuilding, requested
 export function beginHeroAction(actor: BTroop, buildings: BBuilding[], tick: number): HeroAction | null {
   if (actor.dead || !actor.ability || (actor.abilityCd ?? 0) > 0 || actor.activeAction) return null;
   const projectile = actor.ability === 'hailmary' || actor.ability === 'onside_bomb';
-  const target = projectile || actor.ability === 'burner_dash' ? nearestBuilding(actor.x, actor.y, buildings) : undefined;
+  const target = projectile || actor.ability === 'burner_dash' || actor.ability === 'truckstick' ? nearestBuilding(actor.x, actor.y, buildings) : undefined;
   if ((projectile || actor.ability === 'burner_dash') && !target) return null;
   const action: HeroAction = {
     id: `${actor.id}:signature:${tick}`, actorId: actor.id, heroKey: actor.heroKey ?? '', ability: actor.ability,
@@ -95,7 +95,7 @@ export function stepHeroActions(actions: HeroAction[], troops: BTroop[], buildin
         events.push(...applyBuildingYardage(actor, target, 500));
         for (const b of buildings) if (b.id !== target.id && dist(target.x, target.y, b.x, b.y) <= 12) events.push(...applyBuildingYardage(actor, b, 250));
       } else if (action.ability === 'truckstick') {
-        actor.rageT = 6; recover(actor, actor, actor.maxHp, events);
+        actor.rageT = 6; actor.truckT = 1.8; recover(actor, actor, actor.maxHp, events);
       } else if (action.ability === 'burner_dash') {
         // Keep normal wall-aware pathing; increased speed creates a continuous jet sweep.
         actor.sprintT = 2.5; actor.rageT = 2.5;

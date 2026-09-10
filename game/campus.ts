@@ -1,7 +1,9 @@
-import { BuildingType, DrillState, GameState, Player, PlayerState } from '../types';
-import { COLLECTOR_CONFIG, collectorCap, collectorRate, energyIntervalMs, TENDENCIES, TendencyKey } from '../constants';
+import { GameState, Player, PlayerState } from '../types';
+import { TENDENCIES, TendencyKey } from '../constants';
 import { freshDailies, todayKey } from '../dailies';
 import { mulberry32 } from '../battle';
+import { advanceEconomy } from './economy';
+import { fanMilestoneTotal } from './fanProgress';
 
 /** Advance wall-clock economy and timers, with bounded visual movement on resume.
  * No browser access, mutation, timers, sound, or random global state in this transition.
@@ -17,20 +19,7 @@ export function advanceCampus(previous: GameState, now: number): GameState {
     const radius = 20 + random() * 5;
     return { x: Math.min(94, Math.max(6, 55 + Math.cos(angle) * radius)), y: Math.min(94, Math.max(6, 55 + Math.sin(angle) * radius)), z: 0 };
   };
-  const completedJobs = previous.upgrades.filter(job => now >= job.finishTime);
-  const buildings = previous.buildings.map(building => {
-    let next = building;
-    if (building.state === DrillState.ACTIVE && building.finishTime != null && now >= building.finishTime) {
-      next = { ...next, state: DrillState.COMPLETED };
-    }
-    const collector = COLLECTOR_CONFIG[building.type];
-    if (collector) {
-      const accrued = Math.min(collectorCap(building.type, building.level), (building.accrued ?? 0) + collectorRate(building.type, building.level) * Math.min(seconds, collector.maxOfflineSeconds));
-      if (accrued !== building.accrued) next = { ...next, accrued };
-    }
-    const upgrade = completedJobs.find(job => job.kind === 'building' && job.key === building.id);
-    return upgrade ? { ...next, level: Math.max(next.level, upgrade.toLevel) } : next;
-  });
+  const economy = advanceEconomy(previous, now);
   const roster = previous.roster.map(player => {
     if (player.state === PlayerState.IDLE && TENDENCIES[player.tendency as TendencyKey]?.side === 'defense') {
       return { ...player, state: PlayerState.PATROLLING, targetPos: patrolPoint(player) };
@@ -51,19 +40,9 @@ export function advanceCampus(previous: GameState, now: number): GameState {
     }
     return arrived;
   });
-  const rehab = previous.buildings.find(b => b.type === BuildingType.MEDICAL_CENTER);
-  const interval = energyIntervalMs(rehab?.level ?? 1);
-  const ticks = Math.max(0, Math.floor(now / interval) - Math.floor(previous.lastTick / interval));
-  const energy = Math.min(100, previous.resources.ENERGY + ticks);
   const date = todayKey(now);
   return {
-    ...previous, buildings, roster,
-    heroes: completedJobs.some(job => job.kind === 'hero') ? previous.heroes.map(hero => {
-      const job = completedJobs.find(j => j.kind === 'hero' && j.key === hero.key);
-      return job ? { ...hero, level: Math.max(hero.level, job.toLevel) } : hero;
-    }) : previous.heroes,
-    upgrades: completedJobs.length ? previous.upgrades.filter(job => now < job.finishTime) : previous.upgrades,
-    resources: energy !== previous.resources.ENERGY ? { ...previous.resources, ENERGY: energy } : previous.resources,
+    ...previous, ...economy, roster, peakFans: fanMilestoneTotal(previous),
     dailies: previous.dailies.date === date ? previous.dailies : freshDailies(date),
     gauntlet: previous.gauntlet.date === date ? previous.gauntlet : { ...previous.gauntlet, attempts: 3, date },
     timeOfDay: (previous.timeOfDay + seconds / 60 * 24) % 24,
