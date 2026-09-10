@@ -147,7 +147,7 @@ export const HeroModal: React.FC<Props> = ({ initialHero, onPractice, heroes, up
           <label htmlFor="growth-hero" className="block text-sm text-slate-300">Choose your hero</label>
           <select id="growth-hero" value={selectedKey} onChange={e => setSelectedKey(e.target.value)} className="w-full rounded-xl border border-slate-600 bg-slate-800 p-3 text-white">{HERO_DEFS.map(def => <option key={def.key} value={def.key}>{def.name} · {def.role} · {(stateOf(def.key)?.unlocked ?? !!def.starter) ? `Level ${stateOf(def.key)?.level ?? 1}` : 'Locked'}</option>)}</select>
         </div>
-        {heroTab === 'practice' && <HeroTrainingPreview key={selectedKey} initialHero={selectedKey} onPractice={onPractice} />}
+        {heroTab === 'practice' && <HeroTrainingPreview showHeroPicker={false} key={selectedKey} initialHero={selectedKey} onPractice={onPractice} />}
         {heroTab === 'growth' && <>
         <div className="px-5 pt-4">
           <HowTo defaultCollapsed id="heroes" lines={[
