@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "assets:verify": "node scripts/verify-assets.mjs",
     "authority:build": "node scripts/build-authority.mjs",
+    "authority:evidence": "esbuild scripts/authority-evidence.ts --bundle --format=esm --platform=node --outfile=dist/authority-evidence.mjs && node --env-file=.env.production dist/authority-evidence.mjs",
     "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

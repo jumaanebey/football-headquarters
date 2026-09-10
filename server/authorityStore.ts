@@ -160,7 +160,10 @@ const matchFromRow = (value: unknown): AuthorityMatch => {
 };
 
 export function createSupabaseAuthorityStore(options: SupabaseAuthorityStoreOptions): AuthorityStore {
-  if (typeof window !== 'undefined') throw new Error('Authority storage is server-only.');
+  // The Supabase edge runtime defines a global `window`, so a bare `window` check made the
+  // deployed v2 function throw on every invocation (see docs/AUTHORITY-RECOVERY.md). Only a
+  // real browser document proves this code was bundled into the client by mistake.
+  if (typeof document !== 'undefined' && typeof (document as { createElement?: unknown }).createElement === 'function') throw new Error('Authority storage is server-only.');
   const base = new URL(options.url);
   if (base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new TypeError('Invalid Supabase server URL.');
   if (base.protocol !== 'https:' && !(base.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname))) throw new TypeError('HTTPS is required.');

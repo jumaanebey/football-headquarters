@@ -51,7 +51,7 @@ var matchFromRow = (value) => {
   };
 };
 function createSupabaseAuthorityStore(options) {
-  if (typeof window !== "undefined") throw new Error("Authority storage is server-only.");
+  if (typeof document !== "undefined" && typeof document.createElement === "function") throw new Error("Authority storage is server-only.");
   const base = new URL(options.url);
   if (base.username || base.password || base.search || base.hash || base.pathname !== "/") throw new TypeError("Invalid Supabase server URL.");
   if (base.protocol !== "https:" && !(base.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(base.hostname))) throw new TypeError("HTTPS is required.");
