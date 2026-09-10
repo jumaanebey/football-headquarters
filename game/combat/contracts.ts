@@ -26,6 +26,12 @@ export interface BattleConfig {
   masteryTier?: number;   // defense mode: formation mastery ★ tier (0-3) — the DEFENSE PLAYS LADDER
   gauntlet?: { tier: number; waves: GauntletWave[] }; // 🛡 THE GAUNTLET: escalating waves storm your house
   replay?: { seed: number; script: ReplayAction[]; planKey: string; version?: 1 | 2; expectedHash?: string; expectedTicks?: number; displayTitle?: string }; // spectate a recorded attack
+  /** Server-issued match binding: the seed and rules version belong to this match id (game/authority/matches.ts). */
+  authority?: { matchId: string; seed: number; rules: string; issuedAt: number; expiresAt: number };
+  /** Defense snapshot identity stamped by defenseBattleFields (game/defenseSnapshot.ts). */
+  defenseLayoutId?: string;
+  defenseSnapshotId?: string;
+  defenseFormation?: string;
 }
 
 export interface BattleResult {
@@ -44,5 +50,8 @@ export interface BattleResult {
   gauntletTier?: number; // set when this was a Gauntlet night
   wavesHeld?: number;    // waves survived before the whistle (or the breach)
   gauntletCleared?: boolean;
+  defenseLayoutId?: string;   // identity of the defense snapshot this result was played against
+  defenseSnapshotId?: string;
+  defenseFormation?: string;
 }
 

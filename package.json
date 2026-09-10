@@ -14,6 +14,7 @@
     "funnel": "node scripts/funnel.mjs",
     "typecheck": "tsc --noEmit",
     "assets:verify": "node scripts/verify-assets.mjs",
+    "authority:build": "node scripts/build-authority.mjs",
     "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

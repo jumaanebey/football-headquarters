@@ -7,6 +7,8 @@ import { createInitialState, genTeamName } from './initialState';
 import { advanceCampus } from './campus';
 import { fanMilestoneTotal } from './fanProgress';
 import { parseSavedClub, SaveLoadError } from './saveValidation';
+import { parseCampusLayout } from './campusLayout';
+import { authorityProtectionRequired } from './authority/protection';
 export { SaveLoadError, parseSavedClub } from './saveValidation';
 export const SAVE_KEY = 'fhq_save_v1';
 export const TUTORIAL_KEY = 'fhq_tutorial_done_v1';
@@ -24,6 +26,12 @@ export const loadState = (storage?: Storage, now = Date.now()): GameState => {
   try {
     if (raw) {
       const saved = parseSavedClub(raw);
+      // A protected club is settled by the authority service: the saved copy is the last
+      // server-confirmed state and must not be re-migrated or advanced on this device.
+      if (authorityProtectionRequired(storage)) {
+        try { storage.setItem('fhq_save_backup_boot', raw); } catch { /* optional recovery copy */ }
+        return saved;
+      }
 
       // Normalize old layouts first. Shared campus advancement below handles every
       // elapsed-time effect, including partial energy and upgrades finished away.
@@ -76,10 +84,11 @@ export const loadState = (storage?: Storage, now = Date.now()): GameState => {
       let formation: FormationKey = (saved.formation as FormationKey) ?? 'goalline';
       if (!FORMATIONS[formation] || !formationUnlocked(formation, stadiumLvlNow)) formation = 'goalline';
 
-      // --- FIXED BASE: facilities live at the formation's anchors. Positions are
-      //     geometry, not player data — every save snaps to its formation's map.
+      // --- FIXED BASE: facilities live at the formation's anchors (or the saved canonical
+      //     campus layout when one validates). Positions are geometry, not player data.
+      const campusLayout = saved.campusLayout ? parseCampusLayout(saved.campusLayout, buildings) ?? undefined : undefined;
       for (const b of buildings) {
-        const a = anchorsFor(formation)[b.type];
+        const a = campusLayout?.facilities.find(p => p.id === b.id) ?? anchorsFor(formation)[b.type];
         if (a) { b.gridX = a.gridX; b.gridY = a.gridY; }
       }
       const migratedWalls = saved.walls || INITIAL_WALLS;
@@ -113,7 +122,7 @@ export const loadState = (storage?: Storage, now = Date.now()): GameState => {
         ? saved.gauntlet
         : { best: saved.gauntlet?.best ?? 0, attempts: 3, date: todayKey(now) };
       try { storage.setItem('fhq_save_backup_boot', raw); } catch { /* optional recovery copy */ }
-      return advanceCampus({ ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, heroGates: saved.heroGates ?? {}, formationMastery, gauntlet, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: saved.lastTick ?? now, energyProgressMs: saved.energyProgressMs ?? 0, peakFans: fanMilestoneTotal(saved) }, now);
+      return advanceCampus({ ...INITIAL_STATE, ...saved, buildings, roster, heroes, campaign, dailies, teamName, defenses, inventory, bus, parkingLot, bonusDefSlots, defenseSlots, formation, campusLayout, heroGates: saved.heroGates ?? {}, formationMastery, gauntlet, walls: migratedWalls, resources, defenseLog, shieldUntil, trophies, lastTick: saved.lastTick ?? now, energyProgressMs: saved.energyProgressMs ?? 0, peakFans: fanMilestoneTotal(saved) }, now);
     }
   } catch (e) {
     throw new SaveLoadError('Your saved club could not be read.', { cause: e });

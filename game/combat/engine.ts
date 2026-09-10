@@ -125,6 +125,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
     result = { mode:config.mode,title:config.title,stars,pct,coins:config.practice ? 0 : Math.round(config.loot.coins*pct/100)+s.bonus,
       fans:config.practice ? 0 : Math.round(config.loot.fans*pct/100),won:isDefense ? held : stars>0,
       campaignStage:config.campaignStage,pvpTarget:config.pvpTarget,isReplay:isReplay||undefined,isPractice:config.practice,
+      defenseFormation:config.defenseFormation,defenseLayoutId:config.defenseLayoutId,defenseSnapshotId:config.defenseSnapshotId,
       ...(config.gauntlet ? {gauntletTier:config.gauntlet.tier,wavesHeld:!held ? Math.max(0,s.nextWave-1) : naturalEnd ? s.nextWave : Math.max(0,s.nextWave-1),gauntletCleared:held&&naturalEnd&&s.nextWave>=config.gauntlet.waves.length} : {}) };
   };
   const defFormation = (config.buildings.find(b => b.kind === 'hq')?.formation ?? null) as FormationKey | null;
@@ -547,7 +548,9 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
 
       // 🔊 HOME CROWD: on defense, a big fanbase periodically ERUPTS and stalls the
       // enemy drive — the fans you earned are a real part of the stadium's defense.
-      if (isDefense && (config.fans ?? 0) >= CROWD_PULSE.minFans) {
+      // A real rival attack carries the defender's snapshot (defenseSnapshotId), so the
+      // same crowd stalls the attacker there too; bot bases have no snapshot and no crowd.
+      if ((isDefense || !!config.defenseSnapshotId) && (config.fans ?? 0) >= CROWD_PULSE.minFans) {
         s.crowdT = (s.crowdT ?? 0) + DT;
         if (s.crowdT >= CROWD_PULSE.intervalSecs) {
           s.crowdT = 0;
