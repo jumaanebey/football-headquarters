@@ -2,7 +2,11 @@
 
 Updated September 10, 2026. Published baseline at resumption: `cc1f598` (shared hero combat, replay, free practice, progression and online client integrity). This checklist preserves the approved scope; an unchecked gate is not complete. The earlier 30% figure was an estimate, not a measured completion score.
 
-## Current continuation — hero results and defense presentation
+## Current continuation — Enforcer authored signature
+
+See [ENFORCER-SIGNATURE-CHECKLIST.md](ENFORCER-SIGNATURE-CHECKLIST.md) for this bounded continuation: four authored Enforcer poses, grounded contact timing, Franchise/Enforcer registration workbench, and precise release evidence. Seven heroes still need four independently authored signature poses; all-nine directional and physical-device acceptance remains open.
+
+## Previous continuation — hero results and defense presentation
 
 See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed implementation and release gates. Category standouts credit measured recovery and protection alongside yardage; result controls use a scrolling sheet with a persistent footer; replay messaging reflects the defending viewer; both sides share modern hero size and foot anchors. The deferred database cleanup and broader authored-art work remain open.
 
@@ -30,7 +34,7 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 
 - Existing production Supabase project `football-headquarters` is INACTIVE. Authorized restore returned Project not found through the current connection; no project, plan, account or schema was changed. The exact project is absent from connected organization listing. Backend restoration/access is required for live saves, rival reports, two-account verification and server settlement.
 - Online client checks are not server-authoritative score validation. Candidate schema changes remain undeployed until the actual backend schema is available and reviewed.
-- Eight heroes retain one authored contact pose with procedural anticipation/recovery. The full authored directional cast remains open.
+- Seven heroes retain one authored contact pose with procedural anticipation/recovery. The full authored directional cast remains open.
 - Browser viewport checks do not replace actual iPhone/Android touch, sustained frame pacing, heat/battery and player-observation gates.
 
 ## Milestone 0 — establish and protect the baseline

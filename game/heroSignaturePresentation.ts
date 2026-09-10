@@ -1,4 +1,4 @@
-import type { MODERN_HEROES } from './heroAnimation';
+import type { HeroAnimation, MODERN_HEROES } from './heroAnimation';
 import { signatureFrameAt } from './combat/actionTiming';
 
 export type SignatureBeat = 0 | 1 | 2 | 3;
@@ -40,7 +40,20 @@ export function previewSignatureBeat(key: string, elapsed: number): SignatureBea
   return asSignatureBeat(signatureFrameAt(elapsed, projectile ? .35 : .2, projectile ? .3 : .25));
 }
 
-export function heroSignaturePose(key: string, beat: SignatureBeat, secondsInBeat: number, reduced = false) {
+/** Truck Stick primes before locomotion; its shoulder contact is the engine's
+ * planted actionPoseT window, not the activation's release beat. Film Room has
+ * no combat frame and continues to preview all four authored poses. */
+export function battleSignatureBeat(key: string, mode: HeroAnimation, signatureFrame: number | undefined, contactSeconds?: number): SignatureBeat | undefined {
+  const beat = asSignatureBeat(signatureFrame);
+  if (key !== 'enforcer') return beat;
+  if (beat !== undefined) return beat === 0 ? 0 : 1;
+  if (mode === 'attack' && contactSeconds !== undefined && Number.isFinite(contactSeconds) && contactSeconds >= 0 && contactSeconds < .32) {
+    return contactSeconds < .16 ? 2 : 3;
+  }
+  return undefined;
+}
+
+export function heroSignaturePose(key: string, beat: SignatureBeat, secondsInBeat: number, reduced = false, authored = false) {
   const style = HERO_SIGNATURE_STYLE[key as HeroKey] ?? HERO_SIGNATURE_STYLE.qb;
   const t = Math.max(0, Math.min(1, (Number.isFinite(secondsInBeat) ? secondsInBeat : 0) / .12));
   const eased = t * t * (3 - 2 * t);
@@ -49,8 +62,8 @@ export function heroSignaturePose(key: string, beat: SignatureBeat, secondsInBea
   return {
     ...style,
     frame: reduced ? 0 : beat === 2 || (beat === 3 && t < .5) ? 7 : 0,
-    scaleY: reduced ? 1 : 1 - (1 - style.load) * loaded,
-    lean: reduced ? 0 : style.lean * loaded + style.lean * .25 * recovery,
+    scaleY: reduced || authored ? 1 : 1 - (1 - style.load) * loaded,
+    lean: reduced || authored ? 0 : style.lean * loaded + style.lean * .25 * recovery,
     // Reduced motion retains a static semantic cue, without pumping or travel.
     cueOpacity: beat === 2 ? 1 : beat === 3 ? reduced ? 0 : recovery : 0,
   };

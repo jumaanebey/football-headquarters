@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MODERN_HEROES, heroFrame } from '../game/heroAnimation';
-import { advanceSignaturePlayback, asSignatureBeat, heroSignaturePose, HERO_SIGNATURE_STYLE, previewSignatureBeat } from '../game/heroSignaturePresentation';
+import { advanceSignaturePlayback, battleSignatureBeat, asSignatureBeat, heroSignaturePose, HERO_SIGNATURE_STYLE, previewSignatureBeat } from '../game/heroSignaturePresentation';
 import { heroBattlePose } from '../game/heroBattlePose';
 
 describe('signature presentation stays on the action clock', () => {
@@ -56,5 +56,33 @@ describe('signature presentation stays on the action clock', () => {
     expect(advanceSignaturePlayback(state, 3, 5, true).seconds).toBeCloseTo(.06);
     expect(advanceSignaturePlayback(state, 3, -1, true).seconds).toBe(.01);
     expect(advanceSignaturePlayback(state, undefined, .02, true)).toEqual({ seconds: 0, authored: false });
+  });
+});
+
+
+describe('authored football contact', () => {
+  it('loads Truck Stick without showing a premature shoulder hit, then runs before contact', () => {
+    expect([0, 1, 2, 3].map(frame => battleSignatureBeat('enforcer', 'signature', frame))).toEqual([0, 1, 1, 1]);
+    expect(battleSignatureBeat('enforcer', 'walk', undefined)).toBeUndefined();
+    expect(battleSignatureBeat('enforcer', 'attack', undefined, .04)).toBe(2);
+    expect(battleSignatureBeat('enforcer', 'attack', undefined, .2)).toBe(3);
+    expect(battleSignatureBeat('enforcer', 'idle', undefined, .2)).toBeUndefined();
+    for (const elapsed of [NaN, Infinity, -.01, .32, 10]) expect(battleSignatureBeat('enforcer', 'attack', undefined, elapsed)).toBeUndefined();
+  });
+  it('keeps Enforcer footfalls during a drive despite the leftover activation timer', () => {
+    expect(heroBattlePose({ moving: true, actionPoseT: .2, abilityPoseT: .7 }, true, 'enforcer')).toBe('walk');
+    expect(heroBattlePose({ moving: false, actionPoseT: .2 }, true, 'enforcer')).toBe('attack');
+    expect(heroBattlePose({ moving: true, signatureFrame: 1 }, true, 'enforcer')).toBe('signature');
+  });
+  it('keeps Franchise on its exact simulation release beat', () => {
+    for (const frame of [0, 1, 2, 3]) expect(battleSignatureBeat('qb', 'signature', frame)).toBe(frame);
+  });
+  it.each(['qb', 'enforcer'])('%s authored weight transfer is not squashed or sheared a second time', key => {
+    for (const beat of [0, 1, 2, 3] as const) {
+      const pose = heroSignaturePose(key, beat, .08, false, true);
+      expect(pose.scaleY).toBe(1);
+      expect(pose.lean).toBe(0);
+      expect(heroSignaturePose(key, beat, .08, true, true).frame).toBe(0);
+    }
   });
 });

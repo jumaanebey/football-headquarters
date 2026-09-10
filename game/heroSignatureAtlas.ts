@@ -3,6 +3,7 @@ import { HERO_ATLAS } from './heroAtlas';
 /** Editable registration points, measured in each source cell. Source images are
  * preserved so animation/art review can adjust registration without repainting. */
 export const HERO_SIGNATURE_ATLAS: Record<string, { src: string; anchorX: readonly number[] }> = {
+  enforcer: { src: '/assets/heroes/signatures/enforcer.webp', anchorX: [.49, .49, .49, .49] },
   qb: { src: '/assets/heroes/signatures/qb.webp', anchorX: [.53, .50, .54, .49] },
 };
 
