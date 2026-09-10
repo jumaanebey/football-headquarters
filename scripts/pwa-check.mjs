@@ -61,11 +61,20 @@ try {
   line(await page.evaluate(() => window.__fhqPwa.update().available), 'new worker installed and reported as waiting');
   await page.waitForTimeout(800);
   line((await cacheNames()).includes(`fhq-shell-${version}`) && await page.evaluate(() => !!navigator.serviceWorker.controller), 'old worker still controls the page until the app applies the update (no automatic reload)');
-  await page.evaluate(() => window.__fhqPwa.applyUpdate());
+  line(await page.evaluate(() => window.__fhqPwa.update().version === 'ffffffffffff'), 'the waiting worker reported its version to the page');
+  // Readiness gate: without a provider, and while busy, the attempt is refused, recorded, and nothing reloads.
+  const refusedBlind = await page.evaluate(() => window.__fhqPwa.applyUpdate());
+  line(refusedBlind.applied === false && refusedBlind.reasons.includes('no_readiness_provider'), `applyUpdate without a readiness provider is refused (${refusedBlind.reasons.join(', ')})`);
+  const refusedBusy = await page.evaluate(() => { window.__fhqPwa.registerUpdateReadiness(() => ({ battleActive: true, awaitingConfirmation: false, pendingOperations: 0, pendingJobs: { upgrade: 0, recruit: 0 }, accountSwitching: false })); return window.__fhqPwa.applyUpdate(); });
+  await page.waitForTimeout(800);
+  const keptState = await page.evaluate(() => ({ ...window.__fhqPwa.update(), controlled: !!navigator.serviceWorker.controller }));
+  line(refusedBusy.applied === false && refusedBusy.reasons.includes('battle_active') && keptState.available && keptState.deferred && keptState.rejectedAttempts === 2 && !!keptState.lastRejection && keptState.controlled && (await cacheNames()).includes(`fhq-shell-${version}`), `applyUpdate during a battle is refused, recorded (${keptState.rejectedAttempts} attempts) and the waiting worker is kept`);
+  const applied = await page.evaluate(() => { window.__fhqPwa.registerUpdateReadiness(() => ({ battleActive: false, awaitingConfirmation: false, pendingOperations: 0, pendingJobs: { upgrade: 0, recruit: 0 }, accountSwitching: false })); return window.__fhqPwa.retryDeferredUpdate(); });
+  line(applied.applied === true, 'the deferred update applies once the app reports idle');
   await page.waitForFunction(() => document.readyState === 'complete', null, { timeout: 15000 }).catch(() => {});
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(3000);
   const after = await cacheNames();
-  line(after.includes('fhq-shell-ffffffffffff') && !after.includes(`fhq-shell-${version}`) && !after.includes(`fhq-art-${version}`), `after applyUpdate: new shell cache active, old caches removed (${after.join(', ')})`);
+  line(after.includes('fhq-shell-ffffffffffff') && !after.includes(`fhq-shell-${version}`) && !after.includes(`fhq-art-${version}`), `after applyUpdate and reload: new shell cache active, old caches removed once every window is current (${after.join(', ')})`);
   line(/Roster|Game Day/.test(await page.locator('body').innerText()), 'app renders on the updated worker');
 
   // 4. failed update
