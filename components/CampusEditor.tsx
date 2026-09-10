@@ -1,3 +1,4 @@
+import { DefenseDraftPreview } from './DefenseDraftPreview';
 import React, { useMemo, useRef, useState } from 'react';
 import { BuildingType, type GameState } from '../types';
 import { buildingSprite } from '../assets';
@@ -18,6 +19,7 @@ export function CampusEditor({ state, blocked, onApply, onClose, onTest }: {
   const item = items.find(p => p.key === selected) ?? items[0];
   const [candidate, setCandidate] = useState<{x:number;y:number} | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [showStrategy, setShowStrategy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Your changes stay in this draft until you apply them.');
   const [focusTile, setFocusTile] = useState(11);
@@ -66,6 +68,10 @@ export function CampusEditor({ state, blocked, onApply, onClose, onTest }: {
           </g>;})}
         </svg>
       </div>
+      <details onToggle={event => setShowStrategy(event.currentTarget.open)} className="rounded-xl border border-slate-600">
+        <summary className="min-h-11 cursor-pointer px-3 py-3 font-bold text-white">Preview defense coverage and gate assignments</summary>
+        {showStrategy && (validation.valid ? <DefenseDraftPreview state={state} layout={preview} /> : <p className="p-3 text-sm text-amber-300">Fix the placement issues below to preview this defense.</p>)}
+      </details>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Precise placement">
         <span className="text-sm text-slate-200">Column {(candidate?.x??item.gridX)+1}, row {(candidate?.y??item.gridY)+1}</span>
         {([[-1,0,'Left'],[1,0,'Right'],[0,-1,'Up'],[0,1,'Down']] as const).map(([dx,dy,label])=><Btn key={label} variant="secondary" disabled={busy} onClick={()=>nudge(dx,dy)}>{label}</Btn>)}

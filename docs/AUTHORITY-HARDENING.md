@@ -140,3 +140,8 @@ Every account below was created for testing against project `ruzkpbvgzvqrrnexrff
 | 2026-09-10 ~05:07 UTC | Codex campus/gameplay live journey (local production preview) | **unknown** | `Campus QA FC` | by club name |
 
 Future runs: `scripts/authority-evidence.ts` prints its account ids; `scripts/authority-browser-check.mjs` does not — printing the anonymous uid from the page's session would make the next browser account identifiable (small script change, not made here because the browser check was not rerun in this package). Analytics rows (`fhq_events`) for these sessions are keyed by the same ids and belong to the same deferred exclusion.
+
+
+## Deployment reconciliation update — 2026-09-10 v4
+
+PR #41 consolidated the stack and merged as e3f8669. The v4 server artifact is now ACTIVE with JWT verification enabled; management readback matches the committed artifact exactly. The 57-check live evidence suite passed; strict deployed-current parity passed. Items 1, 2 and 16 now have the staged server fixes deployed. See AUTHORITY-RECOVERY.md for artifact/rollback details and the three additional evidence account IDs. Copy diagnostics is implemented and browser-verified in the Codex follow-up, awaiting its client release. CI workflow credentials and retention/stateVersion policy remain separate outstanding items.

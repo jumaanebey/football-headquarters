@@ -1,4 +1,5 @@
 import type { PostBattleDestination } from './game/battleDebrief';
+import { CopyDiagnostics } from './components/CopyDiagnostics';
 
 import { applyCampusLayout, type CampusLayout } from './game/campusLayout';
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
@@ -1786,7 +1787,7 @@ function App() {
       {!frontOfficeOpen && <ObjectiveBanner gameState={gameState} onGoal={handleGoal} dailyClaimable={dailyClaimable} onOpenDailies={() => setIsDailyOpen(true)} />}
       <TourPointer
         gameState={gameState}
-        active={!frontOfficeOpen && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
+        active={!frontOfficeOpen && !(campusEditorOpen || dashboardOpen || isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
           || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || !!preparedMatch || !!battleConfig)}
       />
 
@@ -2155,6 +2156,7 @@ function App() {
                       return (
                         <details className="mt-2 text-[11px] text-slate-400">
                           <summary className="cursor-pointer text-slate-300">Connection details · {diag.availability.status === 'ok' ? 'club server reachable' : diag.availability.status === 'unknown' ? 'not checked yet' : `club server ${diag.availability.status}`}{diag.averageConfirmLatencyMs != null ? ` · ~${diag.averageConfirmLatencyMs} ms to confirm` : ''}</summary>
+                          <CopyDiagnostics key={authority.owner ?? 'signed-out'} report={authority.exportDiagnostics} />
                           <div className="mt-1">{diag.confirmed} confirmed · {diag.pending} pending · {diag.failed} refused on this device</div>
                           {needsSignIn && <div className="mt-1 text-amber-200">Your session expired. Sign in above to confirm pending changes.</div>}
                           <ul className="mt-1 space-y-0.5">{recent.map((e, i) => <li key={i} className="font-mono">{new Date(e.at).toLocaleTimeString()} · {e.kind}{e.operationId ? ` #${e.operationId}` : ''} · {e.outcome}{e.code ? ` (${e.code})` : ''}{e.latencyMs != null ? ` · ${e.latencyMs} ms` : ''}</li>)}</ul>
