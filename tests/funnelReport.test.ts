@@ -18,8 +18,8 @@ describe('weekly funnel report', () => {
     const by = Object.fromEntries(r.steps.map(s => [s.step, s]));
     expect(by.visible_start.players).toBe(13);
     expect(by.naming_complete).toMatchObject({ players: 10, pct: 76.9, source: 'funnel events' });
-    expect(by.tutorial_complete).toMatchObject({ players: 9, source: 'legacy events only', legacyDerived: 9 });
-    expect(by.result.players).toBe(6); expect(by.confirmed_reward.players).toBe(5); expect(by.upgrade_meaningful.players).toBe(3);
+    expect(by.tutorial_complete).toMatchObject({ players: 0, source: 'no events', legacyDerived: 0 });
+    expect(by.result.players).toBe(6); expect(by.confirmed_reward.players).toBe(5); expect(by.upgrade_meaningful.players).toBe(0);
     expect(by.backup_completed).toMatchObject({ players: 1, pct: 7.7 });
     expect(by.return_visit.players).toBe(3);
     expect(r.returningInWindow).toBe(4); // three funnel returns + the old player's returning session
@@ -38,4 +38,22 @@ describe('weekly funnel report', () => {
     expect(renderFunnel(r)).toContain('D7 not yet');
     expect(renderFunnel(r)).not.toMatch(/eyJ|@/);
   });
+});
+
+it('rejects bad windows, ignores malformed/future events and does not count requests as completion',()=>{
+ const extra=[null,{pid:'x',event:'funnel_result',ts:'bad'},{pid:'future',event:'funnel_visible_start',ts:'2030-01-01'},...['tutorial_choice','hero_upgrade','building_upgrade'].map(event=>({pid:'x',event,ts:'2026-09-10T01:00:00Z'}))];
+ const r=computeFunnel(extra as never,{now:NOW});expect(r.ignoredRows).toBe(3);
+ expect(r.steps.find(s=>s.step==='upgrade_meaningful')?.players).toBe(0);expect(r.returnCohorts.map(c=>c.day)).toEqual(['2026-09-10']);
+ expect(()=>computeFunnel([],{days:NaN})).toThrow();expect(()=>computeFunnel([],{days:-1})).toThrow();
+});
+it('waits for a full UTC return day and reports disjoint direct/legacy sources as mixed',()=>{
+ const rows=[{pid:'a',event:'funnel_visible_start',ts:'2026-09-09T23:00:00Z'},{pid:'b',event:'session_start',ts:'2026-09-09T23:00:00Z'},{pid:'a',event:'funnel_return_visit',ts:'2026-09-10T01:00:00Z'}];
+ const r=computeFunnel(rows,{now:NOW});expect(r.steps[0].source).toBe('mixed');expect(r.returnCohorts[0].d1Observable).toBe(0);
+ expect(computeFunnel(rows,{now:Date.parse('2026-09-11T00:00:00Z')}).returnCohorts[0]).toMatchObject({d1Observable:2,d1:1});
+});
+
+it('fetches stable bounded pages and stops at a short page',async()=>{
+ const {fetchRows}=await import('../scripts/funnel-report.mjs');const {vi}=await import('vitest');
+ const fetch=vi.fn().mockResolvedValueOnce({ok:true,json:async()=>Array.from({length:1000},(_,id)=>({id}))}).mockResolvedValueOnce({ok:true,json:async()=>[{id:1000}]});vi.stubGlobal('fetch',fetch);
+ try{const rows=await fetchRows('https://fixture.invalid','fixture-key','2026-09-01T00:00:00Z','2026-09-10T00:00:00Z');expect(rows).toHaveLength(1001);expect(fetch.mock.calls[0][0]).toContain('order=ts.asc,id.asc');expect(fetch.mock.calls[1][0]).toContain('offset=1000');expect(fetch.mock.calls[0][0]).toContain('ts=lte.2026-09-10');}finally{vi.unstubAllGlobals();}
 });

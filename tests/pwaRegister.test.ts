@@ -42,8 +42,37 @@ describe('service worker registration and updates', () => {
     busy = false;
     expect(applyUpdate()).toBe(true);
     expect(installing.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+    (navigator.serviceWorker as unknown as {controller:unknown}).controller=installing;
     swListeners.controllerchange(); swListeners.controllerchange();
     expect(reload).toHaveBeenCalledTimes(1);
     await checkForUpdate(); expect(registration.update).toHaveBeenCalled();
   });
+});
+
+describe('update failures and concurrent calls',()=>{
+ it('deduplicates registration, preserves a waiting update after post failure and rechecks the guard',async()=>{
+  const waiting=worker('installed');
+  const registration={waiting,installing:null,addEventListener:vi.fn()};
+  const register=vi.fn().mockResolvedValue(registration);
+  vi.stubGlobal('navigator',{serviceWorker:{register,controller:{},addEventListener:vi.fn()}});
+  vi.stubGlobal('window',{isSecureContext:true,location:{reload:vi.fn()}});
+  const m=await import('../pwa/register');
+  await Promise.all([m.registerServiceWorker(),m.registerServiceWorker()]);expect(register).toHaveBeenCalledTimes(1);
+  let safe=false;m.setUpdateGuard(()=>safe);expect(m.applyUpdate()).toBe(false);safe=true;
+  (waiting.postMessage as ReturnType<typeof vi.fn>).mockImplementation(()=>{throw new Error('worker gone');});
+  expect(m.applyUpdate()).toBe(false);expect(m.updateState().applying).toBe(false);expect(m.updateState().available).toBe(true);
+  expect(m.updateState().error).toContain('could not start');
+  m.setUpdateGuard(()=>{throw new Error('stale state');});expect(()=>m.applyUpdate()).not.toThrow();
+ });
+ it('recovers from activation timeout and does not treat another tab control change as its own reload',async()=>{
+  vi.useFakeTimers();
+  try {
+   const waiting=worker('installed');const callbacks:Record<string,()=>void>={};const reload=vi.fn();
+   vi.stubGlobal('navigator',{serviceWorker:{register:vi.fn().mockResolvedValue({waiting,installing:null,addEventListener(){}}),controller:{},addEventListener:(k:string,f:()=>void)=>callbacks[k]=f}});
+   vi.stubGlobal('window',{isSecureContext:true,location:{reload}});
+   const m=await import('../pwa/register');await m.registerServiceWorker();m.setUpdateGuard(()=>true);
+   expect(m.applyUpdate()).toBe(true);expect(m.applyUpdate()).toBe(false);callbacks.controllerchange();expect(reload).not.toHaveBeenCalled();
+   vi.advanceTimersByTime(15000);expect(m.updateState().applying).toBe(false);expect(m.updateState().error).toContain('did not activate');
+  }finally{vi.useRealTimers();}
+ });
 });

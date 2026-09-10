@@ -13,7 +13,7 @@ export const artCache = (version: string) => `${CACHE_PREFIX}art-${version}`;
 export const ART_CACHE_LIMIT = 80;
 
 const FINGERPRINTED = /^\/assets\/.+\.[0-9a-f]{8}\.(?:webp|png|jpe?g|avif|gif)$/;
-const BUNDLE = /^\/assets\/index-[^/]+\.(?:js|css)$/;
+const BUNDLE = /^\/assets\/[^/]+-[A-Za-z0-9_-]+\.(?:js|css)$/;
 const ART = /^\/assets\/.+\.(?:webp|png|jpe?g|avif|gif|svg)$/;
 const NEVER = [/^\/sw\.js$/, /^\/manifest\.webmanifest$/, /^\/asset-manifest\.json$/, /^\/functions\//, /^\/rest\//, /^\/auth\//];
 
@@ -32,7 +32,12 @@ export function classify(input: { url: string; method: string; mode?: string; or
 }
 
 /** Caches from older versions that this worker should delete on activate. */
-export const staleCaches = (names: string[], version: string): string[] => names.filter(n => n.startsWith(CACHE_PREFIX) && n !== shellCache(version) && n !== artCache(version));
+export const staleCaches = (names: string[], version: string, retainPrevious = 0): string[] => {
+  const versions=names.filter(n=>n.startsWith('fhq-shell-')).map(n=>n.slice('fhq-shell-'.length)).filter(v=>v!==version);
+  const previous=retainPrevious>0 ? versions.slice(-Math.floor(retainPrevious)) : [];
+  const keep=new Set([version,...previous]);
+  return names.filter(n=> /^(fhq-shell-|fhq-art-)/.test(n) && ![...keep].some(v=>n===shellCache(v)||n===artCache(v)));
+};
 
 /** Keys to evict so the art cache stays within its bound (oldest first; callers pass keys in insertion order). */
 export const artEvictions = (keys: string[], limit = ART_CACHE_LIMIT): string[] => keys.length > limit ? keys.slice(0, keys.length - limit) : [];
