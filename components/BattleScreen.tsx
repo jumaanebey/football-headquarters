@@ -1,3 +1,4 @@
+import { buildingObscuresHero, visibleBattleEffects, moveBattleCursor } from '../game/battleReadability';
 import { HeroSubstitutions } from './HeroSubstitutions';
 import { firstMatchLesson } from '../game/firstMatchLesson';
 import { StadiumStands } from './StadiumStands';
@@ -201,6 +202,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   // only — sim coords are untouched, and clicks read getBoundingClientRect anyway).
   const cam = useRef({ x: 0, y: 0 });
   const reducedBattleMotion = useReducedBattleMotion();
+  const [fieldCursor, setFieldCursor] = useState({ x: 5, y: 50 });
+  const [fieldFocused, setFieldFocused] = useState(false);
   const [cameraHero, setCameraHero] = useState<{ id: string; x: number; y: number } | null>(null);
   // Deterministic battle RNG — a replay re-seeds with the recorded seed and every random
   // decision (jerseys, wave picks, FX jitter) replays identically.
@@ -1182,11 +1185,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
   };
 
   const handleFieldClick = (e: React.MouseEvent) => {
-    if (isDefense || isReplay || phase === 'result') return; // spectators can't inject troops into a replay
-    if (pourRef.current.poured) { pourRef.current.poured = false; return; } // this click is a pour's tail
+    if (pourRef.current.poured) { pourRef.current.poured = false; return; }
     const rect = fieldRef.current!.getBoundingClientRect();
-    const { x: wx, y: wy } = unproject(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100);
-
+    const point = unproject(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100);
+    activateField(point.x, point.y);
+  };
+  const activateField = (wx: number, wy: number) => {
+    if (isDefense || isReplay || phase === 'result') return;
     if (castMode) {
       if ((plays[castMode.key] ?? 0) <= 0) return;
       if (!doCastPlay(castMode.key, wx, wy)) return;
@@ -1407,7 +1412,10 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
           const hero = cameraHeroes.find(h => h.id === id);
           setCameraHero(hero ? { id: hero.id, x: hero.x, y: hero.y } : null);
         }} />}
-        <div ref={fieldRef} onClick={handleFieldClick} aria-label="Battlefield" data-battlefield data-camera-mode={cameraPoint ? 'hero' : 'full'} data-combat-rules={modernCombat ? COMBAT_RULES_VERSION : 'legacy-v1'}
+        <div ref={fieldRef} onClick={handleFieldClick} aria-label="Battlefield" role="button" tabIndex={isDefense || isReplay ? -1 : 0}
+          aria-describedby="field-keyboard-help" onFocus={()=>setFieldFocused(true)} onBlur={()=>setFieldFocused(false)}
+          onKeyDown={e=>{if(e.key.startsWith('Arrow')){e.preventDefault();setFieldCursor(p=>moveBattleCursor(p,e.key));}else if(e.key==='Enter'||e.key===' '){e.preventDefault();activateField(fieldCursor.x,fieldCursor.y);}}}
+          data-battlefield data-camera-mode={cameraPoint ? 'hero' : 'full'} data-combat-rules={modernCombat ? COMBAT_RULES_VERSION : 'legacy-v1'}
           onPointerDown={() => { pourRef.current.down = true; }}
           onPointerMove={e => { if (pourRef.current.down) tryPour(e); }}
           onPointerUp={() => { pourRef.current.down = false; }}
@@ -1415,6 +1423,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
           className={`relative rounded-2xl overflow-hidden shadow-2xl ${isDefense ? '' : castMode ? 'cursor-pointer ring-4 ring-offset-0' : 'cursor-crosshair'}`}
           style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'radial-gradient(ellipse at 50% 42%, #17402a 0%, #0d2617 55%, #071410 100%)', border: '3px solid #0a1f14', animation: !reducedBattleMotion && s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: modernCombat ? `translate(${heroCamera.x}%, ${heroCamera.y}%) scale(${heroCamera.scale})` : `${(typeof window !== 'undefined' && window.innerWidth < 640) ? '' : `translate(${cam.current.x.toFixed(2)}%, ${cam.current.y.toFixed(2)}%) `}scale(${((typeof window !== 'undefined' && window.innerWidth < 640 ? 1.06 : isDefense || isReplay ? 1.22 : 1.16) * (1 + (s.punchT > 0 ? s.punchT * 0.16 : 0))).toFixed(3)})`, transition: reducedBattleMotion ? 'none' : 'transform 160ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
 
+          <span id="field-keyboard-help" className="sr-only">Arrow keys aim. Enter or Space deploys the selected player on the sideline, or casts the selected play. Current position {fieldCursor.x}, {fieldCursor.y}.</span>
+          {fieldFocused && <div aria-hidden="true" className="absolute z-[260] w-7 h-7 rounded-full border-2 border-white bg-orange-500/40 pointer-events-none" style={{left:`${px(fieldCursor.x,fieldCursor.y)}%`,top:`${py(fieldCursor.x,fieldCursor.y)}%`,transform:'translate(-50%,-50%)'}} />}
           {/* 🔷 ISO GROUND — the Clash-style diamond. Mow stripes + chalk yard lines run
               between projected world bands, end zones tint both ends, midfield gets the
               ball mark. Everything is one SVG so the plane reads as ONE tilted surface. */}
@@ -1573,7 +1583,7 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             </React.Fragment>;
           })}
           {/* Ephemeral FX: dust, impact pops, floating SACKED! */}
-          {s.fx.map((f, i) => {
+          {visibleBattleEffects(s.fx, reducedBattleMotion).map((f, i) => {
             const k = f.life / f.maxLife; // 1 → 0
             if (f.type === 'yards') {
               const td = f.text === 'TOUCHDOWN!';
@@ -1660,12 +1670,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             }
             // Buildings: width is a % of the field, so `size` (world radius) maps straight
             // to on-screen footprint. HQ size 8 → 17.6% ; buildings size 5–6 → 11–13%.
-            const wpct = b.size * 2.8; // One world-footprint scale at every viewport.
+            const wpct = b.size * 2.8;
+            const obscuresHero = modernCombat && buildingObscuresHero({ x:px(b.x,b.y),y:py(b.x,b.y),depth:(b.x+b.y)/2,width:wpct }, [...s.troops,...s.guards].filter(t=>!t.dead && !!t.heroKey).map(t=>({x:px(t.x,t.y),y:py(t.x,t.y),depth:(t.x+t.y)/2})));  // One world-footprint scale at every viewport.
             // Fixed base: layouts carry the REAL building art (type + level) so the field
             // is the same base you built. Old published bases / bot bases lack it → pool art.
             const sprite = b.art ?? battleBuildingSprite(b.kind, b.id, !isDefense && !isReplay, b.flavor);
             return (
-              <div key={b.id} className="absolute -translate-x-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${px(b.x, b.y)}%`, top: `${py(b.x, b.y)}%`, transform: 'translate(-50%, -62%)', width: `${wpct}%`, zIndex: Math.round((b.x + b.y) / 2) }}>
+              <div key={b.id} data-hero-occlusion={obscuresHero ? 'faded' : 'solid'} className="absolute -translate-x-1/2 flex flex-col items-center pointer-events-none" style={{ left: `${px(b.x, b.y)}%`, top: `${py(b.x, b.y)}%`, transform: 'translate(-50%, -62%)', width: `${wpct}%`, opacity: obscuresHero ? .32 : 1, transition: reducedBattleMotion ? 'none' : 'opacity 120ms ease-out', zIndex: Math.round((b.x + b.y) / 2) }}>
                 {!b.dead && b.hp < b.maxHp && <div className="mb-0.5 h-1 rounded-full bg-black/50 overflow-hidden" style={{ width: '80%', minWidth: 26, maxWidth: 60 }}><div className="h-full bg-green-400" style={{ width: `${(b.hp / b.maxHp) * 100}%` }} /></div>}
                 {b.dead ? (
                   <div className="relative w-full" style={{ aspectRatio: '1' }}>

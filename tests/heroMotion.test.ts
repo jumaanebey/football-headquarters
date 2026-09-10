@@ -7,3 +7,20 @@ describe('authored hero motion',()=>{
  it('has 32 complete registered source regions per hero',async()=>{for(const key of ['qb','enforcer']){const meta=await sharp(`public/assets/heroes/motion/${key}.webp`).metadata();const bounds=HERO_MOTION_BOUNDS[key];expect(bounds).toHaveLength(32);for(const [x,y,r,b]of bounds){expect(x).toBeGreaterThanOrEqual(0);expect(y).toBeGreaterThanOrEqual(0);expect(r).toBeLessThanOrEqual(meta.width!);expect(b).toBeLessThanOrEqual(meta.height!);expect(r-x).toBeGreaterThan(50);expect(b-y).toBeGreaterThan(100);}}});
 });
 describe('first match guidance',()=>{it('only advances after player deployment and signature command',()=>{expect(firstMatchLesson(false,false,false).step).toBe(1);expect(firstMatchLesson(true,false,false).step).toBe(2);expect(firstMatchLesson(true,true,false).step).toBe(3);expect(firstMatchLesson(true,false,true).title).toContain('practice');});});
+describe('complete roster movement',()=>{
+ for(const key of ['coach','kicker','burner','medic','captain','playmaker','legend']) {
+  it(`${key} has four independently authored directions and reactions`,async()=>{
+   const meta=await sharp(`public/assets/heroes/motion/${key}.webp`).metadata();
+   expect(HERO_MOTION_BOUNDS[key]).toHaveLength(36);
+   for(const [x,y,r,b] of HERO_MOTION_BOUNDS[key]) {expect(r-x).toBeGreaterThan(50);expect(b-y).toBeGreaterThan(100);expect(r).toBeLessThanOrEqual(meta.width!);expect(b).toBeLessThanOrEqual(meta.height!);}
+   for(let direction=0;direction<4;direction++){
+    const prior={x:50,y:50,moving:true,direction,changedAt:0};
+    expect(advanceHeroMotion(prior,{x:50,y:50,moving:true,stridePhase:.5},1,key).frame).toBe(direction*9+4);
+    expect(advanceHeroMotion(prior,{x:50,y:50,hitFlash:.1},1,key).frame).toBe(direction*9+8);
+    const stopped=advanceHeroMotion(prior,{x:50,y:50},1,key);
+    expect(stopped.frame).toBe(direction*9+6);
+    expect(advanceHeroMotion(stopped.state,{x:50,y:50},1.2,key).frame).toBe(direction*9);
+   }
+  });
+ }
+});

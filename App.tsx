@@ -1,6 +1,9 @@
 
+import { applyCampusLayout, type CampusLayout } from './game/campusLayout';
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { heroPracticeConfig, isNonProgressionBattle, canRefundRaidEnergy } from './game/combat/practice';
+
+const CampusEditor = React.lazy(() => import('./components/CampusEditor').then(m => ({ default: m.CampusEditor })));
 
 // Drops the CC building bar on ANY press outside it — HUD, nav, empty turf, other
 // screens' chrome. Buildings are excluded so pressing one just switches the bar.
@@ -91,6 +94,7 @@ function App() {
   const [battleConfig, setBattleConfig] = useState<BattleConfig | null>(null);
   const [practiceTake, setPracticeTake] = useState(0);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
+  const [campusEditorOpen, setCampusEditorOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false); // 🏙 Club Dashboard (tap the jumbotron)
   // CC-style tap: the action bar shows first; Info opens the full sheet.
   const [buildingInfoOpen, setBuildingInfoOpen] = useState(false);
@@ -1260,6 +1264,7 @@ function App() {
     setGameState(prev => ({
       ...prev,
       formation: key,
+      campusLayout: undefined,
       buildings: prev.buildings.map(b => { const a = anchorsFor(key)[b.type]; return a ? { ...b, gridX: a.gridX, gridY: a.gridY } : b; }),
     }));
     sfx.whoosh(); // buildings glide to their new anchors
@@ -1333,6 +1338,20 @@ function App() {
 
   const stadiumLevel = gameState.buildings.find(b => b.type === BuildingType.STADIUM)?.level ?? 1;
 
+  const saveCampusDraft = async (layout: CampusLayout) => {
+    if (authority.locked || !authority.ready || authority.pendingCount > 0) return {ok:false,message:'Wait for your club to connect and confirm pending operations in Settings.'};
+    const stadium = stateRef.current.buildings.find(b=>b.type===BuildingType.STADIUM)?.level ?? 1;
+    if (!formationUnlocked(layout.formation, stadium)) return {ok:false,message:'This formation is not unlocked yet.'};
+    if (authority.active) {
+      const outcome = await authority.dispatch({type:'campus.apply',layout});
+      if(outcome.status==='confirmed') return {ok:true,message:'Layout confirmed online. Your campus and defense now use these positions.'};
+      authority.setNotice(outcome.message);
+      return {ok:false,message:outcome.message};
+    }
+    setGameState(previous=>applyCampusLayout(previous,layout));
+    return {ok:true,message:'Layout applied. Your campus and defense tests now use these positions.'};
+  };
+
   return (
     <div className="fhq-game relative w-full h-screen bg-slate-900 overflow-hidden font-sans select-none">
       {showTutorial && <TutorialOverlay initialName={gameState.teamName} onRerollName={genTeamName} onDone={finishTutorial} />}
@@ -1340,6 +1359,8 @@ function App() {
       <TopHUD onOpenClub={() => setDashboardOpen(true)} gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
       <IsometricMap
+        customLayout={!!gameState.campusLayout}
+        onEditCampus={() => {setSelectedBuilding(null);setCampusEditorOpen(true);}}
         heroes={gameState.heroes}
         onOpenHeroes={key => { setFocusedHero(key); setIsHeroOpen(true); }}
         buildings={gameState.buildings}
@@ -1457,6 +1478,7 @@ function App() {
         />
       )}
 
+      {campusEditorOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-50 bg-slate-950 text-white p-8">Opening campus editor…</div>}><CampusEditor state={gameState} blocked={authority.locked || !authority.ready || authority.pendingCount > 0} onApply={saveCampusDraft} onClose={()=>setCampusEditorOpen(false)} onTest={()=>{setCampusEditorOpen(false);startDefense();}} /></Suspense>}
       {/* 🏙 Club Dashboard — SimCity advisor panel, opened from the jumbotron */}
       {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} onRoster={() => { setDashboardOpen(false); setIsSquadOpen(true); }} onGameDay={() => { setDashboardOpen(false); openRaid(); }} onDefense={() => { setDashboardOpen(false); setFrontOfficeOpen(true); }} />}
 
@@ -1933,12 +1955,8 @@ function App() {
       </button>
 
       {settingsOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setSettingsOpen(false)}>
-          <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="text-xl font-display font-bold text-white uppercase">Settings</h3>
-              <button onClick={() => setSettingsOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white"><X size={16} /></button>
-            </div>
+        <div className="relative z-[70]">
+          <Sheet title="Settings" maxWidth="max-w-sm" onClose={() => setSettingsOpen(false)}>
             <div className="p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div><div className="text-sm font-bold text-white">{gameState.teamName}</div><div className="text-[11px] text-slate-500">your club</div></div>
@@ -1946,7 +1964,7 @@ function App() {
               </div>
               <div className="flex items-center justify-between">
                 <div className="text-sm text-slate-300">Sound</div>
-                <button onClick={() => setMuted(toggleMute())} className={`px-3 py-1.5 rounded-lg border text-sm font-bold flex items-center gap-2 transition-colors ${muted ? 'border-slate-700 text-slate-400' : 'border-orange-500 text-orange-300 bg-orange-900/20'}`}>
+                <button onClick={() => setMuted(toggleMute())} aria-label={muted ? 'Unmute sound' : 'Mute sound'} aria-pressed={muted} className={`min-h-11 px-3 py-1.5 rounded-lg border text-sm font-bold flex items-center gap-2 transition-colors ${muted ? 'border-slate-700 text-slate-400' : 'border-orange-500 text-orange-300 bg-orange-900/20'}`}>
                   {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}{muted ? 'Muted' : 'On'}
                 </button>
               </div>
@@ -2085,7 +2103,7 @@ function App() {
               {/* Which build am I on? Baked at deploy time — if this timestamp is old, Safari is serving cache. */}
               <div className="text-center text-[10px] text-slate-600 font-mono">build {typeof __BUILD_TS__ !== 'undefined' ? __BUILD_TS__ : 'dev'}</div>
             </div>
-          </div>
+          </Sheet>
         </div>
       )}
 

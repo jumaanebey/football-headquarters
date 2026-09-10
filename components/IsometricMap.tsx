@@ -20,6 +20,8 @@ import { Check, Star, Dumbbell, Search, Coins, Hammer, Plus, Minus, Focus } from
 // geometry (fixedBase.ts): there is no placement, painting, or dragging here.
 
 interface Props {
+  customLayout?: boolean;
+  onEditCampus?: () => void;
   heroes?: import('../types').HeroState[];
   onOpenHeroes?: (heroKey?: string) => void;
   buildings: BuildingInstance[];
@@ -794,7 +796,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const scale = useBoardScale();
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -896,7 +898,7 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
   // Home-board display remap FIRST (Jumaane's layout — battle geometry unaffected),
   // then any live editor overrides on top of it.
   const displayBuildings = buildings.map(b => {
-    const o = HOME_DISPLAY_ANCHORS[b.type];
+    const o = customLayout ? undefined : HOME_DISPLAY_ANCHORS[b.type];
     return o ? { ...b, gridX: o.gridX, gridY: o.gridY } : b;
   });
   // The editor previews the ENDGAME look ("show it at full fan capacity"):
@@ -1235,13 +1237,17 @@ export const IsometricMap: React.FC<Props> = ({ heroes = [], onOpenHeroes, build
         </div>
       </div>
 
-      <div role="group" aria-label="Campus camera" className="absolute bottom-24 right-3 z-40 flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
+      <div className="absolute bottom-24 inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none">
+      {onEditCampus && <button type="button" onClick={onEditCampus} className="pointer-events-auto min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-4 py-2 text-sm font-bold text-white shadow-xl">Edit campus</button>}
+      <div role="group" aria-label="Campus camera" className="pointer-events-auto ml-auto flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
         <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomCam(1 / 1.2)} disabled={cam.z <= .85}
           className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Minus size={18} /></button>
         <button type="button" aria-label="Recenter campus" title="Recenter campus" onClick={resetCam}
           className="w-11 h-11 flex items-center justify-center border-x border-slate-700 hover:bg-slate-700 focus-visible:bg-slate-700"><Focus size={18} /></button>
         <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomCam(1.2)} disabled={cam.z >= 3}
           className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Plus size={18} /></button>
+      </div>
+
       </div>
 
       {/* 🏙 stage-up banner — one keyframe owns bounce/hold/fade; unmounts at 4.2s */}

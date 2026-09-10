@@ -1,3 +1,5 @@
+import { subscribeHeroAnimation } from './heroAnimationClock';
+import { heroMotionColumns } from '../game/heroMotion';
 import { HERO_MOVEMENT_STYLE } from '../game/heroMovementStyle';
 import { loadHeroMotion } from './loadHeroMotion';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -29,9 +31,10 @@ function loadSheet(key: string): Promise<Sheet> {
         // One scale for the whole actor: no size pumping between poses.
         const scale = Math.min(340 / Math.max(...bounds.map(b => b[2] - b[0])), 346 / Math.max(...bounds.map(b => b[3] - b[1])));
         const frames = bounds.map((b, frame) => {
-          const out = document.createElement('canvas'); out.width = out.height = 384;
+          const out = document.createElement('canvas'); out.width = out.height = 256;
           const target = out.getContext('2d');
           if (!target) throw new Error('Canvas unavailable');
+          target.scale(2 / 3, 2 / 3);
           const [x, y, right, bottom] = b, w = right - x, h = bottom - y;
           const crop = document.createElement('canvas'); crop.width = w; crop.height = h;
           const cropCtx = crop.getContext('2d')!;
@@ -73,7 +76,10 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
   // the new actor position, even if the browser throttles cosmetic RAF work.
   useLayoutEffect(() => { renderNowRef.current?.(); }, [motionFrame, facing, mode, signatureFrame, elapsedSeconds, playbackKey, contactSeconds, driving]);
   useEffect(() => {
-    let disposed = false, raf = 0;
+    let disposed = false, visible = true;
+    let unsubscribe = () => {};
+    const observer = new IntersectionObserver(entries => { visible = entries[0]?.isIntersecting ?? true; });
+    if (canvasRef.current) observer.observe(canvasRef.current);
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     let signatures: HTMLCanvasElement[] = [];
     let motion: HTMLCanvasElement[] = [];
@@ -87,8 +93,9 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
       let previous = performance.now(), elapsed = 0, stride = 0, previousMode = playback.current.mode, previousTake = playback.current.playbackKey;
       let lastDraw = '', announced = false, signatureCompleted = false;
       let signaturePlayback: SignaturePlayback = { seconds: 0, authored: false };
-      const draw = (now: number, schedule = true) => {
+      const draw = (now: number) => {
         if (disposed) return;
+        if (!visible) { previous = now; return; }
         if (previousMode !== playback.current.mode || previousTake !== playback.current.playbackKey) {
           elapsed = 0; stride = 0; signaturePlayback = { seconds: 0, authored: false };
           signatureCompleted = false;
@@ -114,7 +121,7 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
         const pose = beat === undefined ? undefined : heroSignaturePose(heroKey, beat, signaturePlayback.seconds, media.matches, signaturePlayback.authored);
         const baseFrame = pose?.frame ?? heroFrame(playback.current.mode, frameElapsed, walking ? 1 : playback.current.cycle, media.matches);
         const signatureCanvas = !media.matches && signaturePlayback.authored && beat !== undefined ? signatures[beat] : undefined;
-        const previewMotion = playback.current.mode === 'walk' ? (playback.current.facing > 0 ? 8 : 0) + 2 + Math.floor((((frameElapsed % 1) + 1) % 1) * 4) : playback.current.mode === 'idle' ? (playback.current.facing > 0 ? 8 : 0) : undefined;
+        const previewMotion = playback.current.mode === 'walk' ? (playback.current.facing > 0 ? heroMotionColumns(heroKey) : 0) + 2 + Math.floor((((frameElapsed % 1) + 1) % 1) * 4) : playback.current.mode === 'idle' ? (playback.current.facing > 0 ? heroMotionColumns(heroKey) : 0) : undefined;
         const selectedMotion = playback.current.motionFrame ?? previewMotion;
         const motionCanvas = !media.matches && !signatureCanvas && beat === undefined && selectedMotion !== undefined ? motion[selectedMotion] : undefined;
         const idleCanvas = !motionCanvas && beat === undefined && playback.current.mode === 'idle' && !['qb','enforcer'].includes(heroKey) ? signatures[0] : undefined;
@@ -131,7 +138,7 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
           ctx.translate(192, 370);
           ctx.transform(1, 0, lean, scaleY, 0, 0);
           ctx.translate(-192, -370);
-          ctx.drawImage(signatureCanvas ?? motionCanvas ?? idleCanvas ?? sheet.frames[baseFrame], 0, 0);
+          ctx.drawImage(signatureCanvas ?? motionCanvas ?? idleCanvas ?? sheet.frames[baseFrame], 0, 0, 384, 384);
           if (pose) paintHeroSignatureCue(ctx, pose);
           ctx.restore();
           canvas.dataset.frame = String(frame);
@@ -139,13 +146,13 @@ export function AnimatedHero({ heroKey, mode = 'idle', facing = -1, cycle = 0.48
           canvas.dataset.driving = drive ? '1' : '0';
           lastDraw = drawKey; if (!announced) { setReady(true); announced = true; }
         }
-        if (schedule) raf = requestAnimationFrame(draw);
+
       };
-      renderNowRef.current = () => draw(performance.now(), false);
+      renderNowRef.current = () => draw(performance.now());
       renderNowRef.current();
-      raf = requestAnimationFrame(draw);
+      unsubscribe = subscribeHeroAnimation(draw);
     }).catch(() => { if (!disposed) setReady(false); });
-    return () => { disposed = true; cancelAnimationFrame(raf); renderNowRef.current = null; };
+    return () => { disposed = true; unsubscribe(); observer.disconnect(); renderNowRef.current = null; };
   }, [heroKey, loadSignatureArt]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
