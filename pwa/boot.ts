@@ -8,8 +8,10 @@ import { applyUpdate, checkForUpdate, onUpdateAvailable, registerServiceWorker, 
 
 declare global { interface Window { __fhqPwa?: { install: typeof installSupport; connection: typeof connectionState; update: typeof updateState; applyUpdate: typeof applyUpdate; checkForUpdate: typeof checkForUpdate } } }
 
+let booted=false;
 export function bootPwa(options: { register?: boolean } = {}): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || booted) return;
+  booted=true;
   armInstallCapture();
   armConnectionTracking();
   if (options.register ?? import.meta.env.PROD) {

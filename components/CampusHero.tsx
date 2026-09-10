@@ -11,7 +11,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
   project: (x: number, y: number) => { x: number; y: number }; onSelect?: () => void;
 }) {
   const button = useRef<HTMLButtonElement>(null);
-  const [pose, setPose] = useState(() => heroPatrol(lane * 2, lane));
+  const [pose, setPose] = useState(() => heroPatrol(lane * 2, lane, false, heroKey));
   const [artOpen, setArtOpen] = useState(campusArtOpen());
   useEffect(() => { if (!artOpen) { let live = true; campusArtReady().then(() => { if (live) setArtOpen(true); }); return () => { live = false; }; } }, [artOpen]);
   const animationTime = useRef(pose.mode === 'walk' ? pose.stridePhase : pose.actionElapsed);
@@ -23,7 +23,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
       // Resume where the athlete stopped when returning from a hidden tab.
       if (!document.hidden) {
         elapsed += Math.min((now - previous) / 1000, 0.05);
-        const next = heroPatrol(elapsed, lane, media.matches);
+        const next = heroPatrol(elapsed, lane, media.matches, heroKey);
         animationTime.current = next.mode === 'walk' ? next.stridePhase : next.actionElapsed;
         const x = field.x1 + (field.x2 - field.x1) * (0.08 + lane * 0.105);
         const y = field.y1 + (field.y2 - field.y1) * (0.15 + next.progress * 0.7);
@@ -41,7 +41,7 @@ export function CampusHero({ heroKey, lane, field, project, onSelect }: {
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [lane, field.x1, field.x2, field.y1, field.y2, project]);
+  }, [heroKey, lane, field.x1, field.x2, field.y1, field.y2, project]);
   const initial = project(field.x1 + (field.x2 - field.x1) * (0.08 + lane * 0.105), field.y1 + (field.y2 - field.y1) * (0.15 + pose.progress * 0.7));
   const def = HERO_DEFS.find(h => h.key === heroKey)!;
   const modern = hasModernHero(heroKey);

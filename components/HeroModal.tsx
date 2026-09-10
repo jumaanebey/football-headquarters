@@ -1,3 +1,4 @@
+import { heroMovementStyle } from '../game/heroMovementStyle';
 import { heroProgression } from '../game/progression/heroProgression';
 import type { GameState } from '../types';
 import { HeroArt } from './HeroArt';
@@ -233,7 +234,7 @@ export const HeroModal: React.FC<Props> = ({ club, initialHero, onPractice, hero
                 <div className="p-4 flex flex-col gap-3 flex-1">
                   <div>
                     <div className="font-display font-bold text-lg text-white">{def.name}</div>
-                    <div className="text-sm text-slate-300">{def.role} · Level {lvl} · {strs}/{MAX_STARS} stars</div><p className="mt-2 text-sm text-slate-400">Speed {model.current.speed} · Range {model.current.range}. Levels and stars improve Grit and Yardage; speed and range stay fixed.</p>
+                    <div className="text-sm text-slate-300">{def.role} · Level {lvl} · {strs}/{MAX_STARS} stars</div><p className="mt-2 text-sm text-slate-400">Speed {model.current.speed} · Range {model.current.range}. Levels and stars improve Grit and Yardage; speed and range stay fixed.</p><p className="mt-2 text-sm text-orange-200">{heroMovementStyle(def.key).identity}</p>
                   </div>
                   <details className="rounded-xl border border-slate-700 p-3 text-sm text-slate-300"><summary className="cursor-pointer min-h-7 font-bold text-white">Signature & growth details</summary><p className="mt-2">{model.ability.implementation}</p><p className="mt-2">Signature cooldown: {model.ability.cooldownSeconds}s. {model.ability.scalesWith === 'yardage' ? 'More Yardage strengthens the signature’s damage.' : model.ability.scalesWith === 'grit' ? 'Recovery depends on maximum Grit.' : 'The signature’s fixed effects do not increase with levels or stars.'}</p>{model.stadiumGate.atMax && <p className="mt-2 text-amber-200">Upgrade Stadium to level {model.stadiumGate.nextStadiumLevel} to unlock more hero levels.</p>}</details>
                   <div className="grid grid-cols-2 gap-2 text-sm">

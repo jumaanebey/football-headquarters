@@ -14,7 +14,7 @@ describe('complete roster movement',()=>{
    expect(HERO_MOTION_BOUNDS[key]).toHaveLength(36);
    for(const [x,y,r,b] of HERO_MOTION_BOUNDS[key]) {expect(r-x).toBeGreaterThan(50);expect(b-y).toBeGreaterThan(100);expect(r).toBeLessThanOrEqual(meta.width!);expect(b).toBeLessThanOrEqual(meta.height!);}
    for(let direction=0;direction<4;direction++){
-    const prior={x:50,y:50,moving:true,direction,changedAt:0};
+    const prior={x:50,y:50,moving:true,direction,changedAt:0,sampledAt:1};
     expect(advanceHeroMotion(prior,{x:50,y:50,moving:true,stridePhase:.5},1,key).frame).toBe(direction*9+4);
     expect(advanceHeroMotion(prior,{x:50,y:50,hitFlash:.1},1,key).frame).toBe(direction*9+8);
     const stopped=advanceHeroMotion(prior,{x:50,y:50},1,key);

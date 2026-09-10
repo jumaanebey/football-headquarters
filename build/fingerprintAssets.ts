@@ -16,7 +16,7 @@ import type { Plugin } from 'vite';
  *  frames, portraits, coaches, brand) is small, reached by templated `<img>` paths and left alone. */
 export const LOADER_ONLY_DIRS = ['assets/heroes/campus', 'assets/heroes/elite', 'assets/heroes/motion', 'assets/heroes/signatures', 'assets/heroes/reactions'];
 export const FINGERPRINT_DIRS = [...LOADER_ONLY_DIRS, 'assets/heroes/rig', 'assets/heroes/franchise-rig', 'assets/buildings', 'assets/decor', 'assets/battle'];
-const FINGERPRINT_FILE = (rel: string) => LOADER_ONLY_DIRS.some(d => rel.startsWith('/' + d + '/')) || rel.includes('/heroes/rig/') || rel.includes('/heroes/franchise-rig/') || rel.includes('cutout');
+const FINGERPRINT_FILE = (rel: string) => LOADER_ONLY_DIRS.some(d => rel.startsWith('/' + d + '/')) || rel.includes('/heroes/rig/') || rel.includes('/heroes/franchise-rig/') || rel.includes('cutout') || rel.endsWith('.alpha.webp');
 const RASTER = new Set(['.webp', '.png', '.jpg', '.jpeg', '.avif', '.gif']);
 const VIRTUAL = 'virtual:fhq-asset-manifest';
 const RESOLVED = '\0' + VIRTUAL;

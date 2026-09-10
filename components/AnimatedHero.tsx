@@ -1,6 +1,6 @@
 import { subscribeHeroAnimation } from './heroAnimationClock';
 import { heroMotionColumns } from '../game/heroMotion';
-import { HERO_MOVEMENT_STYLE } from '../game/heroMovementStyle';
+import { HERO_MOVEMENT_STYLE, heroLocomotionPose } from '../game/heroMovementStyle';
 import { HERO_MOTION_BOUNDS } from '../game/heroMotionBounds';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HeroAnimation, heroFrame, advanceHeroStride } from '../game/heroAnimation';
@@ -17,17 +17,17 @@ import { campusFrameMap } from '../game/heroCampusSheet';
 export type HeroArtTier = 'campus' | 'battle';
 type Sheet = { frames: HTMLCanvasElement[]; campus?: HTMLCanvasElement[] };
 
-export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame }: {
-  tier?: HeroArtTier; motionFrame?: number; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
+export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame, clockSeconds }: {
+  clockSeconds?: number; tier?: HeroArtTier; motionFrame?: number; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderNowRef = useRef<(() => void) | null>(null);
-  const playback = useRef({ motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete });
-  playback.current = { motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete };
+  const playback = useRef({ clockSeconds, motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete });
+  playback.current = { clockSeconds, motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete };
   const [ready, setReady] = useState(false);
   // Event-clock poses and distance-driven footfalls must be painted alongside
   // the new actor position, even if the browser throttles cosmetic RAF work.
-  useLayoutEffect(() => { renderNowRef.current?.(); }, [motionFrame, facing, mode, signatureFrame, elapsedSeconds, playbackKey, contactSeconds, driving]);
+  useLayoutEffect(() => { renderNowRef.current?.(); }, [clockSeconds, motionFrame, facing, mode, signatureFrame, elapsedSeconds, playbackKey, contactSeconds, driving]);
   useEffect(() => {
     let disposed = false, visible = true;
     let unsubscribe = () => {};
@@ -44,13 +44,16 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
     let reactions: HTMLCanvasElement[] = [];
     const motionFrameCount = HERO_MOTION_BOUNDS[heroKey]?.length ?? 0;
     const campusMap = campusFrameMap(heroKey);
-    if (tier === 'battle') {
+    const requestBattleArt = () => { if (tier === 'battle' && !media.matches) {
       // Independent requests: a slow signature sheet never delays stride frames, and vice versa.
       // Elite poses keep animating while any of these is missing; each is re-requested on reconnect while mounted.
       loadHeroArtWhileMounted('motion', heroKey, signal, frames => { motion = frames; });
       if (hasReactionSheet(heroKey)) loadHeroArtWhileMounted('reaction', heroKey, signal, frames => { reactions = frames; });
       if (loadSignatureArt) loadHeroArtWhileMounted('signature', heroKey, signal, frames => { signatures = frames; });
     }
+    };
+    requestBattleArt();
+    media.addEventListener('change',requestBattleArt);
     setReady(false);
     const base: Promise<Sheet> = tier === 'battle'
       ? loadHeroArtWithRetry('elite', heroKey, signal).then(frames => ({ frames }))
@@ -60,6 +63,7 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
       retainAll();
       const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return;
+      let previousClock = playback.current.clockSeconds;
       let previous = performance.now(), elapsed = 0, stride = 0, previousMode = playback.current.mode, previousTake = playback.current.playbackKey;
       let lastDraw = '', announced = false, signatureCompleted = false;
       let signaturePlayback: SignaturePlayback = { seconds: 0, authored: false };
@@ -72,7 +76,9 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
           previousMode = playback.current.mode; previousTake = playback.current.playbackKey;
         }
         const rate = Number.isFinite(playback.current.playbackRate) ? Math.max(.25, Math.min(1, playback.current.playbackRate)) : 1;
-        const delta = document.hidden ? 0 : Math.min((now - previous) / 1000, 0.05) * rate;
+        const externalClock=playback.current.clockSeconds;
+        const delta = document.hidden ? 0 : externalClock !== undefined ? Math.max(0, Math.min(.1, externalClock-(previousClock ?? externalClock))) : Math.min((now - previous) / 1000, 0.05) * rate;
+        previousClock=externalClock;
         if (!document.hidden) {
           elapsed += delta;
           if (playback.current.mode === 'walk') stride = advanceHeroStride(stride, delta, playback.current.cycle);
@@ -99,8 +105,9 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
         const idleCanvas = !motionCanvas && beat === undefined && playback.current.mode === 'idle' && !['qb','enforcer'].includes(heroKey) ? signatures[0] : undefined;
         const frame = idleCanvas ? 100 : signatureCanvas ? 100 + beat! : motionCanvas ? 200 + selectedMotion! : baseFrame;
         const drive = walking && playback.current.driving && !media.matches;
-        const scaleY = pose?.scaleY ?? (drive ? .96 : 1);
-        const lean = pose?.lean ?? (drive ? .035 : 0);
+        const locomotion = heroLocomotionPose(heroKey, playback.current.mode, frameElapsed, frameElapsed, media.matches);
+        const scaleY = pose?.scaleY ?? (drive ? .96 : locomotion.scaleY);
+        const lean = pose?.lean ?? (drive ? .035 : locomotion.lean);
         const drawKey = `${playback.current.facing}:${frame}:${beat}:${scaleY.toFixed(3)}:${lean.toFixed(3)}:${pose?.cueOpacity.toFixed(2)}`;
         if (!document.hidden && drawKey !== lastDraw) {
           ctx.clearRect(0, 0, 384, 384);
@@ -124,7 +131,7 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
       renderNowRef.current();
       unsubscribe = subscribeHeroAnimation(draw);
     }).catch(() => { if (!disposed) setReady(false); });
-    return () => { disposed = true; signal.disposed = true; for (const release of releases) release(); unsubscribe(); observer.disconnect(); renderNowRef.current = null; };
+    return () => { disposed = true; signal.disposed = true; for (const release of releases) release(); unsubscribe(); observer.disconnect(); media.removeEventListener('change',requestBattleArt); renderNowRef.current = null; };
   }, [heroKey, loadSignatureArt, tier]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
     data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}

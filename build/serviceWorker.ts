@@ -15,7 +15,7 @@ export function serviceWorker(): Plugin {
   return {
     name: 'fhq-service-worker',
     configResolved(config) { root = config.root; outDir = config.build.outDir; building = config.command === 'build'; },
-    generateBundle(_options, bundle) { for (const file of Object.keys(bundle)) if (/^assets\/index-.*\.(js|css)$/.test(file)) bundleFiles.push('/' + file); },
+    generateBundle(_options, bundle) { for (const file of Object.keys(bundle)) if (/^assets\/.*\.(js|css)$/.test(file)) bundleFiles.push('/' + file); },
     async closeBundle() {
       if (!building) return;
       const target = join(root, outDir, 'sw.js');

@@ -46,3 +46,12 @@ GROUND_ART['/assets/buildings/stadium-3.webp'].field = [289, 220, 72, 40, -132, 
 GROUND_ART['/assets/buildings/stadium-4.webp'].field = [289, 220, 72, 40, -132, 76];
 GROUND_ART['/assets/buildings/stadium-5.webp'].field = [293, 210, 72, 40, -132, 76];
 GROUND_ART['/assets/buildings/rival-stadium.webp'].field = [271, 192, 111, 64, -146, 85];
+
+// Versioned sports-equipment redesign. Keep stable film/source identities and rival facilities.
+const defenseV2 = ['jugs-machine','jugs-machine-2','jugs-machine-3','tackling-sled','tackling-sled-2','ref-tower','ref-tower-2','ref-tower-3','tshirt-cannon','tshirt-cannon-2','tshirt-cannon-3','gatorade-station','gatorade-station-2','gatorade-station-3'];
+defenseV2.forEach((slug,index)=>{const cell=index+2;GROUND_ART[`/assets/battle/${slug}.webp`]={src:'/assets/battle/defense-workshop-v2.png',region:[cell%4/4,Math.floor(cell/4)/4,.25,.25]};});
+
+GROUND_ART['/assets/battle/tackling-sled-3.webp']={src:'/assets/battle/tackling-sled-elite-v2.png'};
+
+// Trim a neighboring sled tip from the generated Ref Tower cell.
+GROUND_ART['/assets/battle/ref-tower.webp'].region=[.768,.25,.232,.25];
