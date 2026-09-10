@@ -1,0 +1,34 @@
+
+> football-headquarters@0.0.0 funnel:weekly
+> node scripts/funnel-report.mjs --days 7 --fixture tests/fixtures/funnel-events.json --now 2026-09-10T12:00:00Z
+
+==== FIXTURE DATA: tests/fixtures/funnel-events.json — synthetic rows for validating the report, NOT real players ====
+FOOTBALL HEADQUARTERS — WEEKLY FUNNEL   2026-09-03 → 2026-09-10 (7 days, UTC (cohort days are UTC calendar days))
+data: present · players visible: 13 · events: 100 · QA excluded: 2 players / 4 rows (known QA account ids (scripts/qa-accounts.json) and props.qa === true)
+Independent milestone counts, not ordered conversion rates. Missing historical events are not proof of abandonment.
+Returns require activity on distinct UTC days; a saved club alone is not a return. QA exclusions are limited to documented IDs and explicit markers.
+
+  step                            players    % of visible   source
+  Game visible                        13     100%        mixed (+1 legacy-derived)
+  Named the club                      10    76.9%        funnel events
+  Finished the tutorial                9    69.2%        legacy events only (+9 legacy-derived)
+  Kicked off a first game              7    53.8%        funnel events
+  Saw a result                         6    46.2%        funnel events
+  Reward confirmed                     5    38.5%        legacy events only (+5 legacy-derived)
+  Requested an upgrade                 3    23.1%        mixed (+2 legacy-derived)
+  Meaningful upgrade completed         1     7.7%        funnel events
+  Backup prompt viewed                 2    15.4%        funnel events
+  Backup completed                     2    15.4%        funnel events
+  Returned another day                 3    23.1%        funnel events
+
+  result recorded without a reward event in this window: 1 · upgrade request without a completion event: 2 · backup prompt without a completion event: 1
+  backups by method: export (download requested) 1 · account (cloud) 1
+  returning players in window: 4
+  return cohorts (first seen in available history, not lifetime-new; completed UTC days only)
+    2026-09-04  new   3   D1 1/3   D7 not yet
+    2026-09-05  new   3   D1 1/3   D7 not yet
+    2026-09-07  new   1   D1 1/1   D7 not yet
+    2026-09-09  new   5   D1 not yet   D7 not yet
+
+source: fixture tests/fixtures/funnel-events.json
+==== FIXTURE DATA: tests/fixtures/funnel-events.json — synthetic rows for validating the report, NOT real players ====
