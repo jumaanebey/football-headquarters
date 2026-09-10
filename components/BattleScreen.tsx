@@ -57,6 +57,7 @@ interface Props {
    *  energy charged at launch must be handed back. */
   onExit: (beforeKickoff?: boolean) => void;
   onPracticeAgain?: () => void;
+  onReplayAgain?: () => void;
   /** Fires once when play actually starts (first deploy). Protected clubs acknowledge kickoff to the authority here. */
   onKickoff?: () => void;
 }
@@ -156,8 +157,10 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
   targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, special: def.key,
 });
 
-export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onKickoff }) => {
+export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff }) => {
   const [showThreats, setShowThreats] = useState(false);
+  const [replayPaused, setReplayPaused] = useState(false);
+  const [replaySpeed, setReplaySpeed] = useState(1);
   const isDefense = config.mode === 'defense';
   const isReplay = !!config.replay;
   const modernCombat = !config.replay || config.replay.version === 2;
@@ -537,7 +540,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
   };
 
   useEffect(() => {
-    if (phase !== 'fighting') return;
+    if (phase !== 'fighting' || (isReplay && replayPaused)) return;
     // REAL-TIME SIM: the old loop assumed the interval fires every 50ms, but each
     // tick re-renders the whole scene — on phones/dense bases renders exceed 50ms,
     // ticks coalesce, and the 60s clock crawled (~1 game-sec per 10 real-sec).
@@ -1037,7 +1040,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
     };
     const iv = setInterval(() => {
       const now = performance.now();
-      clock.acc += (now - clock.t) / 1000;
+      clock.acc += (now - clock.t) / 1000 * (isReplay ? replaySpeed : 1);
       clock.t = now;
       let n = 0;
       while (clock.acc >= DT && n < 8) { stepSim(); clock.acc -= DT; n++; }
@@ -1047,7 +1050,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
     return () => clearInterval(iv);
     // deploy inventory is read via refs inside stepSim — state deps would churn the
     // interval on every deploy and eat accumulated sim time (see anyToDeploy note)
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, replayPaused, replaySpeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⚡ ABILITY FLASH: the screen edges pulse in the caster's color when an ability fires.
   const [abilityFlash, setAbilityFlash] = useState<{ color: string; key: number; heroKey: string; name: string; play: string; art: string } | null>(null);
@@ -1288,7 +1291,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
     : 'Pick your offense — players, heroes, or plays';
 
   return (
-    <div ref={battlePanel} role="dialog" aria-modal="true" aria-label={config.practice ? 'Free hero practice' : config.replay?.displayTitle ?? config.title} tabIndex={-1} onKeyDown={containBattleFocus} className="fhq-battle fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
+    <div ref={battlePanel} data-replay-paused={isReplay && replayPaused ? 'true' : undefined} role="dialog" aria-modal="true" aria-label={config.practice ? 'Free hero practice' : config.replay?.displayTitle ?? config.title} tabIndex={-1} onKeyDown={containBattleFocus} className="fhq-battle fixed inset-0 z-[60] bg-slate-950 flex flex-col select-none">
       {/* ⚡ ability cast — edges flash in the caster's color */}
       {abilityFlash && phase === 'fighting' && (
         <React.Fragment key={abilityFlash.key}>
@@ -1333,7 +1336,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
       {/* Top bar */}
       <div className="fhq-battle-header flex items-center justify-between gap-2 px-2.5 sm:px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button onClick={() => { if (phase === 'fighting' && !sim.current.ended) { endBattle(); } else onExit(phase === 'deploy'); }} title="Blow the whistle — see the result" className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
+          <button onClick={() => { if (isReplay) { onExit(false); return; } if (phase === 'fighting' && !sim.current.ended) { endBattle(); } else onExit(phase === 'deploy'); }} title={isReplay ? 'Close replay' : 'Blow the whistle — see the result'} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
           <div className="min-w-0">
             {/* Phone: ONE line, truncated — the two-line wrap crushed the whole bar */}
             <div className="font-display font-bold text-white uppercase tracking-tight leading-none flex items-center gap-1.5 sm:gap-2 text-[13px] sm:text-base min-w-0">
@@ -1860,6 +1863,12 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
       {/* Bottom bar */}
       {phase !== 'result' && isReplay && (
         <div className="fhq-battle-commands shrink-0 bg-slate-900 border-t border-slate-800 px-3 py-3 text-center text-xs text-slate-400 font-bold">
+          <div className="mb-2 flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Replay playback">
+            <button type="button" aria-pressed={replayPaused} onClick={() => setReplayPaused(paused => !paused)} className="min-h-11 rounded-lg border border-slate-600 px-3 text-sm text-white">{replayPaused ? 'Resume replay' : 'Pause replay'}</button>
+            <label className="text-xs text-slate-300">Speed <select aria-label="Replay speed" value={replaySpeed} onChange={event => setReplaySpeed(Number(event.target.value))} className="min-h-11 rounded-lg bg-slate-800 px-2 text-white"><option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option></select></label>
+            {onReplayAgain && <button type="button" onClick={onReplayAgain} className="min-h-11 rounded-lg border border-slate-600 px-3 text-sm text-white">Restart replay</button>}
+            <output aria-label="Replay time" className="font-mono text-white">{(s.ticks * DT).toFixed(1)}s{config.replay?.expectedTicks !== undefined ? ` / ${(config.replay.expectedTicks * DT).toFixed(1)}s` : ''}</output>
+          </div>
           <p>● You're watching the actual attack on your stadium — every move is theirs.</p>
           <BattleFieldReport troops={s.troops} guards={s.guards} buildings={s.buildings} heroes={heroes} />
         </div>
@@ -2047,7 +2056,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
           buildings={s.buildings} guards={s.guards} planKey={plan.key}
           replayVerified={engineRef.current?.hash === config.replay?.expectedHash && engineRef.current?.state.ticks === config.replay?.expectedTicks && engineRef.current?.rejectedCommands === 0 && engineRef.current?.getReplay().script.length === config.replay?.script.length}
           onContinue={destination => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result, destination); }}
-          onPracticeAgain={onPracticeAgain} />
+          onPracticeAgain={onPracticeAgain} onReplayAgain={onReplayAgain} />
       )}
     </div>
   );

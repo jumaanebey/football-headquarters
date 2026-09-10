@@ -34,3 +34,12 @@ Rendered at 844×390, 390×844 and 320×568. Landscape previously left only a th
 Remaining product scope: additional authored animation/art, broader roster/lineup semantics, attempt-to-attempt replay comparisons, human difficulty calibration, physical-device and observed-player acceptance. Existing retention/stateVersion decisions are unchanged.
 
 Protected v4 browser acceptance on the final client: Campus QA FC reserved and played an Air Raid opener with five heroes and Hail Mary, then Collect & choose next game opened Game Day only after confirmation. Coins 431→888, Fans 45→60, revision 26 / everything confirmed. No new browser QA account.
+
+
+## Replay review controls — 2026-09-10
+
+Replay playback now supports pause/resume, 0.5×/1×/2× speed, elapsed/recorded duration, restart during playback and Watch replay again after completion. Closing replay returns to Defense Log without prematurely scoring an incomplete film. Simulation steps and recorded commands remain unchanged; speed affects wall-clock accumulation only.
+
+Rendered the real BattleScreen against a deterministic rival corpus recording: pause held 9.6s / 12.0s across subsequent inspection, then resuming at 2× completed with “Replay matches the recorded drive.” Watch again reset the clock, restart and 0.5× worked, and the controls remained reachable at 390×844. Closing during playback exited without settlement. This fixture validates rendered replay behavior, not physical-device acceptance or a new live-account replay. Full check passed 464 tests / 56 files, typecheck, 547 raster decodes and build.
+
+PR #42 merged as 604d4f0 and production deployment 6373653289 succeeded. No combat rules, economy or server changes are needed for these replay controls. Attempt-to-attempt comparisons and seeking remain separate work.

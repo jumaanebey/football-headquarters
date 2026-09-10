@@ -110,6 +110,7 @@ function App() {
   const [preparedPlan, setPreparedPlan] = useState<GamePlanKey>('balanced');
   const [openingHero, setOpeningHero] = useState<string | undefined>();
   const [practiceTake, setPracticeTake] = useState(0);
+  const [replayTake, setReplayTake] = useState(0);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
   const [campusEditorOpen, setCampusEditorOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false); // 🏙 Club Dashboard (tap the jumbotron)
@@ -965,6 +966,7 @@ function App() {
     if (isNonProgressionBattle(r, battleConfig)) {
       setBattleConfig(null);
       if (r.isPractice || battleConfig?.practice) setIsHeroOpen(true);
+      else if (r.isReplay || battleConfig?.replay) setDefenseLogOpen(true);
       return; // before currencies, counters, progression, analytics, or online reports
     }
     track('battle_result', {
@@ -1699,11 +1701,12 @@ function App() {
         onStart={() => { if (launchAttack(preparedMatch.config, preparedMatch.choice, true)) setPreparedMatch(null); }} />}
       {battleConfig && (
         <Suspense fallback={<div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4" role="status"><img src="/assets/brand/logo.webp" alt="Football Headquarters" width="240" /><p>Getting the field ready…</p></div>}><BattleScreen
-          key={battleConfig.practice ? `practice-${practiceTake}` : 'match'}
+          key={battleConfig.practice ? `practice-${practiceTake}` : battleConfig.replay ? `replay-${replayTake}` : 'match'}
           config={battleConfig}
           initialPlan={battleConfig.practice ? 'balanced' : preparedPlan}
           openingHero={battleConfig.practice ? undefined : openingHero}
           onFinish={handleBattleFinish}
+          onReplayAgain={() => setReplayTake(take => take + 1)}
           onKickoff={() => {
             const open = authorityMatchRef.current;
             if (!open || open.begun || !battleConfig.authority) return;
@@ -1729,6 +1732,7 @@ function App() {
             }
             setBattleConfig(null);
             if (battleConfig.practice) setIsHeroOpen(true);
+            else if (battleConfig.replay) setDefenseLogOpen(true);
           }}
         /></Suspense>
       )}

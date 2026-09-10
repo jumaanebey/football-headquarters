@@ -14,11 +14,11 @@ const METRICS = {
 };
 const number = (value: number) => Math.round(value).toLocaleString();
 
-export function BattleDebrief({ config, result, actors, buildings = [], guards = [], planKey, stats, modernCombat, replayVerified, onContinue, onPracticeAgain }: {
+export function BattleDebrief({ config, result, actors, buildings = [], guards = [], planKey, stats, modernCombat, replayVerified, onContinue, onPracticeAgain, onReplayAgain }: {
   config: BattleConfig; result: BattleResult; actors: BTroop[];
   buildings?: BBuilding[]; guards?: BTroop[]; planKey?: GamePlanKey;
   stats: { pancakes: number; lost: number; bonus: number } | null;
-  modernCombat: boolean; replayVerified: boolean; onContinue: (destination?: PostBattleDestination) => void; onPracticeAgain?: () => void;
+  modernCombat: boolean; replayVerified: boolean; onContinue: (destination?: PostBattleDestination) => void; onPracticeAgain?: () => void; onReplayAgain?: () => void;
 }) {
   const { viewerWon, headline, eyebrow } = resultPresentation(config, result);
   const replay = !!config.replay;
@@ -37,6 +37,7 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
     <Sheet title={headline} icon={<Flag className={neutral ? 'text-sky-300' : viewerWon ? 'text-emerald-300' : 'text-rose-300'} size={22} />}
       subtitle={eyebrow} onClose={() => onContinue()} maxWidth="max-w-md"
       footer={<div className="space-y-2" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {replay && onReplayAgain && <button type="button" onClick={onReplayAgain} className={primary}>Watch replay again</button>}
         {config.practice && onPracticeAgain && <button type="button" onClick={onPracticeAgain} className={primary}>Practice again · Free</button>}
         <button type="button" onClick={() => onContinue()} className={config.practice && onPracticeAgain
           ? 'w-full min-h-11 rounded-xl border border-slate-600 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800'
