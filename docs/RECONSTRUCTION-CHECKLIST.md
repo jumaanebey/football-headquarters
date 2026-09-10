@@ -2,11 +2,11 @@
 
 Updated September 10, 2026. Published baseline at resumption: `cc1f598` (shared hero combat, replay, free practice, progression and online client integrity). This checklist preserves the approved scope; an unchecked gate is not complete. The earlier 30% figure was an estimate, not a measured completion score.
 
-## Current continuation — five-area visual gameplay pass
+## Current continuation — six-area campus/gameplay completion
 
-PR #30 (`1fe9c47`) implements the five requested presentation areas; see [VISUAL-GAMEPLAY-ACCEPTANCE.md](VISUAL-GAMEPLAY-ACCEPTANCE.md). All nine heroes now have four authored signature poses. Franchise/Enforcer have four-direction starts, running, planted turns/stops, contact braces and substitution signals. The other seven retain six-frame locomotion with distinct ready poses and movement presentation. Projected grandstands/foundations and first-match deployment/signature/result-to-training guidance are integrated. Camera work shipped in PR #28.
+PR #32 (`8390fc2`) is merged and production verified, including Claude PR #31 (`9e90341`). See [CAMPUS-GAMEPLAY-RELEASE.md](CAMPUS-GAMEPLAY-RELEASE.md). All nine heroes now have directional launch/run/plant/stop/brace/substitution coverage plus the previously authored signatures. A visual campus editor supplies templates, validation, undo/redo/cancel, safe pan/zoom, protected apply and saved-defense tests. Crowded scenes fade covering buildings and bound effects. The shared 256px animation cache/clock reduces estimated frame storage by 55.6%; a 60-second, 27-hero Mac sample measured p95 9.2ms with no >50ms intervals. Keyboard battlefield controls, scrollable Settings and reduced-motion/enlarged-text browser checks are complete.
 
-Release evidence: 264 tests, 540 raster decodes, build, 219-match balance gates, fresh-club preview journey, mobile Film Room and production deployment. This closes the five-area implementation pass, not the full reconstruction: all-nine directional action coverage, physical-device/player acceptance and Claude's authority/defense work remain separate gates.
+Release evidence: 351 tests, 547 raster decodes, build and CI balance gates; mobile preview; live authority edit→Season win→rewards→Stadium upgrade→reload→saved defense (revision 9 confirmed); production editor and build stamp. These six software areas are closed. Broader unchecked reconstruction gates below remain open, including actual device/player acceptance and deferred legacy publishing/admission decisions. New clubs inherit Claude's decided automatic protection; existing guests remain opt-in.
 
 ## Previous continuation — hero results and defense presentation
 
@@ -35,7 +35,7 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 ## Known launch gates requiring further evidence or access
 
 - Backend, 2026-09-10: project `ruzkpbvgzvqrrnexrffz` is ACTIVE_HEALTHY; the authority migration and function sources are in version control (`docs/AUTHORITY-RECOVERY.md`). The deployed v2 function crashed at startup; v3 is deployed and the two-account live evidence passed 57/57 (`docs/AUTHORITY-RECOVERY.md`). Protected-club integration is on PR #29 (`docs/AUTHORITY-CONTRACTS.md`); the preview browser journey (enable protection → Season game reserved, played and confirmed by the server → revision 3) passed.
-- All nine authored signature sequences are integrated. Full directional action coverage across the remaining seven heroes, renderer benchmarking and physical-device acceptance remain open.
+- All nine authored signature sequences are integrated. PR #32 adds directional locomotion/reactions/substitutions across the remaining seven and a browser renderer benchmark. Broader directional celebration coverage and physical-device acceptance remain open.
 - Browser viewport checks do not replace actual iPhone/Android touch, sustained frame pacing, heat/battery and player-observation gates.
 
 ## Milestone 0 — establish and protect the baseline
@@ -69,9 +69,9 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 ## Milestone 2 — hero-first visual gameplay
 
 - [ ] Establish actual-play hero, ordinary-player, facility, shadow, and label scale.
-- [ ] Keep heroes readable in groups; reduce persistent full nameplates and effect overlap.
+- [x] Keep heroes readable in groups; reduce persistent full nameplates and effect overlap (PRs #28/#32; real-device/player acceptance below).
 - [x] Pin deployed heroes and ready abilities in a phone-friendly command area.
-- [x] Establish direction, foot-contact anchors, stride-distance, turning, and stop transitions for the Franchise/Enforcer prototype. Remaining cast-wide coverage is tracked below.
+- [x] Establish direction, foot-contact anchors, stride-distance, turning, and stop transitions for all nine heroes (PR #32 completes the remaining seven).
 - [x] Normalize source-frame scale and contact points; document remaining authored-art gaps.
 - [x] Prototype an editable-source art/animation pipeline using Franchise and Enforcer.
 - [ ] Complete directional idle, start, run, plant, action, reaction, recovery, substitution, celebration.
@@ -87,11 +87,11 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 ## Milestone 3 — campus ownership and complete defenses
 
 - [ ] Canonical CampusLayout shared by build, scout, defense, and replay.
-- [ ] Editable formation templates with tap-to-place, clear preview, undo, cancel, and safe panning.
-- [ ] Validate overlap, gate access, footprints, and reachability before publishing.
+- [x] Editable formation templates with tap-to-place, clear preview, undo, cancel, and safe panning.
+- [x] Validate overlap, gate access, footprints, and reachability before applying a layout.
 - [ ] Separate cosmetic grounds from the competitive layout explicitly.
-- [ ] Complete DefenseSnapshot includes assigned heroes, roster, equipment, mastery, and crowd.
-- [ ] Local defense tests and real rivals consume the same snapshot and defender rules.
+- [x] Complete DefenseSnapshot includes assigned heroes, roster, equipment, mastery, and crowd (Claude PR #29).
+- [x] Local defense tests and protected rivals consume the same snapshot and defender rules; legacy publishing remains deferred.
 - [ ] Match results credit the formation/layout that was attacked.
 - [ ] Verify edited layout and upgrades using two accounts and a recorded replay.
 
