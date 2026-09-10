@@ -31,13 +31,15 @@ export const HERO_ART_PATH: Record<HeroArtKind, (key: string) => string> = {
 export const REACTION_HEROES = ['qb', 'enforcer'];
 export const hasReactionSheet = (key: string) => REACTION_HEROES.includes(key);
 
-interface Entry { promise: Promise<HeroFrames>; frames: HeroFrames | null }
+interface Entry { promise: Promise<HeroFrames>; frames: HeroFrames | null; retained: number; image: HTMLImageElement | null; abort?: () => void; cancelled: boolean }
 const cache = new Map<string, Entry>();
 const listeners = new Set<() => void>();
 const id = (kind: HeroArtKind, key: string) => `${kind}:${key}`;
 const RETRY_DELAY_MS = 2500;
 
-const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.decoding = 'async'; image.onload = () => resolve(image); image.onerror = () => reject(new Error(`Hero art unavailable: ${src}`)); image.src = src; });
+/** The in-flight Image of each slot is kept so an obsolete, unretained request can be abandoned (src = '' aborts the download). */
+type Slot = { image: HTMLImageElement | null; abort?: () => void } | undefined;
+const loadImage = (src: string, slot?: Slot) => new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.decoding = 'async'; if (slot) { slot.image = image; slot.abort = () => { reject(new Error(`Hero art request abandoned: ${src}`)); try { image.src = ''; } catch { /* best effort */ } }; } image.onload = () => resolve(image); image.onerror = () => reject(new Error(`Hero art unavailable: ${src}`)); image.src = src; });
 const canvasOf = (width: number, height: number) => { const c = document.createElement('canvas'); c.width = width; c.height = height; return c; };
 const keyed = (image: HTMLImageElement) => {
   const canvas = canvasOf(image.naturalWidth, image.naturalHeight);
@@ -50,10 +52,10 @@ const keyed = (image: HTMLImageElement) => {
 };
 const frame256 = () => { const out = canvasOf(256, 256); const target = out.getContext('2d'); if (!target) throw new Error('Canvas unavailable'); target.scale(2 / 3, 2 / 3); return { out, target }; };
 
-async function decodeElite(key: string): Promise<HeroFrames> {
+async function decodeElite(key: string, slot?: Slot): Promise<HeroFrames> {
   const bounds = HERO_ATLAS[key];
   if (!bounds || bounds.length !== 9) throw new Error('Incomplete hero atlas');
-  const { canvas, ctx, data } = keyed(await loadImage(assetUrl(HERO_ART_PATH.elite(key))));
+  const { canvas, ctx, data } = keyed(await loadImage(assetUrl(HERO_ART_PATH.elite(key)), slot));
   const owners = heroPixelOwners(data.data, canvas.width, canvas.height, bounds);
   const scale = Math.min(340 / Math.max(...bounds.map(b => b[2] - b[0])), 346 / Math.max(...bounds.map(b => b[3] - b[1])));
   return bounds.map((b, frame) => {
@@ -73,10 +75,10 @@ async function decodeElite(key: string): Promise<HeroFrames> {
   });
 }
 
-async function decodeMotion(key: string): Promise<HeroFrames> {
+async function decodeMotion(key: string, slot?: Slot): Promise<HeroFrames> {
   const bounds = HERO_MOTION_BOUNDS[key], original = HERO_ATLAS[key];
   if (!bounds || !original) return [];
-  const { canvas, ctx, data } = keyed(await loadImage(assetUrl(HERO_ART_PATH.motion(key))));
+  const { canvas, ctx, data } = keyed(await loadImage(assetUrl(HERO_ART_PATH.motion(key)), slot));
   const owners = heroPixelOwners(data.data, canvas.width, canvas.height, bounds);
   const baseScale = Math.min(340 / Math.max(...original.map(b => b[2] - b[0])), 346 / Math.max(...original.map(b => b[3] - b[1])));
   const scale = Math.min((original[0][3] - original[0][1]) * baseScale / (bounds[0][3] - bounds[0][1]), 340 / Math.max(...bounds.map(b => b[2] - b[0])), 346 / Math.max(...bounds.map(b => b[3] - b[1])));
@@ -92,10 +94,10 @@ async function decodeMotion(key: string): Promise<HeroFrames> {
   });
 }
 
-async function decodeSignature(key: string, reaction: boolean): Promise<HeroFrames> {
+async function decodeSignature(key: string, reaction: boolean, slot?: Slot): Promise<HeroFrames> {
   const spec = reaction ? (hasReactionSheet(key) ? { src: HERO_ART_PATH.reaction(key), anchorX: [.5, .5, .5, .5], stature: .92 } : undefined) : HERO_SIGNATURE_ATLAS[key];
   if (!spec) return [];
-  const { canvas, data } = keyed(await loadImage(assetUrl(spec.src)));
+  const { canvas, data } = keyed(await loadImage(assetUrl(spec.src), slot));
   return signatureRegistration(key, data.data, canvas.width, canvas.height, spec).map(frame => {
     const { out, target } = frame256();
     target.drawImage(canvas, frame.x, frame.y, frame.w, frame.h, frame.dx, frame.dy, frame.w * frame.scale, frame.h * frame.scale);
@@ -104,15 +106,15 @@ async function decodeSignature(key: string, reaction: boolean): Promise<HeroFram
 }
 
 /** The derived sheet already carries alpha and registration: slice it into frames, nothing else. */
-async function decodeCampus(key: string): Promise<HeroFrames> {
+async function decodeCampus(key: string, slot?: Slot): Promise<HeroFrames> {
   await campusArtReady();
   const count = campusFrameCount(key);
-  const image = await loadImage(assetUrl(HERO_ART_PATH.campus(key)));
+  const image = await loadImage(assetUrl(HERO_ART_PATH.campus(key)), slot);
   if (image.naturalWidth !== CAMPUS_FRAME * count || image.naturalHeight !== CAMPUS_FRAME) throw new Error(`Campus sheet for ${key} has an unexpected layout`);
   return Array.from({ length: count }, (_, i) => { const out = canvasOf(CAMPUS_FRAME, CAMPUS_FRAME); out.getContext('2d')!.drawImage(image, i * CAMPUS_FRAME, 0, CAMPUS_FRAME, CAMPUS_FRAME, 0, 0, CAMPUS_FRAME, CAMPUS_FRAME); return out; });
 }
 
-const decoders: Record<HeroArtKind, (key: string) => Promise<HeroFrames>> = { campus: decodeCampus, elite: decodeElite, motion: decodeMotion, reaction: k => decodeSignature(k, true), signature: k => decodeSignature(k, false) };
+const decoders: Record<HeroArtKind, (key: string, slot?: Slot) => Promise<HeroFrames>> = { campus: decodeCampus, elite: decodeElite, motion: decodeMotion, reaction: (k, s) => decodeSignature(k, true, s), signature: (k, s) => decodeSignature(k, false, s) };
 const notify = () => { for (const l of listeners) { try { l(); } catch { /* listeners never break loading */ } } };
 
 /** Load (or share the in-flight load of) one kind of art for one hero. Rejections clear the slot so a later call retries. */
@@ -120,10 +122,43 @@ export function loadHeroArt(kind: HeroArtKind, key: string): Promise<HeroFrames>
   const slot = id(kind, key);
   const existing = cache.get(slot);
   if (existing) return existing.promise;
-  const entry: Entry = { frames: null, promise: decoders[kind](key).then(frames => { entry.frames = frames; notify(); return frames; }).catch(error => { cache.delete(slot); throw error; }) };
+  const entry: Entry = { frames: null, retained: 0, image: null, cancelled: false, promise: null as unknown as Promise<HeroFrames> };
+  entry.promise = decoders[kind](key, entry).then(frames => { entry.image = null; entry.frames = frames; notify(); return frames; }).catch(error => { if (cache.get(slot) === entry) cache.delete(slot); throw new Error(entry.cancelled ? `Hero art request abandoned: ${kind}/${key}` : (error as Error).message); });
   cache.set(slot, entry);
   return entry.promise;
 }
+/** Hold decoded frames for a mounted consumer. Returns the release function; releasing never clears frames another consumer still holds. */
+export function retainHeroArt(kind: HeroArtKind, key: string): () => void {
+  const slot = id(kind, key);
+  let released = false;
+  const entry = cache.get(slot);
+  if (entry) entry.retained++;
+  return () => { if (released) return; released = true; const e = cache.get(slot); if (e && e.retained > 0) e.retained--; };
+}
+/** Abandon an in-flight, unretained request (obsolete warming). Returns true when something was abandoned. */
+export function cancelHeroArt(kind: HeroArtKind, key: string): boolean {
+  const entry = cache.get(id(kind, key));
+  if (!entry || entry.frames || entry.retained > 0 || !entry.image) return false;
+  entry.cancelled = true;
+  cache.delete(id(kind, key));
+  entry.abort?.();
+  return true;
+}
+/** Drop every decoded, unretained battle-tier entry (after a battle); `keep` lists heroes to leave warm. */
+export function releaseUnretainedHeroArt(options: { keep?: string[]; kinds?: HeroArtKind[] } = {}): number {
+  const kinds = options.kinds ?? ['elite', 'motion', 'reaction', 'signature'];
+  const keep = new Set(options.keep ?? []);
+  let released = 0;
+  for (const [slot, entry] of cache) { const [kind, key] = slot.split(':') as [HeroArtKind, string]; if (kinds.includes(kind) && !keep.has(key) && entry.frames && entry.retained === 0) { cache.delete(slot); released++; } }
+  return released;
+}
+export interface HeroArtStats { entries: Array<{ kind: HeroArtKind; key: string; frames: number; retained: number; inFlight: boolean }>; decodedFrames: number; retainedEntries: number; inFlight: number; listeners: number }
+/** Read-only lifecycle view for measurements and QA (window.__fhqHeroArt in the page). */
+export function heroArtStats(): HeroArtStats {
+  const entries = [...cache.entries()].map(([slot, e]) => { const [kind, key] = slot.split(':') as [HeroArtKind, string]; return { kind, key, frames: e.frames?.length ?? 0, retained: e.retained, inFlight: !e.frames }; });
+  return { entries, decodedFrames: entries.reduce((a, e) => a + e.frames, 0), retainedEntries: entries.filter(e => e.retained > 0).length, inFlight: entries.filter(e => e.inFlight).length, listeners: listeners.size };
+}
+if (typeof window !== 'undefined') (window as Window & { __fhqHeroArt?: { stats: typeof heroArtStats } }).__fhqHeroArt = { stats: heroArtStats };
 /** Synchronous view for render loops: frames if decoded, otherwise null (never triggers a load). */
 export const heroArtIfReady = (kind: HeroArtKind, key: string): HeroFrames | null => cache.get(id(kind, key))?.frames ?? null;
 export const heroArtInFlight = (kind: HeroArtKind, key: string): boolean => { const e = cache.get(id(kind, key)); return !!e && !e.frames; };
@@ -133,37 +168,77 @@ export function subscribeHeroArt(listener: () => void): () => void { listeners.a
 
 /** Retry helper for renderers: waits, then retries once; also retries as soon as the browser reports it is online again. */
 export function loadHeroArtWithRetry(kind: HeroArtKind, key: string, signal?: { disposed: boolean }): Promise<HeroFrames> {
-  return loadHeroArt(kind, key).catch(() => new Promise<HeroFrames>((resolve, reject) => {
+  return loadHeroArt(kind, key).catch(error => new Promise<HeroFrames>((resolve, reject) => {
+    if (signal?.disposed) { reject(error); return; }
     let settled = false;
-    const attempt = () => { if (settled || signal?.disposed) return; settled = true; cleanup(); loadHeroArt(kind, key).then(resolve, reject); };
+    const attempt = () => { if (settled) return; settled = true; cleanup(); if (signal?.disposed) { reject(error); return; } loadHeroArt(kind, key).then(resolve, reject); };
     const timer = setTimeout(attempt, RETRY_DELAY_MS);
     const cleanup = () => { clearTimeout(timer); if (typeof window !== 'undefined') window.removeEventListener('online', attempt); };
     if (typeof window !== 'undefined') window.addEventListener('online', attempt);
   }));
 }
+/** Keep trying while a consumer is mounted: after the retry helper gives up, every `online` event re-requests missing art. */
+export function loadHeroArtWhileMounted(kind: HeroArtKind, key: string, signal: { disposed: boolean }, onFrames: (frames: HeroFrames) => void): void {
+  const request = () => loadHeroArtWithRetry(kind, key, signal).then(frames => { if (!signal.disposed) onFrames(frames); }).catch(() => { if (!signal.disposed && typeof window !== 'undefined') window.addEventListener('online', request, { once: true }); });
+  void request();
+}
 
-export interface WarmOptions { kinds?: HeroArtKind[]; maxHeroes?: number; concurrency?: number; respectPreferences?: boolean }
+export interface WarmOptions { kinds?: HeroArtKind[]; maxHeroes?: number; concurrency?: number; respectPreferences?: boolean; /** A newer warm call abandons this one's queue and unretained in-flight requests (default true). */ supersede?: boolean }
+export interface WarmOutcome { requested: number; loaded: number; failed: number; cancelled: boolean }
+export interface WarmHandle { readonly generation: number; cancel(): void; done: Promise<WarmOutcome> }
 /** Data-saver preference, when the browser exposes it. Reduced motion skips motion/reaction/signature warming (those frames are not drawn under it). */
 export const dataSaverOn = (): boolean => { try { return !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData; } catch { return false; } };
 export const reducedMotionOn = (): boolean => { try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
+let warmGeneration = 0;
+let activeWarm: WarmHandle | null = null;
+const noWarm = (): WarmHandle => ({ generation: warmGeneration, cancel() {}, done: Promise.resolve({ requested: 0, loaded: 0, failed: 0, cancelled: false }) });
+
 /**
  * Intent-based warming: call after a real player action that makes these heroes likely to be
  * drawn soon (a game reserved with this lineup, a hero chosen in the Film Room). Bounded to
- * `maxHeroes` (default 5, a full lineup), `concurrency` 2, and skipped under Save-Data. Returns a
- * cancel function; cancelling stops further starts but never aborts an in-flight decode that a
- * renderer may also be waiting on.
+ * `maxHeroes` (default 5, a full lineup) and `concurrency` 2, skipped under Save-Data, and the
+ * exact keys given — a stale selection never widens to the library because a newer call
+ * supersedes the older queue (and abandons its unretained in-flight downloads). Failed
+ * downloads are retried once by the loader; the renderer keeps its portrait fallback meanwhile.
  */
-export function warmHeroArt(keys: string[], options: WarmOptions = {}): () => void {
-  const { kinds = ['elite', 'motion', 'reaction'], maxHeroes = 5, concurrency = 2, respectPreferences = true } = options;
-  if (respectPreferences && dataSaverOn()) return () => {};
+export function warmHeroArt(keys: string[], options: WarmOptions = {}): WarmHandle {
+  const { kinds = ['elite', 'motion', 'reaction'], maxHeroes = 5, concurrency = 2, respectPreferences = true, supersede = true } = options;
+  if (supersede && activeWarm) activeWarm.cancel();
+  if (respectPreferences && dataSaverOn()) return noWarm();
   const wanted = kinds.filter(kind => !(respectPreferences && reducedMotionOn() && kind !== 'elite' && kind !== 'campus'));
   const queue: Array<[HeroArtKind, string]> = [];
   for (const key of [...new Set(keys)].slice(0, maxHeroes)) for (const kind of wanted) if (!(kind === 'reaction' && !hasReactionSheet(key)) && !cache.has(id(kind, key))) queue.push([kind, key]);
-  let cancelled = false, active = 0;
-  const next = () => { if (cancelled) return; while (active < concurrency && queue.length) { const [kind, key] = queue.shift()!; active++; loadHeroArt(kind, key).catch(() => {}).finally(() => { active--; next(); }); } };
-  next();
-  return () => { cancelled = true; queue.length = 0; };
+  const generation = ++warmGeneration;
+  const outcome: WarmOutcome = { requested: queue.length, loaded: 0, failed: 0, cancelled: false };
+  const started: Array<[HeroArtKind, string]> = [];
+  let active = 0;
+  let finish: (o: WarmOutcome) => void = () => {};
+  const done = new Promise<WarmOutcome>(resolve => { finish = resolve; });
+  const settle = () => { if (!queue.length && active === 0) { if (activeWarm === handle) activeWarm = null; finish(outcome); } };
+  const signal = { disposed: false };
+  const next = () => {
+    if (outcome.cancelled) return;
+    while (active < concurrency && queue.length) {
+      const item = queue.shift()!; started.push(item); active++;
+      loadHeroArtWithRetry(item[0], item[1], signal).then(() => { outcome.loaded++; }, () => { outcome.failed++; }).finally(() => { active--; next(); settle(); });
+    }
+  };
+  const handle: WarmHandle = {
+    generation, done,
+    cancel() { if (outcome.cancelled) return; outcome.cancelled = true; signal.disposed = true; queue.length = 0; for (const [kind, key] of started) cancelHeroArt(kind, key); if (activeWarm === handle) activeWarm = null; if (active === 0) finish(outcome); },
+  };
+  activeWarm = handle;
+  next(); settle();
+  return handle;
+}
+/** The exact heroes a battle will draw: attackers' lineup plus the defending heroes the config names. */
+export function heroesInConfig(config: { heroes?: Array<{ key?: string } | string>; guards?: Array<{ heroKey?: string; key?: string }> } | null | undefined): string[] {
+  if (!config) return [];
+  const keys = new Set<string>();
+  for (const h of config.heroes ?? []) { const key = typeof h === 'string' ? h : h?.key; if (key) keys.add(key); }
+  for (const g of config.guards ?? []) { const key = g?.heroKey ?? g?.key; if (key) keys.add(key); }
+  return [...keys];
 }
 
 /** Compatibility exports for the art review pages. */
