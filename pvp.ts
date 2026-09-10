@@ -246,16 +246,17 @@ export const fetchBase = async (pid: string): Promise<LiveBase | null> => {
 };
 
 /** Top real coaches by trophies — the LIVE leaderboard (no fake teams). */
-export const fetchLeaderboard = async (limit = 20): Promise<LeaderRow[]> => {
+export const fetchLeaderboard = async (limit = 20, reportFailure = false): Promise<LeaderRow[]> => {
   if (!pvpEnabled()) return [];
   try {
     const res = await tfetch(
       `${URL_}/rest/v1/fhq_bases?select=pid,name,trophies&order=trophies.desc,updated_at.desc&limit=${Number.isInteger(limit) ? Math.min(100, Math.max(1, limit)) : 20}`,
       { headers: readHeaders() },
     );
+    if (!res.ok && reportFailure) throw new Error("Standings unavailable");
     const rows: unknown = res.ok ? await res.json() : [];
     return Array.isArray(rows) ? rows.filter(validLeader) : [];
-  } catch { return []; }
+  } catch (error) { if (reportFailure) throw error; return []; }
 };
 
 // ── PROFILES & CLOUD SAVES ─────────────────────────────────────────────────────

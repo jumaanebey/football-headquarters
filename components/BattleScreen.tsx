@@ -159,6 +159,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
 
 export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff }) => {
   const [showThreats, setShowThreats] = useState(false);
+  const [showPlayerLabels, setShowPlayerLabels] = useState(false);
   const [replayPaused, setReplayPaused] = useState(false);
   const [replaySpeed, setReplaySpeed] = useState(1);
   const isDefense = config.mode === 'defense';
@@ -1378,6 +1379,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
       </div>}
       {/* Battlefield */}
       <div className="fhq-battle-tools flex shrink-0 items-center justify-between gap-2 bg-slate-900 px-3 py-1 text-xs text-slate-300">
+        <button type="button" aria-pressed={showPlayerLabels} onClick={() => setShowPlayerLabels(value => !value)} className="min-h-11 rounded-lg border border-slate-600 px-3">{showPlayerLabels ? 'Hide player labels' : 'Player labels'}</button>
         <span>{defFormation && FORMATIONS[defFormation] ? FORMATIONS[defFormation].name : 'Defense'}{!isDefense && !isReplay ? ` · ${plan.name}` : ''}</span>
         <button type="button" aria-pressed={showThreats} onClick={() => setShowThreats(value => !value)} className="min-h-11 rounded-lg border border-slate-600 px-3 text-white">{showThreats ? 'Hide' : 'Show'} defense ranges</button>
       </div>
@@ -1414,10 +1416,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
             </div>
           )}
 
-        {modernCombat && cameraHeroes.length > 0 && phase !== 'result' && <BattleCameraControls heroes={cameraHeroes} selected={cameraPoint ? cameraHero!.id : null} reduced={reducedBattleMotion} onSelect={id => {
-          const hero = cameraHeroes.find(h => h.id === id);
-          setCameraHero(hero ? { id: hero.id, x: hero.x, y: hero.y } : null);
-        }} />}
+
         <div ref={fieldRef} onClick={handleFieldClick} aria-label="Battlefield" role="button" tabIndex={isDefense || isReplay ? -1 : 0}
           aria-describedby="field-keyboard-help" onFocus={()=>setFieldFocused(true)} onBlur={()=>setFieldFocused(false)}
           onKeyDown={e=>{if(e.key.startsWith('Arrow')){e.preventDefault();setFieldCursor(p=>moveBattleCursor(p,e.key));}else if(e.key==='Enter'||e.key===' '){e.preventDefault();activateField(fieldCursor.x,fieldCursor.y);}}}
@@ -1520,7 +1519,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
 
           {/* 🎙️ Rival coach trash talk — the pre-game presser, gone at the snap */}
           {!isDefense && phase === 'deploy' && config.rival && !showThreats && (
-            <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: '6%', zIndex: 225, width: '86%', maxWidth: 380 }}>
+            <div className="fhq-coach-presser absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: '6%', zIndex: 225, width: '86%', maxWidth: 380 }}>
               <div className="flex items-start gap-2.5">
                 <div className="relative shrink-0 w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-2xl shadow-lg" style={{ background: `radial-gradient(circle at 35% 30%, ${config.rival.color}cc, #0f172a 90%)`, border: `2px solid ${config.rival.color}` }}>
                   <span className="absolute inset-0 flex items-center justify-center">{config.rival.emoji}</span>
@@ -1792,6 +1791,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
             return (
               <div key={t.id} data-hero={t.heroKey} data-action-state={t.activeAction ? 'signature' : walking ? 'running' : attacking ? 'contact' : 'idle'} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${px(t.x, t.y)}%`, top: `${py(t.x, t.y)}%`, width: w, minWidth: wmin, maxWidth: wmax, ...(modernCombat && heroDef ? HERO_FIELD_SIZE : {}), zIndex: Math.round((t.x + t.y) / 2) + 1, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
+                {showPlayerLabels && <span className="absolute bottom-full mb-2 whitespace-nowrap rounded bg-slate-950/95 px-1.5 py-1 text-[10px] font-bold text-white">{heroDef?.name ?? t.nameTag ?? st.label} · {t.activeAction ? 'Signature' : walking ? 'Moving' : attacking ? 'Engaging' : 'Ready'}</span>}
                 {(t.slowT ?? 0) > 0 && <span className="absolute pointer-events-none" style={{ top: '-14%', right: '-8%', fontSize: '1.5vmin', lineHeight: 1, zIndex: 2 }}>🚩</span>}
                 {t.hp < t.maxHp && <div className="absolute -top-1 h-0.5 rounded-full bg-black/50 overflow-hidden" style={{ width: '85%' }}><div className="h-full bg-lime-400" style={{ width: `${(t.hp / t.maxHp) * 100}%` }} /></div>}
                 {specialDef ? (
@@ -1870,6 +1870,10 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
             <output aria-label="Replay time" className="font-mono text-white">{(s.ticks * DT).toFixed(1)}s{config.replay?.expectedTicks !== undefined ? ` / ${(config.replay.expectedTicks * DT).toFixed(1)}s` : ''}</output>
           </div>
           <p>● You're watching the actual attack on your stadium — every move is theirs.</p>
+          {modernCombat && cameraHeroes.length > 0 && <BattleCameraControls heroes={cameraHeroes} selected={cameraPoint ? cameraHero!.id : null} reduced={reducedBattleMotion} onSelect={id => {
+          const hero = cameraHeroes.find(h => h.id === id);
+          setCameraHero(hero ? { id: hero.id, x: hero.x, y: hero.y } : null);
+        }} />}
           <BattleFieldReport troops={s.troops} guards={s.guards} buildings={s.buildings} heroes={heroes} />
         </div>
       )}
@@ -2026,6 +2030,10 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
               </div>
             </>
           )}
+          {modernCombat && cameraHeroes.length > 0 && <BattleCameraControls heroes={cameraHeroes} selected={cameraPoint ? cameraHero!.id : null} reduced={reducedBattleMotion} onSelect={id => {
+          const hero = cameraHeroes.find(h => h.id === id);
+          setCameraHero(hero ? { id: hero.id, x: hero.x, y: hero.y } : null);
+        }} />}
           <BattleFieldReport troops={s.troops} guards={s.guards} buildings={s.buildings} heroes={heroes} />
         </div>
       )}

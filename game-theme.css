@@ -143,3 +143,21 @@ button { touch-action:manipulation; }
 @media (orientation: portrait) and (max-height: 640px) { .fhq-battle-commands { max-height:34dvh; } }
 
 .fhq-battle[data-replay-paused="true"] * { animation-play-state:paused!important; transition:none!important; }
+
+/* Desktop is a command station: full-height field plus a persistent roster rail. */
+@media (min-width: 1100px) and (min-height: 541px) {
+ .fhq-battle { display:grid; grid-template-columns:minmax(0,1fr) clamp(340px,28vw,480px); grid-template-rows:auto auto auto minmax(0,1fr); }
+ .fhq-battle-header { grid-column:1 / -1; grid-row:1; padding:12px 20px; }
+ .fhq-battle-stage { grid-column:1; grid-row:2 / 5; padding:16px; background:radial-gradient(ellipse at center,#14532d,#071b16 85%); }
+ .fhq-battle-guide { grid-column:2; grid-row:2; padding:16px; border-left:1px solid #334155; }
+ .fhq-battle-tools { grid-column:2; grid-row:3; padding:12px; border-left:1px solid #334155; }
+ .fhq-battle-commands { grid-column:2; grid-row:4; min-height:0; max-height:none; border-left:1px solid #334155; padding:16px; }
+ .fhq-battle-commands .fhq-hero-commands { grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-flow:row; overflow-x:visible; }
+ .fhq-battle-commands .fhq-hero-commands>button { flex-direction:column; }
+}
+.fhq-desktop-club { display:none; }
+@media (min-width: 1400px) and (min-height: 700px) {
+ .fhq-campus-stage { right:320px; }
+ .fhq-desktop-club { display:block; position:absolute; right:0; top:92px; bottom:92px; width:320px; overflow-y:auto; z-index:30; }
+}
+@container (max-width: 360px) { .fhq-coach-presser { display:none; } }

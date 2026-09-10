@@ -48,6 +48,7 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
           <button type="button" onClick={() => onContinue(defense ? 'defense' : 'heroes')} className="min-h-11 rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-white">{defense ? 'Review defense' : 'Collect & train heroes'}</button>
           <button type="button" onClick={() => onContinue('games')} className="min-h-11 rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-white">{defense ? 'Game Day' : 'Collect & choose next game'}</button>
         </div>}
+        {!neutral && !defense && <button type="button" onClick={() => onContinue('share')} className="w-full min-h-11 rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-white">Collect & make result card</button>}
         {!neutral && config.authority && <p className="text-xs text-slate-400">Your next page opens after the server confirms this result.</p>}
       </div>}>
       <div className="space-y-5 p-4 sm:p-5">
