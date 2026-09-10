@@ -1,3 +1,4 @@
+import { useClubStyle } from './ClubStyle';
 import { campusSilhouette } from '../game/campusSilhouette';
 import { CAMPUS_ANCHORS, CAMPUS_FIELD, ARRIVAL, campusBuildingWidth, campusDisplayBuildings, campusFieldClear } from '../game/campusPresentation';
 import { Sheet } from './ui';
@@ -618,14 +619,13 @@ const BuildingSprite: React.FC<{
         ))}
       </button>
 
-      {/* Coin indicator — shows the haul is ready; TAPPING THE BUILDING collects it
-          (one tap target per building, no separate button to fight the sprite). */}
+      {/* Explicit collection target; facility art always opens the department. */}
       {/* centering lives on an animation-free wrapper — bounce-sm's transform used to REPLACE the -translate-x-1/2 */}
       {showBubble && (
-        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; onCollectResource?.(building, {x:e.clientX,y:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto" style={{ left: SPRITE_W*.22, top: paintTop+10, zIndex: 44, minHeight:44/displayScale }}>
-          <div className="flex items-center gap-1.5 rounded-full border-[3px] border-white shadow-xl bg-amber-400" style={{minHeight:44/displayScale,padding:`${4/displayScale}px ${8/displayScale}px`,gap:4/displayScale}}>
-            <Coins size={14/displayScale} className="text-yellow-900 fill-yellow-800" />
-            <span className="font-display font-bold text-yellow-950" style={{fontSize:12/displayScale}}>{banked}</span>
+        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; onCollectResource?.(building, {x:e.clientX,y:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto rounded-full border-0 bg-transparent p-0" style={{ left: SPRITE_W*.22, top: paintTop+10, zIndex: 44, width:'max-content', minHeight:44/displayScale }}>
+          <div className="flex items-center gap-1.5 rounded-full border-2 border-amber-300 shadow-lg bg-slate-950" style={{minHeight:44/displayScale,padding:`${4/displayScale}px ${8/displayScale}px`,gap:4/displayScale}}>
+            <Coins size={14/displayScale} className="shrink-0 text-amber-300" />
+            <span className="whitespace-nowrap font-display font-bold text-amber-200" style={{fontSize:12/displayScale}}>Collect {banked} Coins</span>
           </div>
         </button>
       )}
@@ -699,6 +699,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
 };
 
 export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+  const teamStyle=useClubStyle(clubName??'Home club');
   const [showSavedLayout,setShowSavedLayout]=useState(false);
   const customLayout=hasCustomLayout && showSavedLayout;
   const [artBounds,setArtBounds] = useState<Record<string,{left:number;right:number;top:number;bottom:number}>>({});
@@ -1003,7 +1004,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
 
   return (
-    <div ref={campusRef} data-campus-viewport className="absolute inset-0" style={{ overflow:'clip', background: 'radial-gradient(130% 95% at 50% 42%, #235235 0%, #163c27 45%, #102f20 75%, #0c241a 100%)' }}
+    <div ref={campusRef} data-campus-viewport className="absolute inset-0" style={{ '--fhq-home-paint':teamStyle.primary,'--fhq-away-paint':teamStyle.secondary, overflow:'clip', background: 'radial-gradient(130% 95% at 50% 42%, #235235 0%, #163c27 45%, #102f20 75%, #0c241a 100%)' } as React.CSSProperties}
       onClick={() => { if (panMovedRef.current) { panMovedRef.current = false; return; } onDeselect?.(); }}>{/* tap empty turf → CC bar closes */}
       {/* Backdrop is GROUNDS, not outer space — every pixel reads as dark grass under
           floodlit haze, so panning/zooming never exposes black void. (Starfield removed

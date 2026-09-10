@@ -20,8 +20,8 @@ export function FieldPaint({ project, x1, y1, x2, y2, lineWidth, markingsOnly = 
     {!markingsOnly && <>
     <polygon points={rect(0, 120)} fill={TURF.dark} />
     {Array.from({ length: 10 }, (_, i) => <polygon key={i} points={rect(10 + i * 10, 20 + i * 10)} fill={i % 2 ? TURF.dark : TURF.light} />)}
-    <polygon points={rect(0, 10)} fill="#8c481d" opacity={0.48} />
-    <polygon points={rect(110, 120)} fill="#182923" opacity={0.7} />
+    <polygon points={rect(0, 10)} fill="var(--fhq-home-paint, #8c481d)" opacity={0.75} />
+    <polygon points={rect(110, 120)} fill="var(--fhq-away-paint, #182923)" opacity={0.8} />
     </>}
     {Array.from({ length: 21 }, (_, i) => line(0, 10 + i * 5, 1, 10 + i * 5, `yard-${i}`, i === 0 || i === 10 || i === 20))}
     {Array.from({ length: 19 }, (_, i) => [0.37, 0.63].map(x => line(x - 0.012, 15 + i * 5, x + 0.012, 15 + i * 5, `hash-${i}-${x}`, true)))}

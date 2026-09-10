@@ -17,7 +17,7 @@ export const DailyQuestsModal: React.FC<Props> = ({ dailies, onClaim, onClose })
     <Sheet
       title="Daily Practice"
       icon={<Gift className="text-rose-400" size={22} />}
-      subtitle="Three drills a day. Clear all three for the Daily Sweep bonus."
+      subtitle="Earn Crowns for Scout Searches, extra slots and upgrade speedups. Clear all three for 6 bonus Crowns."
       onClose={onClose}
       maxWidth="max-w-md"
     >
@@ -44,7 +44,7 @@ export const DailyQuestsModal: React.FC<Props> = ({ dailies, onClaim, onClose })
                   <button onClick={() => onClaim(q.id)} disabled={!done} aria-label={`${done ? 'Claim' : 'Complete task to earn'} ${q.reward.gems ?? q.reward.coins} ${q.reward.gems ? 'Crowns' : 'Coins'}: ${q.text}`}
                     className={`shrink-0 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 transition-all active:scale-95
                       ${done ? 'bg-amber-500 hover:bg-amber-400 text-black animate-pulse' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                    {done ? 'Claim' : 'Reward'} {q.reward.gems ? <><Crown size={12} className="fill-current" /> {q.reward.gems}</> : <><Coins size={12} /> {q.reward.coins}</>}
+                    {done ? 'Claim' : 'Reward'} {q.reward.gems ? <><Crown size={12} className="fill-current" /> {q.reward.gems} Crowns</> : <><Coins size={12} /> {q.reward.coins} Coins</>}
                   </button>
                 )}
               </div>
@@ -59,7 +59,7 @@ export const DailyQuestsModal: React.FC<Props> = ({ dailies, onClaim, onClose })
               <div className="text-[11px] text-slate-400">Bonus pays out automatically on your last claim</div>
             </div>
             <span className={`shrink-0 flex items-center gap-1 text-xs font-bold ${dailies.sweepClaimed ? 'text-green-400' : 'text-fuchsia-300'}`}>
-              {dailies.sweepClaimed ? <><Check size={14} /> DONE</> : <><Crown size={12} className="fill-current" /> {SWEEP_BONUS_GEMS}</>}
+              {dailies.sweepClaimed ? <><Check size={14} /> DONE</> : <><Crown size={12} className="fill-current" /> {SWEEP_BONUS_GEMS} Crowns</>}
             </span>
           </div>
         </div>
