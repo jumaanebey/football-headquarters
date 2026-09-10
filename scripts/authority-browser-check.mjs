@@ -38,15 +38,17 @@ try {
   await shot('settings-before');
   // New clubs are protected automatically at tutorial completion when the club server is
   // reachable. Wait for that; fall back to the explicit button if this build/offline state left it off.
-  const badge = () => page.locator('span.uppercase.font-black').first().textContent().then(t => (t ?? '').trim().toLowerCase()).catch(() => '');
+  // The status badge is the span right after the "🛡 Online protection" label (the campus also has uppercase labels).
+  const badgeOf = () => { const label = Array.from(document.querySelectorAll('span')).find(el => el.textContent?.trim() === '🛡 Online protection'); return label?.nextElementSibling?.textContent?.trim().toLowerCase() ?? ''; };
+  const badge = () => page.evaluate(badgeOf).catch(() => '');
   let mode = 'auto';
-  try { await page.waitForFunction(() => /\bprotected\b/i.test(document.querySelector('span.uppercase.font-black')?.textContent ?? ''), null, { timeout: 20000 }); }
+  try { await page.waitForFunction(() => { const label = Array.from(document.querySelectorAll('span')).find(el => el.textContent?.trim() === '🛡 Online protection'); return (label?.nextElementSibling?.textContent?.trim().toLowerCase() ?? '') === 'protected'; }, null, { timeout: 20000 }); }
   catch {
     mode = 'manual';
     const button = page.locator('button:has-text("Protect this club online")');
     if (!(await button.count())) throw new Error(`club is neither protected nor offering protection (badge: ${await badge()})`);
     await button.click();
-    await page.waitForFunction(() => /\bprotected\b/i.test(document.querySelector('span.uppercase.font-black')?.textContent ?? ''), null, { timeout: 30000 });
+    await page.waitForFunction(() => { const label = Array.from(document.querySelectorAll('span')).find(el => el.textContent?.trim() === '🛡 Online protection'); return (label?.nextElementSibling?.textContent?.trim().toLowerCase() ?? '') === 'protected'; }, null, { timeout: 30000 });
   }
   await page.waitForTimeout(500);
   await shot('settings-protected');
