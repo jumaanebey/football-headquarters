@@ -77,8 +77,10 @@ export function fingerprintAssets(): Plugin {
       for (const [original, hashed] of Object.entries(manifest)) {
         const from = join(root, outDir, original), to = join(root, outDir, hashed);
         await fs.copyFile(from, to); copied++;
+        // Fixed URLs stay for one release even for loader-only sheets: a client loaded before the
+        // deploy still requests them (deployment overlap). FHQ_DROP_LOADER_ONLY_FIXED=1 removes them.
         const loaderOnly = LOADER_ONLY_DIRS.some(d => original.startsWith('/' + d + '/'));
-        if (loaderOnly && !refs.has(original)) { await fs.unlink(from); removed++; }
+        if (process.env.FHQ_DROP_LOADER_ONLY_FIXED === '1' && loaderOnly && !refs.has(original)) { await fs.unlink(from); removed++; }
       }
       await fs.writeFile(join(root, outDir, 'asset-manifest.json'), JSON.stringify({ generatedAt: new Date().toISOString(), entries: manifest }, null, 1));
       console.log(`fhq-fingerprint-assets: ${copied} fingerprinted copies; ${removed} loader-only fixed URLs removed; ${copied - removed} fixed URLs kept`);
