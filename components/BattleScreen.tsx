@@ -2023,13 +2023,13 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
             <div key={i} className="absolute top-0 pointer-events-none" style={{ left: `${(i * 137) % 100}%`, width: 8, height: 12, background: ['#f59e0b', '#3b82f6', '#ef4444', '#22c55e', '#e2e8f0'][i % 5], borderRadius: 2, animation: `fhq-confetti ${1.8 + (i % 5) * 0.25}s linear ${(i % 7) * 0.13}s infinite` }} />
           ))}
           <div className="relative bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 shadow-2xl overflow-hidden" style={{ animation: 'fhq-reveal-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-            <div className={`py-6 text-center ${result.won ? 'bg-gradient-to-b from-green-700 to-green-900' : 'bg-gradient-to-b from-red-800 to-red-950'}`}>
+            <div className={`py-6 text-center ${config.practice ? 'bg-gradient-to-b from-sky-800 to-slate-950' : result.won ? 'bg-gradient-to-b from-green-700 to-green-900' : 'bg-gradient-to-b from-red-800 to-red-950'}`}>
               {/* Say WON or LOST first. Every headline here was pure flavour — a first-timer
                   read "Shut Out" or "Goal-Line Stand!" and could not tell what had happened
                   to them. Flavour is kept, but the verdict leads. */}
               {!(result.campaignStage === 12 && result.won) && (
-                <div className={`text-sm font-display font-black uppercase tracking-widest mb-1 ${result.won ? 'text-green-300' : 'text-red-300'}`}>
-                  {result.won ? 'You won' : 'You lost'}
+                <div className={`text-sm font-display font-black uppercase tracking-widest mb-1 ${config.practice ? 'text-sky-300' : result.won ? 'text-green-300' : 'text-red-300'}`}>
+                  {config.practice ? 'Free hero practice' : result.won ? 'You won' : 'You lost'}
                 </div>
               )}
               <div className="text-3xl font-display font-black text-white uppercase mb-3">
@@ -2069,8 +2069,8 @@ export const BattleScreen: React.FC<Props> = ({ config, onFinish, onExit, onPrac
               {!isDefense && driveStats && (
                 <>
                   <div className="flex justify-between text-sm"><span className="text-slate-400">⭐ Drive MVP</span><span className="font-bold text-amber-300">{driveStats.mvp} <span className="text-[10px] font-mono text-slate-500">({driveStats.mvpDmg} yds)</span></span></div>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">💥 Defenders flattened</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{!config.practice && driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-slate-400">🩹 Your players knocked out</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">{config.practice ? 'Practice defenders stopped' : '💥 Defenders flattened'}</span><span className="font-mono font-bold text-white">{driveStats.pancakes}{!config.practice && driveStats.bonus > 0 && <span className="text-yellow-400 text-xs"> (+{driveStats.bonus} loot)</span>}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-400">{config.practice ? 'Players subbed out' : '🩹 Your players knocked out'}</span><span className="font-mono font-bold text-white">{driveStats.lost}</span></div>
                 </>
               )}
               {result.gauntletTier !== undefined ? (() => { const pay = gauntletReward(result.gauntletTier, result.wavesHeld ?? 0, !!result.gauntletCleared); return (
