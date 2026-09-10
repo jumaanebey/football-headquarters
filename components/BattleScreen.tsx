@@ -1390,7 +1390,7 @@ export const BattleScreen: React.FC<Props> = ({ config, initialPlan = 'balanced'
           {s.commentary.text && !(s.banner && s.time > s.banner.until) && phase === 'fighting' && (
             <div key={s.commentary.text + s.commentary.t} className="absolute left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in" style={{ top: 8, zIndex: 220, maxWidth: '92%' }}>
               <div className="bg-black/75 border border-white/10 rounded-full px-4 py-1.5 text-[11px] sm:text-xs font-bold italic text-amber-100 text-center shadow-lg">
-                📣 {s.commentary.text}
+                📣 {config.practice ? s.commentary.text.replace(' — bonus loot! (+25)', ' — practice takeaway!') : s.commentary.text}
               </div>
             </div>
           )}

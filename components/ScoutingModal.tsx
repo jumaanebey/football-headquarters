@@ -1,3 +1,5 @@
+import type { GameState } from '../types';
+import { prospectComparison } from '../game/progression/rosterCompare';
 import { BuildingArt } from './BuildingArt';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -9,6 +11,7 @@ import { Search, Coins, Crown, Zap, ArrowUpCircle, Users, Clock, CheckCircle2, R
 import { Sheet, HowTo } from './ui';
 
 interface Props {
+  club: GameState;
   resources: Record<ResourceType, number>;
   roster: Player[];
   recruitSlot: RecruitSlot | null;
@@ -46,7 +49,7 @@ const StatPip: React.FC<{ icon: React.ReactNode; value: number }> = ({ icon, val
   </div>
 );
 
-export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade, board: issuedBoard, onRefreshBoard, upgradeJob, onRoster, blocked: operationPending = false }) => {
+export const ScoutingModal: React.FC<Props> = ({ club, resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade, board: issuedBoard, onRefreshBoard, upgradeJob, onRoster, blocked: operationPending = false }) => {
   const [localBoard, setLocalBoard] = useState<Player[]>(() => issuedBoard ? [] : rollBoard());
   const board = issuedBoard ?? localBoard;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -76,8 +79,8 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
     const canAfford = resources.COINS >= cost;
     const blocked = operationPending || rosterFull || !!recruitSlot;
     const disabled = !canAfford || blocked;
-    const peers = roster.filter(p => p.role === c.role);
-    const best = peers.reduce<Player | undefined>((current, p) => !current || candidateOvr(p) > candidateOvr(current) ? p : current, undefined);
+    const comparison = prospectComparison({...club, recruitBoard:{candidates:board, generatedAt:club.recruitBoard?.generatedAt ?? now}},c.id)!;
+    const best = comparison.comparable;
 
     return (
       <div key={c.id} className={`relative rounded-2xl border-2 ${RARITY_CONFIG[c.rarity].border} bg-slate-900/80 overflow-hidden flex flex-col`}>
@@ -107,11 +110,14 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
           </div>
 
           <div className="rounded-lg bg-slate-800 p-3 text-xs text-slate-300">
-            <p className="font-bold text-white">Your {c.role} depth: {peers.length} {peers.length === 1 ? 'player' : 'players'}</p>
-            {best ? <><p className="mt-1">Best current: {best.name} · OVR {candidateOvr(best)}</p>
-              <p className="mt-1">Prospect difference: {candidateOvr(c) - candidateOvr(best) > 0 ? '+' : ''}{candidateOvr(c) - candidateOvr(best)} OVR</p>
+            <p className="font-bold text-white">Your {c.role} depth: {comparison.depth.atRole} {comparison.depth.atRole === 1 ? 'player' : 'players'}</p>
+            {best ? <><p className="mt-1">Best current: {best.name} · OVR {best.ovr}</p>
+              <p className="mt-1">Prospect difference: {comparison.ovr - best.ovr > 0 ? '+' : ''}{comparison.ovr - best.ovr} OVR</p>
               <p className="mt-1">Strength {best.stats.strength} → {c.stats.strength} · Speed {best.stats.speed} → {c.stats.speed} · IQ {best.stats.iq} → {c.stats.iq}</p></>
               : <p className="mt-1">Your first player at this position.</p>}
+            {best?.tie && <p className="mt-2">{best.tiedIds.length} current players are tied at this OVR.</p>}
+            <p className="mt-2">Battle power: {Math.round(comparison.power)}{best ? ` · current ${Math.round(best.power)}` : ''}. Role, rarity, level and training all contribute.</p>
+            <p className="mt-2">Each collected group drill adds 1 level and +1 Strength, Speed and IQ after signing.</p>
             <p className="mt-2 text-slate-400">Signing adds this player to your available squad; it does not replace anyone.</p>
           </div>
 
