@@ -3038,7 +3038,7 @@ function advanceEconomy(previous, now) {
 }
 
 // game/campus.ts
-function advanceCampus(previous, now) {
+function advanceCampus(previous, now, calendarDate) {
   if (!Number.isFinite(now) || now <= previous.lastTick) return previous;
   const seconds = (now - previous.lastTick) / 1e3;
   const movementSeconds = Math.min(seconds, 0.25);
@@ -3067,7 +3067,7 @@ function advanceCampus(previous, now) {
     }
     return arrived;
   });
-  const date2 = todayKey(now);
+  const date2 = calendarDate ?? todayKey(now);
   return {
     ...previous,
     ...economy,

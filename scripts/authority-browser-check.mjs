@@ -36,12 +36,22 @@ try {
   await waitText('Online protection');
   await page.waitForFunction(() => !document.body.innerText.includes('checking…'), null, { timeout: 20000 });
   await shot('settings-before');
-  await page.click('button:has-text("Protect this club online")');
-  await page.waitForFunction(() => /\bprotected\b/i.test(document.querySelector('span.uppercase.font-black')?.textContent ?? '') || document.body.innerText.includes('Your club is now protected') || document.body.innerText.includes('fresh protected club'), null, { timeout: 30000 });
+  // New clubs are protected automatically at tutorial completion when the club server is
+  // reachable. Wait for that; fall back to the explicit button if this build/offline state left it off.
+  const badge = () => page.locator('span.uppercase.font-black').first().textContent().then(t => (t ?? '').trim().toLowerCase()).catch(() => '');
+  let mode = 'auto';
+  try { await page.waitForFunction(() => /\bprotected\b/i.test(document.querySelector('span.uppercase.font-black')?.textContent ?? ''), null, { timeout: 20000 }); }
+  catch {
+    mode = 'manual';
+    const button = page.locator('button:has-text("Protect this club online")');
+    if (!(await button.count())) throw new Error(`club is neither protected nor offering protection (badge: ${await badge()})`);
+    await button.click();
+    await page.waitForFunction(() => /\bprotected\b/i.test(document.querySelector('span.uppercase.font-black')?.textContent ?? ''), null, { timeout: 30000 });
+  }
   await page.waitForTimeout(500);
   await shot('settings-protected');
   const protectedText = (await text()).match(/Online protection.{0,260}/)?.[0] ?? '';
-  console.log('settings:', protectedText);
+  console.log(`settings (${mode}):`, protectedText);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
   // Game Day → Season game 1 (reserved on the server).

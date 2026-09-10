@@ -113,6 +113,7 @@ See [HERO-DEBRIEF-CHECKLIST.md](HERO-DEBRIEF-CHECKLIST.md) for the detailed impl
 
 - [x] Pending, failed, and confirmed saves/publications/attack reports are distinguishable (protected clubs: Settings › Online protection; results confirm only on the server answer).
 - [x] Revisioned state, durable operation IDs, retry queue, and conflict/recovery rules (`game/online/authorityClient.ts`, `tests/authorityClient.test.ts`, `tests/authorityService.test.ts`). Live two-account evidence: 57/57 against the deployed v3; preview browser journey confirmed a server-settled reward.
+- [x] Failure injection (offline, lost answer, reload, expired session, account switch, two sessions, duplicate taps, interrupted reservations) and a per-action coverage matrix with exact deltas (`docs/AUTHORITY-RELIABILITY.md`). New clubs auto-protect at tutorial completion.
 - [ ] Account linking and existing-club sign-in preserve recoverable ownership.
 - [ ] Server-issued match snapshot/seed/rules and Energy reservation.
 - [ ] Server validates commands with shared engine; settles rewards exactly once.
