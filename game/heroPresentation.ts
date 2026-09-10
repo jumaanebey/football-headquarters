@@ -54,7 +54,7 @@ export const HERO_PRESENTATION: Record<string, HeroPresentationProfile> = {
     attack: { anticipationSeconds: .04, anticipationColumn: 1, recoverySeconds: .2, recoveryColumn: 6 }, reaction: { intensity: 'light', seconds: .12 },
     campus: { travel: 4.6, rest: 2.4, actionSeconds: 1.1, cycle: .72 }, lift: 2 }),
   // The General: measured stride, directive gestures at rest, unhurried turns.
-  coach: profile({ cadence: 1.15, contactHold: .55, idle: { breathSeconds: 3.6, breathAmplitude: .6, settleSeconds: .2 }, start: { seconds: .12 }, turn: { seconds: .16 }, stop: { seconds: .2 },
+  coach: profile({ cadence: 1.15, contactHold: .64, idle: { breathSeconds: 3.6, breathAmplitude: .6, settleSeconds: .2 }, start: { seconds: .18 }, turn: { seconds: .16 }, stop: { seconds: .2 },
     attack: { anticipationSeconds: .1, anticipationColumn: 6, recoverySeconds: .12, recoveryColumn: 6 }, reaction: { intensity: 'medium', seconds: .18 },
     gesture: { everySeconds: 4.5, seconds: .8 }, campus: { travel: 7, rest: 3, actionSeconds: 1.2, cycle: .72 }, lift: 1 }),
   // The Specialist: approach, plant, kick — a long planted anticipation before the strike, quick recovery.
@@ -65,8 +65,8 @@ export const HERO_PRESENTATION: Record<string, HeroPresentationProfile> = {
   burner: profile({ cadence: .7, contactHold: .4, idle: { breathSeconds: 2.1, breathAmplitude: 1.2, settleSeconds: .1 }, start: { column: 1, seconds: .16 }, turn: { seconds: .08 }, stop: { column: 6, seconds: .26 },
     attack: { anticipationSeconds: .04, anticipationColumn: 1, recoverySeconds: .06, recoveryColumn: 1 }, reaction: { intensity: 'heavy', seconds: .22 },
     campus: { travel: 4, rest: 1.6, actionSeconds: .7, cycle: .42 }, lift: 7 }),
-  // The Medic: purposeful support movement, a treatment cue (gesture) at rest, soft turns.
-  medic: profile({ cadence: 1.05, contactHold: .5, idle: { breathSeconds: 2.9, breathAmplitude: .8 }, start: { seconds: .1 }, turn: { seconds: .14 }, stop: { seconds: .18 },
+  // The Medic: purposeful support movement (quick to set off, light contact), a treatment cue (gesture) at rest, soft turns.
+  medic: profile({ cadence: 1.05, contactHold: .42, idle: { breathSeconds: 2.9, breathAmplitude: .8, settleSeconds: .12 }, start: { seconds: .04 }, turn: { seconds: .1 }, stop: { seconds: .22 },
     attack: { anticipationSeconds: .1, anticipationColumn: 6, recoverySeconds: .1, recoveryColumn: 6 }, reaction: { intensity: 'medium', seconds: .18 },
     gesture: { everySeconds: 5, seconds: .7 }, campus: { travel: 5.5, rest: 2.8, actionSeconds: 1, cycle: .6 }, lift: 2 }),
   // The Captain: braced protective stance (plant column at rest after moving), measured turns, light reactions.

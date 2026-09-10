@@ -32,14 +32,17 @@ async function capture(profiles, { blockBurner = false } = {}) {
   for (const key of HEROES) { frames[key] = []; shots[key] = { phone: [], large: [] }; }
   const dense = {}; for (const key of HEROES) dense[key] = [];
   let t = 0; const total = await page.evaluate(() => window.__fhqMotionFixture.total);
-  const targets = new Set(KEYFRAMES.map(k => k.toFixed(2)));
+  let nextKeyframe = 0;
   while (t < total - 1e-6) {
-    const dt = Math.min(DENSE_STEP, total - t);
+    // Step to the next keyframe exactly when one falls inside this dense step, so every keyframe is captured.
+    const target = KEYFRAMES[nextKeyframe];
+    const dt = target !== undefined && target > t && target - t < DENSE_STEP ? target - t : Math.min(DENSE_STEP, total - t);
     await page.evaluate(d => window.__fhqMotionFixture.step(d), dt); t += dt;
     await page.waitForTimeout(25);
     const snap = await page.evaluate(() => window.__fhqMotionFixture.snapshot());
     for (const key of HEROES) dense[key].push(`${snap[key].frame}|${snap[key].beat}|${snap[key].kick}`);
-    if (targets.has(t.toFixed(2))) {
+    if (target !== undefined && t >= target - 1e-6) {
+      nextKeyframe++;
       await page.waitForTimeout(80);
       for (const key of HEROES) {
         frames[key].push({ t: Number(t.toFixed(2)), ...snap[key] });
@@ -65,7 +68,7 @@ for (const key of HEROES) {
     for (let i = 0; i < KEYFRAMES.length; i++) { const large = shot.large[i], phone = shot.phone[i]; const lm = await sharp(large).metadata(); const pm = await sharp(phone).metadata(); tiles.push({ input: large, left, top }); tiles.push({ input: phone, left: left + (lm.width ?? 256) - (pm.width ?? 48) - 4, top: top + 4 }); left += (lm.width ?? 256) + 4; }
     width = Math.max(width, left); top += 256 + 8;
   }
-  const sheet = await sharp({ create: { width, height: top, channels: 3, background: { r: 31, g: 77, b: 28 } } }).composite(tiles).webp({ quality: 82 }).toBuffer();
+  const sheet = await sharp({ create: { width, height: top, channels: 3, background: { r: 31, g: 77, b: 28 } } }).composite(tiles).webp({ quality: 72 }).toBuffer();
   await writeFile(`docs/evidence/motion/${key}.webp`, sheet);
   const differing = KEYFRAMES.filter((_, i) => off.frames[key][i]?.frame !== on.frames[key][i]?.frame || off.frames[key][i]?.beat !== on.frames[key][i]?.beat || off.frames[key][i]?.kick !== on.frames[key][i]?.kick).length;
   const denseDiff = on.dense[key].filter((v, i) => v !== off.dense[key][i]).length;
