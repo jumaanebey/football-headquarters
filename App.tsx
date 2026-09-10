@@ -1,3 +1,4 @@
+import type { PostBattleDestination } from './game/battleDebrief';
 
 import { applyCampusLayout, type CampusLayout } from './game/campusLayout';
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
@@ -923,7 +924,14 @@ function App() {
     });
   };
 
-  const handleBattleFinish = (r: BattleResult) => {
+  const handleBattleFinish = (r: BattleResult, destination?: PostBattleDestination) => {
+    const ownerAtFinish = playerId();
+    const continueJourney = () => {
+      if (playerId() !== ownerAtFinish) return;
+      if (destination === 'heroes') setIsHeroOpen(true);
+      else if (destination === 'defense') setFrontOfficeOpen(true);
+      else if (destination === 'games') openRaid();
+    };
     if (battleConfig?.authority && authorityMatchRef.current) {
       // Protected club: nothing is credited here. The film goes to the authority, which
       // re-simulates it and answers with the settled club. Rewards appear only when confirmed.
@@ -946,6 +954,7 @@ function App() {
             (battle.won ? sfx.victory : sfx.defeat)();
           }
           track('battle_confirmed', { mode: battle?.mode, won: !!battle?.won });
+          continueJourney();
         } else if (outcome.status === 'failed') { sfx.error(); authority.setNotice(`Result not confirmed: ${outcome.message}`); centerText('Result not confirmed', '#ef4444'); }
         else authority.setNotice(`${outcome.message} Your result will be confirmed when the connection returns.`);
       });
@@ -1048,6 +1057,7 @@ function App() {
     }
     if (r.won) sfx.victory(); else sfx.defeat();
     setBattleConfig(null);
+    continueJourney();
   };
 
   // Heroes TRAIN on a timer — much longer than facility builds (3×), because a player
@@ -1727,6 +1737,8 @@ function App() {
           initialHero={focusedHero}
           onPractice={key => { setFocusedHero(key); setIsHeroOpen(false); setBattleConfig(heroPracticeConfig(key)); }}
           heroes={gameState.heroes}
+          upgrades={gameState.upgrades}
+          blocked={authority.locked || !authority.ready || authority.pendingCount > 0}
           resources={gameState.resources}
           stadiumLevel={stadiumLevel}
           lastRoll={lastRoll}
@@ -1774,7 +1786,7 @@ function App() {
       <TourPointer
         gameState={gameState}
         active={!frontOfficeOpen && !(isSquadOpen || isScoutingOpen || isStandingsOpen || !!selectedBuilding || confirmingReset || showTutorial
-          || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || !!battleConfig)}
+          || defenseLogOpen || isHeroOpen || isDailyOpen || attackSelectOpen || settingsOpen || !!preparedMatch || !!battleConfig)}
       />
 
       {/* 🏛 FRONT OFFICE — the whole defensive layer, managed from one list. Fixed

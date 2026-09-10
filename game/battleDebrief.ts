@@ -2,6 +2,7 @@ import { TROOP_STATS, type BTroop, type RaidHero } from '../battle';
 import type { BattleConfig, BattleResult } from './combat/contracts';
 
 export type ContributionMetric = 'yardage' | 'recovery' | 'protection';
+export type PostBattleDestination = 'heroes' | 'games' | 'defense';
 export type ActorContribution = {
   id: string; name: string; heroKey?: string; art?: string;
   yardage: number; recovery: number; protection: number;
