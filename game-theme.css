@@ -141,3 +141,5 @@ button { touch-action:manipulation; }
 .fhq-battle-stage [data-battlefield] { width:min(98cqw,98cqh)!important; height:min(98cqw,98cqh)!important; flex-shrink:0; }
 
 @media (orientation: portrait) and (max-height: 640px) { .fhq-battle-commands { max-height:34dvh; } }
+
+.fhq-battle[data-replay-paused="true"] * { animation-play-state:paused!important; transition:none!important; }
