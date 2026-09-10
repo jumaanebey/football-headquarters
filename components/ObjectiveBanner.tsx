@@ -34,7 +34,7 @@ export const ObjectiveBanner: React.FC<Props> = ({ gameState, onGoal, dailyClaim
     let stored: string | null = null;
     try { stored = localStorage.getItem('fhq_goals_collapsed'); } catch { /* private browsing */ }
     if (stored !== null) return stored === '1';
-    return typeof window !== 'undefined' && window.innerWidth < 640;
+    return true;
   });
   const toggle = () => setCollapsed(c => { try { localStorage.setItem('fhq_goals_collapsed', c ? '0' : '1'); } catch { /* optional preference */ } return !c; });
 

@@ -65,10 +65,10 @@ export const Btn: React.FC<{
 /** HOW-TO: every section explains itself. Opens automatically the first time a player
  *  sees that section, then remembers it was read and collapses to a one-line chip.
  *  `id` keys the seen-flag in localStorage; `lines` are short, plain-football bullets. */
-export const HowTo: React.FC<{ id: string; lines: string[] }> = ({ id, lines }) => {
+export const HowTo: React.FC<{ id: string; lines: string[]; defaultCollapsed?: boolean }> = ({ id, lines, defaultCollapsed = false }) => {
   const KEY = `fhq_howto_${id}`;
   const contentId = useId();
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem(KEY) !== '1'; } catch { return true; } });
+  const [open, setOpen] = useState(() => { try { return !defaultCollapsed && localStorage.getItem(KEY) !== '1'; } catch { return !defaultCollapsed; } });
   const toggle = () => setOpen(o => { try { localStorage.setItem(KEY, '1'); } catch { /* ignore */ } return !o; });
   return (
     <div className="rounded-xl border border-sky-900/60 bg-sky-950/20 overflow-hidden">

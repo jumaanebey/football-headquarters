@@ -1,10 +1,10 @@
 import { BuildingArt } from './BuildingArt';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Player, ResourceType, BuildingInstance, RecruitSlot, BuildingType } from '../types';
+import { Player, ResourceType, BuildingInstance, RecruitSlot, BuildingType, UpgradeJob } from '../types';
 import { RARITY_CONFIG, UPGRADE_CONFIG, RECRUIT_CONFIG } from '../constants';
 import { rosterCap, rollBoard, candidateOvr, recruitCost, recruitSeconds } from '../recruiting';
-import { unitSprite, buildingSprite, BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
+import { unitPlayerSprite, unitSprite, buildingSprite, BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
 import { Search, Coins, Crown, Zap, ArrowUpCircle, Users, Clock, CheckCircle2, RefreshCw, Dumbbell, Brain, Lock } from 'lucide-react';
 import { Sheet, HowTo } from './ui';
 
@@ -14,6 +14,8 @@ interface Props {
   recruitSlot: RecruitSlot | null;
   academy: BuildingInstance;
   stadiumLevel: number;
+  upgradeJob?: UpgradeJob;
+  onRoster?: () => void;
   onClose: () => void;
   onStartRecruit: (candidate: Player, cost: number) => void;
   onRush: () => void;
@@ -43,9 +45,11 @@ const StatPip: React.FC<{ icon: React.ReactNode; value: number }> = ({ icon, val
   </div>
 );
 
-export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade, board: issuedBoard, onRefreshBoard }) => {
+export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade, board: issuedBoard, onRefreshBoard, upgradeJob, onRoster }) => {
   const [localBoard, setLocalBoard] = useState<Player[]>(() => issuedBoard ? [] : rollBoard());
   const board = issuedBoard ?? localBoard;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = board.find(p => p.id === selectedId) ?? board[0];
 
   // When a scouting job clears (signed), refresh the prospect board.
   const prevSlot = useRef(recruitSlot);
@@ -79,7 +83,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
 
         {/* Portrait */}
         <div className="relative h-28 flex items-end justify-center bg-gradient-to-b from-emerald-800/30 to-slate-900 overflow-hidden">
-          <img src={unitSprite(c.unit, 'ready')} alt={c.role} draggable={false} className="h-[125%] max-w-none w-auto object-contain -mb-2 drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] select-none" />
+          <img src={unitPlayerSprite(c.unit)} alt={c.role} draggable={false} className="h-[125%] max-w-none w-auto object-contain -mb-2 drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] select-none" />
           <div className="absolute top-2 left-2"><RarityBadge rarity={c.rarity} /></div>
           <div className="absolute top-2 right-2 bg-black/70 rounded-lg px-2 py-0.5 text-xs font-mono font-bold text-white">{c.role}</div>
         </div>
@@ -91,9 +95,9 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
           </div>
 
           <div className="flex items-center gap-3 border-y border-slate-800 py-1.5">
-            <StatPip icon={<Dumbbell size={11} className="text-red-400" />} value={c.stats.strength} />
-            <StatPip icon={<Zap size={11} className="text-yellow-400" />} value={c.stats.speed} />
-            <StatPip icon={<Brain size={11} className="text-blue-400" />} value={c.stats.iq} />
+            <span className="text-xs text-slate-300">Strength <strong>{c.stats.strength}</strong></span>
+            <span className="text-xs text-slate-300">Speed <strong>{c.stats.speed}</strong></span>
+            <span className="text-xs text-slate-300">IQ <strong>{c.stats.iq}</strong></span>
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-slate-500">
@@ -184,7 +188,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
             <div className="text-slate-300 font-bold">Expand Facility</div>
             <div className="text-[12px] text-slate-500">Lv {academy.level} → {academy.level + 1} • roster cap {cap} → {cap + RECRUIT_CONFIG.capPerLevel}</div>
           </div>
-          {upgradeGated ? (
+          {upgradeJob ? <div className="text-sm text-amber-300">Building level {upgradeJob.toLevel} · {fmt((upgradeJob.finishTime - Date.now()) / 1000)} remaining</div> : upgradeGated ? (
             <div className="py-2.5 px-4 rounded-xl font-bold text-[12px] flex items-center gap-2 bg-slate-800 text-slate-400 border border-slate-700">
               <Lock size={14} className="text-slate-500" /> Requires Stadium Lv {academy.level + 1}
             </div>
@@ -204,7 +208,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
     >
         <div className="p-5">
           <div className="mb-4">
-            <HowTo id="scouting" lines={[
+            <HowTo defaultCollapsed id="scouting" lines={[
               'Scout new players with Coins — rarer prospects cost more and take longer to sign.',
               'One scouting job at a time; Rush it with Crowns if you can’t wait.',
               'Roster cap grows with this facility’s level. Bigger roster = stronger raids AND defense.',
@@ -217,7 +221,7 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
               <Users size={48} className="text-slate-700" />
               <div>
                 <h3 className="text-xl font-bold text-slate-300">Roster Full ({roster.length}/{cap})</h3>
-                <p className="text-slate-500 text-sm max-w-xs mt-1">Upgrade the Scouting Dept to expand your roster and sign more players.</p>
+                <p className="text-slate-500 text-sm max-w-xs mt-1">Upgrade the facility or review your roster to make room.</p><button onClick={onRoster} className="mt-4 rounded-xl bg-blue-600 px-4 py-3 font-bold text-white">Manage roster</button>
               </div>
             </div>
           ) : (
@@ -225,14 +229,15 @@ export const ScoutingModal: React.FC<Props> = ({ resources, roster, recruitSlot,
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-blue-300 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
-                  Tap Scout to sign a prospect
+                  Choose a prospect to scout
                 </h3>
                 <button onClick={() => (issuedBoard ? onRefreshBoard?.() : setLocalBoard(rollBoard()))} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors">
                   <RefreshCw size={13} /> New Prospects
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {board.map(renderCandidate)}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2" aria-label="Available prospects">{board.map(p => <button key={p.id} onClick={() => setSelectedId(p.id)} aria-pressed={selected?.id === p.id} className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left ${selected?.id === p.id ? 'border-orange-400 bg-orange-500/10' : 'border-slate-700 bg-slate-800'}`}><img src={unitPlayerSprite(p.unit)} alt="" className="w-10 h-12 object-contain" /><span className="flex-1"><strong className="block text-white">{p.name}</strong><span className="text-sm text-slate-300">{p.role} · {p.rarity} · {recruitCost(p)} Coins</span></span><strong className="text-lg text-amber-300">{candidateOvr(p)}<small className="block text-xs text-slate-400">OVR</small></strong></button>)}</div>
+                {selected && <div aria-label="Selected prospect report">{renderCandidate(selected)}</div>}
               </div>
             </>
           )}

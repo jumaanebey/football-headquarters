@@ -8,7 +8,7 @@ import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 
 import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
-import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS, GROWTH_TIERS } from '../constants';
+import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS as SAVED_HOME_ANCHORS, GROWTH_TIERS } from '../constants';
 import { buildingSprite, unitPlayerSprite } from '../assets';
 import { sfx } from '../sound';
 import { Check, Star, Dumbbell, Search, Coins, Hammer, Plus, Minus, Focus } from 'lucide-react';
@@ -58,6 +58,13 @@ const BOARD_H = 820;                  // full board canvas (fits content + headr
 
 const fmtSecs = (s: number) => { const n = Math.max(0, Math.ceil(s)); return n < 60 ? `${n}s` : `${Math.floor(n / 60)}:${(n % 60).toString().padStart(2, '0')}`; };
 
+const HOME_DISPLAY_ANCHORS = {
+  ...SAVED_HOME_ANCHORS,
+  [BuildingType.STADIUM]: { gridX: 0, gridY: 4 },
+  [BuildingType.YOUTH_ACADEMY]: { gridX: 6, gridY: 0 },
+  [BuildingType.MEDICAL_CENTER]: { gridX: 2, gridY: 8 },
+};
+
 const tileToScreen = (gx: number, gy: number) => ({
   x: (gx - gy) * (TILE_W / 2) + ORIGIN_X,
   y: (gx + gy) * (TILE_H / 2) + ORIGIN_Y,
@@ -66,19 +73,18 @@ const tileToScreen = (gx: number, gy: number) => ({
 const worldToScreen = (wx: number, wy: number) => tileToScreen((wx / 100) * GRID, (wy / 100) * GRID);
 
 /** Fit the whole board into the viewport (both axes), leaving room for HUD + nav. */
-const useBoardScale = () => {
-  const compute = () => {
-    if (typeof window === 'undefined') return 0.7;
-    const availW = window.innerWidth - 24;
-    const availH = window.innerHeight - 176; // HUD (~88) + nav (~88)
-    return Math.max(0.32, Math.min(1.15, Math.min(availW / BOARD_W, availH / BOARD_H)));
-  };
-  const [scale, setScale] = useState(compute);
+const useBoardScale = (container: React.RefObject<HTMLDivElement | null>) => {
+  const [scale, setScale] = useState(0.5);
   useEffect(() => {
-    const onResize = () => setScale(compute());
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+    const element = container.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setScale(Math.min(1.15, (width - 24) / BOARD_W, Math.max(180, height - 240) / BOARD_H));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [container]);
   return scale;
 };
 
@@ -550,7 +556,7 @@ const BuildingSprite: React.FC<{
   const collectorCfg = COLLECTOR_CONFIG[building.type];
   const banked = Math.floor(building.accrued || 0);
   const cap = collectorCfg ? collectorCap(building.type, building.level) : 0;
-  // The bubble is an INDICATOR, not a separate button — tapping the BUILDING collects.
+  // Collection has its own button; the building always opens its facility panel.
   // Collect floor is a flat 30: at higher levels the old cap-based threshold left up to
   // ~225 coins in an uncollectable dead zone where taps opened the modal instead (TASK-1).
   const collectReady = !!collectorCfg && banked >= 30;
@@ -565,22 +571,19 @@ const BuildingSprite: React.FC<{
     progress = Math.max(0, Math.min(1, (Date.now() - building.startTime) / (building.finishTime - building.startTime)));
   }
 
-  // ONE tap, one behavior: collect whatever's ready (drill or coins), otherwise open
-  // the building. No separate hit-targets fighting each other on the same sprite.
+  // Building bodies always navigate. Collection remains an explicit action.
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // board-level tap-away must not fire for building taps
     if (e.detail !== 0 && clickGuard?.current) { clickGuard.current = false; return; } // this "click" was the tail of a pan
     const bounds = e.currentTarget.getBoundingClientRect();
     const screenPos = e.detail === 0 ? {x:bounds.left+bounds.width/2,y:bounds.top+bounds.height/2} : { x: e.clientX, y: e.clientY };
-    if (isCompleted) onCollect(building, screenPos);
-    else if (collectReady) onCollectResource?.(building, screenPos);
-    else onBuildingClick(building, screenPos);
+    onBuildingClick(building, screenPos);
   };
 
   // Proportion pass: art renders ~15% past the 2×2 footprint (Jumaane: buildings read
   // small vs field/lot). The STADIUM is the landmark at 4.2t — "this game deserves
   // the actual stadium to be that large". Footprints unchanged.
-  const SPRITE_W = TILE_W * (building.type === BuildingType.STADIUM && !compactLayout ? 4.2 : 2.3);
+  const SPRITE_W = TILE_W * (building.type === BuildingType.STADIUM && !compactLayout ? 3.2 : 2.3);
 
   // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
   // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
@@ -670,7 +673,7 @@ const BuildingSprite: React.FC<{
 
       {/* Drill status badge */}
       {(isActive || isCompleted) && (
-        <div className="absolute -translate-x-1/2 cursor-pointer" onClick={handleClick} style={{ left: 0, top: -58, zIndex: 60, pointerEvents: 'auto' }}>
+        <div className="absolute -translate-x-1/2 cursor-pointer" onClick={e => { if (isCompleted) { e.stopPropagation(); onCollect(building, {x:e.clientX,y:e.clientY}); } else handleClick(e); }} style={{ left: 0, top: -58, zIndex: 60, pointerEvents: 'auto' }}>
           {isCompleted ? (
             <div data-tour="drill-done" className="flex flex-col items-center gap-0.5">
               <div className="w-11 h-11 rounded-full bg-green-500 border-[3px] border-white flex items-center justify-center shadow-xl animate-bounce-sm">
@@ -722,12 +725,12 @@ const BuildingSprite: React.FC<{
           (one tap target per building, no separate button to fight the sprite). */}
       {/* centering lives on an animation-free wrapper — bounce-sm's transform used to REPLACE the -translate-x-1/2 */}
       {showBubble && (
-        <div data-tour="collect" className="absolute -translate-x-1/2 pointer-events-none" style={{ left: 30, top: -30, zIndex: 44 }}>
+        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; onCollectResource?.(building, {x:e.clientX,y:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto" style={{ left: 30, top: -30, zIndex: 44 }}>
           <div className="flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl bg-amber-400 animate-bounce-sm">
             <Coins size={18} className="text-yellow-900 fill-yellow-800" />
             <span className="text-sm font-display font-bold text-yellow-950">{banked}</span>
           </div>
-        </div>
+        </button>
       )}
     </div>
   );
@@ -799,17 +802,17 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
 };
 
 export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
-  const scale = useBoardScale();
+  const campusRef = React.useRef<HTMLDivElement>(null);
+  const scale = useBoardScale(campusRef);
   const boardRef = React.useRef<HTMLDivElement>(null);
 
   // 📷 CAMERA: pinch to zoom, one-finger drag to pan, double-tap to recenter.
   // Interaction math reads getBoundingClientRect, which already reflects the
   // transform — so zooming never breaks taps.
-  // Phones open ZOOMED IN (a base you can read, pan to explore) — desktop fits the island.
-  // Phone opens on readable field action; zoom out or pan to explore the campus.
-  const homeZ = typeof window !== 'undefined' && window.innerWidth < 640 ? 1.85 : 1.0;
+  // Start with a fitted overview on every screen; zoom is an explicit choice.
+  const homeZ = 1;
   // Keep the practice field just below the viewport center, with room for the HUD.
-  const homeY = Math.round((BOARD_H / 2 - tileToScreen(5, 5).y) * scale * homeZ) + 35; // stadium center (anchor 4,4 → center tile 5,5)
+  const homeY = 0; // stadium center (anchor 4,4 → center tile 5,5)
   const [cam, setCam] = useState({ z: homeZ, x: 0, y: homeY });
   const camClamp = (c: { z: number; x: number; y: number }) => {
     const z = Math.min(3, Math.max(0.85, c.z)); // floor raised: below ~0.85 the grounds rim could peek in
@@ -1081,7 +1084,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
 
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ background: 'radial-gradient(130% 95% at 50% 42%, #235235 0%, #163c27 45%, #102f20 75%, #0c241a 100%)' }}
+    <div ref={campusRef} className="absolute inset-0 overflow-hidden" style={{ background: 'radial-gradient(130% 95% at 50% 42%, #235235 0%, #163c27 45%, #102f20 75%, #0c241a 100%)' }}
       onClick={() => { if (panMovedRef.current) { panMovedRef.current = false; return; } onDeselect?.(); }}>{/* tap empty turf → CC bar closes */}
       {/* Backdrop is GROUNDS, not outer space — every pixel reads as dark grass under
           floodlit haze, so panning/zooming never exposes black void. (Starfield removed
@@ -1187,8 +1190,8 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
               <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x + nudge.dx, top: c.y + TILE_H / 2 + 5 + nudge.dy, zIndex: 46 }}>
                 <div className="flex items-baseline gap-1.5 px-2 py-[3px] rounded-[5px] whitespace-nowrap select-none"
                   style={{ background: 'rgba(5,10,18,0.72)', border: '1px solid rgba(249,115,22,0.4)', boxShadow: '0 1px 4px rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}>
-                  <span className="font-display font-bold uppercase" style={{ fontSize: 10.5, letterSpacing: 1.5, color: 'rgba(255,255,255,0.92)' }}>{BUILDING_INFO[b.type].name}</span>
-                  <span className="font-display font-black" style={{ fontSize: 10.5, color: '#fdba74' }}>{b.level}</span>
+                  <span className="font-display font-bold uppercase" style={{ fontSize: Math.max(10.5, 10 / (scale * cam.z)), letterSpacing: 0, color: 'rgba(255,255,255,0.92)' }}>{BUILDING_INFO[b.type].name}</span>
+                  <span className="font-display font-black" style={{ fontSize: Math.max(10.5, 10 / (scale * cam.z)), color: '#fdba74' }}>{b.level}</span>
                 </div>
               </div>
             );
