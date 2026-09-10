@@ -33,6 +33,7 @@ step('hero atlas verification (non-destructive)', 'npm run -s art:verify');
 step('restore/rollback rehearsal (isolated)', 'npm run -s authority:rehearsal');
 step('derived art present (campus hero sheets)', 'npm run -s art:campus -- --check', { note: 'sheets are committed; regenerate with npm run art:campus after a reviewed art change' });
 step('install icons present', 'node scripts/derive-brand-icons.mjs --check');
+step('derived cutout atlases present', 'npm run -s art:cutouts -- --check');
 step('production build (+ raster decode of every shipped asset via prebuild)', 'npm run -s build');
 step('build assets content-addressed', 'npm run -s build:verify');
 step('balance regression guard', 'npm run -s balance');
@@ -40,6 +41,10 @@ step('Chrome determinism corpus', 'npm run -s determinism:browser', { skip: args
 // Rendered checks against a preview of the build just produced: startup transfer budget and the offline/update behaviour.
 step('startup transfer budget on the built preview', 'node scripts/with-preview.mjs 4187 node scripts/perf-waterfall.mjs --url http://127.0.0.1:4187/ --block-server --budget --out docs/evidence/perf-latest-local-preview.json', { skip: args.has('--browser') ? null : 'pass --browser (Chrome; ~60 s)' });
 step('offline shell and update flow on the built preview', 'node scripts/with-preview.mjs 4188 node scripts/pwa-check.mjs http://127.0.0.1:4188/', { skip: args.has('--browser') ? null : 'pass --browser (Chrome; ~30 s)' });
+
+step('two-version tab lifecycle on the built preview', 'node scripts/with-preview.mjs 4204 node scripts/pwa-multitab-check.mjs http://127.0.0.1:4204/', { skip: args.has('--browser') ? null : 'pass --browser (Chrome; ~40 s)' });
+step('kill-switch rehearsal on the built preview', 'node scripts/with-preview.mjs 4205 node scripts/pwa-killswitch-check.mjs http://127.0.0.1:4205/', { skip: args.has('--browser') ? null : 'pass --browser (Chrome; ~40 s)' });
+step('art fault injection on the built preview', 'node scripts/with-preview.mjs 4206 node scripts/art-fault-check.mjs http://127.0.0.1:4206/', { skip: args.has('--browser') ? null : 'pass --browser (Chrome; ~90 s)' });
 
 // Credentialed — creates anonymous evidence accounts against the deployed function. Owner-run only.
 const env = '.env.production';

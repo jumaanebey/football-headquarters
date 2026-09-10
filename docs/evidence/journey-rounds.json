@@ -1,0 +1,66 @@
+{
+  "url": "http://127.0.0.1:4208/",
+  "measuredAt": "2026-09-10T19:44:50.377Z",
+  "viewport": "430×932 @2, isMobile, no throttling, service worker blocked, club server blocked",
+  "rounds": [
+    {
+      "round": 1,
+      "seconds": 21,
+      "requests": 119,
+      "transferMB": 26.16,
+      "heroSheets": 14,
+      "decodedFrames": 421,
+      "entries": 23,
+      "retained": 5,
+      "listeners": 0,
+      "inFlight": 0,
+      "dom": 591,
+      "heapMB": 9,
+      "canvases": 25,
+      "heroesDrawn": 4
+    },
+    {
+      "round": 2,
+      "seconds": 25,
+      "requests": 100,
+      "transferMB": 0.03,
+      "heroSheets": 14,
+      "decodedFrames": 421,
+      "entries": 23,
+      "retained": 5,
+      "listeners": 0,
+      "inFlight": 0,
+      "dom": 592,
+      "heapMB": 9,
+      "canvases": 25,
+      "heroesDrawn": 4
+    },
+    {
+      "round": 3,
+      "seconds": 25,
+      "requests": 74,
+      "transferMB": 0.02,
+      "heroSheets": 4,
+      "decodedFrames": 274,
+      "entries": 13,
+      "retained": 5,
+      "listeners": 0,
+      "inFlight": 0,
+      "dom": 593,
+      "heapMB": 9,
+      "canvases": 25,
+      "heroesDrawn": 1
+    }
+  ],
+  "afterBackground": {
+    "decodedFrames": 274,
+    "entries": 13,
+    "retained": 5,
+    "listeners": 0,
+    "inFlight": 0,
+    "dom": 592,
+    "heapMB": 9,
+    "canvases": 25
+  },
+  "consoleErrors": []
+}
