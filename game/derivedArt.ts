@@ -6,6 +6,8 @@
 // to the original + runtime keying if the derived file is missing or fails to decode.
 export interface DerivedAtlas { original: string; derived: string; keying: 'scenery' | 'hero'; quality: number }
 export const DERIVED_ATLASES: readonly DerivedAtlas[] = [
+  { original: '/assets/battle/tackling-sled-elite-v2.png', derived: '/assets/battle/tackling-sled-elite-v2.alpha.webp', keying: 'hero', quality: 90 },
+  { original: '/assets/battle/defense-workshop-v2.png', derived: '/assets/battle/defense-workshop-v2.alpha.webp', keying: 'hero', quality: 90 },
   { original: '/assets/buildings/starter-campus-cutouts.webp', derived: '/assets/buildings/starter-campus-cutouts.alpha.webp', keying: 'hero', quality: 90 },
   { original: '/assets/buildings/stadium-1-cutout.webp', derived: '/assets/buildings/stadium-1-cutout.alpha.webp', keying: 'scenery', quality: 90 },
   { original: '/assets/buildings/upgraded-campus-cutouts.webp', derived: '/assets/buildings/upgraded-campus-cutouts.alpha.webp', keying: 'scenery', quality: 90 },

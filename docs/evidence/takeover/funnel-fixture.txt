@@ -1,0 +1,27 @@
+
+> football-headquarters@0.0.0 funnel:weekly
+> node scripts/funnel-report.mjs --days 7 --fixture tests/fixtures/funnel-events.json --now 2026-09-10T12:00:00Z
+
+FOOTBALL HEADQUARTERS — WEEKLY FUNNEL   2026-09-03 → 2026-09-10 (7 days)
+data: present · players visible: 13 · events: 97 · QA excluded: 2 players / 4 rows (known QA account ids (scripts/qa-accounts.json) and props.qa === true)
+
+  step                        players    % of visible   source
+  Game visible                    13     100%        mixed (+1 legacy-derived)
+  Named the club                  10    76.9%        funnel events
+  Finished the tutorial            0       0%        no events
+  Kicked off a first game          7    53.8%        funnel events
+  Saw a result                     6    46.2%        funnel events
+  Reward confirmed                 5    38.5%        legacy events only (+5 legacy-derived)
+  Meaningful upgrade               0       0%        no events
+  Backup prompt viewed             2    15.4%        funnel events
+  Backup completed                 1     7.7%        funnel events
+  Returned another day             3    23.1%        funnel events
+
+  returning players in window: 4
+  return cohorts (first seen in available history; completed UTC days only, not lifetime-new players)
+    2026-09-04  new   3   D1 1/3   D7 not yet
+    2026-09-05  new   3   D1 1/3   D7 not yet
+    2026-09-07  new   1   D1 1/1   D7 not yet
+    2026-09-09  new   5   D1 not yet   D7 not yet
+
+source: fixture tests/fixtures/funnel-events.json

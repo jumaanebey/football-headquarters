@@ -1,0 +1,266 @@
+
+> football-headquarters@0.0.0 release:verify
+> node scripts/release-verify.mjs --strict
+
+
+=== typecheck: npm run -s typecheck ===
+
+=== unit and service tests: npm run -s test -- --reporter=dot ===
+
+ RUN  v4.1.10 /Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters
+
+··························································································································································stdout | tests/analyticsDelivery.test.ts > analytics delivery to a test sink > with no destination configured nothing is queued or sent
+[analytics:noop] session_start {}
+
+································································································································································································································································································································································································································stdout | tests/authorityWorkload.test.ts > replay and history workload bounds > club state and status answers carry receipts but never film; film comes only through the bounded film request
+[workload] club state 9103 B with 12 receipts · status answer 15082 B · film answer 26016 B · matches rows 12
+
+·····stdout | tests/authorityWorkload.test.ts > replay and history workload bounds > verification of the longest valid films in the corpus is bounded and does not scale with anything but ticks
+[workload] campaign-1: 103 ticks, 20 commands, 13 ms · campaign-4: 1201 ticks, 22 commands, 81 ms · campaign-7: 1201 ticks, 22 commands, 87 ms · road-0: 1201 ticks, 22 commands, 88 ms · road-1: 1201 ticks, 21 commands, 83 ms · rival-0: 239 ticks, 25 commands, 33 ms · rival-1: 237 ticks, 25 commands, 32 ms · gauntlet-1: 816 ticks, 0 commands, 68 ms
+
+······
+
+ Test Files  74 passed (74)
+      Tests  581 passed (581)
+   Start at  11:09:07
+   Duration  3.33s (transform 4.31s, setup 0ms, import 8.23s, tests 18.52s, environment 4ms)
+
+
+=== authority parity (sources ↔ bundle ↔ artifacts ↔ deployment record): node scripts/build-authority.mjs --check --require-deployed-current ===
+PASS  generated index.ts matches the sources (sha256 a46259a7da2d…)
+PASS  readable bundle carries no token-shaped strings
+PASS  minified bundle carries no token-shaped strings
+PASS  source rules hero-actions-3
+PASS  staged supabase/recovery/club-authority.v4.min.js equals the fresh minified build (sha256 58511f9bd888…)
+PASS  deployed artifact supabase/recovery/club-authority.v4.min.js matches its record (sha256 58511f9bd888…)
+PASS  pinned commit e3f8669 serves the recorded artifact
+PASS  inline deployment entry matches artifact pinned at e3f8669
+PASS  deployed v4 and the sources agree on rules hero-actions-3
+PASS  deployed v4 equals the sources
+RESULT: authority parity holds (deployment current)
+
+=== hero atlas verification (non-destructive): npm run -s art:verify ===
+
+  dist/verify-hero-atlases.mjs  25.2kb
+
+⚡ Done in 2ms
+qb: 32 motion frames (8×4), 9 elite poses, 4 signature poses, 4 reaction frames — 4 sheets decoded
+enforcer: 32 motion frames (8×4), 9 elite poses, 4 signature poses, 4 reaction frames — 4 sheets decoded
+coach: 36 motion frames (9×4), 9 elite poses, 4 signature poses — 3 sheets decoded
+kicker: 36 motion frames (9×4), 9 elite poses, 4 signature poses — 3 sheets decoded
+burner: 36 motion frames (9×4), 9 elite poses, 4 signature poses — 3 sheets decoded
+medic: 36 motion frames (9×4), 9 elite poses, 4 signature poses — 3 sheets decoded
+captain: 36 motion frames (9×4), 9 elite poses, 4 signature poses — 3 sheets decoded
+playmaker: 36 motion frames (9×4), 9 elite poses, 4 signature poses — 3 sheets decoded
+legend: 36 motion frames (9×4), 9 elite poses, 4 signature poses — 3 sheets decoded
+RESULT: 9 heroes verified; regions and hashes match the manifest
+
+=== restore/rollback rehearsal (isolated): npm run -s authority:rehearsal ===
+
+  dist/restore-rehearsal.mjs  248.4kb
+
+⚡ Done in 6ms
+PASS  bootstrap a0000000: club created at revision 0
+PASS  bootstrap b0000000: club created at revision 0
+PASS  reserve campaign match: match 00000000 reserved
+PASS  begin campaign match: started
+PASS  settle campaign match: settled, A at revision 3
+PASS  device bootstrap: device mirrors A
+PASS  confirmed action: revision 4
+PASS  answer lost after commit: server at revision 5, device still pending
+PASS  request never delivered: held behind the unanswered request; server unchanged
+PASS  open rival match: B started 00000000 against A
+PASS  backup taken: 42592 bytes: {"clubs":2,"matches":2,"operations":7,"openMatches":1,"revisions":{"a0000000":6,"b0000000":2}}
+PASS  restored ownership: every club, match and operation belongs to a restored owner
+PASS  restored revisions: {"A":6,"B":2}
+PASS  restored active match: B still owns the started match; A's settled match kept its result
+PASS  restore is faithful: export(restore(backup)) equals backup byte for byte
+PASS  restored club answers: status serves the restored revision
+PASS  replay: lost answer is a duplicate: the restored operation row answered the retry with its original receipt
+PASS  replay: undelivered request applied once: A moved from revision 6 to 7
+PASS  replay: nothing left pending: ledger drained
+PASS  second replay is a no-op: commits after restore: 1
+PASS  verbatim resend returns the same receipt: no second commit
+PASS  restored match settles: B 2→3, A 7→8 (defender receipt)
+PASS  settlement is exactly once: duplicate finish returned the stored receipt; no second defender entry
+PASS  rollback to backup: the backup restores to exactly its pre-loss state; the device's ledger would replay again
+backup {"clubs":2,"matches":2,"operations":7,"openMatches":1,"revisions":{"a0000000":6,"b0000000":2}}
+after  {"clubs":2,"matches":2,"operations":9,"openMatches":0,"revisions":{"a0000000":8,"b0000000":3}}
+snapshots written to /Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/dist/rehearsal (synthetic data)
+RESULT: restore, replay and rollback rehearsal passed
+
+=== derived art present (campus hero sheets): npm run -s art:campus -- --check ===
+
+  dist/derive-campus-heroes.mjs  21.5kb
+
+⚡ Done in 2ms
+PASS  public/assets/heroes/campus/qb.webp 4864×256
+PASS  public/assets/heroes/campus/enforcer.webp 4864×256
+PASS  public/assets/heroes/campus/coach.webp 4864×256
+PASS  public/assets/heroes/campus/kicker.webp 4864×256
+PASS  public/assets/heroes/campus/burner.webp 4864×256
+PASS  public/assets/heroes/campus/medic.webp 4864×256
+PASS  public/assets/heroes/campus/captain.webp 4864×256
+PASS  public/assets/heroes/campus/playmaker.webp 4864×256
+PASS  public/assets/heroes/campus/legend.webp 4864×256
+
+=== derived alpha cutouts present: npm run -s art:cutouts -- --check ===
+
+  dist/derive-campus-cutouts.mjs  4.3kb
+
+⚡ Done in 1ms
+PASS  /assets/battle/tackling-sled-elite-v2.alpha.webp 1254×1254 alpha
+PASS  /assets/battle/defense-workshop-v2.alpha.webp 1254×1254 alpha
+PASS  /assets/buildings/starter-campus-cutouts.alpha.webp 1254×1254 alpha
+PASS  /assets/buildings/stadium-1-cutout.alpha.webp 1254×1254 alpha
+PASS  /assets/buildings/upgraded-campus-cutouts.alpha.webp 1254×1254 alpha
+PASS  /assets/decor/tailgate-tent-cutout.alpha.webp 1254×1254 alpha
+PASS  /assets/decor/grounds-cutouts.alpha.webp 1774×887 alpha
+PASS  /assets/battle/field-equipment-cutouts.alpha.webp 1254×1254 alpha
+
+=== install icons present: node scripts/derive-brand-icons.mjs --check ===
+PASS  public/assets/brand/icon-192.png 192×192
+PASS  public/assets/brand/icon-512.png 512×512
+PASS  public/assets/brand/icon-512-maskable.png 512×512
+PASS  public/assets/brand/apple-touch-icon-180.png 180×180
+
+=== production build (+ raster decode of every shipped asset via prebuild): npm run -s build ===
+assets/battle/field-equipment-cutouts.webp: {"width":1254,"height":1254,"bytes":1393640,"sha256":"2b8add0775d9ed7dcbb171b6e70e5da86001b3cbfe21d5cfc9a1fa86c0dc854b"}
+assets/buildings/upgraded-campus-cutouts.webp: {"width":1254,"height":1254,"bytes":1569608,"sha256":"ae530c33db423d0a4eb3a66138cd237b4d9ca2460fc5f9dcaa3c5dab6b55d2a2"}
+assets/decor/grounds-cutouts.webp: {"width":1774,"height":887,"bytes":926264,"sha256":"e9157995ff79aab665f7353a93be5ddd9b7dd17f9a1658c30734b2db027d811e"}
+PASS: fully decoded 571 raster assets.
+vite v6.4.3 building for production...
+transforming...
+✓ 1819 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                         3.13 kB │ gzip:   1.15 kB
+dist/assets/index-DjEnKCRx.css         77.83 kB │ gzip:  14.71 kB
+dist/assets/CampusEditor-DUPCa9sz.js   11.59 kB │ gzip:   4.71 kB
+dist/assets/index-B7imK1Ig.js         816.69 kB │ gzip: 254.56 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.99s
+fhq-service-worker: dist/sw.js version 73f9d47c1db9 precaching 8 shell files
+fhq-fingerprint-assets: 206 fingerprinted copies; 0 loader-only fixed URLs removed; 206 fixed URLs kept
+
+=== build assets content-addressed: npm run -s build:verify ===
+206 fingerprinted assets (56.9 MB) verified in dist
+RESULT: build assets are content-addressed and complete
+
+=== balance regression guard: npm run -s balance ===
+
+  dist/balance.mjs  133.0kb
+
+⚡ Done in 4ms
+
+Shared combat rules: hero-actions-3. 30 reproducible raid targets per tier.
+Policy: all roster/hero deployments at kickoff, legal square edge, Balanced plan, ready signatures every 0.5s. No specials, manual plays or full-readiness boost.
+Historical BALANCE.md combat percentages used a different loop and no hero signatures. They are not acceptance bands for this report.
+
+===== 1. CAMPAIGN — damage-weighted House Taken % (Game Balls) =====
+stage                 T0 fresh  T1 early  T2 mid    T3 strong T4 maxed 
+1. Preseason Opener   100%(3)   100%(3)   100%(3)   100%(3)   100%(3)  
+2. Week 2             100%(3)   100%(3)   100%(3)   100%(3)   100%(3)  
+3. Week 3              66%(1)   100%(3)   100%(3)   100%(3)   100%(3)  
+4. Week 4              40%(0)    70%(1)   100%(3)   100%(3)   100%(3)  
+5. Week 5              34%(0)    47%(0)   100%(3)   100%(3)   100%(3)  
+6. Midseason Clash     14%(0)    30%(0)    75%(1)   100%(3)   100%(3)  
+7. Week 7              29%(0)    46%(0)    92%(2)   100%(3)   100%(3)  
+8. Week 8              22%(0)    36%(0)    60%(1)   100%(3)   100%(3)  
+9. Week 9              24%(0)    30%(0)    42%(0)   100%(3)   100%(3)  
+10. Divisional Round    5%(0)     8%(0)    33%(0)    73%(2)   100%(3)  
+11. Conference Final   10%(0)    14%(0)    23%(0)    47%(0)   100%(3)  
+12. THE CHAMPIONSHIP    2%(0)     3%(0)     7%(0)    22%(0)   100%(3)  
+
+===== 2. RAIDS — deterministic bot, 30 targets per tier =====
+T0 fresh  @   0 trophies: 21/30 wins (70.0%), avg 80% House Taken, 2.0 Game Balls, 9.9 signatures
+  easy: 10/10 wins, avg 100% · fair: 10/10 wins, avg 100% · hard: 1/10 wins, avg 39%
+T1 early  @ 150 trophies: 21/30 wins (70.0%), avg 80% House Taken, 1.8 Game Balls, 12.0 signatures
+  easy: 10/10 wins, avg 100% · fair: 10/10 wins, avg 93% · hard: 1/10 wins, avg 46%
+T2 mid    @ 450 trophies: 21/30 wins (70.0%), avg 68% House Taken, 1.4 Game Balls, 12.9 signatures
+  easy: 10/10 wins, avg 100% · fair: 10/10 wins, avg 63% · hard: 1/10 wins, avg 42%
+T3 strong @1000 trophies: 22/30 wins (73.3%), avg 67% House Taken, 1.4 Game Balls, 16.2 signatures
+  easy: 10/10 wins, avg 100% · fair: 10/10 wins, avg 56% · hard: 2/10 wins, avg 45%
+T4 maxed  @1800 trophies: 22/30 wins (73.3%), avg 73% House Taken, 1.7 Game Balls, 16.0 signatures
+  easy: 10/10 wins, avg 100% · fair: 10/10 wins, avg 71% · hard: 2/10 wins, avg 47%
+
+===== 3. DEFENSE — shared engine, Goal Line, purchased available base slots =====
+T0 fresh  (facilities L1, 1 emplacements, 12 walls): 34% House Taken, 0 Game Balls conceded — HELD
+T1 early  (facilities L3, 3 emplacements, 12 walls): 20% House Taken, 0 Game Balls conceded — HELD
+T2 mid    (facilities L5, 5 emplacements, 12 walls): 8% House Taken, 0 Game Balls conceded — HELD
+T3 strong (facilities L8, 7 emplacements, 12 walls): 2% House Taken, 0 Game Balls conceded — HELD
+T4 maxed  (facilities L11, 7 emplacements, 12 walls): 2% House Taken, 0 Game Balls conceded — HELD
+
+===== 4. GACHA — Monte Carlo (2000 runs) =====
+median rolls to unlock ALL heroes: 39  (=780 gems)
+median rolls to hit The Legend:    32  (=640 gems; direct-buy = 120)
+shards needed 1★→5★ per hero: 305 (≈17 average duplicate pulls of THAT hero at 14–22 shards per duplicate)
+
+===== 5. ECONOMY — legacy income scenario, current costs =====
+Income assumptions: continuous drills, L3 Stadium, 12 road games/hour at 550 Coins each. These are scenarios, not measured player earnings.
+all 5 buildings L1→L5 cost: 73,515 coins
+active income ≈ 19,867/hr (drills+stadium) + 6,600/hr raiding → ~2.8h to all-L5
+ONE hero L1→10: 55,244 coins · L1→15: 502,911 coins · ×9 heroes L15 = 4,526,199
+Historical income scenario: 40–60 Crowns/day → 2.0–3.0 Scout Searches/day; actual play/collection cadence is not modeled.
+power: 5★ vs 1★ = +140% · hero L10→15 = +38% for 447,667 coins
+Gauntlet full-clear purse: night-1 900 · night-5 4,500 · night-10 9,000 · night-20 18,000 coins
+
+===== 6. RARITY & ROLES — production statlines and shared matches =====
+effectiveStat EPIC/COMMON (RB L5, strength): 1.60x
+role   grit   yd/s  speed range
+QB       61   31.3   15.0    13
+RB      136   66.3   23.0     7
+WR       50   23.8   23.1     7
+OL      529   19.6    7.0     4
+DL      228   37.4    9.8     4
+LB      193   29.0   12.1     4
+CB       63   15.4   27.2     8
+S        72   17.6   22.3     9
+Equal L5 eight-player squad: COMMON 7% / 0 Game Balls; EPIC 14% / 0 Game Balls.
+Receiver group: with QB 5% vs LB 2%. This fixture is informational; role interactions are covered by engine tests.
+
+===== 7. SHARED-ENGINE REGRESSION GATES =====
+Historical combat bands (reporting only): passive T4 Championship 30–62%; passive T3/T4 raids 40–85%. Different engine, roster math and scoring: do not compare directly.
+  PASS  Every scenario terminates with valid outcomes and actor state — 219 matches; finite values, bounded grit, House Taken 0–100, Game Balls 0–3
+  PASS  Actual fresh roster can win the Preseason Opener — 100% / 3 Game Balls; 5 signature calls
+  PASS  Week 2 remains approachable and Week 4 asks for training — fresh Week 2 100%, fresh Week 4 40%, trained Week 4 70%
+  PASS  Championship can be fully cleared by the top progression fixture — 100% / 3 Game Balls
+  PASS  Bot exercises hero signatures — accepted signature commands in every hero campaign fixture
+  PASS  Progression does not reduce aggregate performance on identical campaign layouts — T0 fresh: 446, T1 early: 584, T2 mid: 832, T3 strong: 1042, T4 maxed: 1200
+  PASS  Progression produces a measurable campaign advantage — T0 total 446 vs T4 1200 across 12 stages
+  PASS  Tutorial recording replays to the same result and final hash — fd462515 live / fd462515 replay
+  PASS  Rarity increases derived strength at the same level — 1.60x EPIC/COMMON
+  PASS  Higher rarity does not weaken the equal-role fixture — 7% COMMON → 14% EPIC
+  PASS  Every trophy bracket offers a winnable easy choice — T0 fresh: 10/10, T1 early: 10/10, T2 mid: 10/10, T3 strong: 10/10, T4 maxed: 10/10
+  PASS  Hard picks demand more than easy picks at every tier — lower average House Taken against fortress choices than easy choices
+  PASS  All-L5 income scenario remains in its historical range — 2.8h under the stated assumptions (band 1.5–6)
+  PASS  Hero L15 remains a substantial Coin sink — 502,911 Coins (historical band 350k–700k)
+  PASS  Legend direct-buy costs less than median rolling — median 32 rolls × 20 = 640 Crowns vs 120 direct
+  PASS  Gauntlet purse and ramp scale with tier — night-20: 18,000 Coins; reward/difficulty monotonic = true/true
+
+Shared-engine integrity, progression and retained economy gates pass. Human difficulty/retention calibration still requires playtesting.
+
+
+Release verification summary
+  PASS     typecheck (3.3 s)
+  PASS     unit and service tests (3.6 s)
+  PASS     authority parity (sources ↔ bundle ↔ artifacts ↔ deployment record) (0.1 s) — strict: lagging deployment fails
+  PASS     hero atlas verification (non-destructive) (0.8 s)
+  PASS     restore/rollback rehearsal (isolated) (0.3 s)
+  PASS     derived art present (campus hero sheets) (0.1 s) — sheets are committed; regenerate with npm run art:campus after a reviewed art change
+  PASS     derived alpha cutouts present (0.1 s)
+  PASS     install icons present (0.1 s)
+  PASS     production build (+ raster decode of every shipped asset via prebuild) (5.0 s)
+  PASS     build assets content-addressed (0.1 s)
+  PASS     balance regression guard (10.7 s)
+  SKIPPED  Chrome determinism corpus — pass --browser (needs the installed Chrome; ~20 s)
+  SKIPPED  startup transfer budget on the built preview — pass --browser (Chrome; ~60 s)
+  SKIPPED  offline shell and update flow on the built preview — pass --browser (Chrome; ~30 s)
+  SKIPPED  live two-account evidence against the deployed function — pass --live; owner runs `npm run authority:evidence` (creates evidence accounts listed for deferred QA cleanup)
+  SKIPPED  preview browser journey — pass --live; owner runs it against a running `vite preview` (creates one evidence account)
+
+RESULT: offline verification passed in 24 s; 5 live/optional check(s) skipped — deployed behavior is verified only by the live evidence recorded in docs/AUTHORITY-RECOVERY.md
