@@ -26,7 +26,8 @@ try {
   const buttons = page.locator('button');
   const count = await buttons.count();
   let clicked = false;
-  for (let i = 0; i < count; i++) { const t = (await buttons.nth(i).innerText()).trim(); if (/build|tour|later|first|not now|later/i.test(t) && !/storm/i.test(t)) { await buttons.nth(i).click(); clicked = true; console.log('tutorial secondary:', t); break; } }
+  // The secondary tutorial button skips the first game so the club stays pristine for admission.
+  for (let i = 0; i < count; i++) { const t = (await buttons.nth(i).innerText()).trim(); if (t && !/play|storm|game|change club name|random name/i.test(t) && await buttons.nth(i).isVisible()) { await buttons.nth(i).click(); clicked = true; console.log('tutorial secondary:', t); break; } }
   if (!clicked) throw new Error('tutorial secondary button not found');
   await page.waitForTimeout(800);
   await shot('campus');
@@ -36,7 +37,7 @@ try {
   await page.waitForFunction(() => !document.body.innerText.includes('checking…'), null, { timeout: 20000 });
   await shot('settings-before');
   await page.click('button:has-text("Protect this club online")');
-  await waitText('protected', 30000);
+  await page.waitForFunction(() => /\bprotected\b/i.test(document.querySelector('span.uppercase.font-black')?.textContent ?? '') || document.body.innerText.includes('Your club is now protected') || document.body.innerText.includes('fresh protected club'), null, { timeout: 30000 });
   await page.waitForTimeout(500);
   await shot('settings-protected');
   console.log('settings:', (await text()).match(/Online protection.{0,260}/)?.[0]);

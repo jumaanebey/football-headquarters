@@ -65,6 +65,12 @@ Observed on the live service: fresh bootstrap for both accounts; `club.rename` c
 
 The three failures were one script defect: the gate assignment used `rb`, which is not a hero key, so the server correctly refused it and the two dependent checks (verbatim-retry receipt, assigned gate hero in the attacked snapshot) could not pass. Fixed in the script (starter hero `kicker`); rerun pending.
 
+## Live evidence (v3) — run 2, 2026-09-10 ~03:40 UTC
+
+Rerun after the script fix: **57 passed, 0 failed**. Test accounts: `d38b8c11-9ee0-4b5d-8634-827a27737954` (A), `79d451a1-7033-4e28-8e0e-92b267270417` (B), `147c15d7-30f1-4fe2-b07c-4684c840c03c` (C) — add to the deferred QA cleanup list. New in this run: `gate.assign south → kicker` confirmed at revision 2 with a verbatim retry returning the same receipt; reusing that operation id for a different request → `operation_conflict`; B's raid config listed **The Specialist** at A's south gate alongside the auto-filled Enforcer, under A's `cover3` layout and L2 Stadium (HQ hp 720); A's receipt `stars 3, pct 100, coinsLost 119` with `authorityMatchId c29955db…`; the shared film replayed to the settled result (hash `c36a67d0`). This closes the two-account acceptance for Work Package 2 on the protected path: a gate assignment and a saved upgrade on A were attacked by B under the same snapshot the server verified and both accounts can replay.
+
+Still open: the browser journey on a preview (`scripts/authority-browser-check.mjs`), physical-device play, and the owner decisions in `docs/AUTHORITY-CONTRACTS.md`.
+
 ## Release: what deploying the fix involves
 
 1. `npm run authority:build` (already run; `supabase/functions/club-authority/index.ts` sha256 `10df7c51…`).
