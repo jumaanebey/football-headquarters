@@ -101,7 +101,7 @@ describe('old-client write protection', () => {
     const loaded = loadState(memoryStorage({ [SAVE_KEY]: JSON.stringify(futureSave()) }), LOAD_AT) as GameState & Record<string, unknown>;
     expect(loaded.saveSchema).toBe(9);
     expect(loaded.futureFeature).toEqual({ enabled: true, items: [1, 2, 3] });
-    expect((loaded.heroes[0] as Record<string, unknown>).talents).toEqual(['x']);
+    expect((loaded.heroes[0] as unknown as Record<string, unknown>).talents).toEqual(['x']);
     const again = parseSavedClub(JSON.stringify(loaded)) as GameState & Record<string, unknown>;
     expect(again.saveSchema).toBe(9);
   });
