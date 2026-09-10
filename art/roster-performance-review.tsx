@@ -17,6 +17,6 @@ function Review(){
  return <main style={{padding:16,background:'#14251f',color:'white',minHeight:'100vh',fontFamily:'system-ui'}}><h1>27 animated heroes · full roster stress review</h1><output>{stats}</output>
  <div style={{display:'grid',gridTemplateColumns:'repeat(9,104px)',gap:4}}>{Array.from({length:27},(_,i)=><div key={i} style={{width:104,height:104,position:'relative'}}><AnimatedHero heroKey={MODERN_HEROES[i%9]} mode="walk" facing={i%2?1:-1} loadSignatureArt label={`runner ${i+1}`}/></div>)}</div>
  <label>Hero <select value={hero} onChange={e=>setHero(e.target.value)} style={{color:'black'}}>{MODERN_HEROES.map(k=><option key={k}>{k}</option>)}</select></label>
- <div style={{display:'grid',gridTemplateColumns:`repeat(${heroMotionColumns(hero)},104px)`,gap:4}}>{frames.map((frame,i)=><div key={`${hero}:${i}`}><canvas width={104} height={104} ref={canvas=>{canvas?.getContext('2d')?.drawImage(frame,0,0,104,104)}}/><span>{i}</span></div>)}</div></main>
+ <div style={{display:'grid',gridTemplateColumns:`repeat(${heroMotionColumns(hero)},104px)`,gap:4}}>{frames.map((frame,i)=><div key={`${hero}:${i}`}><canvas width={104} height={104} ref={canvas=>{if(canvas){const context=canvas.getContext('2d')!;context.clearRect(0,0,104,104);context.drawImage(frame,0,0,104,104)}}}/><span>{i}</span></div>)}</div></main>
 }
 createRoot(document.getElementById('root')!).render(<Review/>);
