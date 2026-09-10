@@ -116,7 +116,9 @@ export function verifyMatch(match: IssuedMatch, value: unknown, now: number): { 
   if (!film) return fail('invalid_film', 'The match commands are invalid.');
   const checked = replayMatch(film);
   if (!checked.matches || !checked.result) return fail('simulation_mismatch', 'The match could not be verified. Your reserved game remains available.');
-  return { result: { ...checked.result, isReplay: false, replay: film, defenseLayoutId: match.config.defenseLayoutId, defenseSnapshotId: match.config.defenseSnapshotId }, replay: film };
+  // The film is returned separately and stored once under the match; the battle result that
+  // travels in settlement answers and receipts never embeds it (item 16: bounded payloads).
+  return { result: { ...checked.result, isReplay: false, defenseLayoutId: match.config.defenseLayoutId, defenseSnapshotId: match.config.defenseSnapshotId }, replay: film };
 }
 
 export function settleMatchRewards(input: GameState, result: BattleResult, now: number): GameState {

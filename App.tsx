@@ -464,7 +464,7 @@ function App() {
     if (authority.locked) { sfx.error(); spawnText('Sign in as this club\'s owner to make changes', window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); return true; }
     if (!authority.isActiveNow()) return false;
     void authority.dispatch(action).then(outcome => {
-      if (outcome.status === 'confirmed') { authority.setNotice(null); onConfirmed?.((outcome.answer.result as AuthorityActionReceipt | null) ?? null); }
+      if (outcome.status === 'confirmed') { authority.setNotice(null); if (!outcome.duplicate) onConfirmed?.((outcome.answer.result as AuthorityActionReceipt | null) ?? null); } // a twin tap answered by the first tap's receipt must not fire the effects (or analytics) twice
       else if (outcome.status === 'failed') { sfx.error(); spawnText(outcome.message, window.innerWidth / 2, window.innerHeight / 2, '#ef4444'); authority.setNotice(outcome.message); }
       else { authority.setNotice(outcome.message); spawnText('Waiting for online confirmation…', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); }
     });
@@ -946,8 +946,9 @@ function App() {
       track('battle_result', { mode: r.mode, won: r.won, stars: r.stars, pct: r.pct, campaign: !!r.campaignStage, gauntlet: r.gauntletTier !== undefined, live: !!r.pvpTarget, protected: true });
       void authority.finish(open.matchId, { plan: film.plan, script: film.script, ticks: film.ticks, finalHash: film.finalHash }).then(outcome => {
         if (outcome.status === 'confirmed') {
-          const battle = (outcome.answer.result as { battleResult?: BattleResult } | null)?.battleResult;
           authority.setNotice(null);
+          if (outcome.duplicate) return; // already confirmed by an earlier send of the same film: no second celebration, no second event
+          const battle = (outcome.answer.result as { battleResult?: BattleResult } | null)?.battleResult;
           if (battle) {
             if (battle.mode === 'attack') { centerText(battle.coins > 0 ? `Confirmed: +${battle.coins} coins, +${battle.fans} fans` : 'Confirmed: no loot this drive', battle.coins > 0 ? '#fbbf24' : '#94a3b8'); if (battle.won) bumpLocalRankCelebration(); }
             else centerText(battle.gauntletCleared ? `🛡 NIGHT ${battle.gauntletTier} CLEARED — confirmed` : `Gauntlet confirmed: ${battle.wavesHeld ?? 0} waves held`, '#a855f7');

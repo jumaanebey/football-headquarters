@@ -21,6 +21,7 @@ export class MemoryAuthorityStore implements AuthorityStore {
   readonly operations = new Map<string, AuthorityOperation>();
   commits = 0;
   constructor(private options: MemoryAuthorityStoreOptions) {}
+  get activationAt() { return this.options.activationAt; }
   private now() { return this.options.now?.() ?? Date.now(); }
   async getConfiguration(): Promise<AuthorityConfiguration> { return { activationAt: this.options.activationAt }; }
   async getClub(owner: string): Promise<AuthorityClub | null> { const club = this.clubs.get(owner); return club ? clone(club) : null; }

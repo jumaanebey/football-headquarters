@@ -58,6 +58,22 @@ export function setAuthorityProtectionPending(pending: boolean, storage?: Storag
   const current = read(storage);
   if (current && current.pending !== pending) write({ ...current, pending }, storage);
 }
+const SAVE_KEY = 'fhq_save_v1';
+const PRESERVE_KEY = 'fhq_backup_preprotect';
+/** Before a server club replaces whatever this device holds, keep the device's club as a readable
+ * backup (`fhq_backup_preprotect`). Called when protection is enabled and when a signed-in account's
+ * protected club is adopted on a device that was not already mirroring it. Returns whether a copy was kept. */
+export function preserveLocalClub(storage?: StorageLike): boolean {
+  const target = store(storage);
+  if (!target) return false;
+  try {
+    const current = target.getItem(SAVE_KEY);
+    if (!current) return false;
+    target.setItem(PRESERVE_KEY, current);
+    target.setItem(`${PRESERVE_KEY}_at`, String(Date.now()));
+    return true;
+  } catch { return false; }
+}
 /** Removes protection for this device only; the server copy remains authoritative for its owner. */
 export function clearAuthorityProtection(storage?: StorageLike): void {
   write(null, storage);

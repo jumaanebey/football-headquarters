@@ -52,6 +52,8 @@ One rule in `game/clubName.ts`: trim, 2–24 UTF-16 code units, no control chara
 
 `authorityClient.diagnostics()` keeps the last 40 events (kind, short operation id, outcome, code, latency, revision) and the last transport availability in `fhq_authority_diag_v1`; no tokens, payloads or saves. Settings › Online protection › "Connection details" shows reachability, average confirmation latency, counts of confirmed/pending/refused operations, the last five events, and a sign-in prompt when the session expired. Analytics events already carry `battle_confirmed`, `authority_enable` and failure codes through the existing bounded `track()`.
 
+Export (tranche 5): `buildAuthorityDiagnosticsReport` / `serializeAuthorityDiagnostics` in `game/online/diagnosticsExport.ts` produce a support report (build, rules, availability, counts, recent codes/latencies, unfinished operations by short id) with every string filtered to identifier shapes; `tests/diagnosticsExport.test.ts` proves tokens, messages, saves, names and full ids never reach it. No Settings control yet (Codex-owned surface).
+
 ## Changed decisions and behaviors on this branch
 
 - **Automatic protection at tutorial completion** (owner decision, 2026-09-10): when the club server is reachable, the new club is admitted before the first game; otherwise local play continues and Settings offers protection later.
