@@ -1,5 +1,8 @@
+import {assetUrl} from '../game/assetUrl';
+import {KitLayer} from './TeamKit';
+import {clearTeamKitFrames} from '../game/teamKit';
 import { useClubStyle } from './ClubStyle';
-import { defaultClubStyle } from '../game/clubStyle';
+import { CLUB_STYLES, defaultClubStyle } from '../game/clubStyle';
 import { DefenseShot } from './DefenseShot';
 import { BattleFieldReport } from './BattleFieldReport';
 import { buildingObscuresHero, visibleBattleEffects, moveBattleCursor, heroKeyForPresentation } from '../game/battleReadability';
@@ -1236,7 +1239,11 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
   };
 
   const teamStyle=useClubStyle(clubName??config.attackerName??'Home club');
-  const opponentStyle=defaultClubStyle(config.title);
+  const originalOpponent=defaultClubStyle(config.title);
+  const opponentStyle=originalOpponent.id===teamStyle.id?CLUB_STYLES[(CLUB_STYLES.indexOf(originalOpponent)+1)%CLUB_STYLES.length]:originalOpponent;
+  const attackKit=(isDefense||isReplay)?opponentStyle:teamStyle;
+  const guardKit=(isDefense||isReplay)?teamStyle:opponentStyle;
+  useEffect(()=>()=>clearTeamKitFrames(),[]);
   const modeLabel=config.practice?'Practice':config.gauntlet?'Gauntlet':config.campaignStage?'Season':config.pvpTarget?'Rival game':config.mode==='defense'?'Defense test':'Away game';
   const s = sim.current;
   // CAMERA DRIFT: focus on whoever is trading blows right now (fall back to the
@@ -1701,9 +1708,9 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
           {/* DEFENDERS chasing the attackers — crimson rivals when you raid, YOUR black/orange
               linebackers when it's your stadium being defended */}
           {s.guards.filter(g => !g.dead).map(g => {
-            const helm = isDefense ? '#111827' : '#1f2937';
-            const stripe = isDefense ? '#f97316' : '#b91c1c';
-            const jersey = isDefense ? '#1f2937' : '#b91c1c';
+            const helm = guardKit.primary;
+            const stripe = guardKit.secondary;
+            const jersey = guardKit.primary;
             const art = (g as BTroop & { guardArt?: string }).guardArt; // hero defenders carry their portrait
             const guardHeroKey = art?.match(/heroes\/(\w+)\.(?:webp|png)$/)?.[1];
             const isHeroGuard = !!guardHeroKey;
@@ -1713,7 +1720,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
             const frenzied = g.rageT > 0;
             const walking = phase === 'fighting' && !!g.moving;
             const attacking = phase === 'fighting' && !!g.attacking;
-            const gBaseFilter = isDefense ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5)) hue-rotate(140deg) saturate(1.3)';
+            const gBaseFilter = 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))';
             return (
               <div key={g.id} data-defending-hero={guardHeroKey} data-action-state={walking ? 'running' : attacking ? 'contact' : 'idle'} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
                 style={{ left: `${px(g.x, g.y)}%`, top: `${py(g.x, g.y)}%`, width: isMascotG ? '7%' : isHeroGuard ? '5.6%' : '4.4%', minWidth: 24, maxWidth: isMascotG ? 56 : isHeroGuard ? 48 : 38, ...(modernHeroGuard ? HERO_FIELD_SIZE : {}), zIndex: Math.round((g.x + g.y) / 2) + 1 /* unified iso depth: units occlude BEHIND buildings, not float over them */, transition: `left ${TICK_MS}ms linear, top ${TICK_MS}ms linear` }}>
@@ -1731,16 +1738,17 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
                     <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: jersey, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{g.jersey}</div>
                   </div>
                   )}
-                  <img src={art ?? unitPlayerSprite(g.unit)} alt="" draggable={false}
+                  <img src={assetUrl(art ?? unitPlayerSprite(g.unit))} alt="" draggable={false}
                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     onLoad={e => { const p = e.currentTarget.previousElementSibling as HTMLElement | null; if (p) p.style.display = 'none'; }}
                     className="fhq-flat absolute inset-0 w-full h-full object-contain"
                     style={{ transform: `translateZ(0)${((g as BTroop & { face?: number }).face ?? 1) < 0 ? ' scaleX(-1)' : ''}`, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
+                  {!isHeroGuard && !isMascotG && <KitLayer src={art ?? unitPlayerSprite(g.unit)} kit={guardKit} style={{transform:`translateZ(0)${(g.face??1)<0?' scaleX(-1)':''}`}} />}
                   {!isHeroGuard && !isMascotG && walking && (
-                    <SpriteFrames sources={WALK_FRAMES.map(fr => `${unitPlayerSprite(g.unit).replace('-player.webp', '')}-${fr}.webp`)} duration={g.strideSeconds}
+                    <SpriteFrames kit={guardKit} sources={WALK_FRAMES.map(fr => `${unitPlayerSprite(g.unit).replace('-player.webp', '')}-${fr}.webp`)} duration={g.strideSeconds}
                       style={{ transform: (g.face ?? 1) > 0 ? 'scaleX(-1)' : undefined, filter: frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter }} />
                   )}
-                  {guardHeroKey && <BattleHeroSprite heroKey={guardHeroKey} actor={g} fighting={phase === 'fighting'} simulationTime={BATTLE_SECONDS-s.time}
+                  {guardHeroKey && <BattleHeroSprite kit={guardKit} heroKey={guardHeroKey} actor={g} fighting={phase === 'fighting'} simulationTime={BATTLE_SECONDS-s.time}
                     filter={frenzied ? `${gBaseFilter} drop-shadow(0 0 6px #ef4444)` : gBaseFilter} />}
                   {!isHeroGuard && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white font-black leading-none px-1 rounded" style={{ fontSize: '1.2vmin', background: 'rgba(0,0,0,0.55)' }}>{g.jersey}</span>}
                 </div>
@@ -1799,7 +1807,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
                       <span style={{ fontSize: '2.3vmin', lineHeight: 1 }}>{heroDef.emoji}</span>
                     </div>
                     <img src={heroDef.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ filter: hf ? `${glow} brightness(1.8)` : glow, transform: `translateZ(0)${flip}` }} />
-                    <BattleHeroSprite heroKey={t.heroKey!} actor={t} fighting={phase === 'fighting'} simulationTime={BATTLE_SECONDS-s.time}
+                    <BattleHeroSprite kit={attackKit} heroKey={t.heroKey!} actor={t} fighting={phase === 'fighting'} simulationTime={BATTLE_SECONDS-s.time}
                       filter={hf ? `${glow} brightness(1.8)` : glow} />
                     {/* Modern hero names live in the command tray and camera selector, not over the action. */}
                     {(!modernCombat) && <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-black uppercase text-yellow-200 px-1 rounded pointer-events-none" style={{ bottom: modernCombat ? '-18%' : '-14%', fontSize: modernCombat ? 10 : '0.95vmin', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(253,224,71,0.35)', animation: modernCombat ? undefined : 'fhq-tagfade 6s ease-out forwards' }}>{heroDef.name}</span>}
@@ -1814,16 +1822,17 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
                         <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '18%', width: '70%', height: '14%', background: '#f97316', borderRadius: 2 }} />
                       </div>
                       {/* numbered jersey (position color) */}
-                      <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: st.color, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{t.jersey}</div>
+                      <div className="flex items-center justify-center font-black text-white leading-none" style={{ width: '80%', height: '56%', borderRadius: '6px 6px 9px 9px', background: attackKit.primary, border: '1.5px solid rgba(0,0,0,0.5)', fontSize: '1.35vmin', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{t.jersey}</div>
                     </div>
-                    <img src={unitPlayerSprite(t.unit)} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ transform: `translateZ(0)${flip}` }} />
+                    <img src={assetUrl(unitPlayerSprite(t.unit))} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} onLoad={hidePrev} className="fhq-flat absolute inset-0 w-full h-full object-contain" style={{ transform: `translateZ(0)${flip}` }} />
+                    <KitLayer src={unitPlayerSprite(t.unit)} kit={attackKit} style={{transform:`translateZ(0)${flip}`}} />
                     {walking && (() => {
                       const base = unitPlayerSprite(t.unit).replace('-player.webp', '');
                       const uFlip = face > 0 ? ' scaleX(-1)' : '';
 
-                      return <SpriteFrames sources={WALK_FRAMES.map(fr => `${base}-${fr}.webp`)} duration={t.strideSeconds} style={{ transform: `translateZ(0)${uFlip}` }} />; })()}
+                      return <SpriteFrames kit={attackKit} sources={WALK_FRAMES.map(fr => `${base}-${fr}.webp`)} duration={t.strideSeconds} style={{ transform: `translateZ(0)${uFlip}` }} />; })()}
                     {/* jersey number rides the real sprite — the announcer talks about #23, so show #23 */}
-                    <span className="absolute flex items-center justify-center font-black text-white" style={{ right: '-4%', bottom: '-2%', minWidth: '38%', height: '32%', borderRadius: 4, background: st.color, border: '1px solid rgba(0,0,0,0.55)', fontSize: '1.15vmin', boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t.jersey}</span>
+                    <span className="absolute flex items-center justify-center font-black text-white" style={{ right: '-4%', bottom: '-2%', minWidth: '38%', height: '32%', borderRadius: 4, background: attackKit.primary, border: `1px solid ${attackKit.secondary}`, fontSize: '1.15vmin', boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t.jersey}</span>
                   </div>
                 )}
               </div>

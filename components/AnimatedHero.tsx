@@ -1,3 +1,5 @@
+import { teamKitFrame, type TeamKit } from '../game/teamKit';
+import { useTeamKit } from './TeamKit';
 import { subscribeHeroAnimation } from './heroAnimationClock';
 import { heroMotionColumns } from '../game/heroMotion';
 import { HERO_MOVEMENT_STYLE, heroLocomotionPose } from '../game/heroMovementStyle';
@@ -17,9 +19,11 @@ import { campusFrameMap } from '../game/heroCampusSheet';
 export type HeroArtTier = 'campus' | 'battle';
 type Sheet = { frames: HTMLCanvasElement[]; campus?: HTMLCanvasElement[] };
 
-export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame, clockSeconds }: {
-  clockSeconds?: number; tier?: HeroArtTier; motionFrame?: number; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
+export function AnimatedHero({ kit: suppliedKit, tier = 'campus', heroKey, mode = 'idle', facing = -1, cycle = 0.48, label = '', className = '', elapsedSeconds, elapsedRef, filter, signatureFrame, playbackKey = 0, contactSeconds, driving = false, loadSignatureArt = false, playbackRate = 1, onSignatureComplete, motionFrame, clockSeconds }: {
+  kit?: TeamKit; clockSeconds?: number; tier?: HeroArtTier; motionFrame?: number; heroKey: string; mode?: HeroAnimation; facing?: number; cycle?: number; label?: string; className?: string; elapsedSeconds?: number; elapsedRef?: React.RefObject<number>; filter?: string; signatureFrame?: number; playbackKey?: number; contactSeconds?: number; driving?: boolean; loadSignatureArt?: boolean; playbackRate?: number; onSignatureComplete?: () => void;
 }) {
+  const inheritedKit=useTeamKit();
+  const kit=suppliedKit??inheritedKit;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderNowRef = useRef<(() => void) | null>(null);
   const playback = useRef({ clockSeconds, motionFrame, facing, mode, cycle, elapsedSeconds, elapsedRef, signatureFrame, playbackKey, contactSeconds, driving, playbackRate, onSignatureComplete });
@@ -117,7 +121,8 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
           ctx.translate(192, 370);
           ctx.transform(1, 0, lean, scaleY, 0, 0);
           ctx.translate(-192, -370);
-          ctx.drawImage(signatureCanvas ?? motionCanvas ?? idleCanvas ?? sheet.frames[baseFrame], 0, 0, 384, 384);
+          const source=signatureCanvas ?? motionCanvas ?? idleCanvas ?? sheet.frames[baseFrame];
+          ctx.drawImage(kit?teamKitFrame(source,kit):source, 0, 0, 384, 384);
           if (pose) paintHeroSignatureCue(ctx, pose);
           ctx.restore();
           canvas.dataset.frame = String(frame);
@@ -132,8 +137,8 @@ export function AnimatedHero({ tier = 'campus', heroKey, mode = 'idle', facing =
       unsubscribe = subscribeHeroAnimation(draw);
     }).catch(() => { if (!disposed) setReady(false); });
     return () => { disposed = true; signal.disposed = true; for (const release of releases) release(); unsubscribe(); observer.disconnect(); media.removeEventListener('change',requestBattleArt); renderNowRef.current = null; };
-  }, [heroKey, loadSignatureArt, tier]);
+  }, [heroKey, loadSignatureArt, tier, kit]);
   return <canvas ref={canvasRef} width={384} height={384} role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true}
-    data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
+    data-team-kit={kit?.id} data-ready={ready ? '1' : '0'} className={`fhq-modern-hero absolute inset-0 w-full h-full object-contain pointer-events-none ${className}`}
     style={{ filter, opacity: ready ? 1 : 0, transformOrigin: '50% 96%', animation: mode === 'idle' ? `fhq-modern-breathe ${HERO_MOVEMENT_STYLE[heroKey]?.breath ?? 2.8}s ease-in-out infinite` : mode === 'celebrate' ? 'fhq-hero-victory 1.2s ease-in-out infinite' : undefined }} />;
 }
