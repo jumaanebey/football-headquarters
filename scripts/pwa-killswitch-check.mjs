@@ -10,7 +10,8 @@ import { chromium } from 'playwright';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:4191/';
-if (/vercel\.app|football-headquarters\.(app|com)/.test(base)) { console.error('refusing to run the kill-switch against a deployed host'); process.exit(1); }
+const parsedBase=new URL(base);
+if(parsedBase.protocol!=='http:'||!['localhost','127.0.0.1','[::1]'].includes(parsedBase.hostname)) throw Error('local HTTP preview required');
 const swPath = 'dist/sw.js';
 const original = await readFile(swPath, 'utf8');
 const killswitch = await readFile('pwa/sw-killswitch.js', 'utf8');
@@ -62,7 +63,7 @@ try {
   line(!after.some(n => n.startsWith('fhq-')), `all fhq-* caches deleted (remaining: ${after.join(', ') || 'none'})`);
   line(after.includes(OTHER_CACHE) && await page.evaluate(async o => !!(await (await caches.open(o)).match('/not-ours.json')), OTHER_CACHE), 'a cache that is not ours was left alone');
   line(await registrations() === 0 && await page.evaluate(() => navigator.serviceWorker.controller === null), 'worker unregistered; the page has no controller');
-  line(navigations.length >= 1, `the open page was re-navigated by the kill switch (${navigations.length} navigation(s))`);
+  line(navigations.length === 1, `the open page was re-navigated by the kill switch (${navigations.length} navigation(s))`);
   line(await alive(), 'the page works from the network without a worker');
   line(await page.evaluate(k => localStorage.getItem(k), MARKER_KEY) === MARKER && /Killswitch FC/.test(await page.evaluate(() => localStorage.getItem('fhq_save_v1') ?? '')), 'localStorage club data and the marker survived');
   await page.evaluate(async () => { await fetch('/functions/v1/club-authority', { method: 'POST', body: '{}' }); await fetch('/rest/v1/fhq_events?select=2'); });

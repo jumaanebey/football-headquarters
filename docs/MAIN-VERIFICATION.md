@@ -34,7 +34,7 @@ The fixture is served only by the dev server, exposes a read-only snapshot plus 
 
 No two "after" sequences are identical. The Franchise shows zero difference **by construction**: the flattened baseline uses its own values, so it is the control, not a failure. Strips per hero: `docs/evidence/motion/*.webp`.
 
-**Kill switch — verified good.** 13/13 on a built preview: every `fhq-*` cache deleted, worker unregistered, the open page re-navigated (1 navigation, no loop), club data and a foreign cache untouched, club-server/auth never cached by either worker, and the normal worker re-registers and controls afterwards.
+**Kill switch — historical report, not reproduced on the original main worker.** Claude reported 13/13 on a built preview: every `fhq-*` cache deleted, worker unregistered, the open page re-navigated (1 navigation, no loop), club data and a foreign cache untouched, club-server/auth never cached by either worker, and the normal worker re-registers and controls afterwards.
 
 **Journey and lifecycle — verified good.** Three complete rounds on a built preview (430×932 at 2×, service worker blocked so bytes are real, club server blocked at the network layer so no account or event is created):
 
@@ -51,3 +51,12 @@ All ten journey assertions pass, including four different heroes drawn on the fi
 ## Not verified here
 
 Live settlement against the deployed authority, physical-device install acceptance, and a real-data funnel run (no service-role key in this environment). No deployment was made and no server or authority artifact was touched.
+
+
+## Codex reconciliation after PR #58
+
+The source at main `cbed256` did not contain Package D commit `278dc3c`'s claim-before-navigation or loop guard. The 13/13 browser report above therefore cannot establish that the original main rollback worker passed. This reconciliation imports that additive lifecycle correction, preserving the current narrow app-cache ownership (shell/art plus the older metadata cache), and verifies ordering, repeat activation and closed-window recovery with the real worker source in a VM. A fresh native-browser rehearsal remains outstanding; historical results are not relabeled as a new run.
+
+The two-version script is adapted to current main: lazy chunks belong to shell precache, current applyUpdate returns a boolean, the worker has no GET_VERSION message, and two prior versions remain after all tabs reload. Browser execution is still required before calling the adapted test a pass.
+
+Motion and journey numbers above remain attributed to `44f3519`; PR #58's UI changes are not included in those measurements. The stale integration branch's 619-test / transfer report likewise remains historical evidence for its own tree.
