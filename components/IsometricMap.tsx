@@ -1,3 +1,5 @@
+import { campusSilhouette } from '../game/campusSilhouette';
+import { CAMPUS_ANCHORS, CAMPUS_FIELD, ARRIVAL, campusBuildingWidth, campusDisplayBuildings, campusFieldClear } from '../game/campusPresentation';
 import { Sheet } from './ui';
 import { frameCampus } from '../game/campusFraming';
 import { BuildingArt, isStarterFacility } from './BuildingArt';
@@ -10,16 +12,13 @@ import { SpriteFrames, WALK_FRAMES } from './SpriteFrames';
 
 import React, { useState, useEffect } from 'react';
 import { BuildingInstance, BuildingType, DrillState, Player, PlayerState, BonusOrb, UnitGroup, RecruitSlot, UpgradeJob } from '../types';
-import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, HOME_DISPLAY_ANCHORS as SAVED_HOME_ANCHORS, GROWTH_TIERS } from '../constants';
+import { BUILDING_INFO, VOXEL_CONFIG, COLLECTOR_CONFIG, collectorCap, DECOR, GROWTH_TIERS } from '../constants';
 import { buildingSprite, unitPlayerSprite } from '../assets';
 import { sfx } from '../sound';
 import { Check, Star, Dumbbell, Search, Coins, Hammer, Plus, Minus, Focus } from 'lucide-react';
 
-// ─── BUILD VIEW ────────────────────────────────────────────────────────────────
-// The home board is pure management: facilities, decor, and your players. The
-// defensive layer (walls, emplacements, bus, parking apron) renders ONLY in the
-// defense view (BattleScreen) — see FIXED-BASE-PLAN.md. Positions are fixed
-// geometry (fixedBase.ts): there is no placement, painting, or dragging here.
+// The default management overview uses spaced display anchors. Saved arrangements
+// remain selectable under View; combat and authority retain their original coordinates.
 
 interface Props {
   customLayout?: boolean;
@@ -60,12 +59,7 @@ const BOARD_H = 820;                  // full board canvas (fits content + headr
 
 const fmtSecs = (s: number) => { const n = Math.max(0, Math.ceil(s)); return n < 60 ? `${n}s` : `${Math.floor(n / 60)}:${(n % 60).toString().padStart(2, '0')}`; };
 
-const HOME_DISPLAY_ANCHORS = {
-  ...SAVED_HOME_ANCHORS,
-  [BuildingType.STADIUM]: { gridX: 0, gridY: 4 },
-  [BuildingType.YOUTH_ACADEMY]: { gridX: 6, gridY: 0 },
-  [BuildingType.MEDICAL_CENTER]: { gridX: 2, gridY: 8 },
-};
+const HOME_DISPLAY_ANCHORS = CAMPUS_ANCHORS;
 
 const tileToScreen = (gx: number, gy: number) => ({
   x: (gx - gy) * (TILE_W / 2) + ORIGIN_X,
@@ -107,9 +101,9 @@ const GRID_ON = !!URL_PARAMS?.has('grid') || EDIT_ON;
 type GroundRect = { x1: number; y1: number; x2: number; y2: number };
 // The practice patch sits DEAD CENTER on the stadium's original home squares —
 // also the default camera's focus tile (Jumaane's size-swap layout).
-const FIELD_RECT: GroundRect = { x1: 3.0, y1: 2.9, x2: 6.8, y2: 7.1 };
-const ROAD_RECT: GroundRect = { x1: 9.9, y1: 7.0, x2: 16.5, y2: 8.3 };
-const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect }> = ({ buildings, field = FIELD_RECT, road = ROAD_RECT }) => {
+const FIELD_RECT: GroundRect = CAMPUS_FIELD;
+const ROAD_RECT: GroundRect = { x1: 13.1, y1: 9.3, x2: 24, y2: 11.3 };
+const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: GroundRect; road?: GroundRect; showField?: boolean; arrival?: boolean; panorama?: boolean }> = ({ buildings, showField = true, arrival = true, panorama = false, field = FIELD_RECT, road = ROAD_RECT }) => {
   const ring = [tileToScreen(field.x1 - .35, field.y1 - .35), tileToScreen(field.x2 + .35, field.y1 - .35), tileToScreen(field.x2 + .35, field.y2 + .35), tileToScreen(field.x1 - .35, field.y2 + .35)];
   const pathRing = ring.map(p => `${p.x},${p.y}`).join(' ');
 
@@ -135,24 +129,22 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
           </radialGradient>
         </defs>
         {/* the grounds BEYOND the campus — same iso plane, scaled up, vignetted out */}
-        <polygon points={OP} fill="url(#outerGround)" />
-        {/* ACCESS ROAD: asphalt across the SE rough — the parking lot fronts onto it */}
-        {(() => {
-          const a = tileToScreen(road.x1, road.y1), b = tileToScreen(road.x2, road.y1), c = tileToScreen(road.x2, road.y2), d = tileToScreen(road.x1, road.y2);
-          const my = (road.y1 + road.y2) / 2;
-          const m1 = tileToScreen(road.x1 + 0.3, my), m2 = tileToScreen(road.x2, my);
-          return (
-            <g>
-              <polygon points={`${a.x},${a.y} ${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`} fill="#20242b" opacity="0.9" />
-              <line x1={m1.x} y1={m1.y} x2={m2.x} y2={m2.y} stroke="#c9a13b" strokeWidth={1.6} strokeDasharray="10 12" opacity="0.7" />
-            </g>
-          );
-        })()}
+
+        {/* One arrival court with a single connected access drive. No crossing traffic. */}
+        {arrival && <g data-campus-arrival aria-label="Team arrival court">
+          <polygon points={[tileToScreen(ARRIVAL.x1,ARRIVAL.y1),tileToScreen(road.x2,ARRIVAL.y1),tileToScreen(road.x2,ARRIVAL.y2),tileToScreen(ARRIVAL.x1,ARRIVAL.y2)].map(p=>`${p.x},${p.y}`).join(' ')} fill="#313f40" stroke="#748276" strokeWidth="3" />
+          <polygon points={[tileToScreen(ARRIVAL.x1+.2,ARRIVAL.y1+.2),tileToScreen(ARRIVAL.x2-.2,ARRIVAL.y1+.2),tileToScreen(ARRIVAL.x2-.2,ARRIVAL.y2-.2),tileToScreen(ARRIVAL.x1+.2,ARRIVAL.y2-.2)].map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#c8c4a0" strokeWidth="2" />
+        </g>}
+        <g data-campus-walkways stroke="#9b997b" strokeWidth="9" strokeLinecap="round" opacity=".45">
+          {arrival && <line x1={tileToScreen(6.6,6.6).x} y1={tileToScreen(6.6,6.6).y} x2={tileToScreen(ARRIVAL.x1,ARRIVAL.y1).x} y2={tileToScreen(ARRIVAL.x1,ARRIVAL.y1).y} />}
+          {!panorama && buildings.map(b=>{const p=tileToScreen(b.gridX+.5,b.gridY+.5);const mid=tileToScreen(5.5,5.5);return <line key={b.id} x1={p.x} y1={p.y+22} x2={mid.x} y2={mid.y} />;})}
+          {panorama && <line x1={tileToScreen(-2,10).x} y1={tileToScreen(-2,10).y+40} x2={tileToScreen(9,-1).x} y2={tileToScreen(9,-1).y+40} />}
+        </g>
         {/* One grass plane beneath every facility: no brighter campus diamond
             cutting through their feet. Only the field's mowing stripes vary. */}
-        <polygon points={pathRing} fill="none" stroke="#a6926c" strokeWidth="15" strokeLinejoin="round" opacity=".4" />
-        <polygon points={pathRing} fill="none" stroke="#cec09b" strokeWidth="1" opacity=".25" />
-        <FieldPaint project={tileToScreen} x1={field.x1} y1={field.y1} x2={field.x2} y2={field.y2} lineWidth={1.25} />
+        {showField && <polygon points={pathRing} fill="none" stroke="#a6926c" strokeWidth="15" strokeLinejoin="round" opacity=".4" />}
+        {showField && <polygon points={pathRing} fill="none" stroke="#cec09b" strokeWidth="1" opacity=".25" />}
+        {showField && <FieldPaint project={tileToScreen} x1={field.x1} y1={field.y1} x2={field.x2} y2={field.y2} lineWidth={1.25} />}
       </svg>
       {/* Worn-turf pads under buildings REMOVED (Jumaane, July 11: the tan wear
           trailing off each building's base read as a bad "border"). Buildings
@@ -168,7 +160,7 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
 const GroundLayer = React.memo(GroundLayerInner, (prev, next) =>
   prev.buildings.length === next.buildings.length &&
   prev.buildings.every((b, i) => b.id === next.buildings[i].id && b.gridX === next.buildings[i].gridX && b.gridY === next.buildings[i].gridY) &&
-  prev.field === next.field && prev.road === next.road
+  prev.field === next.field && prev.road === next.road && prev.showField === next.showField && prev.arrival === next.arrival && prev.panorama === next.panorama
 );
 
 /** Board-space (unscaled) point -> nearest grid cell, inverting the iso projection. */
@@ -254,63 +246,14 @@ const DRILL_SQUAD: { slug: string; gx: number; gy: number; dgy: number; dur: num
   { slug: 'secondary', gx: 4.35, gy: 6.3, dgy: -2.5, dur: 11, delay: -1.6, rev: true },
 ];
 
-// 🏙 CAMPUS GROWTH STAGES (SimCity, Jumaane): the grounds URBANIZE as the fan base
-// grows — vendors appear first, a fan camp pitches beside the stadium, then a full
-// tailgate city with parked cars. Purely visual, driven by the live fan count;
-// each stage keeps everything from the stages before it. New clubs see an empty
-// campus — the city IS the reward for growing your fans. Thresholds + names come
-// from GROWTH_TIERS (shared with the Club Dashboard); placements live here.
-// Placement rules (learned the hard way, July 11): NOTHING near the parked bus
-// at (13,7) or the traffic lanes (rows 7.75-8.15, cols 10.7-15.8) — vehicles
-// bunch into a pile-up; keep clear of the Training island (10,10) whose art
-// reaches up-left; fans' CARS park inside the lot (z>19 to paint on its pad).
+// Fan milestones add small perimeter amenities; no vehicles enter the playing lawn.
 const GROWTH_PROPS: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[][] = [
-  [ // tier 1 — game-day vendors
-    { slug: 'food-truck',  gridX: 8, gridY: 12.5, scale: 1.0, flip: true }, // south lawn
-    { slug: 'merch-stand', gridX: 3, gridY: 9.7,  scale: 0.7 },             // walk-up stand on the south apron
-  ],
-  [ // tier 2 — fan camp
-    { slug: 'fan-tents',  gridX: 6, gridY: 9.9, scale: 1.15 },              // camp pitches on the apron
-    { slug: 'food-truck', gridX: 5, gridY: 12,  scale: 0.95, flip: true },
-  ],
-  [ // tier 3 — tailgate row
-    { slug: 'fan-tents',  gridX: 4.5,  gridY: 2,   scale: 1.2 },            // north campus, beside the patch
-    { slug: 'car-orange', gridX: 11.5, gridY: 3.5, scale: 0.55, flip: true, z: 20 }, // fans' cars fill YOUR lot
-    { slug: 'car-black',  gridX: 13.5, gridY: 3.5, scale: 0.57, flip: true, z: 20 },
-  ],
-  [ // tier 4 — tailgate city (wraps the stadium bowl)
-    { slug: 'tailgate-tent', gridX: 2.5, gridY: 3.5, scale: 0.8 },
-    { slug: 'fan-tents',     gridX: 1,   gridY: 13,  scale: 1.1 },
-    { slug: 'food-truck',    gridX: 0,   gridY: 5,   scale: 0.95 },
-    { slug: 'fan-tents',     gridX: 1.5, gridY: 6,   scale: 1.05 },
-  ],
+  [{slug:'merch-stand',gridX:1,gridY:8,scale:.5}],
+  [{slug:'fan-tents',gridX:8,gridY:1,scale:.6}],
+  [{slug:'tailgate-tent',gridX:3,gridY:11,scale:.6}],
+  [{slug:'food-truck',gridX:11,gridY:3,scale:.6}],
 ];
 const GROWTH_STAGES = GROWTH_TIERS.map((t, i) => ({ minFans: t.fans, name: t.name, props: GROWTH_PROPS[i] ?? [] }));
-
-// 🚗 SIMCITY TRAFFIC (Jumaane: "pull features from SimCity"): team-colored cars
-// roll the access road end to end, fading in at the campus gate and out at the
-// tree line. The car art faces lower-left like the bus, so scaleX(-1) noses them
-// down-right = the road's travel direction; the loop reads as departing traffic.
-// Route starts past the mowed apron (col 10.7) so cars never drive on grass.
-const TRAFFIC: { slug: string; gy: number; dur: number; delay: number; scale: number }[] = [
-  { slug: 'car-orange', gy: 7.75, dur: 13, delay: 0,    scale: 0.62 },
-  { slug: 'car-black',  gy: 8.12, dur: 16, delay: -8.5, scale: 0.66 },
-];
-const TrafficCar: React.FC<typeof TRAFFIC[number]> = ({ slug, gy, dur, delay, scale }) => {
-  const a = tileToScreen(10.7, gy), b = tileToScreen(15.8, gy);
-  const w = TILE_W * 1.35 * scale;
-  // z 22: in front of the parked bus/lot/floodlight it passes below, behind the
-  // south tree line — one static z can't be exact across the whole route, so ties
-  // break by DOM order (traffic renders after OUTER_DECOR).
-  return (
-    <div className="fhq-traffic absolute pointer-events-none"
-      style={{ left: a.x, top: a.y, zIndex: 22, '--dx': `${b.x - a.x}px`, '--dy': `${b.y - a.y}px`, animation: `fhq-drive ${dur}s linear ${delay}s infinite` } as React.CSSProperties}>
-      <img src={`/assets/decor/${slug}.webp`} alt="" draggable={false}
-        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-        style={{ position: 'absolute', width: w, maxWidth: 'none', height: 'auto', left: -w / 2, bottom: -TILE_H / 2, transform: 'scaleX(-1)', filter: 'drop-shadow(0 6px 5px rgba(0,0,0,0.35))' }} />
-    </div>
-  );
-};
 
 // 🟠 LIVE JUMBOTRON: the scoreboard prop promoted to a real scoreboard — the club's
 // trophies and fan count burn on its LED face (HTML overlay skewed to the panel).
@@ -393,37 +336,17 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
   );
 };
 
-// The grounds AROUND the campus: practice-field bleachers, the scoreboard over the
-// north-east rough, and the team bus at its parking pad. Pure set dressing — outside
-// the buildable grid, missing art self-hides (DecorSprite onError).
-// JUMAANE'S LAYOUT (July 11, 2026) — arranged by hand in the ?edit=1&bigstadium=1
-// editor on the live site and transplanted verbatim from its export. Grandstands
-// retired (the backdrop stadium IS the stands); goalposts flank the central patch.
-// Future layout rounds: edit → COPY LAYOUT CODE → paste → transplant.
+// Arrival bay and a restrained perimeter. Parked bus only; no animated traffic.
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
-  { slug: 'parking-lot', gridX: 14.5, gridY: 4.5, scale: 3.1 },
-  { slug: 'team-bus',    gridX: 14.5, gridY: 7, scale: 1.5 }, // parked at the road's east end — UNFLIPPED: the mirror was writing the APEX logo backwards (Jumaane); unmirrored it reads as pulling in toward the lot
-  { slug: 'goalpost', gridX: 5, gridY: 2.95, scale: 0.6 },
-  { slug: 'goalpost', gridX: 5, gridY: 7,    scale: 0.6 },
-  { slug: 'floodlight', gridX: -6,   gridY: 2,    scale: 2.1 },
-  { slug: 'floodlight', gridX: -5,   gridY: 8.5,  scale: 2.1 },
-  { slug: 'floodlight', gridX: -0.7, gridY: 2.1,  scale: 2.1 },
-  { slug: 'floodlight', gridX: -0.9, gridY: 11.2, scale: 2.1 },
-  { slug: 'tree-cluster', gridX: -4.5, gridY: -0.5, scale: 1.4 },
-  { slug: 'tree-cluster', gridX: 13.5, gridY: 12,   scale: 1.35 },
-  { slug: 'tree-cluster', gridX: -6.5, gridY: 0,    scale: 1.25 },
-  { slug: 'tree-cluster', gridX: 7.5,  gridY: -2.5, scale: 1.2 },
-  { slug: 'tree-cluster', gridX: 9,    gridY: 15,   scale: 1.35 },
-  { slug: 'tree-cluster', gridX: 13.3, gridY: -1,   scale: 1.15 },
-  { slug: 'tree-cluster', gridX: 15,   gridY: 11,   scale: 1.5 },
-  { slug: 'tree-cluster', gridX: 11,   gridY: 13.5, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: 6.5,  gridY: 15,   scale: 1.5 },
-  { slug: 'tree-cluster', gridX: 3,    gridY: 11.8, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: -1.5, gridY: 12.5, scale: 1.4 },
-  { slug: 'tree-cluster', gridX: -4,   gridY: 12.5, scale: 1.25 },
-  { slug: 'tree-cluster', gridX: -7,   gridY: 12,   scale: 1.4 },
-  { slug: 'tree-cluster', gridX: 10.4, gridY: -0.6, scale: 1.25 },
+  {slug:'team-bus',gridX:ARRIVAL.busX,gridY:ARRIVAL.busY,scale:.9},
+  {slug:'floodlight',gridX:-1,gridY:3,scale:.9},
+  {slug:'floodlight',gridX:3,gridY:-1,scale:.9},
+  {slug:'tree-cluster',gridX:-2,gridY:5,scale:.9},
+  {slug:'tree-cluster',gridX:5,gridY:-2,scale:.9},
+  {slug:'tree-cluster',gridX:5,gridY:12,scale:.85},
+  {slug:'tree-cluster',gridX:12,gridY:5,scale:.85},
 ];
+const CAMPUS_DECOR: typeof DECOR = [];
 
 // ─── 🛠 LAYOUT EDITOR (?edit=1) ────────────────────────────────────────────────
 // Every piece gets a drag handle that SNAPS to the tile grid; a panel exports the
@@ -538,12 +461,14 @@ const BuildingSprite: React.FC<{
   upgradeJob?: UpgradeJob;
   clickGuard?: React.MutableRefObject<boolean>;
   compactLayout?: boolean;
+  displayScale: number;
+  onGeometry: (id:string, rect:{left:number;right:number;top:number;bottom:number}) => void;
   onBuildingClick: Props['onBuildingClick'];
   onCollect: Props['onCollect'];
   onCollectResource?: Props['onCollectResource'];
   selected?: boolean;
   celebrating?: boolean;
-}> = ({ compactLayout = false, building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
+}> = ({ onGeometry, displayScale, compactLayout = false, building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
   const c = tileToScreen(building.gridX + 0.5, building.gridY + 0.5); // 2×2 footprint center
   const info = BUILDING_INFO[building.type];
   const starter = isStarterFacility(building.type, building.level);
@@ -585,7 +510,31 @@ const BuildingSprite: React.FC<{
   // Proportion pass: art renders ~15% past the 2×2 footprint (Jumaane: buildings read
   // small vs field/lot). The STADIUM is the landmark at 4.2t — "this game deserves
   // the actual stadium to be that large". Footprints unchanged.
-  const SPRITE_W = TILE_W * (building.type === BuildingType.STADIUM && !compactLayout ? 3.2 : 2.3);
+  const SPRITE_W = campusBuildingWidth(building.type, compactLayout);
+  const [paintTop,setPaintTop]=useState(-SPRITE_W*.8);
+  const artButton = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(()=>{
+    const button=artButton.current;if(!button)return;
+    let measured: HTMLCanvasElement | null = null;
+    const measure=()=>{
+      const canvas=button.querySelector<HTMLCanvasElement>('canvas[data-ready="1"]');
+      if(!canvas||canvas===measured)return;
+      button.dataset.hitMeasure='measuring';
+      try{
+        const ctx=canvas.getContext('2d');if(!ctx)return;
+        const shape=campusSilhouette(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);
+        if(!shape){button.dataset.hitMeasure='empty';return;}
+        button.style.clipPath=shape.clipPath;
+        setPaintTop(TILE_H/2-button.offsetHeight*(1-shape.top));
+        onGeometry(building.id,{left:SPRITE_W*(shape.left-.5),right:SPRITE_W*(shape.right-.5),top:TILE_H/2-button.offsetHeight*(1-shape.top),bottom:TILE_H/2-button.offsetHeight*(1-shape.bottom)});
+        measured=canvas;button.dataset.hitMeasure='ready';
+      }catch{button.dataset.hitMeasure='fallback';}
+    };
+    const observer=new MutationObserver(measure);
+    observer.observe(button,{subtree:true,childList:true,attributes:true,attributeFilter:['data-ready']});
+    measure();return()=>observer.disconnect();
+  },[building.id,building.type,building.level,SPRITE_W,onGeometry]);
+
 
   // 🌆 DUSK PASS: the backdrop is permanently stadium-night, so windows are ALWAYS lit —
   // warm glow blobs (screen-blended, slow breathe) at each art's window/light zones.
@@ -629,13 +578,14 @@ const BuildingSprite: React.FC<{
 
       {/* Idle "breathe" lives on a wrapper (base-anchored scaleY) so it can't fight the
           hover/active transforms on the img. Negative delay de-syncs neighbors. */}
-      <div className="absolute pointer-events-none" style={{
-        width: SPRITE_W, left: -SPRITE_W / 2, bottom: -TILE_H / 2, transformOrigin: '50% 100%',
+      <button ref={artButton} type="button" data-fhq-bldg aria-label={`${info.name}, level ${building.level}`} onClick={handleClick} className="absolute cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-400" style={{
+        pointerEvents: 'auto', clipPath: 'polygon(12% 4%, 88% 4%, 100% 78%, 88% 100%, 12% 100%, 0% 78%)',
+        width: SPRITE_W, height: SPRITE_W, left: -SPRITE_W / 2, bottom: -TILE_H / 2, transformOrigin: '50% 100%',
 
       }}>
         <BuildingArt type={building.type} level={building.level} label={info.name}
           className="select-none transition-[filter]"
-          style={{ width: '100%', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} />
+          style={{ width: '100%', height: '100%', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} />
         {/* Scouting HQ chimney smoke — three staggered puffs rising off the roofline */}
         {isAcademy && !starter && [0, 1, 2].map(i => (
           <img key={i} src="/assets/fx/smoke-puff.webp" alt="" draggable={false} className="absolute select-none" style={{
@@ -666,71 +616,16 @@ const BuildingSprite: React.FC<{
             opacity: 0, animation: `fhq-twinkle 1.8s ease-in-out ${i * 0.7}s infinite`,
           }} />
         ))}
-      </div>
-
-      {/* Tap hitbox — the building's BODY, aligned to the art's true base (the sprite
-          bottoms out at the footprint's low vertex, a full tile below center). */}
-      <button type="button" data-fhq-bldg aria-label={`${info.name}, level ${building.level}`} className="absolute cursor-pointer rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-400" onClick={handleClick}
-        style={{ left: -SPRITE_W * 0.31, bottom: -TILE_H, width: SPRITE_W * 0.62, height: SPRITE_W > TILE_W * 3 ? SPRITE_W * 0.8 : TILE_H * 2.3, pointerEvents: 'auto' }} />
-
-      {/* Drill status badge */}
-      {(isActive || isCompleted) && (
-        <div className="absolute -translate-x-1/2 cursor-pointer" onClick={e => { if (isCompleted) { e.stopPropagation(); onCollect(building, {x:e.clientX,y:e.clientY}); } else handleClick(e); }} style={{ left: 0, top: -58, zIndex: 60, pointerEvents: 'auto' }}>
-          {isCompleted ? (
-            <div data-tour="drill-done" className="flex flex-col items-center gap-0.5">
-              <div className="w-11 h-11 rounded-full bg-green-500 border-[3px] border-white flex items-center justify-center shadow-xl animate-bounce-sm">
-                <Check size={24} className="text-white" strokeWidth={3.5} />
-              </div>
-              <span className="text-[9px] font-bold uppercase bg-green-600 text-white px-1.5 py-0.5 rounded-full">Collect</span>
-            </div>
-          ) : (
-            <div className="w-11 h-11 rounded-full bg-black/70 border-2 border-slate-600 flex items-center justify-center relative">
-              <Dumbbell size={16} className="text-blue-300" />
-              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="16" fill="none" stroke="#1e293b" strokeWidth="3" />
-                <circle cx="18" cy="18" r="16" fill="none" stroke="#3b82f6" strokeWidth="3" strokeDasharray={`${progress * 100} 100`} pathLength={100} strokeLinecap="round" />
-              </svg>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Recruit status badge */}
-      {(recruitBusy || recruitReady) && (
-        <div className="absolute -translate-x-1/2 cursor-pointer" onClick={handleClick} style={{ left: 0, top: -58, zIndex: 60, pointerEvents: 'auto' }}>
-          {recruitReady ? (
-            <div className="flex flex-col items-center gap-0.5">
-              <div className="w-11 h-11 rounded-full bg-green-500 border-[3px] border-white flex items-center justify-center shadow-xl animate-bounce-sm">
-                <Check size={24} className="text-white" strokeWidth={3.5} />
-              </div>
-              <span className="text-[9px] font-bold uppercase bg-green-600 text-white px-1.5 py-0.5 rounded-full">Sign</span>
-            </div>
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center shadow-lg animate-pulse">
-              <Search size={17} className="text-white" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Under-construction badge */}
-      {upgradeJob && (
-        <div className="absolute -translate-x-1/2 flex flex-col items-center" style={{ left: 0, top: -60, zIndex: 62 }}>
-          <div className="w-10 h-10 rounded-full bg-amber-600 border-2 border-white flex items-center justify-center shadow-lg animate-pulse">
-            <Hammer size={17} className="text-white" />
-          </div>
-          <span className="text-[9px] font-bold bg-black/70 text-amber-200 px-1.5 py-0.5 rounded-full mt-0.5">{fmtSecs((upgradeJob.finishTime - Date.now()) / 1000)}</span>
-        </div>
-      )}
+      </button>
 
       {/* Coin indicator — shows the haul is ready; TAPPING THE BUILDING collects it
           (one tap target per building, no separate button to fight the sprite). */}
       {/* centering lives on an animation-free wrapper — bounce-sm's transform used to REPLACE the -translate-x-1/2 */}
       {showBubble && (
-        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; onCollectResource?.(building, {x:e.clientX,y:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto" style={{ left: 0, top: TILE_H - (SPRITE_W > TILE_W * 3 ? SPRITE_W * 0.8 : TILE_H * 2.3) - 65, zIndex: 44 }}>
-          <div className="flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border-[3px] border-white shadow-xl bg-amber-400 animate-bounce-sm">
-            <Coins size={18} className="text-yellow-900 fill-yellow-800" />
-            <span className="text-sm font-display font-bold text-yellow-950">{banked}</span>
+        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; onCollectResource?.(building, {x:e.clientX,y:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto" style={{ left: SPRITE_W*.22, top: paintTop+10, zIndex: 44, minHeight:44/displayScale }}>
+          <div className="flex items-center gap-1.5 rounded-full border-[3px] border-white shadow-xl bg-amber-400" style={{minHeight:44/displayScale,padding:`${4/displayScale}px ${8/displayScale}px`,gap:4/displayScale}}>
+            <Coins size={14/displayScale} className="text-yellow-900 fill-yellow-800" />
+            <span className="font-display font-bold text-yellow-950" style={{fontSize:12/displayScale}}>{banked}</span>
           </div>
         </button>
       )}
@@ -803,16 +698,23 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+  const [showSavedLayout,setShowSavedLayout]=useState(false);
+  const customLayout=hasCustomLayout && showSavedLayout;
+  const [artBounds,setArtBounds] = useState<Record<string,{left:number;right:number;top:number;bottom:number}>>({});
+  const recordGeometry=React.useCallback((id:string,rect:{left:number;right:number;top:number;bottom:number})=>setArtBounds(old=>JSON.stringify(old[id])===JSON.stringify(rect)?old:{...old,[id]:rect}),[]);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const campusRef = React.useRef<HTMLDivElement>(null);
   const viewport = useCampusViewport(campusRef);
-  const framing = frameCampus(buildings.map(b => {
-    const anchor = customLayout ? b : HOME_DISPLAY_ANCHORS[b.type] ?? b;
+  const landscape=viewport.height<500 && viewport.width>viewport.height;
+  const framing = frameCampus([...campusDisplayBuildings(buildings,customLayout,landscape).map(b => {
+    const anchor = b;
     const point = tileToScreen(anchor.gridX + .5, anchor.gridY + .5);
-    const width = TILE_W * (b.type === BuildingType.STADIUM && !customLayout ? 3.2 : 2.3);
-    return {left:point.x-width/2, right:point.x+width/2,top:point.y-width+TILE_H/2,bottom:point.y+80};
-  }),viewport.width,viewport.height);
+    const width = campusBuildingWidth(b.type, customLayout);
+    const art=artBounds[b.id];
+    return art ? {left:point.x+Math.min(art.left,-125),right:point.x+Math.max(art.right,125),top:point.y+art.top-35,bottom:point.y+art.bottom+95} : {left:point.x-width/2, right:point.x+width/2,top:point.y-width+TILE_H/2,bottom:point.y+80};
+  }),...(!customLayout && !landscape?[{left:tileToScreen(ARRIVAL.x1,ARRIVAL.y2).x,right:tileToScreen(ARRIVAL.x2,ARRIVAL.y1).x,top:tileToScreen(ARRIVAL.x1,ARRIVAL.y1).y-80,bottom:tileToScreen(ARRIVAL.x2,ARRIVAL.y2).y+25}]:[])],viewport.width,viewport.height,landscape?220:260);
   const scale = framing.scale;
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -868,6 +770,8 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
         cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2,
         camX: cam.x, camY: cam.y,
       };
+      panMovedRef.current = true;
+      for(const id of pointersRef.current.keys()) boardRef.current.setPointerCapture(id);
       panRef.current = null;
       return;
     }
@@ -892,12 +796,18 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
     if (panRef.current) {
       const p = panRef.current;
       if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 6) panMovedRef.current = true;
-      if (panMovedRef.current) setCam(c => camClamp({ z: c.z, x: p.camX + (e.clientX - p.sx), y: p.camY + (e.clientY - p.sy) }));
+      if (panMovedRef.current) {
+        if (!boardRef.current.hasPointerCapture(e.pointerId)) boardRef.current.setPointerCapture(e.pointerId);
+        setCam(c => camClamp({ z: c.z, x: p.camX + (e.clientX - p.sx), y: p.camY + (e.clientY - p.sy) }));
+      }
     }
   };
 
   const handlePointerUp = (e?: React.PointerEvent) => {
-    if (e) pointersRef.current.delete(e.pointerId);
+    if (e) {
+      pointersRef.current.delete(e.pointerId);
+      if(boardRef.current?.hasPointerCapture(e.pointerId)) boardRef.current.releasePointerCapture(e.pointerId);
+    }
     if (pointersRef.current.size < 2) pinchRef.current = null;
     panRef.current = null;
   };
@@ -911,13 +821,10 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
   useEffect(() => { if (edit) saveEditLayout(edit); }, [edit]);
 
   const outerList = edit ? edit.outer : OUTER_DECOR;
-  const campusList = edit ? edit.campus : DECOR;
+  const campusList = edit ? edit.campus : CAMPUS_DECOR;
   // Home-board display remap FIRST (Jumaane's layout — battle geometry unaffected),
   // then any live editor overrides on top of it.
-  const displayBuildings = buildings.map(b => {
-    const o = customLayout ? undefined : HOME_DISPLAY_ANCHORS[b.type];
-    return o ? { ...b, gridX: o.gridX, gridY: o.gridY } : b;
-  });
+  const displayBuildings = campusDisplayBuildings(buildings, customLayout, landscape);
   // The editor previews the ENDGAME look ("show it at full fan capacity"):
   // max-level building art + a packed jumbotron, whatever this save's progress —
   // layout decisions should be judged against the board players are building toward.
@@ -1096,7 +1003,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
   const activePlayers = players.filter(p => p.state !== PlayerState.IDLE);
 
   return (
-    <div ref={campusRef} className="absolute inset-0 overflow-hidden" style={{ background: 'radial-gradient(130% 95% at 50% 42%, #235235 0%, #163c27 45%, #102f20 75%, #0c241a 100%)' }}
+    <div ref={campusRef} data-campus-viewport className="absolute inset-0" style={{ overflow:'clip', background: 'radial-gradient(130% 95% at 50% 42%, #235235 0%, #163c27 45%, #102f20 75%, #0c241a 100%)' }}
       onClick={() => { if (panMovedRef.current) { panMovedRef.current = false; return; } onDeselect?.(); }}>{/* tap empty turf → CC bar closes */}
       {/* Backdrop is GROUNDS, not outer space — every pixel reads as dark grass under
           floodlit haze, so panning/zooming never exposes black void. (Starfield removed
@@ -1110,19 +1017,16 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
           flex: Safari START-aligns oversized flex children (Chrome centers them), which
           shoved the whole island off-screen on iPhones. translate(-50%,-50%) is identical
           in every browser. */}
-      <div className="absolute left-0 right-0 overflow-visible" style={{ top: viewport.height < 500 ? 90 : 138, bottom: 132 }}>
-        <div ref={boardRef} data-fhq-board onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onDoubleClick={resetCam}
+      <div className="absolute left-0 right-0 overflow-visible" style={{ top: landscape ? 104 : 138, bottom: landscape ? 124 : 132 }}>
+        <div ref={boardRef} data-fhq-board onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onClickCapture={e=>{if(e.detail!==0 && panMovedRef.current){e.preventDefault();e.stopPropagation();panMovedRef.current=false;}}} onDoubleClick={resetCam}
           className="absolute"
           style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x + (BOARD_W/2-framing.centerX)*scale*cam.z}px), calc(-50% + ${cam.y + (BOARD_H/2-framing.centerY)*scale*cam.z}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
-          <GroundLayer buildings={shownBuildings} field={edit?.field} road={edit?.road} />
+          <GroundLayer panorama={landscape} arrival={!customLayout && !landscape} showField={campusFieldClear(shownBuildings)} buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
-          <Jumbotron clubName={clubName} trophies={showTrophies} fans={showFans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} clickGuard={panMovedRef} />
-          {outerList.map((d, i) => (
+          {edit && <Jumbotron clubName={clubName} trophies={showTrophies} fans={showFans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} clickGuard={panMovedRef} />}
+          {!customLayout && !landscape && outerList.map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
-          ))}
-          {TRAFFIC.map((t, i) => (
-            <TrafficCar key={`tc${i}`} {...t} />
           ))}
           {/* 🏙 growth props render after OUTER_DECOR so depth ties break in their favor;
               the freshly-unlocked stage's props bounce in staggered during a stage-up.
@@ -1131,13 +1035,13 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
             ? edit.growth.map((d, i) => (
                 <DecorSprite key={`gre${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
               ))
-            : GROWTH_STAGES.filter(s => (growthFans ?? 0) >= s.minFans).map((s, si) =>
+            : GROWTH_STAGES.filter(s => !customLayout && !landscape && (growthFans ?? 0) >= s.minFans).map((s, si) =>
                 s.props.map((d, i) => (
                   <DecorSprite key={`gr${si}-${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z}
                     reveal={growthCeleb !== null && si === growthCeleb - 1 ? 0.5 + i * 0.35 : undefined} />
                 ))
               )}
-          {DRILL_SQUAD.map((r, i) => (
+          {edit && DRILL_SQUAD.map((r, i) => (
             <DrillRunner key={`dr${i}`} {...r} />
           ))}
           {GRID_ON && <GridOverlay />}
@@ -1145,7 +1049,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
             <DecorSprite key={`c${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} />
           ))}
           {sortedBuildings.map((b) => (
-            <BuildingSprite key={b.id} compactLayout={customLayout} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} selected={selectedId === b.id} celebrating={celebrationId === b.id} />
+            <BuildingSprite displayScale={scale*cam.z} onGeometry={recordGeometry} key={b.id} compactLayout={customLayout} building={b} recruitSlot={recruitSlot} upgradeJob={upgrades.find(u => u.kind === 'building' && u.key === b.id)} clickGuard={panMovedRef} onBuildingClick={onBuildingClick} onCollect={onCollect} onCollectResource={onCollectResource} selected={selectedId === b.id} celebrating={celebrationId === b.id} />
           ))}
           {/* ☁️ Cloud shade drifting over the campus — two lanes, same wind, shading
               everything under them (hidden entirely under prefers-reduced-motion). */}
@@ -1156,35 +1060,6 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
               its base — on the grass, never across the art. */}
           {/* 🎖 RANK SKIN — pennant flags in your TIER's color fly over the stadium;
               they recolor every time you climb the ladder (Sandlot grey → GOAT gold). */}
-          {rankColor && (() => {
-            const st = shownBuildings.find(b => b.type === BuildingType.STADIUM);
-            if (!st) return null;
-            const corners = [[0, 0], [2, 0], [0, 2], [2, 2]] as const;
-            return corners.map(([dx, dy], i) => {
-              const c = tileToScreen(st.gridX + dx, st.gridY + dy);
-              return (
-                <div key={`rf${i}`} className="absolute pointer-events-none" style={{ left: c.x - 1, top: c.y - 46, zIndex: st.gridX + st.gridY + 7 }}>
-                  <div style={{ width: 2, height: 34, background: '#cbd5e1', borderRadius: 1 }} />
-                  <div className="absolute" style={{ left: 2, top: 2, width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderLeft: `16px solid ${rankColor}`, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))', animation: `fhq-wave 1.6s ease-in-out ${i * 0.2}s infinite` }} />
-                </div>
-              );
-            });
-          })()}
-          {/* 📋 Scheme pennant — the one element that ALWAYS changes when you switch
-              formations (Cover 3 and Max Protect share anchors, so without this the
-              switch looked like a no-op on the home board). */}
-          {formationName && (() => {
-            const st = shownBuildings.find(b => b.type === BuildingType.STADIUM);
-            if (!st) return null;
-            const c = tileToScreen(st.gridX + 0.5, st.gridY + 0.5);
-            return (
-              <div className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x, top: c.y - TILE_H * 5.2, zIndex: 47 }}>{/* pennant rides on the bowl's visible face (its crown clips the frame) */}
-                <span className="text-[10px] font-display font-black uppercase tracking-wide text-sky-200 bg-sky-950/80 border border-sky-700/60 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-                  📋 {formationName}
-                </span>
-              </div>
-            );
-          })()}
           {sortedBuildings.map((b) => {
             const c = tileToScreen(b.gridX + 0.5, b.gridY + 0.5);
             // SIGNAGE PLATES (July 11, "we really need to fix the names"): the turf
@@ -1196,22 +1071,25 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
             // glassy, one line, level integrated.
             // The backdrop stadium's base vertex is Rehab's block — its sign shifts
             // onto the bowl's own right skirt so it can't read as Rehab's rooftop.
-            const nudge = b.type === BuildingType.STADIUM ? { dx: TILE_W * 0.55, dy: -TILE_H * 0.45 }
-              : b.type === BuildingType.TRAINING_PITCH ? { dx: TILE_W * 1.1, dy: -TILE_H * 1.3 } : { dx: 0, dy: 0 };
+            const nudge = {dx:0,dy:0};
+            const job=upgrades.find(u=>u.kind==='building' && u.key===b.id);
+            const status=job ? `Upgrading · ${fmtSecs((job.finishTime-Date.now())/1000)}` : b.state===DrillState.COMPLETED ? 'Training ready' : b.state===DrillState.ACTIVE ? `Training · ${fmtSecs(((b.finishTime??Date.now())-Date.now())/1000)}` : b.type===BuildingType.YOUTH_ACADEMY && recruitSlot ? (recruitSlot.finishTime<=Date.now() ? 'Recruit ready' : `Scouting · ${fmtSecs((recruitSlot.finishTime-Date.now())/1000)}`) : '';
+
             return (
-              <div key={`tag-${b.id}`} className="absolute -translate-x-1/2 pointer-events-none" style={{ left: c.x + nudge.dx, top: c.y + TILE_H / 2 + 5 + nudge.dy, zIndex: 46 }}>
+              <button type="button" data-campus-label aria-label={`Open ${BUILDING_INFO[b.type].name}`} onClick={e=>{e.stopPropagation();if(e.detail!==0 && panMovedRef.current){panMovedRef.current=false;return;}onBuildingClick(b,{x:e.clientX,y:e.clientY});}} key={`tag-${b.id}`} className="absolute -translate-x-1/2 cursor-pointer focus-visible:outline focus-visible:outline-orange-400" style={{ left: c.x + nudge.dx, top: c.y + ((artBounds[b.id]?.bottom ?? TILE_H/2)+6) + nudge.dy, display:'flex',flexDirection:'column',alignItems:'center', zIndex: 46, pointerEvents:'auto', minHeight:44/(scale*cam.z) }}>
                 <div className="flex items-baseline gap-1.5 px-2 py-[3px] rounded-[5px] whitespace-nowrap select-none"
                   style={{ background: 'rgba(5,10,18,0.72)', border: '1px solid rgba(249,115,22,0.4)', boxShadow: '0 1px 4px rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}>
-                  <span className="font-display font-bold uppercase" style={{ fontSize: Math.max(10.5, 10 / (scale * cam.z)), letterSpacing: 0, color: 'rgba(255,255,255,0.92)' }}>{BUILDING_INFO[b.type].name}</span>
-                  <span className="font-display font-black" style={{ fontSize: Math.max(10.5, 10 / (scale * cam.z)), color: '#fdba74' }}>{b.level}</span>
+                  <span className="font-display font-bold uppercase" style={{ fontSize: Math.max(12, 11 / (scale * cam.z)), letterSpacing: 0, color: 'rgba(255,255,255,0.92)' }}>{BUILDING_INFO[b.type].name}</span>
+                  <span className="font-display font-black" style={{ fontSize: Math.max(12, 11 / (scale * cam.z)), color: '#fdba74' }}>{b.level}</span>
                 </div>
-              </div>
+                {status && <span className="mt-1 whitespace-nowrap rounded bg-slate-950/90 px-2 text-amber-200" style={{fontSize:11/(scale*cam.z)}}>{status}</span>}
+              </button>
             );
           })}
-          {HERO_DEFS.filter(def => heroes.find(h => h.key === def.key)?.unlocked ?? !!def.starter).map(def => def.key).map((key, lane) => (
+          {!landscape && campusFieldClear(shownBuildings) && HERO_DEFS.filter(def => heroes.find(h => h.key === def.key)?.unlocked ?? !!def.starter).map(def => def.key).map((key, lane) => (
             <CampusHero key={key} heroKey={key} lane={lane} field={edit?.field ?? FIELD_RECT} project={tileToScreen} onSelect={() => onOpenHeroes?.(key)} />
           ))}
-          {activePlayers.map((p) => (
+          {edit && activePlayers.map((p) => (
             <PlayerMarker key={p.id} player={p} />
           ))}
           {bonusOrbs.map((orb) => (
@@ -1257,20 +1135,20 @@ export const IsometricMap: React.FC<Props> = ({ customLayout = false, onEditCamp
       <div className="absolute bottom-24 inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none">
       <div className="flex gap-2 pointer-events-auto">
         <button type="button" onClick={() => setDirectoryOpen(true)} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Facilities</button>
-        {onEditCampus && <button type="button" aria-label="Edit campus" onClick={onEditCampus} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Edit</button>}
+
       </div>
-      <div role="group" aria-label="Campus camera" className="pointer-events-auto ml-auto flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
-        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomCam(1 / 1.2)} disabled={cam.z <= .85}
+      <div className="pointer-events-auto ml-auto flex gap-2"><button type="button" aria-expanded={cameraOpen} aria-label="Campus view controls" onClick={()=>setCameraOpen(v=>!v)} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">View</button>{cameraOpen && <div className="absolute bottom-14 right-0 rounded-xl border border-slate-600 bg-slate-950 p-2 shadow-xl"><div role="group" aria-label="Campus camera" className="flex rounded-xl overflow-hidden border border-slate-700 bg-[#111827]/95 text-slate-200 shadow-xl">
+        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => {zoomCam(1 / 1.2);setCameraOpen(false);}} disabled={cam.z <= .85}
           className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Minus size={18} /></button>
-        <button type="button" aria-label="Recenter campus" title="Recenter campus" onClick={resetCam}
+        <button type="button" aria-label="Recenter campus" title="Recenter campus" onClick={()=>{resetCam();setCameraOpen(false);}}
           className="w-11 h-11 flex items-center justify-center border-x border-slate-700 hover:bg-slate-700 focus-visible:bg-slate-700"><Focus size={18} /></button>
-        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomCam(1.2)} disabled={cam.z >= 3}
+        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => {zoomCam(1.2);setCameraOpen(false);}} disabled={cam.z >= 3}
           className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 disabled:opacity-30 focus-visible:bg-slate-700"><Plus size={18} /></button>
-      </div>
+      </div>{hasCustomLayout && <button type="button" aria-pressed={showSavedLayout} onClick={()=>{setShowSavedLayout(v=>!v);resetCam();setCameraOpen(false);}} className="mt-2 min-h-11 w-full rounded-lg border border-slate-600 px-3 text-sm text-white">{showSavedLayout ? 'Campus overview' : 'View saved arrangement'}</button>}</div>}</div>
 
       </div>
 
-      {directoryOpen && <Sheet title="Campus facilities" subtitle="Open a department without moving the camera." onClose={() => setDirectoryOpen(false)} maxWidth="max-w-lg">
+      {directoryOpen && <Sheet title="Campus facilities" subtitle="Open a department or arrange your saved campus." footer={onEditCampus && <button onClick={()=>{setDirectoryOpen(false);setShowSavedLayout(true);onEditCampus();}} className="w-full rounded-xl bg-orange-500 p-3 font-bold text-white">Edit campus layout</button>} onClose={() => setDirectoryOpen(false)} maxWidth="max-w-lg">
         <div className="p-4 space-y-3">{buildings.map(b => {
           const job = upgrades.find(u => u.kind === 'building' && u.key === b.id);
           const status = job ? `Upgrading to level ${job.toLevel}` : b.state === DrillState.COMPLETED ? 'Training ready to collect' : b.state === DrillState.ACTIVE ? 'Training in progress' : b.type === BuildingType.STADIUM ? `${Math.floor(b.accrued ?? 0)} Coins stored` : b.type === BuildingType.YOUTH_ACADEMY && recruitSlot ? (recruitSlot.finishTime <= Date.now() ? 'Recruit ready to sign' : 'Scouting in progress') : BUILDING_INFO[b.type].description;

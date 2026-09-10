@@ -172,3 +172,9 @@ button { touch-action:manipulation; }
 @media (min-width:1400px) and (min-height:700px) {
  .fhq-command-open ~ .fhq-objectives { right:332px; }
 }
+
+/* The board owns the screen; objectives open as a dismissible sheet, never a pinned card. */
+.fhq-objectives { width:auto; max-width:154px; }
+@media(max-width:700px) { .fhq-objectives { max-width:146px; } }
+
+@media(orientation:landscape) and (max-height:500px) { .fhq-campus-actions { display:none; } }
