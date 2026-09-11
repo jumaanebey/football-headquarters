@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BuildingArt } from './BuildingArt';
 import { Sheet } from './ui';
 import { BuildingInstance, BuildingType, DrillState, GameState, ResourceType, UpgradeJob } from '../types';
@@ -26,7 +26,6 @@ interface Props {
 
 const fmt = (secs: number) => { const s=Math.max(0,Math.ceil(secs)); return s<60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`; };
 export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect, club, onDefense, blocked=false }) => {
-  const [era,setEra]=useState<number|null>(null);
   if(!building) return null;
   const info=BUILDING_INFO[building.type], level=building.level;
   const cost=Math.floor(UPGRADE_CONFIG.baseCost*Math.pow(UPGRADE_CONFIG.costMultiplier,level-1));
@@ -35,7 +34,6 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
   const gated=building.type!==BuildingType.STADIUM&&level>=stadiumLevel;
   const free=builders-upgrades.length, hire=builderHireCost(builders);
   const current=buildingEffect(building.type,level), next=buildingEffect(building.type,level+1);
-  const chosen=era??level+1, milestone=buildingMilestone(building.type,chosen);
   const roadmap=buildingRoadmap(building.type,level);
   const collect=building.state===DrillState.COMPLETED||(building.accrued??0)>=30;
   const status=building.type===BuildingType.STADIUM
@@ -49,15 +47,16 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
 
       <div className="fhq-facility-content">
         <section className="fhq-building-roadmap" aria-label="Building progression">
-          <div className="fhq-building-goal">
-            <div className="fhq-facility-art"><BuildingArt type={building.type} level={chosen} label={`${info.name} level ${chosen} preview`} className="w-full h-full" /></div>
-            <div><small>{chosen>level?'FUTURE UPGRADE':'YOUR PROGRESS'} · LEVEL {chosen}</small><h3>{milestone.name}</h3>
-              {milestone.benefits.map(text=><p key={text}>{text}</p>)}
-              <small>{milestone.newAppearance?'Building appearance unlocked here':`Appearance from level ${milestone.artLevel}`}</small>
-            </div>
-          </div>
-          <div className="fhq-building-levels" role="group" aria-label="Preview building levels">{roadmap.map(l=><button key={l} aria-label={`Preview level ${l}`} aria-pressed={chosen===l} onClick={()=>setEra(l)}><span>L{l}</span><small>{l<level?'✓':l===level?'Now':l===level+1?'Next':'Goal'}</small></button>)}</div>
-          <p className="fhq-building-goal-cost">{chosen>level?`L${chosen-1} → L${chosen}: ${milestone.cost.toLocaleString()} Coins · ${fmt(milestone.seconds)}${building.type!==BuildingType.STADIUM?` · Stadium L${chosen}`:''}`:chosen===level?'Your current building level':'Milestone completed'}{chosen>level+1?` · ${buildingGoalCost(building.type,level,chosen).toLocaleString()} Coins total from L${level}`:''}</p>
+          <h3 className="fhq-progression-heading">Your building’s future <span>{current.label} by level</span></h3>
+          <div className="fhq-building-gallery">{roadmap.map(l=>{const milestone=buildingMilestone(building.type,l);return <article key={l} className="fhq-building-card" data-current={l===level} data-next={l===level+1} aria-label={`Level ${l}: ${milestone.name}`}>
+            <header><strong>L{l}</strong><span>{l<level?'Reached':l===level?'Current':l===level+1?'Next':'Goal'}</span></header>
+            <div className="fhq-building-card-art"><BuildingArt type={building.type} level={l} label={`${info.name} level ${l}`} className="w-full h-full" /></div>
+            <h4>{milestone.name}</h4><p>{buildingEffect(building.type,l).value}</p>
+            {building.type===BuildingType.STADIUM&&<small>{collectorCap(building.type,l).toLocaleString()} Coins stored</small>}
+            {!milestone.newAppearance&&<small>Look from L{milestone.artLevel}</small>}
+            <small>{l>level?`${buildingGoalCost(building.type,level,l).toLocaleString()} total`:l===level?'You are here':'Completed'}</small>
+          </article>})}</div>
+          <p className="fhq-building-goal-cost">Coin totals from L{level}. Upgrade in order.{building.type!==BuildingType.STADIUM?' Each level requires the same Stadium level.':''}{building.type===BuildingType.MEDICAL_CENTER?' Recovery caps at L6 (15 Energy/min).':''}</p>
         </section>
         <div className="fhq-facility-detail">
           {blocked && <p role="status" className="text-blue-300">Confirming club change…</p>}
