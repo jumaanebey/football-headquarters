@@ -1,279 +1,53 @@
-import type { GameState } from '../types';
-import { prospectComparison } from '../game/progression/rosterCompare';
-import { BuildingArt } from './BuildingArt';
-
-import React, { useEffect, useRef, useState } from 'react';
-import { Player, ResourceType, BuildingInstance, RecruitSlot, BuildingType, UpgradeJob } from '../types';
-import { RARITY_CONFIG, UPGRADE_CONFIG, RECRUIT_CONFIG } from '../constants';
-import { rosterCap, rollBoard, candidateOvr, recruitCost, recruitSeconds } from '../recruiting';
-import { unitPlayerSprite, unitSprite, buildingSprite, BUILDING_ART_LEVELS, BUILDING_ERAS } from '../assets';
-import { Search, Coins, Crown, Zap, ArrowUpCircle, Users, Clock, CheckCircle2, RefreshCw, Dumbbell, Brain, Lock } from 'lucide-react';
-import { Sheet, HowTo } from './ui';
-
+import React,{useEffect,useRef,useState} from 'react';
+import {BuildingType,type GameState,type Player,type ResourceType,type BuildingInstance,type RecruitSlot,type UpgradeJob} from '../types';
+import {RECRUIT_CONFIG} from '../constants';
+import {rosterCap,rollBoard,candidateOvr,recruitCost,recruitSeconds} from '../recruiting';
+import {prospectComparison} from '../game/progression/rosterCompare';
+import {unitPlayerSprite} from '../assets';
+import {Sheet} from './ui';
+import {FacilityInterior} from './FacilityInterior';
+import {FacilityGoals,FacilityUpgrade,roomTime} from './FacilityUpgrade';
 interface Props {
-  club: GameState;
-  resources: Record<ResourceType, number>;
-  roster: Player[];
-  recruitSlot: RecruitSlot | null;
-  academy: BuildingInstance;
-  stadiumLevel: number;
-  upgradeJob?: UpgradeJob;
-  onRoster?: () => void;
-  blocked?: boolean;
-  onClose: () => void;
-  onStartRecruit: (candidate: Player, cost: number) => void;
-  onRush: () => void;
-  onSign: () => void;
-  onUpgrade: (buildingId: string, cost: number) => void;
-  /** Protected clubs: the server-issued prospect board (never rolled on the device). */
-  board?: Player[];
-  onRefreshBoard?: () => void;
+ club:GameState;resources:Record<ResourceType,number>;roster:Player[];recruitSlot:RecruitSlot|null;academy:BuildingInstance;stadiumLevel:number;upgradeJob?:UpgradeJob;
+ onRoster?:()=>void;blocked?:boolean;onClose:()=>void;onStartRecruit:(candidate:Player,cost:number)=>void;onRush:()=>void;onSign:()=>void;onUpgrade:(id:string,cost:number)=>void;
+ onFinishNow?:(id:string)=>void;onHireBuilder?:()=>void;board?:Player[];onRefreshBoard?:()=>void;
 }
-
-const fmt = (secs: number) => {
-  const s = Math.max(0, Math.ceil(secs));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${r.toString().padStart(2, '0')}`;
-};
-
-const RarityBadge: React.FC<{ rarity: Player['rarity'] }> = ({ rarity }) => (
-  <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white bg-gradient-to-r ${RARITY_CONFIG[rarity].color}`}>
-    {rarity}
-  </span>
-);
-
-const StatPip: React.FC<{ icon: React.ReactNode; value: number }> = ({ icon, value }) => (
-  <div className="flex items-center gap-1 text-slate-300">
-    {icon}<span className="font-mono text-xs">{value}</span>
+export const ScoutingModal:React.FC<Props>=({club,resources,roster,recruitSlot,academy,onClose,onStartRecruit,onRush,onSign,onUpgrade,onFinishNow,onHireBuilder,board:issuedBoard,onRefreshBoard,onRoster,blocked=false})=>{
+ const [localBoard,setLocalBoard]=useState<Player[]>(()=>issuedBoard?[]:rollBoard()),[selectedId,setSelectedId]=useState<string|null>(null);
+ const board=issuedBoard??localBoard,selected=recruitSlot?.candidate??board.find(p=>p.id===selectedId)??board[0];
+ const prevSlot=useRef(recruitSlot);
+ useEffect(()=>{if(prevSlot.current&&!recruitSlot&&!issuedBoard)setLocalBoard(rollBoard());prevSlot.current=recruitSlot},[recruitSlot,issuedBoard]);
+ const boardRequested=useRef(false);
+ useEffect(()=>{if(issuedBoard?.length)boardRequested.current=false;else if(issuedBoard&&!recruitSlot&&!blocked&&!boardRequested.current){boardRequested.current=true;onRefreshBoard?.()}},[issuedBoard,recruitSlot,blocked,onRefreshBoard]);
+ const cap=rosterCap(academy.level),full=roster.length>=cap,now=Date.now(),ready=!!recruitSlot&&now>=recruitSlot.finishTime;
+ const comparison=selected?prospectComparison({...club,recruitBoard:{candidates:[selected],generatedAt:now}},selected.id):null;
+ const best=comparison?.comparable;
+ return <Sheet title="Scouting Dept" subtitle={`Inside · Level ${academy.level} · Roster ${roster.length}/${cap} · ${resources.COINS.toLocaleString()} Coins`} onClose={onClose} maxWidth="max-w-6xl">
+  <div className="fhq-department fhq-scout-room">
+   <div className="fhq-department-scene"><FacilityInterior type={BuildingType.YOUTH_ACADEMY}>{selected&&<div className="fhq-room-prospect"><img src={unitPlayerSprite(selected.unit)} alt=""/><span>{selected.name}<small>{recruitSlot?(ready?'Ready to sign':'Scouting in progress'):'Prospect · not yet signed'}</small></span></div>}</FacilityInterior></div>
+   <div className="fhq-department-controls">
+    {blocked&&<p role="status">Confirming your club change…</p>}
+    <section className="fhq-room-activity">
+     {!recruitSlot&&<div className="fhq-scout-selector"><label>Prospect report<select aria-label="Prospect report" value={selected?.id??''} onChange={e=>setSelectedId(e.target.value)}>{board.map(p=><option key={p.id} value={p.id}>{p.name} · {p.role} · OVR {candidateOvr(p)} · {recruitCost(p)} Coins</option>)}</select></label><button disabled={blocked} onClick={()=>issuedBoard?onRefreshBoard?.():setLocalBoard(rollBoard())}>New prospects</button></div>}
+     {!selected&&<p role="status">No prospects loaded. Choose New prospects to try again.</p>}
+     {selected&&comparison&&<>
+      <header className="fhq-scout-name"><h3>{selected.name}</h3><span>{selected.role} · {selected.rarity} · OVR {candidateOvr(selected)}</span></header>
+      <div className="fhq-room-stats">{(['strength','speed','iq'] as const).map(stat=><div key={stat}><strong>{best&&<span>{best.stats[stat]} → </span>}{selected.stats[stat]}</strong><small>{stat==='iq'?'IQ':stat[0].toUpperCase()+stat.slice(1)}</small></div>)}</div>
+      <p>{best?`Compared with ${best.name} · ${comparison.ovr-best.ovr>0?'+':''}${comparison.ovr-best.ovr} OVR`:`Your first ${selected.role} player`} · {comparison.depth.atRole} currently at this position.</p>
+      <p className="fhq-scout-note">Signing adds a teammate. Workouts then grow their level and stats.</p>
+      {full&&<p role="status" className="fhq-room-warning">Roster full · upgrade this department or make room in your roster.</p>}
+      <div className="fhq-scout-decision">{recruitSlot?<div className="fhq-room-recruit-job">
+       <strong>{ready?'Report complete · ready to sign':`Scouting · ${roomTime((recruitSlot.finishTime-now)/1000)}`}</strong>
+       <progress aria-label="Scouting progress" max={1} value={Math.max(0,Math.min(1,1-(recruitSlot.finishTime-now)/1000/recruitSeconds(selected)))}/>
+       <button disabled={blocked|| (ready?full:resources.GEMS<RECRUIT_CONFIG.rushGemCost)} onClick={ready?onSign:onRush}>{ready?'Sign player':`Rush report · ${RECRUIT_CONFIG.rushGemCost} Crowns`}</button>
+      </div>:<button className="fhq-room-primary" disabled={blocked||!comparison.canScout} onClick={()=>onStartRecruit(selected,recruitCost(selected))}>{full?'Roster full':`Scout · ${recruitCost(selected).toLocaleString()} Coins · ${roomTime(recruitSeconds(selected))}`}</button>}<button className="fhq-room-roster" onClick={onRoster}>Roster · {roster.length}/{cap}</button></div>
+      {!recruitSlot&&!full&&resources.COINS<recruitCost(selected)&&<p role="status">Need {(recruitCost(selected)-resources.COINS).toLocaleString()} more Coins.</p>}
+     </>}
+     {!selected&&<button className="fhq-room-roster" onClick={onRoster}>Roster · {roster.length}/{cap}</button>}
+    </section>
+    <FacilityUpgrade club={club} building={academy} blocked={blocked} onUpgrade={onUpgrade} onFinishNow={onFinishNow} onHireBuilder={onHireBuilder}/>
+   </div>
+   <FacilityGoals building={academy}/>
   </div>
-);
-
-export const ScoutingModal: React.FC<Props> = ({ club, resources, roster, recruitSlot, academy, stadiumLevel, onClose, onStartRecruit, onRush, onSign, onUpgrade, board: issuedBoard, onRefreshBoard, upgradeJob, onRoster, blocked: operationPending = false }) => {
-  const [localBoard, setLocalBoard] = useState<Player[]>(() => issuedBoard ? [] : rollBoard());
-  const board = issuedBoard ?? localBoard;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = board.find(p => p.id === selectedId) ?? board[0];
-
-  // When a scouting job clears (signed), refresh the prospect board.
-  const prevSlot = useRef(recruitSlot);
-  useEffect(() => {
-    if (prevSlot.current && !recruitSlot && !issuedBoard) setLocalBoard(rollBoard());
-    prevSlot.current = recruitSlot;
-  }, [recruitSlot, issuedBoard, onRefreshBoard]);
-  const boardRequested = useRef(false);
-  useEffect(() => { if (issuedBoard?.length) boardRequested.current = false; else if (issuedBoard && !recruitSlot && !operationPending && !boardRequested.current) { boardRequested.current = true; onRefreshBoard?.(); } }, [issuedBoard, recruitSlot, onRefreshBoard, operationPending]);
-
-  const cap = rosterCap(academy.level);
-  const rosterFull = roster.length >= cap;
-  const now = Date.now();
-  const upgradeCost = Math.floor(UPGRADE_CONFIG.baseCost * Math.pow(UPGRADE_CONFIG.costMultiplier, academy.level - 1));
-  const upgradeGated = academy.level >= stadiumLevel; // capped at Stadium level
-
-  const slotReady = recruitSlot && now >= recruitSlot.finishTime;
-  const slotBusy = recruitSlot && now < recruitSlot.finishTime;
-
-  const renderCandidate = (c: Player) => {
-    const cost = recruitCost(c);
-    const secs = recruitSeconds(c);
-    const canAfford = resources.COINS >= cost;
-    const blocked = operationPending || rosterFull || !!recruitSlot;
-    const disabled = !canAfford || blocked;
-    const comparison = prospectComparison({...club, recruitBoard:{candidates:board, generatedAt:club.recruitBoard?.generatedAt ?? now}},c.id)!;
-    const best = comparison.comparable;
-
-    return (
-      <div key={c.id} className={`relative rounded-2xl border-2 ${RARITY_CONFIG[c.rarity].border} bg-slate-900/80 overflow-hidden flex flex-col`}>
-        <div className={`absolute inset-0 opacity-10 bg-gradient-to-b ${RARITY_CONFIG[c.rarity].color}`} />
-
-        {/* Portrait */}
-        <div className="relative h-28 flex items-end justify-center bg-gradient-to-b from-emerald-800/30 to-slate-900 overflow-hidden">
-          <img src={unitPlayerSprite(c.unit)} alt={c.role} draggable={false} className="h-[125%] max-w-none w-auto object-contain -mb-2 drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] select-none" />
-          <div className="absolute top-2 left-2"><RarityBadge rarity={c.rarity} /></div>
-          <div className="absolute top-2 right-2 bg-black/70 rounded-lg px-2 py-0.5 text-xs font-mono font-bold text-white">{c.role}</div>
-        </div>
-
-        <div className="relative p-3 flex flex-col gap-2 flex-1">
-          <div>
-            <div className="font-display font-bold text-white leading-tight">{c.name}</div>
-            <div className="text-[10px] text-slate-400 uppercase">OVR <span className="text-white font-bold">{candidateOvr(c)}</span></div>
-          </div>
-
-          <div className="flex items-center gap-3 border-y border-slate-800 py-1.5">
-            <span className="text-xs text-slate-300">Strength <strong>{c.stats.strength}</strong></span>
-            <span className="text-xs text-slate-300">Speed <strong>{c.stats.speed}</strong></span>
-            <span className="text-xs text-slate-300">IQ <strong>{c.stats.iq}</strong></span>
-          </div>
-
-          <div className="flex items-center justify-between text-[10px] text-slate-500">
-            <span className="flex items-center gap-1"><Clock size={10} /> {fmt(secs)}</span>
-          </div>
-
-          <div className="rounded-lg bg-slate-800 p-3 text-xs text-slate-300">
-            <p className="font-bold text-white">Your {c.role} depth: {comparison.depth.atRole} {comparison.depth.atRole === 1 ? 'player' : 'players'}</p>
-            {best ? <><p className="mt-1">Best current: {best.name} · OVR {best.ovr}</p>
-              <p className="mt-1">Prospect difference: {comparison.ovr - best.ovr > 0 ? '+' : ''}{comparison.ovr - best.ovr} OVR</p>
-              <p className="mt-1">Strength {best.stats.strength} → {c.stats.strength} · Speed {best.stats.speed} → {c.stats.speed} · IQ {best.stats.iq} → {c.stats.iq}</p></>
-              : <p className="mt-1">Your first player at this position.</p>}
-            {best?.tie && <p className="mt-2">{best.tiedIds.length} current players are tied at this OVR.</p>}
-            <p className="mt-2">Battle power: {Math.round(comparison.power)}{best ? ` · current ${Math.round(best.power)}` : ''}. Role, rarity, level and training all contribute.</p>
-            <p className="mt-2">Each collected group drill adds 1 level and +1 Strength, Speed and IQ after signing.</p>
-            <p className="mt-2 text-slate-400">Signing adds this player to your available squad; it does not replace anyone.</p>
-          </div>
-
-          <button
-            onClick={() => onStartRecruit(c, cost)}
-            disabled={disabled}
-            className={`mt-1 w-full py-3 rounded-xl font-bold text-base flex items-center justify-center gap-1.5 transition-all active:scale-95
-              ${disabled ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-400 text-black shadow-lg ring-2 ring-yellow-400/40'}`}
-          >
-            <Search size={16} /> {rosterFull?'Make room to scout':'Scout'}
-            <span className="flex items-center gap-0.5 text-sm bg-black/20 px-2 py-0.5 rounded"><Coins size={12} aria-hidden="true" /> {cost} Coins</span>
-          </button>
-          {!canAfford && !blocked && <div className="text-[9px] text-red-400 text-center">Not enough coins</div>}
-        </div>
-      </div>
-    );
-  };
-
-  const renderInProgress = () => {
-    if (!recruitSlot) return null;
-    const c = recruitSlot.candidate;
-    const remaining = (recruitSlot.finishTime - now) / 1000;
-    const total = recruitSeconds(c);
-    const pct = Math.max(0, Math.min(100, (1 - remaining / total) * 100));
-    const canRush = resources.GEMS >= RECRUIT_CONFIG.rushGemCost;
-
-    return (
-      <div className="flex flex-col items-center gap-5 py-4 animate-fade-in">
-        <div className={`relative w-44 h-44 rounded-2xl border-2 ${RARITY_CONFIG[c.rarity].border} overflow-hidden bg-gradient-to-b from-emerald-800/30 to-slate-900 flex items-end justify-center`}>
-          <img src={unitSprite(c.unit, slotReady ? 'idle' : 'training')} alt={c.role} draggable={false} className="h-[120%] max-w-none w-auto object-contain -mb-2 drop-shadow-[0_6px_8px_rgba(0,0,0,0.5)] select-none" />
-          <div className="absolute top-2 left-2"><RarityBadge rarity={c.rarity} /></div>
-        </div>
-
-        <div className="text-center">
-          <div className="text-2xl font-display font-bold text-white">{c.name}</div>
-          <div className="text-sm text-slate-400">{c.role} • OVR {candidateOvr(c)}</div>
-        </div>
-
-        {slotReady ? (
-          <button disabled={operationPending || rosterFull} onClick={onSign} className="w-full max-w-xs py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-xl uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl animate-bounce-sm">
-            <CheckCircle2 size={24} /> Sign Player
-          </button>
-        ) : (
-          <div className="w-full max-w-xs space-y-3">
-            <div className="flex items-center justify-between text-sm text-slate-300">
-              <span className="flex items-center gap-1"><Clock size={14} /> Scouting…</span>
-              <span className="font-mono font-bold text-white">{fmt(remaining)}</span>
-            </div>
-            <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-              <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300" style={{ width: `${pct}%` }} />
-            </div>
-            <button
-              onClick={onRush}
-              disabled={operationPending || !canRush}
-              className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95
-                ${canRush ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
-            >
-              <Crown size={16} className="fill-current" /> Rush ({RECRUIT_CONFIG.rushGemCost} Crowns)
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <Sheet
-      title="Scouting Dept"
-      icon={<Search className="text-sky-400" size={22} />}
-      subtitle={<span className="flex items-center gap-2"><Users size={13} /> Roster {roster.length} / {cap}<span className="text-slate-600">•</span> Facility Lv {academy.level}</span>}
-      onClose={onClose}
-      maxWidth="max-w-4xl"
-      footer={
-        <div className="flex items-center justify-between">
-          <div className="text-sm">
-            <div className="text-slate-300 font-bold">Expand Facility</div>
-            <div className="text-[12px] text-slate-500">Lv {academy.level} → {academy.level + 1} • roster cap {cap} → {cap + RECRUIT_CONFIG.capPerLevel}</div>
-          </div>
-          {upgradeJob ? <div className="text-sm text-amber-300">Building level {upgradeJob.toLevel} · {fmt((upgradeJob.finishTime - Date.now()) / 1000)} remaining</div> : upgradeGated ? (
-            <div className="py-2.5 px-4 rounded-xl font-bold text-[12px] flex items-center gap-2 bg-slate-800 text-slate-400 border border-slate-700">
-              <Lock size={14} className="text-slate-500" /> Requires Stadium Lv {academy.level + 1}
-            </div>
-          ) : (
-            <button
-              onClick={() => onUpgrade(academy.id, upgradeCost)}
-              disabled={operationPending || resources.COINS < upgradeCost}
-              className={`py-2.5 px-4 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95
-                ${resources.COINS >= upgradeCost ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
-            >
-              <ArrowUpCircle size={16} /> Upgrade
-              <span className="flex items-center gap-0.5 text-[12px] bg-black/20 px-1.5 py-0.5 rounded"><Coins size={11} /> {upgradeCost}</span>
-            </button>
-          )}
-        </div>
-      }
-    >
-        <div className="p-5">
-          {operationPending && <p role="status" className="mb-3 rounded-xl bg-blue-950 p-3 text-sm text-blue-200">Confirming your club change…</p>}
-          <div className="mb-4">
-            <HowTo defaultCollapsed id="scouting" lines={[
-              'Scout new players with Coins — rarer prospects cost more and take longer to sign.',
-              'One scouting job at a time; Rush it with Crowns if you can’t wait.',
-              'Roster cap grows with this facility’s level. Bigger roster = stronger raids AND defense.',
-            ]} />
-          </div>
-          {recruitSlot ? (
-            renderInProgress()
-          ) : (
-            <>
-              {rosterFull && <div className="mb-4 rounded-xl border border-amber-600/50 bg-amber-950/30 p-3 text-sm text-amber-100"><strong>Roster full · {roster.length}/{cap}</strong><p className="mt-1">Compare prospects below before making room. Upgrade Scouting or release a player to start a new report.</p><button onClick={onRoster} className="mt-2 min-h-11 rounded-lg bg-slate-800 px-3 font-bold text-white">Manage roster</button></div>}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-blue-300 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
-                  Choose a prospect to scout
-                </h3>
-                <button disabled={operationPending} onClick={() => (issuedBoard ? onRefreshBoard?.() : setLocalBoard(rollBoard()))} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors">
-                  <RefreshCw size={13} /> New Prospects
-                </button>
-              </div>
-              {board.length===0 && <p role="status" className="rounded-xl bg-slate-800 p-3 text-sm text-slate-300">No prospects loaded. Choose New Prospects to try again.</p>}
-              {selected && <label className="md:hidden block mb-4 text-sm text-slate-300">Prospect report<select aria-label="Prospect report" value={selected.id} onChange={e=>setSelectedId(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-800 p-3 text-base text-white">{board.map(p=><option key={p.id} value={p.id}>{p.name} · {p.role} · OVR {candidateOvr(p)} · {recruitCost(p)} Coins</option>)}</select></label>}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="hidden md:block space-y-2" aria-label="Available prospects">{board.map(p => <button key={p.id} onClick={() => setSelectedId(p.id)} aria-pressed={selected?.id === p.id} className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left ${selected?.id === p.id ? 'border-orange-400 bg-orange-500/10' : 'border-slate-700 bg-slate-800'}`}><img src={unitPlayerSprite(p.unit)} alt="" className="w-10 h-12 object-contain" /><span className="flex-1"><strong className="block text-white">{p.name}</strong><span className="text-sm text-slate-300">{p.role} · {p.rarity} · {recruitCost(p)} Coins</span></span><strong className="text-lg text-amber-300">{candidateOvr(p)}<small className="block text-xs text-slate-400">OVR</small></strong></button>)}</div>
-                {selected && <div aria-label="Selected prospect report">{renderCandidate(selected)}</div>}
-              </div>
-            </>
-          )}
-
-          <button onClick={onRoster} className="mt-4 min-h-11 w-full rounded-xl border border-slate-600 p-3 font-bold text-white">View roster · {roster.length}/{cap} players</button>
-          {/* 📸 THE DRAFT BOARD STORY — the department's era-by-era progression photos,
-              from an easel under a canopy to Draft Command. Current era highlighted. */}
-          {(() => {
-            const tiers = BUILDING_ART_LEVELS(BuildingType.YOUTH_ACADEMY);
-            const eras = BUILDING_ERAS[BuildingType.YOUTH_ACADEMY];
-            const wearing = [...tiers].filter(l => l <= academy.level).pop() ?? tiers[0];
-            return (
-              <div className="mt-6 pt-5 border-t border-slate-800">
-                <div className="text-[12px] uppercase tracking-widest text-slate-500 font-bold mb-3">The story of your Scouting Dept</div>
-                <div className="flex items-end justify-between gap-2">
-                  {tiers.map((lvl, ti) => {
-                    const reached = academy.level >= lvl;
-                    const current = wearing === lvl;
-                    return (
-                      <div key={lvl} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${reached ? '' : 'opacity-45'}`}>
-                        <BuildingArt type={BuildingType.YOUTH_ACADEMY} level={lvl} label={`Level ${lvl}`}
-                          className={`w-full h-auto rounded-xl ${current ? 'ring-2 ring-orange-500 bg-orange-500/10' : ''} ${reached ? '' : 'grayscale'}`} />
-                        <span className={`text-[10px] font-bold uppercase tracking-tight leading-none text-center ${current ? 'text-orange-300' : reached ? 'text-slate-300' : 'text-slate-600'}`}>{eras[ti]}</span>
-                        <span className={`text-[10px] font-mono leading-none ${current ? 'text-orange-400' : reached ? 'text-slate-400' : 'text-slate-600'}`}>L{lvl}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-    </Sheet>
-  );
+ </Sheet>;
 };
