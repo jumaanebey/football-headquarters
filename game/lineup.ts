@@ -101,9 +101,11 @@ const mean = (values: number[], fallback: number) => (values.length ? values.red
 
 /** How well a player suits a slot, for ordering candidates and for the deterministic migration. */
 export function slotFit(slot: LineupSlotDef, player: Player): number {
-  if (player.role === slot.preferredRole) return 3;
-  if (player.unit === slot.unit) return 2;
-  return slot.fallback.includes(player.unit) ? 1 : 0;
+  // The unit decides eligibility; the role only ranks within it. A corrupt player whose unit is
+  // neither the slot's nor a declared fallback is never eligible, whatever their role says.
+  const unitFit = player.unit === slot.unit ? 2 : slot.fallback.includes(player.unit) ? 1 : 0;
+  if (!unitFit) return 0;
+  return unitFit === 2 && player.role === slot.preferredRole ? 3 : unitFit;
 }
 export const isEligible = (slot: LineupSlotDef, player: Player): boolean => slotFit(slot, player) > 0;
 
