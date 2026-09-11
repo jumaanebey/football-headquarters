@@ -128,7 +128,7 @@ export const ScoutingModal: React.FC<Props> = ({ club, resources, roster, recrui
               ${disabled ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-400 text-black shadow-lg ring-2 ring-yellow-400/40'}`}
           >
             <Search size={16} /> {rosterFull?'Make room to scout':'Scout'}
-            <span className="flex items-center gap-0.5 text-sm bg-black/20 px-2 py-0.5 rounded"><Coins size={12} /> {cost}</span>
+            <span className="flex items-center gap-0.5 text-sm bg-black/20 px-2 py-0.5 rounded"><Coins size={12} aria-hidden="true" /> {cost} Coins</span>
           </button>
           {!canAfford && !blocked && <div className="text-[9px] text-red-400 text-center">Not enough coins</div>}
         </div>
