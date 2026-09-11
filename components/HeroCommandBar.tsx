@@ -19,9 +19,9 @@ export function HeroCommandBar({ heroes, troops, selected, onSelect, onAbility }
         className={`min-h-16 rounded-xl px-2 py-2 flex gap-2 items-center text-left border-2 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-white ${disabled ? 'bg-slate-900 border-slate-700 text-slate-400' : selected === hero.key || actor ? 'border-amber-400 bg-amber-950/40 text-white' : 'border-slate-600 bg-slate-800 text-white'}`}>
         <HeroArt heroKey={hero.key} art={hero.art} className="shrink-0 w-10 h-12" />
         <span className="min-w-0 leading-tight">
-          <span className="block text-xs font-bold">{hero.name}</span>
-          <span className="block text-xs mt-0.5" style={{ color: disabled ? '#cbd5e1' : '#fde68a' }}>{actor ? hero.abilityName : status}</span>
-          {actor && <span className="block text-xs mt-0.5 tabular-nums">{status}</span>}
+          <span className="block text-xs font-bold">{hero.name.replace(/^The /,'')}</span>
+          <span className="block text-xs mt-0.5" style={{ color: disabled ? '#cbd5e1' : '#fde68a' }}>{!actor ? (selected===hero.key?'Deploy selected':'Deploy') : actor.dead?'Out':cooldown>0?`${cooldown}s`:actor.activeAction?'Playing':hero.abilityName}</span>
+
         </span>
       </button>;
     })}

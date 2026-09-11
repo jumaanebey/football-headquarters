@@ -14,7 +14,7 @@ export function useReducedBattleMotion() {
 export function BattleCameraControls({ heroes, selected, reduced, onSelect }: {
   heroes: { id: string; name: string }[]; selected: string | null; reduced: boolean; onSelect: (id: string | null) => void;
 }) {
-  return <details aria-label="Battle camera" className="my-2 rounded-xl border border-slate-700 bg-slate-950/90 p-2 text-white">
+  return <details aria-label="Battle camera" className="fhq-camera-tools my-2 rounded-xl border border-slate-700 bg-slate-950/90 p-2 text-white">
     <summary className="min-h-11 cursor-pointer px-2 py-3 text-xs font-bold">Camera · {heroes.find(hero => hero.id === selected)?.name ?? 'Full field'}</summary>
     <div className="flex items-center gap-2">
     <button type="button" aria-pressed={!selected} onClick={() => onSelect(null)} className={`min-h-11 shrink-0 rounded-lg px-3 text-xs font-bold ${!selected ? 'bg-orange-500' : 'bg-slate-700'}`}>Full field</button>

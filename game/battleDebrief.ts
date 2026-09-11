@@ -45,3 +45,11 @@ export function resultPresentation(config: BattleConfig, result: BattleResult) {
     : result.campaignStage === 12 && viewerWon ? 'League champions!' : viewerWon ? 'Crowd silenced!' : 'Shut out';
   return { viewerWon, headline, eyebrow: replay ? 'Recorded drive' : config.practice ? 'Free hero practice' : viewerWon ? 'You won' : 'You lost' };
 }
+
+/** Advice uses observed outcomes; it does not claim a single cause for a loss. */
+export function nextBattleImprovement({ defense, won, countered, lost }: {defense:boolean;won:boolean;countered:boolean;lost:number}): {title:string;reason:string;destination:PostBattleDestination} {
+  if(defense)return {title:'Review your home defense',reason:'Compare surviving equipment and gate assignments with the damage shown here. Change one placement before the next test.',destination:'defense'};
+  if(countered)return {title:'Try a different game plan',reason:'The defending formation countered your selected plan. Compare the highlighted matchups before your next kickoff.',destination:'games'};
+  if(!won&&lost>0)return {title:'Prepare your heroes',reason:`${lost} players were subbed out. Compare hero training benefits and practice sending blockers ahead of your damage dealers.`,destination:'heroes'};
+  return won?{title:'Choose your next opponent',reason:'You earned a game ball. Scout the next layout and its equipment before committing Energy.',destination:'games'}:{title:'Revisit the opponent layout',reason:'A game ball requires 50% damage, the Stadium, or 99% damage. Try a different entry point and focus your opening squad.',destination:'games'};
+}
