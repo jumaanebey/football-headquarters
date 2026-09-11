@@ -36,13 +36,14 @@ export function CampusDepartment({club,building,blocked,onClose,onUpgrade,onColl
       <div className="fhq-department-controls">
         <FacilityUpgrade club={club} building={building} blocked={blocked} onUpgrade={onUpgrade} onFinishNow={onFinishNow} onHireBuilder={onHireBuilder}/>
         {blocked&&<p role="status">Confirming your club change…</p>}
+
+        {type===BuildingType.TACTICS_ROOM&&<><div className="fhq-play-choices" aria-label="Choose a football play">{(Object.keys(FOOTBALL_PLAYS) as FootballPlay[]).map(key=><button key={key} aria-pressed={play===key} disabled={activeFilm?.station==='film'} onClick={()=>setPlay(key)}>{FOOTBALL_PLAYS[key].name}</button>)}</div><DevelopmentPanel club={club} station="film" play={play} blocked={blocked||!onAction} onAction={a=>onAction?.(a)}/><FootballPlayView play={play} playing={playing}/></>}
+        {type===BuildingType.MEDICAL_CENTER&&<><div className="fhq-room-stats"><div><strong>{energy}/100</strong><small>Club Energy</small></div><div><strong>{(60000/interval).toFixed(1)}/min</strong><small>Passive recovery</small></div></div><DevelopmentPanel club={club} station="rehab" blocked={blocked||!onAction} onAction={a=>onAction?.(a)}/></>}
+        {type===BuildingType.STADIUM&&<StadiumFootball club={club} blocked={blocked||!onAction} onAction={a=>onAction?.(a)}/>}
         {type===BuildingType.STADIUM&&<section className="fhq-room-activity"><h3>{club.teamName} · home field</h3>
           <div className="fhq-room-stats"><div><strong>{stored.toLocaleString()}</strong><small>Coins ready / {cap.toLocaleString()}</small></div><div><strong>{Math.round(collectorRate(type,building.level)*60)}/min</strong><small>Gate income</small></div><div><strong>{club.resources.FANS}</strong><small>Home Fans</small></div></div>
           <div className="fhq-room-actions"><button disabled={blocked||stored<30} onClick={()=>onCollect?.(building)}>{stored<30?'Collect at 30 Coins':`Collect ${stored.toLocaleString()} Coins`}</button><button onClick={onProgram}>Your program</button></div>
         </section>}
-        {type===BuildingType.TACTICS_ROOM&&<><div className="fhq-play-choices" aria-label="Choose a football play">{(Object.keys(FOOTBALL_PLAYS) as FootballPlay[]).map(key=><button key={key} aria-pressed={play===key} disabled={activeFilm?.station==='film'} onClick={()=>setPlay(key)}>{FOOTBALL_PLAYS[key].name}</button>)}</div><DevelopmentPanel club={club} station="film" play={play} blocked={blocked||!onAction} onAction={a=>onAction?.(a)}/><FootballPlayView play={play} playing={playing}/></>}
-        {type===BuildingType.MEDICAL_CENTER&&<><div className="fhq-room-stats"><div><strong>{energy}/100</strong><small>Club Energy</small></div><div><strong>{(60000/interval).toFixed(1)}/min</strong><small>Passive recovery</small></div></div><DevelopmentPanel club={club} station="rehab" blocked={blocked||!onAction} onAction={a=>onAction?.(a)}/></>}
-        {type===BuildingType.STADIUM&&<StadiumFootball club={club} blocked={blocked||!onAction} onAction={a=>onAction?.(a)}/>}
         <nav className="fhq-player-room-nav"><button onClick={onPractice}>Practice Field</button><button onClick={onGameDay}>Base raids</button></nav>
       </div>
       <FacilityGoals building={building}/>
