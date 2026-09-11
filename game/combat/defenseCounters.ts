@@ -2,7 +2,8 @@ import { UnitGroup } from '../../types';
 import type { BTroop, BBuilding } from '../../battle';
 export const LEGACY_COMBAT_RULES = 'hero-actions-3';
 export const DEFENSE_COUNTER_RULES = 'defense-counters-4';
-export const supportsCombatRules = (v: unknown): v is string => v === LEGACY_COMBAT_RULES || v === DEFENSE_COUNTER_RULES;
+export const RAID_TACTICS_RULES = 'raid-tactics-5';
+export const supportsCombatRules = (v: unknown): v is string => v === LEGACY_COMBAT_RULES || v === DEFENSE_COUNTER_RULES || v === RAID_TACTICS_RULES;
 export type EquipmentFlavor = 'jugs'|'sled'|'ref'|'tshirt'|'cooler';
 export const EQUIPMENT_COUNTERS = {
   jugs: { name:'JUGS', cooldown:.55, windup:0, damage:1, radius:0, duration:0, counter:'Deploy blockers first. Nearby offensive linemen absorb pressure for vulnerable players.' },
@@ -11,6 +12,7 @@ export const EQUIPMENT_COUNTERS = {
   tshirt: { name:'T-Shirt Cannon', cooldown:1.15, windup:.3, damage:1.4, radius:7, duration:.9, counter:'Spread out. Damage and entanglement fall to 35% at the edge of the marked area.' },
   cooler: { name:'Water Station', cooldown:3.2, windup:.4, damage:0, radius:7, duration:3.5, counter:'Water controls turf without direct damage. RB, WR and CB retain 80% speed; other roles retain 60%.' },
 } as const;
+export const TACTICAL_WARNINGS = { jugs: .15, sled: .45, ref: .85, tshirt: .75, cooler: .65 } as const;
 export function counterRole(t: Pick<BTroop,'role'|'unit'|'heroKey'>): string {
   if(t.role) return t.role;
   const heroes:Record<string,string>={qb:'QB',enforcer:'OL',captain:'OL',burner:'WR',playmaker:'WR',kicker:'QB',coach:'S',medic:'S',legend:'LB'};

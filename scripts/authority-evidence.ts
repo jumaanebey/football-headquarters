@@ -36,15 +36,16 @@ const op = (a: Account, kind: string, fields: Record<string, unknown>, operation
 
 let gamesReserved=0;
 const playMatch = async (a: Account, choice: Record<string, unknown>, label: string) => {
-  const reserved = await call(a, op(a, 'match.reserve', { choice: gamesReserved++===0 ? choice : {...choice,rules:COMBAT_RULES_VERSION} }));
+  const reserved = await call(a, op(a, 'match.reserve', { choice: gamesReserved++===0 ? choice : {...choice,rules:gamesReserved===2?'defense-counters-4':COMBAT_RULES_VERSION} }));
   check(reserved.ok === true, `${a.name}: reserve ${label} (energy ${reserved.club?.state?.resources?.ENERGY})`);
   if (!reserved.ok) { log(`      ${reserved.code}: ${reserved.message}`); return null; }
   const matchId = reserved.result.matchId as string;
   const config = reserved.match.config as BattleConfig & { authority: { seed: number; rules: string } };
-  check(config.authority.rules === (gamesReserved===1?'hero-actions-3':COMBAT_RULES_VERSION), `${a.name}: negotiated ${config.authority.rules}`);
+  check(config.authority.rules === (gamesReserved===1?'hero-actions-3':gamesReserved===2?'defense-counters-4':COMBAT_RULES_VERSION), `${a.name}: negotiated ${config.authority.rules}`);
   const begun = await call(a, op(a, 'match.begin', { matchId }));
   check(begun.ok === true, `${a.name}: begin ${label}`);
-  const film = playHeadlessMatch(config, config.authority.seed);
+  const film = playHeadlessMatch(config, config.authority.seed, 'balanced', config.authority.rules===COMBAT_RULES_VERSION);
+  if(config.authority.rules===COMBAT_RULES_VERSION)check(['focus','protect','push'].every(key=>film.submission.script.some(a=>a.k==='o'&&a.key===key)),`${a.name}: tactical orders recorded in ${label}`);
   const wait = film.submission.ticks * 50 + 1500 - (Date.now() - config.authority.issuedAt);
   if (wait > 0) await sleep(wait);
   const finishOp = op(a, 'match.finish', { matchId, submission: film.submission });

@@ -214,7 +214,7 @@ describe('all-nine-hero signatures under full simulation', () => {
     const config = heroPracticeConfig('enforcer');
     config.buildings = [
       { id: 'protected-target', kind: 'building', x: 55, y: 50, size: 8, hp: 10000 },
-      ...Array.from({ length: 10 }, (_, i) => ({ id: `wall-${i}`, kind: 'wall' as const, x: 30, y: i * 10, size: 8, hp: 1000 })),
+      ...Array.from({ length: 13 }, (_, i) => ({ id: `wall-${i}`, kind: 'wall' as const, x: 30, y: i * 8, size: 8, hp: 1000 })),
     ];
     const engine = createBattleEngine(config, SEED);
     expect(deploy(engine, 'enforcer', 8, 50)).toBe(true);

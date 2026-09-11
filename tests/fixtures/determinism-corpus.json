@@ -1,54 +1,54 @@
 {
-  "rules": "defense-counters-4",
+  "rules": "raid-tactics-5",
   "note": "Fixed match corpus (game/authority/matchCorpus.ts). Regenerate only with a deliberate rules change.",
   "matches": {
     "campaign-1": {
-      "hash": "b72941e4",
+      "hash": "6e9f0626",
       "stars": 3,
       "pct": 100,
-      "ticks": 103
+      "ticks": 68
     },
     "campaign-4": {
-      "hash": "411666fd",
+      "hash": "ef5aa568",
       "stars": 1,
-      "pct": 56,
+      "pct": 60,
       "ticks": 1201
     },
     "campaign-7": {
-      "hash": "48e5b866",
+      "hash": "3d98578e",
       "stars": 0,
-      "pct": 38,
+      "pct": 47,
       "ticks": 1201
     },
     "road-0": {
-      "hash": "97290b6a",
-      "stars": 0,
-      "pct": 46,
+      "hash": "27bf2565",
+      "stars": 1,
+      "pct": 65,
       "ticks": 1201
     },
     "road-1": {
-      "hash": "fe95ba90",
+      "hash": "b30e8d8d",
       "stars": 0,
-      "pct": 27,
+      "pct": 29,
       "ticks": 1201
     },
     "rival-0": {
-      "hash": "4199c772",
+      "hash": "bedb254d",
       "stars": 3,
       "pct": 100,
-      "ticks": 260
+      "ticks": 284
     },
     "rival-1": {
-      "hash": "f50ecb52",
+      "hash": "628d1641",
       "stars": 3,
       "pct": 100,
-      "ticks": 232
+      "ticks": 250
     },
     "gauntlet-1": {
-      "hash": "c0842af9",
+      "hash": "a805033d",
       "stars": 1,
       "pct": 50,
-      "ticks": 814
+      "ticks": 810
     }
   }
 }

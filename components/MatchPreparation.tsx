@@ -29,6 +29,7 @@ export function MatchPreparation({ config, energy, cost, plan, openingHero, onHe
         })}</div></fieldset>
         <fieldset><legend>2 · Opening hero</legend><div className="fhq-prep-heroes">{config.heroes?.map(h=><button type="button" key={h.key} aria-label={`Open with ${h.name}`} aria-pressed={openingHero===h.key} onClick={()=>onHero(h.key)}><HeroArt heroKey={h.key} art={h.art} className="fhq-prep-hero-art"/><strong>{h.name.replace(/^The /,'')}</strong><small>{h.abilityName}</small></button>)}</div></fieldset>
         <p className="fhq-prep-note">{count} squad players · {config.heroes?.length??0} heroes available. Deploy blockers ahead of fragile heroes.</p>
+        <div className="fhq-prep-objectives"><strong>Coach the raid live</strong><span>Send blockers first · Keep receivers near a QB · Call a target</span><small>Squad orders let you rally out of marked attacks, pressure equipment, or protect a deployed hero. Walls and buildings obstruct movement and passing lanes.</small></div>
         <div className="fhq-prep-objectives"><strong>One game ball wins</strong><span>50% damage · Take the Stadium · 99% damage</span><small>Each earns a ball. Walls do not count. Backing out costs nothing.</small></div>
         {!!config.squad?.length&&<details className="fhq-prep-squad"><summary>Available squad · {config.squad.length} players</summary><ul>{config.squad.map(p=><li key={p.id}>{p.name} · {p.role} · STR {p.stats.strength} / SPD {p.stats.speed} / IQ {p.stats.iq}</li>)}</ul></details>}
       </section>

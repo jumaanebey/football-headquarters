@@ -117,3 +117,8 @@ Version 4 is ACTIVE with JWT verification enabled. Deployed the minified artifac
 Live v4 evidence: 57 passed, 0 failed. Exactly-once operations and match settlement, forged film and conflict rejection, saved Stadium upgrade, assigned gate hero and cover3 snapshot, one defender receipt, identical film for both owners, matching replay hash and shield enforcement. Evidence accounts for deferred cleanup: A e786415f-bc5a-48c4-a006-17e7955884b0; B 7d77ef69-7cad-48fa-95bf-9c098ed84793; C 1650dd26-74e6-48e0-9a90-cbaca993d1a3. None deleted. Strict --require-deployed-current parity passes.
 
 Protected v4 browser acceptance on the final client: Campus QA FC reserved and played an Air Raid opener with five heroes and Hail Mary, then Collect & choose next game opened Game Day only after confirmation. Coins 431→888, Fans 45→60, revision 26 / everything confirmed. No new browser QA account.
+
+
+## v7 deployed — 2026-09-11
+
+Raid tactics server is ACTIVE, verify_jwt true. Commit d28b2a70b8aa5cd44984a389974597f6cbadf442, artifact supabase/recovery/club-authority.v7.min.js, SHA256 dfe1b18ad512f83897d1ce5d0bd4019a7c66e64c8df50c0dc1255e5c25e9e77a. Inline index.ts readback matches all 174117 characters. Rules: hero-actions-3, defense-counters-4, raid-tactics-5. Missing rules still negotiate hero-actions-3. Live evidence: 69/69; see docs/RAID-TACTICS.md and docs/evidence/raid-tactics-live-2026-09-11.txt. No migration. Retain v7 when rolling back the frontend while new-rule games or v6 development activity state exist. Do not follow the historical v2-v4 rollback commands above for current production.

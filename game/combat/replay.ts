@@ -1,4 +1,5 @@
-import { supportsCombatRules } from './defenseCounters';
+import { validRaidOrder } from './raidTactics';
+import { RAID_TACTICS_RULES, supportsCombatRules } from './defenseCounters';
 import { canonicalJson } from './canonical';
 import { GAME_PLANS, HERO_DEFS, PLAYBOOK, SPECIALS, type ReplayData, type ReplayAction } from '../../battle';
 import { UnitGroup } from '../../types';
@@ -15,7 +16,7 @@ const multiplier = (v: unknown) => v===undefined || (record(v) && Object.entries
 const heroes = (v: unknown) => Array.isArray(v)&&v.length<=9&&new Set(v.map(h=>h?.key)).size===v.length&&v.every(h=>kit(h)&&HERO_DEFS.some(d=>d.key===h.key&&d.ability===h.ability)&&text(h.name)&&text(h.abilityName)&&asset(h.art)&&units.includes(h.unit));
 const specials = (v: unknown) => Array.isArray(v)&&v.length<=2&&new Set(v.map(h=>h?.key)).size===v.length&&v.every(h=>kit(h)&&SPECIALS.some(d=>d.key===h.key)&&finite(h.count,1,40)&&finite(h.charges,1,10)&&asset(h.art)&&(h.aura===undefined||(record(h.aura)&&finite(h.aura.radius,0,100)&&finite(h.aura.keepRageT,0,20))));
 const squad = (v: unknown, modern: boolean) => v===undefined || (Array.isArray(v)&&v.length<=150&&new Set(v.map(p=>p?.id)).size===v.length&&v.every(p=>record(p)&&text(p.id)&&text(p.name)&&text(p.role,30)&&units.includes(p.unit)&&(!modern||(record(p.stats)&&['strength','speed','iq'].every(k=>finite(p.stats[k],1,1000))&&finite(p.level,1,100)))));
-const commands = (v: unknown, modern: boolean) => Array.isArray(v)&&v.length<=1500&&v.every((a,i)=>record(a)&&Number.isInteger(a.tick)&&finite(a.tick,0,1400)&&(i===0||a.tick>=v[i-1].tick)&&['t','h','s','p','a','e',...(modern?['d']:[])].includes(a.k)&&(['t','h','s','p'].includes(a.k)?finite(a.x,0,100)&&finite(a.y,0,100):true)&&(a.k!=='t'||units.includes(a.u))&&(!['h','a'].includes(a.k)||HERO_DEFS.some(h=>h.key===a.key))&&(a.k!=='s'||SPECIALS.some(s=>s.key===a.key))&&(a.k!=='p'||PLAYBOOK.some(p=>p.key===a.key))&&(a.k!=='d'||['noise','pkg','timeout'].includes(a.key)));
+const commands = (v: unknown, modern: boolean, tactics: boolean) => Array.isArray(v)&&v.length<=1500&&v.every((a,i)=>record(a)&&Number.isInteger(a.tick)&&finite(a.tick,0,1400)&&(i===0||a.tick>=v[i-1].tick)&&['t','h','s','p','a','e',...(modern?['d']:[]),...(tactics?['o']:[])].includes(a.k)&&(['t','h','s','p'].includes(a.k)?finite(a.x,0,100)&&finite(a.y,0,100):true)&&(a.k!=='t'||units.includes(a.u))&&(!['h','a'].includes(a.k)||HERO_DEFS.some(h=>h.key===a.key))&&(a.k!=='s'||SPECIALS.some(s=>s.key===a.key))&&(a.k!=='p'||PLAYBOOK.some(p=>p.key===a.key))&&(a.k!=='d'||['noise','pkg','timeout'].includes(a.key))&&(a.k!=='o'||validRaidOrder(a as ReplayAction)));
 
 /** Untrusted film is bounded and checked before it can allocate or simulate anything.
  * This validates playback data; it does not authorize competitive rewards.
@@ -25,7 +26,7 @@ export function validateReplay(value: unknown): ReplayData | null {
     const serialized=JSON.stringify(value);
     if (!serialized || serialized.length>450000) return null;
     const v=JSON.parse(serialized);
-    if(!record(v)||![1,2].includes(v.v)||!Number.isInteger(v.seed)||!finite(v.seed,0,4294967295)||!GAME_PLANS.some(p=>p.key===v.plan)||!layout(v.layout)||!heroes(v.heroes)||!specials(v.specials)||!multiplier(v.power)||!squad(v.squad,v.v===2)||!commands(v.script,v.v===2)) return null;
+    if(!record(v)||![1,2].includes(v.v)||!Number.isInteger(v.seed)||!finite(v.seed,0,4294967295)||!GAME_PLANS.some(p=>p.key===v.plan)||!layout(v.layout)||!heroes(v.heroes)||!specials(v.specials)||!multiplier(v.power)||!squad(v.squad,v.v===2)||!commands(v.script,v.v===2,v.v===2&&v.rules===RAID_TACTICS_RULES)) return null;
     if(v.v===2) {
       if(v.script.some((a:ReplayAction)=>a.tick>v.ticks)) return null;
       const c=v.snapshot;

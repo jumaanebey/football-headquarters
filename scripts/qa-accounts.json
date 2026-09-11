@@ -68,6 +68,18 @@
     {
       "id": "e774b44e-e1d7-4664-b29b-4f6444d32fb7",
       "purpose": "Facility Loop QA: authority v6 development, scouting and Stadium evidence (2026-09-11)"
+    },
+    {
+      "id": "43752e03-6885-47b6-b4bc-73134e400466",
+      "purpose": "raid tactics v7 live evidence A, 2026-09-11; deferred cleanup"
+    },
+    {
+      "id": "dbe174eb-2403-47d3-83e4-a13134cec738",
+      "purpose": "raid tactics v7 live evidence B, 2026-09-11; deferred cleanup"
+    },
+    {
+      "id": "fa4b8b25-d93d-4981-a659-f6e80b720374",
+      "purpose": "raid tactics v7 live evidence C, 2026-09-11; deferred cleanup"
     }
   ]
 }

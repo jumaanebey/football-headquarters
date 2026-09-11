@@ -1388,11 +1388,11 @@ function applyStadiumFootball(club, action, now, random) {
     }
     case "finish": {
       if (call === "field-goal") {
-        const distance = Math.max(18, 117 - game.yardLine), chance = bounded(0.99 - (distance - 20) * 0.016 + (r.iq - 15) * 4e-3, 0.03, 0.98);
+        const distance2 = Math.max(18, 117 - game.yardLine), chance = bounded(0.99 - (distance2 - 20) * 0.016 + (r.iq - 15) * 4e-3, 0.03, 0.98);
         const made = roll < chance;
         if (made) game.home += 3;
         title = made ? "Field goal is good" : "Field goal missed";
-        detail = `${distance}-yard attempt. Distance and team timing determined the kick.`;
+        detail = `${distance2}-yard attempt. Distance and team timing determined the kick.`;
       } else {
         play = "power";
         const made = roll < bounded(0.28 + advantage * 0.22 + (r.power - 15) * 5e-3 + (game.yardLine - 70) * 5e-3, 0.05, 0.9);
@@ -1487,7 +1487,8 @@ function canonicalJson(value) {
 // game/combat/defenseCounters.ts
 var LEGACY_COMBAT_RULES = "hero-actions-3";
 var DEFENSE_COUNTER_RULES = "defense-counters-4";
-var supportsCombatRules = (v) => v === LEGACY_COMBAT_RULES || v === DEFENSE_COUNTER_RULES;
+var RAID_TACTICS_RULES = "raid-tactics-5";
+var supportsCombatRules = (v) => v === LEGACY_COMBAT_RULES || v === DEFENSE_COUNTER_RULES || v === RAID_TACTICS_RULES;
 var EQUIPMENT_COUNTERS = {
   jugs: { name: "JUGS", cooldown: 0.55, windup: 0, damage: 1, radius: 0, duration: 0, counter: "Deploy blockers first. Nearby offensive linemen absorb pressure for vulnerable players." },
   sled: { name: "Sled", cooldown: 1.1, windup: 0.3, damage: 1.8, radius: 0, duration: 0.6, counter: "Linemen brace against the impact. Ranged players can attack from outside its reach." },
@@ -1495,6 +1496,7 @@ var EQUIPMENT_COUNTERS = {
   tshirt: { name: "T-Shirt Cannon", cooldown: 1.15, windup: 0.3, damage: 1.4, radius: 7, duration: 0.9, counter: "Spread out. Damage and entanglement fall to 35% at the edge of the marked area." },
   cooler: { name: "Water Station", cooldown: 3.2, windup: 0.4, damage: 0, radius: 7, duration: 3.5, counter: "Water controls turf without direct damage. RB, WR and CB retain 80% speed; other roles retain 60%." }
 };
+var TACTICAL_WARNINGS = { jugs: 0.15, sled: 0.45, ref: 0.85, tshirt: 0.75, cooler: 0.65 };
 function counterRole(t) {
   if (t.role) return t.role;
   const heroes2 = { qb: "QB", enforcer: "OL", captain: "OL", burner: "WR", playmaker: "WR", kicker: "QB", coach: "S", medic: "S", legend: "LB" };
@@ -1508,7 +1510,7 @@ function defenseResistance(t) {
     discipline: 1 / Math.max(0.7, Math.min(1.6, t.chargeRate ?? 1))
   };
 }
-var splashFalloff = (distance, radius) => distance > radius ? 0 : 1 - 0.65 * Math.max(0, distance) / radius;
+var splashFalloff = (distance2, radius) => distance2 > radius ? 0 : 1 - 0.65 * Math.max(0, distance2) / radius;
 function counterSpeed(t) {
   return Math.min((t.wetT ?? 0) > 0 ? defenseResistance(t).traction : 1, (t.flagT ?? 0) > 0 ? 0.75 : 1, (t.braceT ?? 0) > 0 ? 0.65 : 1);
 }
@@ -1516,10 +1518,10 @@ function tickCounterEffects(t, dt) {
   if (Math.max(t.wetT ?? 0, t.flagT ?? 0, t.braceT ?? 0) > 0) t.defenseControlSeconds = (t.defenseControlSeconds ?? 0) + dt;
   for (const key of ["wetT", "flagT", "braceT"]) t[key] = Math.max(0, (t[key] ?? 0) - dt);
 }
-function displaceFrom(t, b, distance, buildings) {
+function displaceFrom(t, b, distance2, buildings) {
   const length = Math.hypot(t.x - b.x, t.y - b.y) || 1, dx = (t.x - b.x) / length, dy = (t.y - b.y) / length;
-  for (let moved = 0; moved < distance; moved += 0.25) {
-    const step = Math.min(0.25, distance - moved), x = t.x + dx * step, y = t.y + dy * step;
+  for (let moved = 0; moved < distance2; moved += 0.25) {
+    const step = Math.min(0.25, distance2 - moved), x = t.x + dx * step, y = t.y + dy * step;
     if (x < 2 || x > 98 || y < 2 || y > 98 || buildings.some((o) => !o.dead && o.id !== b.id && Math.hypot(x - o.x, y - o.y) < o.size * 0.5 + 0.5)) break;
     t.x = x;
     t.y = y;
@@ -1627,21 +1629,521 @@ var campaignBase = (stage) => {
 // ranks.ts
 var trophiesForRaid = (won, stars) => won ? 6 + stars * 7 : -8;
 
+// game/combat/actionTiming.ts
+function signatureFrameAt(elapsed, windup, recovery) {
+  if (elapsed < windup * 0.5) return 0;
+  if (elapsed + 1e-9 < windup) return 1;
+  if (elapsed + 1e-9 < windup + recovery * 0.5) return 2;
+  if (elapsed + 1e-9 < windup + recovery) return 3;
+  return void 0;
+}
+
+// game/combat/actions.ts
+var COMBAT_RULES_VERSION = "raid-tactics-5";
+function applyBuildingYardage(actor, target, requested) {
+  if (target.dead || !Number.isFinite(requested) || requested <= 0) return [];
+  const amount = Math.min(Math.max(0, target.hp), requested);
+  target.hp = Math.max(0, target.hp - amount);
+  actor.dmg = (actor.dmg ?? 0) + amount;
+  const events = [{ type: "yardage", actorId: actor.id, targetId: target.id, amount, x: target.x, y: target.y }];
+  if (target.hp <= 0) {
+    target.dead = true;
+    actor.targetId = null;
+    events.push({ type: "sacked", actorId: actor.id, targetId: target.id, kind: target.kind, x: target.x, y: target.y });
+  }
+  return events;
+}
+function beginHeroAction(actor, buildings, tick, calledTarget) {
+  if (actor.dead || !actor.ability || (actor.abilityCd ?? 0) > 0 || actor.activeAction) return null;
+  const projectile = actor.ability === "hailmary" || actor.ability === "onside_bomb";
+  const target = projectile || actor.ability === "burner_dash" || actor.ability === "truckstick" ? calledTarget && !calledTarget.dead ? calledTarget : nearestBuilding(actor.x, actor.y, buildings) : void 0;
+  if ((projectile || actor.ability === "burner_dash") && !target) return null;
+  const action = {
+    id: `${actor.id}:signature:${tick}`,
+    actorId: actor.id,
+    heroKey: actor.heroKey ?? "",
+    ability: actor.ability,
+    elapsed: 0,
+    windup: projectile ? 0.35 : 0.2,
+    travel: projectile && target ? Math.max(0.45, Math.min(0.85, dist(actor.x, actor.y, target.x, target.y) / 65)) : 0,
+    recovery: projectile ? 0.3 : 0.25,
+    released: false,
+    resolved: false,
+    sx: actor.x,
+    sy: actor.y,
+    tx: target?.x ?? actor.x,
+    ty: target?.y ?? actor.y,
+    targetId: target?.id
+  };
+  actor.activeAction = action.id;
+  actor.signatureFrame = 0;
+  actor.abilityCd = ABILITY_CD;
+  actor.abilityPoseT = 0;
+  return action;
+}
+function recover(actor, target, amount, events = []) {
+  if (target.dead || !Number.isFinite(amount) || amount <= 0) return;
+  const actual = Math.min(Math.max(0, target.maxHp - target.hp), amount);
+  if (actual <= 0) return;
+  target.hp += actual;
+  actor.healingDone = (actor.healingDone ?? 0) + actual;
+  events.push({ type: "recovery", actorId: actor.id, targetId: target.id, amount: actual, x: target.x, y: target.y });
+}
+function applyTroopPressure(target, raw, troops) {
+  if (target.dead || !Number.isFinite(raw) || raw <= 0) return 0;
+  const shield = (target.shieldT ?? 0) > 0;
+  const amount = Math.min(target.hp, raw * (shield ? 0.5 : 1));
+  if (shield && target.shieldSource) {
+    const source = troops.find((t) => t.id === target.shieldSource);
+    if (source) source.protectionDone = (source.protectionDone ?? 0) + Math.max(0, Math.min(target.hp, raw) - amount);
+  }
+  target.hp = Math.max(0, target.hp - amount);
+  return amount;
+}
+function stepHeroActions(actions, troops, buildings, dt) {
+  const events = [];
+  for (const action of actions) {
+    const actor = troops.find((t) => t.id === action.actorId);
+    if (!actor) {
+      action.elapsed = 99;
+      continue;
+    }
+    if (actor.dead && !action.released) {
+      actor.activeAction = void 0;
+      actor.signatureFrame = void 0;
+      action.elapsed = 99;
+      continue;
+    }
+    action.elapsed += dt;
+    actor.signatureFrame = actor.dead ? void 0 : signatureFrameAt(action.elapsed, action.windup, action.recovery);
+    if (!action.released && action.elapsed + 1e-9 >= action.windup) {
+      action.released = true;
+      if (!actor.dead) actor.actionPoseT = action.recovery;
+      events.push({ type: "signature-release", actorId: actor.id, heroKey: action.heroKey, ability: action.ability, x: action.sx, y: action.sy });
+    }
+    if (!action.resolved && action.elapsed + 1e-9 >= action.windup + action.travel) {
+      action.resolved = true;
+      const target = buildings.find((b) => b.id === action.targetId);
+      if (action.ability === "hailmary" && target) events.push(...applyBuildingYardage(actor, target, 300 + actor.dps * 4));
+      else if (action.ability === "onside_bomb" && target) {
+        events.push(...applyBuildingYardage(actor, target, 500));
+        for (const b of buildings) if (b.id !== target.id && dist(target.x, target.y, b.x, b.y) <= 12) events.push(...applyBuildingYardage(actor, b, 250));
+      } else if (action.ability === "truckstick") {
+        actor.rageT = 6;
+        actor.truckT = 1.8;
+        recover(actor, actor, actor.maxHp, events);
+      } else if (action.ability === "burner_dash") {
+        actor.sprintT = 2.5;
+        actor.rageT = 2.5;
+      } else if (action.ability === "trick_play") events.push({ type: "reinforcements", actorId: actor.id, x: actor.x, y: actor.y });
+      else for (const t of troops) {
+        if (t.dead) continue;
+        const distance2 = dist(actor.x, actor.y, t.x, t.y);
+        if (action.ability === "motivation" && distance2 <= 20) t.rageT = Math.max(t.rageT, 4);
+        if (action.ability === "field_medic" && distance2 <= 18) {
+          recover(actor, t, t.maxHp * 0.35, events);
+          t.healT = Math.max(t.healT, 5);
+          t.healingSource = actor.id;
+        }
+        if (action.ability === "shield_wall" && distance2 <= 16) {
+          t.shieldT = Math.max(t.shieldT ?? 0, 5);
+          t.shieldSource = actor.id;
+        }
+        if (action.ability === "hall_of_fame") {
+          t.rageT = Math.max(t.rageT, 6);
+          recover(actor, t, t.maxHp, events);
+        }
+      }
+      events.push({ type: "signature-impact", actorId: actor.id, heroKey: action.heroKey, ability: action.ability, x: action.tx, y: action.ty });
+    }
+    if (action.elapsed + 1e-9 >= action.windup + action.recovery) actor.activeAction = void 0;
+  }
+  return events;
+}
+var actionFinished = (action) => action.elapsed + 1e-9 >= action.windup + action.travel + action.recovery;
+
+// game/spriteFacing.ts
+function spriteFacing(x, y, targetX, targetY, previous = 1) {
+  const horizontal = targetX - x - (targetY - y);
+  return Math.abs(horizontal) > 0.3 ? Math.sign(horizontal) : previous;
+}
+
+// game/combat/raidNavigation.ts
+var footprint = (b) => Math.max(1.3, b.size * 0.46) + 0.65;
+function laneClear(from, to, buildings, ignore) {
+  const target = ignore ? buildings.find((b) => b.id === ignore) : void 0;
+  if (target) {
+    const d = distance(from, to), r = footprint(target) + 0.02;
+    to = d > r ? { x: to.x + (from.x - to.x) / d * r, y: to.y + (from.y - to.y) / d * r } : from;
+  }
+  const dx = to.x - from.x, dy = to.y - from.y, length2 = dx * dx + dy * dy;
+  return !buildings.some((b) => {
+    if (b.dead || b.id === ignore) return false;
+    const r = footprint(b);
+    if (dist(from.x, from.y, b.x, b.y) < r) return dist(to.x, to.y, b.x, b.y) < dist(from.x, from.y, b.x, b.y);
+    const u = length2 ? Math.max(0, Math.min(1, ((b.x - from.x) * dx + (b.y - from.y) * dy) / length2)) : 0;
+    return dist(from.x + u * dx, from.y + u * dy, b.x, b.y) < r;
+  });
+}
+var N = 25;
+var CELL = 4;
+var point = (i) => ({ x: 2 + i % N * CELL, y: 2 + Math.floor(i / N) * CELL });
+var index = (p) => Math.max(0, Math.min(24, Math.round((p.y - 2) / CELL))) * N + Math.max(0, Math.min(24, Math.round((p.x - 2) / CELL)));
+var distance = (a, b) => dist(a.x, a.y, b.x, b.y);
+function raidRoute(from, to, buildings, stop = 1, targetId, occupied) {
+  if (distance(from, to) <= stop && laneClear(from, to, buildings, targetId)) return [];
+  const emerging = new Set(buildings.filter((b) => !b.dead && distance(from, b) < footprint(b)).map((b) => b.id));
+  const start = index(from), blocked = occupied?.slice() ?? new Uint8Array(N * N);
+  if (!occupied || emerging.size) for (let i = 0; i < blocked.length; i++) {
+    const p = point(i);
+    blocked[i] = buildings.some((b) => !b.dead && !emerging.has(b.id) && distance(p, b) < footprint(b)) ? 1 : 0;
+  }
+  blocked[start] = 0;
+  const cost = new Float64Array(N * N).fill(Infinity), parent = new Int16Array(N * N).fill(-1);
+  const heap = [];
+  const push = (id, score) => {
+    let i = heap.length;
+    heap.push({ id, score });
+    while (i) {
+      const p = i - 1 >> 1;
+      if (heap[p].score <= score) break;
+      heap[i] = heap[p];
+      i = p;
+    }
+    heap[i] = { id, score };
+  };
+  const pop = () => {
+    const best = heap[0], last = heap.pop();
+    if (heap.length) {
+      let i = 0;
+      while (i * 2 + 1 < heap.length) {
+        let child = i * 2 + 1;
+        if (child + 1 < heap.length && heap[child + 1].score < heap[child].score) child++;
+        if (heap[child].score >= last.score) break;
+        heap[i] = heap[child];
+        i = child;
+      }
+      heap[i] = last;
+    }
+    return best.id;
+  };
+  cost[start] = 0;
+  push(start, 0);
+  const closed = new Uint8Array(N * N);
+  while (heap.length) {
+    const current = pop();
+    if (closed[current]) continue;
+    closed[current] = 1;
+    const p = point(current);
+    if (distance(p, to) <= Math.max(stop, 3) && laneClear(p, to, buildings, targetId)) {
+      const route = [];
+      let i = current;
+      while (i !== start && i >= 0) {
+        route.unshift(point(i));
+        i = parent[i];
+      }
+      if (!route.length && distance(from, to) > stop) route.push(p);
+      return route;
+    }
+    for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [-1, -1], [1, -1]]) {
+      const x = current % N + dx, y = Math.floor(current / N) + dy;
+      if (x < 0 || y < 0 || x >= N || y >= N) continue;
+      const next = y * N + x;
+      if (blocked[next] || closed[next]) continue;
+      const q = point(next);
+      if (!laneClear(current === start ? from : p, q, buildings)) continue;
+      const nextCost = cost[current] + (dx && dy ? Math.SQRT2 : 1) * CELL;
+      if (nextCost >= cost[next]) continue;
+      cost[next] = nextCost;
+      parent[next] = current;
+      push(next, nextCost + Math.max(0, distance(q, to) - stop));
+    }
+  }
+  return null;
+}
+function createRaidNavigator(buildings) {
+  const routes = /* @__PURE__ */ new Map();
+  let topology = "", occupied;
+  const occupancy = () => {
+    const next = buildings.filter((b) => !b.dead).map((b) => b.id).join("|");
+    if (!occupied || next !== topology) {
+      topology = next;
+      occupied = new Uint8Array(N * N);
+      for (let i = 0; i < occupied.length; i++) {
+        const p = point(i);
+        occupied[i] = buildings.some((b) => !b.dead && distance(p, b) < footprint(b)) ? 1 : 0;
+      }
+      routes.clear();
+    }
+    return occupied;
+  };
+  const move = (actor, to, speed, dt, tick, stop = 1, targetId, teammates = []) => {
+    const grid = occupancy();
+    const d = distance(actor, to);
+    if (d <= stop) return true;
+    const key = `${targetId ?? ""}:${Math.round(to.x / 3)}:${Math.round(to.y / 3)}:${stop}`;
+    let route = routes.get(actor.id);
+    if (!route || route.key !== key || tick >= route.until) {
+      route = { key, until: tick + 16, points: laneClear(actor, to, buildings, targetId) ? [] : raidRoute(actor, to, buildings, stop, targetId, grid) };
+      routes.set(actor.id, route);
+    }
+    if (!route.points) return false;
+    while (route.points.length && distance(actor, route.points[0]) < 1) route.points.shift();
+    while (route.points.length > 1 && laneClear(actor, route.points[1], buildings)) route.points.shift();
+    const wp = route.points[0] ?? to, md = Math.max(1e-3, distance(actor, wp));
+    const step = Math.min(speed * dt, route.points.length ? md : Math.max(0, d - stop));
+    let dx = (wp.x - actor.x) / md, dy = (wp.y - actor.y) / md;
+    for (const other of teammates) {
+      if (other === actor || other.dead) continue;
+      const dd = distance(actor, other);
+      if (dd > 0 && dd < 1.7) {
+        dx += (actor.x - other.x) / dd * (1.7 - dd) * 0.6;
+        dy += (actor.y - other.y) / dd * (1.7 - dd) * 0.6;
+      }
+    }
+    const length = Math.hypot(dx, dy) || 1;
+    dx = dx / length * step;
+    dy = dy / length * step;
+    const candidate = { x: Math.max(2, Math.min(98, actor.x + dx)), y: Math.max(2, Math.min(98, actor.y + dy)) };
+    if (!laneClear(actor, candidate, buildings)) {
+      routes.delete(actor.id);
+      return false;
+    }
+    actor.face = spriteFacing(actor.x, actor.y, candidate.x, candidate.y, actor.face);
+    actor.x = candidate.x;
+    actor.y = candidate.y;
+    return true;
+  };
+  return { move, clear: (id) => routes.delete(id) };
+}
+
+// game/combat/raidTactics.ts
+var coordinate = (n) => typeof n === "number" && Number.isFinite(n) && n >= 2 && n <= 98;
+function validRaidOrder(a) {
+  if (a.u !== void 0 && !Object.values(UnitGroup).includes(a.u)) return false;
+  if (a.key === "auto") return a.x === void 0 && a.y === void 0 && a.targetId === void 0;
+  if (a.key === "push") return coordinate(a.x) && coordinate(a.y) && a.targetId === void 0;
+  return ["focus", "protect"].includes(a.key ?? "") && typeof a.targetId === "string" && a.targetId.length > 0 && a.targetId.length <= 100 && a.x === void 0 && a.y === void 0;
+}
+var isBlocker = (t) => counterRole(t) === "OL";
+var isPasser = (t) => counterRole(t) === "QB" && t.heroKey !== "kicker";
+function supportingPasser(t, troops, buildings) {
+  if (!["WR", "TE"].includes(counterRole(t))) return;
+  return troops.find((q) => q !== t && !q.dead && !q.activeAction && !q.engagementId && (q.flagT ?? 0) <= 0 && isPasser(q) && dist(t.x, t.y, q.x, q.y) <= 18 && laneClear(q, t, buildings));
+}
+function createRaidTactics(s, feedback) {
+  const navigator = createRaidNavigator(s.buildings);
+  const orders = /* @__PURE__ */ new Map(), arrived = /* @__PURE__ */ new Map();
+  const cooldowns = /* @__PURE__ */ new Map();
+  const strikes = [];
+  let serial = 0;
+  const orderFor = (t) => orders.get(t.isHero || t.special ? "all" : t.unit) ?? orders.get("all");
+  const command = (a) => {
+    if (!validRaidOrder(a)) return false;
+    if (a.key === "push" && s.buildings.some((b) => !b.dead && dist(a.x, a.y, b.x, b.y) < footprint(b))) return false;
+    if (a.key === "focus" && !s.buildings.some((b) => b.id === a.targetId && !b.dead)) return false;
+    if (a.key === "protect" && !s.troops.some((t) => t.id === a.targetId && t.isHero && !t.dead)) return false;
+    if (!a.u) orders.clear();
+    orders.set(a.u ?? "all", { key: a.key, u: a.u, x: a.x, y: a.y, targetId: a.targetId, serial: ++serial });
+    for (const t of s.troops) if (!a.u || !t.isHero && !t.special && t.unit === a.u) {
+      navigator.clear(t.id);
+      t.targetId = null;
+    }
+    return true;
+  };
+  const hurtGuard = (guard, actor, damage) => {
+    const actual = Math.min(Math.max(0, guard.hp), damage);
+    guard.hp -= actual;
+    guard.hitFlash = 0.18;
+    actor.dmg = (actor.dmg ?? 0) + actual;
+    if (guard.hp <= 0 && !guard.dead) {
+      guard.hp = 0;
+      guard.dead = true;
+      actor.kills = (actor.kills ?? 0) + 1;
+      feedback.guardDown(guard, actor);
+    }
+    return actual;
+  };
+  const step = (dt) => {
+    for (const [id, cooldown] of cooldowns) cooldowns.set(id, Math.max(0, cooldown - dt));
+    for (let i = strikes.length - 1; i >= 0; i--) {
+      const strike = strikes[i];
+      strike.remaining -= dt;
+      if (strike.remaining > 0) continue;
+      strikes.splice(i, 1);
+      const source = s.troops.find((t) => t.id === strike.sourceId);
+      const target = strike.guard ? s.guards.find((g) => g.id === strike.targetId) : s.buildings.find((b) => b.id === strike.targetId);
+      if (!source || !target || target.dead || strike.catch && source.dead) continue;
+      const damage = Math.min(Math.max(0, target.hp), strike.damage);
+      if (strike.guard) hurtGuard(target, source, damage);
+      else feedback.events(applyBuildingYardage(source, target, damage));
+      if (strike.catch) source.catches = (source.catches ?? 0) + 1;
+      feedback.hit(source, target, damage, strike.catch);
+    }
+  };
+  const attack = (t, target, dps, guard) => {
+    t.attacking = true;
+    t.targetId = target.id;
+    t.face = spriteFacing(t.x, t.y, target.x, target.y, t.face);
+    if (guard && (t.truckT ?? 0) > 0) {
+      t.truckT = 0;
+      hurtGuard(target, t, 100 + t.dps * 2);
+      if (target.dead) return;
+    }
+    if ((cooldowns.get(t.id) ?? 0) > 0) return;
+    const passer = supportingPasser(t, s.troops, s.buildings);
+    const ranged = isPasser(t) || t.heroKey === "kicker";
+    const beat = ranged ? 0.9 : 0.7;
+    cooldowns.set(t.id, beat);
+    t.actionPoseT = ranged ? 0.34 : 0.25;
+    const damage = dps * beat * (passer ? RECEIVER_BONUS : 1);
+    if (ranged || passer) {
+      const flight = 0.12 + Math.min(0.45, dist(t.x, t.y, target.x, target.y) / 65);
+      strikes.push({ sourceId: t.id, targetId: target.id, guard, damage, remaining: flight, catch: !!passer });
+      feedback.release(passer ?? t, passer ? t : target, flight);
+    } else {
+      const actual = Math.min(Math.max(0, target.hp), damage);
+      if (guard) hurtGuard(target, t, damage);
+      else feedback.events(applyBuildingYardage(t, target, damage));
+      feedback.hit(t, target, actual, false);
+    }
+  };
+  const troop = (t, dps, speed, dt) => {
+    t.engagementId = void 0;
+    const order = orderFor(t);
+    const anchor = order?.key === "protect" ? s.troops.find((p) => p.id === order.targetId && !p.dead && p !== t) : void 0;
+    const movingOrder = order?.key === "push" && arrived.get(t.id) !== order.serial;
+    const nearby = s.guards.filter((g) => !g.dead && laneClear(t, g, s.buildings)).sort((a, b) => dist(t.x, t.y, a.x, a.y) - dist(t.x, t.y, b.x, b.y));
+    const threat = nearby.find((g) => dist(t.x, t.y, g.x, g.y) <= (movingOrder ? 2.4 : isBlocker(t) ? 11 : 4.5) || anchor && isBlocker(t) && dist(g.x, g.y, anchor.x, anchor.y) < 13);
+    if (threat && !movingOrder) {
+      t.engagementId = threat.id;
+      t.targetId = threat.id;
+      t.raidActivity = isBlocker(t) ? "Blocking a defender" : "Fighting through a tackle";
+      const reach = isPasser(t) ? Math.min(t.range, 10) : 3;
+      if (dist(t.x, t.y, threat.x, threat.y) > reach) navigator.move(t, threat, speed, dt, s.ticks, reach, void 0, s.troops);
+      else {
+        if (isBlocker(t)) t.blockSeconds = (t.blockSeconds ?? 0) + dt;
+        attack(t, threat, dps * (isBlocker(t) ? 1.35 : 0.8), true);
+      }
+      return;
+    }
+    if (movingOrder) {
+      const point5 = { x: order.x, y: order.y };
+      t.raidActivity = "Moving to rally point";
+      t.targetId = null;
+      if (dist(t.x, t.y, point5.x, point5.y) > 3) {
+        navigator.move(t, point5, speed, dt, s.ticks, 2.5, void 0, s.troops);
+        return;
+      }
+      arrived.set(t.id, order.serial);
+    }
+    if (anchor && dist(t.x, t.y, anchor.x, anchor.y) > 5) {
+      t.raidActivity = "Moving to protect hero";
+      t.targetId = anchor.id;
+      navigator.move(t, anchor, speed, dt, s.ticks, 4, void 0, s.troops);
+      return;
+    }
+    let goal = order?.key === "focus" ? s.buildings.find((b) => b.id === order.targetId && !b.dead) : void 0;
+    goal ??= s.buildings.find((b) => b.id === t.targetId && !b.dead && b.kind !== "wall");
+    goal ??= nearestBuilding(t.x, t.y, s.buildings, t.special ? void 0 : UNIT_PREF[t.unit]) ?? void 0;
+    if (!goal) {
+      t.raidActivity = "Holding position";
+      return;
+    }
+    t.raidActivity = anchor ? "Protecting hero" : order?.key === "focus" && goal.id === order.targetId ? "Pressuring called target" : "Advancing on a facility";
+    if (anchor && dist(t.x, t.y, goal.x, goal.y) > t.range + goal.size * 0.5 + 0.02) {
+      t.targetId = anchor.id;
+      return;
+    }
+    let target = goal;
+    const stop = t.range + target.size * 0.5;
+    if (!laneClear(t, target, s.buildings, target.id)) {
+      if (!navigator.move(t, target, speed, dt, s.ticks, stop, target.id, s.troops)) {
+        const wall = s.buildings.filter((b) => !b.dead && b.id !== goal.id && laneClear(t, b, s.buildings, b.id)).sort((a, b) => dist(t.x, t.y, a.x, a.y) - dist(t.x, t.y, b.x, b.y))[0];
+        if (wall) target = wall;
+      } else return;
+    }
+    t.targetId = target.id;
+    if (dist(t.x, t.y, target.x, target.y) > t.range + target.size * 0.5 + 0.02) {
+      if (!anchor) navigator.move(t, target, speed, dt, s.ticks, t.range + target.size * 0.5, target.id, s.troops);
+      return;
+    }
+    if (!laneClear(t, target, s.buildings, target.id)) return;
+    if ((t.truckT ?? 0) > 0) {
+      t.truckT = 0;
+      feedback.events(applyBuildingYardage(t, target, 100 + t.dps * 2));
+    }
+    attack(t, target, dps, false);
+  };
+  const guards = (dt) => {
+    for (const g of s.guards) {
+      if (g.dead) continue;
+      g.hitFlash = Math.max(0, g.hitFlash - dt);
+      g.rageT = Math.max(0, g.rageT - dt);
+      const targets = s.troops.filter((t) => !t.dead);
+      const blocker = targets.filter((t) => isBlocker(t) && t.engagementId === g.id && dist(g.x, g.y, t.x, t.y) <= 3.8 && laneClear(g, t, s.buildings)).sort((a, b) => dist(g.x, g.y, a.x, a.y) - dist(g.x, g.y, b.x, b.y))[0];
+      const prey = blocker ?? targets.sort((a, b) => {
+        const score = (t) => dist(g.x, g.y, t.x, t.y) * (isPasser(t) ? 0.78 : 1);
+        return score(a) - score(b);
+      })[0];
+      if (!prey) continue;
+      g.targetId = prey.id;
+      g.raidActivity = blocker ? "Tied up by a blocker" : isPasser(prey) ? "Rushing the passer" : "Closing for a tackle";
+      if (dist(g.x, g.y, prey.x, prey.y) > 3.2 || !laneClear(g, prey, s.buildings)) {
+        navigator.move(g, prey, g.speed * (blocker ? 0.65 : 1), dt, s.ticks, 3, void 0, s.guards);
+        continue;
+      }
+      g.attacking = true;
+      g.face = spriteFacing(g.x, g.y, prey.x, prey.y, g.face);
+      if ((cooldowns.get(g.id) ?? 0) > 0) continue;
+      cooldowns.set(g.id, 0.75);
+      g.actionPoseT = 0.28;
+      const raw = g.dps * 1.25 * (g.rageT > 0 ? 1.35 : 1) * 0.75 * (blocker ? 1 : isPasser(prey) ? 1.3 : ["WR", "RB"].includes(counterRole(prey)) ? 1.15 : 1);
+      const pressure = raw * (blocker ? 0.65 : 1);
+      if (blocker) blocker.protectionDone = (blocker.protectionDone ?? 0) + Math.min(prey.hp, raw) - Math.min(prey.hp, pressure);
+      applyTroopPressure(prey, pressure, s.troops);
+      prey.hitFlash = 0.18;
+      feedback.hit(g, prey, pressure, false);
+      if (prey.hp <= 0) {
+        prey.hp = 0;
+        prey.dead = true;
+        feedback.playerDown(prey);
+      }
+    }
+  };
+  return {
+    command,
+    troop,
+    guards,
+    step,
+    orderFor,
+    orders,
+    get ballInPlay() {
+      return strikes.length > 0;
+    },
+    hashState: () => [serial, [...orders], [...arrived], [...cooldowns], strikes]
+  };
+}
+
 // game/combat/defenseCounterStep.ts
-function stepCounterEquipment(b, s, dt, hit) {
+function stepCounterEquipment(b, s, dt, hit, tactical = false) {
   const flavor = b.flavor ?? "jugs", rule = EQUIPMENT_COUNTERS[flavor];
+  const windup = tactical ? TACTICAL_WARNINGS[flavor] : rule.windup;
+  const damage = b.damage * (tactical ? 1.05 * (rule.cooldown + windup) / (rule.cooldown + rule.windup) : 1);
   b.cooldown -= dt;
   if ((b.level ?? 0) >= 10) b.counterSignatureT = (b.counterSignatureT ?? 5) - dt;
   let attack = b.counterAttack;
   if (!attack) {
     if (b.cooldown > 0) return;
-    const target2 = nearestTroop(b.x, b.y, s.troops, b.range);
+    const candidates = tactical ? s.troops.filter((t) => !t.dead && laneClear(b, t, s.buildings)) : s.troops;
+    const target2 = nearestTroop(b.x, b.y, candidates, b.range);
     if (!target2) return;
     const signature2 = (b.level ?? 0) >= 10 && (b.counterSignatureT ?? 1) <= 0;
-    attack = b.counterAttack = { targetId: target2.id, x: target2.x, y: target2.y, remaining: rule.windup, signature: signature2 };
-    if (rule.windup) {
-      s.pulses.push({ x: attack.x, y: attack.y, r: rule.radius || 3, life: rule.windup, maxLife: rule.windup, color: "#fef08a" });
-      s.fx.push({ type: "yards", text: `${signature2 ? "POWER " : ""}${rule.name.toUpperCase()} \u2192`, x: b.x, y: b.y - 4, life: rule.windup, maxLife: rule.windup, color: "#fef08a" });
+    attack = b.counterAttack = { targetId: target2.id, x: target2.x, y: target2.y, remaining: windup, signature: signature2 };
+    if (tactical) s.shots.push({ sx: b.x, sy: b.y, tx: target2.x, ty: target2.y, t: 0, dur: windup, rot: 0, flavor });
+    if (windup) {
+      s.pulses.push({ x: attack.x, y: attack.y, r: rule.radius || 3, life: windup, maxLife: windup, color: "#fef08a" });
+      s.fx.push({ type: "yards", text: `${signature2 ? "POWER " : ""}${rule.name.toUpperCase()} \u2192`, x: b.x, y: b.y - 4, life: windup, maxLife: windup, color: "#fef08a" });
       return;
     }
   }
@@ -1652,7 +2154,7 @@ function stepCounterEquipment(b, s, dt, hit) {
   const target = s.troops.find((t) => t.id === attack.targetId && !t.dead);
   const signature = attack.signature;
   if (signature) b.counterSignatureT = flavor === "sled" ? 8 : flavor === "ref" ? 11 : flavor === "jugs" ? 9 : 10;
-  if (!["cooler", "tshirt"].includes(flavor) && (!target || Math.hypot(target.x - b.x, target.y - b.y) > b.range)) return;
+  if (!["cooler", "tshirt"].includes(flavor) && (!target || Math.hypot(target.x - b.x, target.y - b.y) > b.range || tactical && !laneClear(b, target, s.buildings))) return;
   const radius = rule.radius * (signature ? 1.6 : 1);
   if (flavor === "cooler") {
     s.puddles.push({ x: attack.x, y: attack.y, r: radius, life: signature ? 5 : rule.duration, maxLife: signature ? 5 : rule.duration });
@@ -1661,7 +2163,7 @@ function stepCounterEquipment(b, s, dt, hit) {
       if (t.dead) continue;
       const falloff = splashFalloff(Math.hypot(t.x - attack.x, t.y - attack.y), radius);
       if (!falloff) continue;
-      hit(t, b.damage * rule.damage * falloff * (signature ? 1.4 : 1));
+      hit(t, damage * rule.damage * falloff * (signature ? 1.4 : 1));
       t.braceT = Math.max(t.braceT ?? 0, rule.duration * falloff);
       t.lastDefenseEffect = "Shirt entanglement";
     }
@@ -1669,20 +2171,20 @@ function stepCounterEquipment(b, s, dt, hit) {
   } else if (target) {
     const resist = defenseResistance(target);
     if (flavor === "sled") {
-      hit(target, b.damage * rule.damage * (0.65 + 0.35 * resist.brace) * (signature ? 1.4 : 1));
+      hit(target, damage * rule.damage * (0.65 + 0.35 * resist.brace) * (signature ? 1.4 : 1));
       displaceFrom(target, b, (signature ? 5 : 1.6) * resist.brace, s.buildings);
       target.braceT = Math.max(target.braceT ?? 0, rule.duration * resist.brace);
       target.lastDefenseEffect = resist.brace < 1 ? "Braced sled impact" : "Sled knockback";
     } else if (flavor === "ref") {
       const targets = signature ? s.troops.filter((t) => !t.dead && Math.hypot(t.x - b.x, t.y - b.y) <= b.range) : [target];
       for (const t of targets) {
-        hit(t, b.damage * rule.damage);
+        hit(t, damage * rule.damage);
         t.flagT = Math.max(t.flagT ?? 0, rule.duration * defenseResistance(t).discipline);
         t.lastDefenseEffect = "Flag: movement and attack disrupted";
       }
     } else {
-      const raw = b.damage * (signature ? 2.2 : 1);
-      const blocker = s.troops.find((t) => !t.dead && t.id !== target.id && counterRole(t) === "OL" && Math.hypot(t.x - target.x, t.y - target.y) <= 5);
+      const raw = damage * (signature ? 2.2 : 1);
+      const blocker = s.troops.find((t) => !t.dead && t.id !== target.id && counterRole(t) === "OL" && Math.hypot(t.x - target.x, t.y - target.y) <= 5 && (!tactical || Math.hypot(t.x - b.x, t.y - b.y) <= Math.hypot(target.x - b.x, target.y - b.y) + 1 && laneClear(t, target, s.buildings)));
       if (blocker) {
         const intercepted = Math.min(blocker.hp, raw * 0.35);
         const prevented = Math.min(target.hp, raw) - Math.min(target.hp, raw - intercepted);
@@ -1694,7 +2196,7 @@ function stepCounterEquipment(b, s, dt, hit) {
       target.lastDefenseEffect = blocker ? "Protected from JUGS" : "JUGS pressure";
     }
   }
-  s.shots.push({ sx: b.x, sy: b.y, tx: rule.radius ? attack.x : target?.x ?? attack.x, ty: rule.radius ? attack.y : target?.y ?? attack.y, t: 0, dur: 0.3, rot: 0, flavor });
+  if (!tactical) s.shots.push({ sx: b.x, sy: b.y, tx: rule.radius ? attack.x : target?.x ?? attack.x, ty: rule.radius ? attack.y : target?.y ?? attack.y, t: 0, dur: 0.3, rot: 0, flavor });
 }
 
 // fixedBase.ts
@@ -1968,159 +2470,20 @@ if (import.meta.env?.DEV) {
   }
 }
 
-// game/spriteFacing.ts
-function spriteFacing(x, y, targetX, targetY, previous = 1) {
-  const horizontal = targetX - x - (targetY - y);
-  return Math.abs(horizontal) > 0.3 ? Math.sign(horizontal) : previous;
-}
-
 // game/spriteMotion.ts
 function spriteMotion(from, to, seconds, previousFace = 1, previousStride = 0) {
-  const distance = Math.hypot(to.x - from.x, to.y - from.y);
-  const moving = seconds > 0 && distance > 1e-4;
-  const speed = moving ? distance / seconds : 0;
+  const distance2 = Math.hypot(to.x - from.x, to.y - from.y);
+  const moving = seconds > 0 && distance2 > 1e-4;
+  const speed = moving ? distance2 / seconds : 0;
   return {
     // 6.3 field units per stride: subdivision and render cadence cannot change
     // footfall phase. A blocked actor keeps its phase until it moves again.
-    stridePhase: moving ? (previousStride + distance / 6.3) % 1 : previousStride,
+    stridePhase: moving ? (previousStride + distance2 / 6.3) % 1 : previousStride,
     moving,
     face: moving ? spriteFacing(0, 0, (to.x - from.x) / seconds, (to.y - from.y) / seconds, previousFace) : previousFace,
     strideSeconds: moving ? Math.max(0.28, Math.min(0.9, 0.42 * 15 / speed)) : 0.42
   };
 }
-
-// game/combat/actionTiming.ts
-function signatureFrameAt(elapsed, windup, recovery) {
-  if (elapsed < windup * 0.5) return 0;
-  if (elapsed + 1e-9 < windup) return 1;
-  if (elapsed + 1e-9 < windup + recovery * 0.5) return 2;
-  if (elapsed + 1e-9 < windup + recovery) return 3;
-  return void 0;
-}
-
-// game/combat/actions.ts
-var COMBAT_RULES_VERSION = "defense-counters-4";
-function applyBuildingYardage(actor, target, requested) {
-  if (target.dead || !Number.isFinite(requested) || requested <= 0) return [];
-  const amount = Math.min(Math.max(0, target.hp), requested);
-  target.hp = Math.max(0, target.hp - amount);
-  actor.dmg = (actor.dmg ?? 0) + amount;
-  const events = [{ type: "yardage", actorId: actor.id, targetId: target.id, amount, x: target.x, y: target.y }];
-  if (target.hp <= 0) {
-    target.dead = true;
-    actor.targetId = null;
-    events.push({ type: "sacked", actorId: actor.id, targetId: target.id, kind: target.kind, x: target.x, y: target.y });
-  }
-  return events;
-}
-function beginHeroAction(actor, buildings, tick) {
-  if (actor.dead || !actor.ability || (actor.abilityCd ?? 0) > 0 || actor.activeAction) return null;
-  const projectile = actor.ability === "hailmary" || actor.ability === "onside_bomb";
-  const target = projectile || actor.ability === "burner_dash" || actor.ability === "truckstick" ? nearestBuilding(actor.x, actor.y, buildings) : void 0;
-  if ((projectile || actor.ability === "burner_dash") && !target) return null;
-  const action = {
-    id: `${actor.id}:signature:${tick}`,
-    actorId: actor.id,
-    heroKey: actor.heroKey ?? "",
-    ability: actor.ability,
-    elapsed: 0,
-    windup: projectile ? 0.35 : 0.2,
-    travel: projectile && target ? Math.max(0.45, Math.min(0.85, dist(actor.x, actor.y, target.x, target.y) / 65)) : 0,
-    recovery: projectile ? 0.3 : 0.25,
-    released: false,
-    resolved: false,
-    sx: actor.x,
-    sy: actor.y,
-    tx: target?.x ?? actor.x,
-    ty: target?.y ?? actor.y,
-    targetId: target?.id
-  };
-  actor.activeAction = action.id;
-  actor.signatureFrame = 0;
-  actor.abilityCd = ABILITY_CD;
-  actor.abilityPoseT = 0;
-  return action;
-}
-function recover(actor, target, amount, events = []) {
-  if (target.dead || !Number.isFinite(amount) || amount <= 0) return;
-  const actual = Math.min(Math.max(0, target.maxHp - target.hp), amount);
-  if (actual <= 0) return;
-  target.hp += actual;
-  actor.healingDone = (actor.healingDone ?? 0) + actual;
-  events.push({ type: "recovery", actorId: actor.id, targetId: target.id, amount: actual, x: target.x, y: target.y });
-}
-function applyTroopPressure(target, raw, troops) {
-  if (target.dead || !Number.isFinite(raw) || raw <= 0) return 0;
-  const shield = (target.shieldT ?? 0) > 0;
-  const amount = Math.min(target.hp, raw * (shield ? 0.5 : 1));
-  if (shield && target.shieldSource) {
-    const source = troops.find((t) => t.id === target.shieldSource);
-    if (source) source.protectionDone = (source.protectionDone ?? 0) + Math.max(0, Math.min(target.hp, raw) - amount);
-  }
-  target.hp = Math.max(0, target.hp - amount);
-  return amount;
-}
-function stepHeroActions(actions, troops, buildings, dt) {
-  const events = [];
-  for (const action of actions) {
-    const actor = troops.find((t) => t.id === action.actorId);
-    if (!actor) {
-      action.elapsed = 99;
-      continue;
-    }
-    if (actor.dead && !action.released) {
-      actor.activeAction = void 0;
-      actor.signatureFrame = void 0;
-      action.elapsed = 99;
-      continue;
-    }
-    action.elapsed += dt;
-    actor.signatureFrame = actor.dead ? void 0 : signatureFrameAt(action.elapsed, action.windup, action.recovery);
-    if (!action.released && action.elapsed + 1e-9 >= action.windup) {
-      action.released = true;
-      if (!actor.dead) actor.actionPoseT = action.recovery;
-      events.push({ type: "signature-release", actorId: actor.id, heroKey: action.heroKey, ability: action.ability, x: action.sx, y: action.sy });
-    }
-    if (!action.resolved && action.elapsed + 1e-9 >= action.windup + action.travel) {
-      action.resolved = true;
-      const target = buildings.find((b) => b.id === action.targetId);
-      if (action.ability === "hailmary" && target) events.push(...applyBuildingYardage(actor, target, 300 + actor.dps * 4));
-      else if (action.ability === "onside_bomb" && target) {
-        events.push(...applyBuildingYardage(actor, target, 500));
-        for (const b of buildings) if (b.id !== target.id && dist(target.x, target.y, b.x, b.y) <= 12) events.push(...applyBuildingYardage(actor, b, 250));
-      } else if (action.ability === "truckstick") {
-        actor.rageT = 6;
-        actor.truckT = 1.8;
-        recover(actor, actor, actor.maxHp, events);
-      } else if (action.ability === "burner_dash") {
-        actor.sprintT = 2.5;
-        actor.rageT = 2.5;
-      } else if (action.ability === "trick_play") events.push({ type: "reinforcements", actorId: actor.id, x: actor.x, y: actor.y });
-      else for (const t of troops) {
-        if (t.dead) continue;
-        const distance = dist(actor.x, actor.y, t.x, t.y);
-        if (action.ability === "motivation" && distance <= 20) t.rageT = Math.max(t.rageT, 4);
-        if (action.ability === "field_medic" && distance <= 18) {
-          recover(actor, t, t.maxHp * 0.35, events);
-          t.healT = Math.max(t.healT, 5);
-          t.healingSource = actor.id;
-        }
-        if (action.ability === "shield_wall" && distance <= 16) {
-          t.shieldT = Math.max(t.shieldT ?? 0, 5);
-          t.shieldSource = actor.id;
-        }
-        if (action.ability === "hall_of_fame") {
-          t.rageT = Math.max(t.rageT, 6);
-          recover(actor, t, t.maxHp, events);
-        }
-      }
-      events.push({ type: "signature-impact", actorId: actor.id, heroKey: action.heroKey, ability: action.ability, x: action.tx, y: action.ty });
-    }
-    if (action.elapsed + 1e-9 >= action.windup + action.recovery) actor.activeAction = void 0;
-  }
-  return events;
-}
-var actionFinished = (action) => action.elapsed + 1e-9 >= action.windup + action.travel + action.recovery;
 
 // game/combat/roster.ts
 function rosterPreparation(roster, readiness = 0) {
@@ -2165,7 +2528,8 @@ function createBattleEngine(input, seed, planKey = "balanced") {
   const config = JSON.parse(JSON.stringify(input));
   const rules = config.authority?.rules ?? config.replay?.rules ?? COMBAT_RULES_VERSION;
   if (!supportsCombatRules(rules)) throw new Error("Unsupported match rules");
-  const counterCombat = rules === DEFENSE_COUNTER_RULES;
+  const tacticalCombat = rules === RAID_TACTICS_RULES;
+  const counterCombat = rules === DEFENSE_COUNTER_RULES || tacticalCombat;
   const isDefense = config.mode === "defense";
   const isReplay = !!config.replay;
   const povDefense = isDefense || isReplay;
@@ -2454,11 +2818,39 @@ function createBattleEngine(input, seed, planKey = "balanced") {
       }
     }
   };
+  const tactics = tacticalCombat ? createRaidTactics(sim.current, {
+    events: consumeCombatEvents,
+    hit: (actor, target, damage, caught) => {
+      const s = sim.current, enemy = s.guards.includes(actor);
+      s.fx.push({ type: "dmg", text: caught ? `CATCH +${Math.round(damage)}` : `${enemy ? "\u2212" : "+"}${Math.round(damage)}${"kind" in target ? " YDS" : ""}`, color: enemy ? "#f87171" : caught ? "#7dd3fc" : "#fde047", x: target.x, y: target.y - 2, life: 0.65, maxLife: 0.65 });
+      s.fx.push({ type: "impact", x: target.x, y: target.y, life: 0.22, maxLife: 0.22 });
+    },
+    release: (actor, target, seconds) => sim.current.fx.push({ type: "ballshot", x: actor.x, y: actor.y - 2, vx: target.x, vy: target.y - 1, life: seconds, maxLife: seconds }),
+    guardDown: (guard, actor) => {
+      const s = sim.current, mascot = guard.id.startsWith("mas");
+      s.fx.push({ type: "down", text: `${guard.jersey ?? ""}`, color: "#b91c1c", x: guard.x, y: guard.y, life: 1, maxLife: 1 });
+      if (!isDefense) {
+        s.bonus += mascot ? 50 : 25;
+        if (!mascot) s.pancakes++;
+        s.momentum = Math.min(100, s.momentum + (mascot ? 15 : 10) * planRef.current.momentum);
+      }
+      say(mascot ? "MASCOT STOPPED \u2014 the lane opens!" : `${actor.raidActivity?.startsWith("Blocking") ? "PANCAKE BLOCK" : "TACKLE BROKEN"} \u2014 keep the drive moving!`);
+    },
+    playerDown: (actor) => {
+      const s = sim.current;
+      s.lost++;
+      s.momentum = Math.max(0, s.momentum - 10);
+      s.fx.push({ type: "down", text: `${actor.jersey ?? ""}`, color: "#111827", x: actor.x, y: actor.y, life: 1, maxLife: 1 });
+      say(`${heroes2.find((h) => h.key === actor.heroKey)?.name ?? actor.nameTag ?? "A player"} is tackled out!`);
+    }
+  }) : null;
   const useAbility = (heroKey) => {
     const s = sim.current;
     const h = s.troops.find((t) => t.heroKey === heroKey && !t.dead);
     if (!h || (h.abilityCd ?? 0) > 0) return false;
-    const action = beginHeroAction(h, s.buildings, s.ticks);
+    const order = tactics?.orderFor(h);
+    const calledTarget = order?.key === "focus" ? s.buildings.find((b) => b.id === order.targetId && !b.dead) : void 0;
+    const action = beginHeroAction(h, s.buildings, s.ticks, calledTarget);
     if (!action) return false;
     h.face = spriteFacing(h.x, h.y, action.tx, action.ty, h.face);
     actions.current.push(action);
@@ -2506,6 +2898,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
       consumeCombatEvents(stepHeroActions(actions.current, s.troops, s.buildings, DT));
       actions.current = actions.current.filter((action) => !actionFinished(action));
     }
+    tactics?.step(DT);
     for (const t of s.troops) {
       if (t.dead) continue;
       if (t.hitFlash > 0) t.hitFlash = Math.max(0, t.hitFlash - DT);
@@ -2523,15 +2916,20 @@ function createBattleEngine(input, seed, planKey = "balanced") {
       if (t.sprintT) t.sprintT = Math.max(0, t.sprintT - DT);
       if (t.truckT && !t.activeAction) t.truckT = Math.max(0, t.truckT - DT);
       if (counterCombat) tickCounterEffects(t, DT);
+      if (tacticalCombat) t.engagementId = void 0;
       if (modernCombat && t.activeAction) {
         t.attacking = true;
         continue;
       }
       const raging = t.rageT > 0;
       const rc = t.role ? ROLE_COMBAT[t.role] : void 0;
-      const catching = rc?.receiver && s.troops.some((o) => !o.dead && (ROLE_COMBAT[o.role ?? ""]?.thrower || o.heroKey === "qb"));
+      const catching = !tacticalCombat && rc?.receiver && s.troops.some((o) => !o.dead && (ROLE_COMBAT[o.role ?? ""]?.thrower || o.heroKey === "qb"));
       const dps = (counterCombat && (t.flagT ?? 0) > 0 ? 0.8 : 1) * t.dps * (raging ? 2 : 1) * (catching ? RECEIVER_BONUS : 1);
       const speed = (counterCombat ? counterSpeed(t) : 1) * t.speed * (raging ? 1.5 : 1) * ((t.sprintT ?? 0) > 0 ? 1.7 : (t.truckT ?? 0) > 0 ? 1.6 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1);
+      if (tactics) {
+        tactics.troop(t, dps, speed, DT);
+        continue;
+      }
       const goal = nearestBuilding(t.x, t.y, s.buildings, t.special ? void 0 : UNIT_PREF[t.unit]);
       if (!goal) continue;
       if (!t.plan || t.plan.goalId !== goal.id || (t.plan.age += DT) > (modernCombat ? routeRefreshSeconds(t) : 1.1)) t.plan = planPath(t.x, t.y, goal, s.buildings);
@@ -2666,7 +3064,8 @@ function createBattleEngine(input, seed, planKey = "balanced") {
         s.pulses.push({ x: mas.x, y: mas.y, r: 14, life: 0.45, maxLife: 0.45, color: povDefense ? "#f97316" : "#ef4444" });
       }
     }
-    for (const g of s.guards) {
+    if (tactics) tactics.guards(DT);
+    else for (const g of s.guards) {
       if (g.dead) continue;
       if (g.hitFlash > 0) g.hitFlash = Math.max(0, g.hitFlash - DT);
       if (g.rageT > 0) g.rageT = Math.max(0, g.rageT - DT);
@@ -2821,11 +3220,12 @@ function createBattleEngine(input, seed, planKey = "balanced") {
       }
     };
     for (const b of s.buildings) {
-      if (b.dead || b.kind !== "defense" || !b.damage || !b.range) continue;
+      if (b.dead || b.kind !== "defense" || !b.damage && !(tacticalCombat && b.flavor === "cooler") || !b.range) continue;
       if (counterCombat) {
-        stepCounterEquipment(b, s, DT, hitTroop);
+        stepCounterEquipment(b, s, DT, hitTroop, tacticalCombat);
         continue;
       }
+      if (!b.damage) continue;
       if ((b.level ?? 0) >= 10) {
         const bb = b;
         if (bb.sigT === void 0) {
@@ -2963,10 +3363,10 @@ function createBattleEngine(input, seed, planKey = "balanced") {
         return;
       }
     }
-    const ballInPlay = modernCombat && actions.current.some((action) => action.released && !action.resolved);
+    const ballInPlay = !!tactics?.ballInPlay || modernCombat && actions.current.some((action) => action.released && !action.resolved);
     if (allDead || s.time <= 0 || !wavesPending && !ballInPlay && s.troops.length > 0 && !anyTroopAlive && !anyToDeploy) endBattle();
   };
-  const coordinate = (n) => typeof n === "number" && Number.isFinite(n) && n >= 2 && n <= 98;
+  const coordinate2 = (n) => typeof n === "number" && Number.isFinite(n) && n >= 2 && n <= 98;
   const perimeterOk = (x, y) => !sim.current.buildings.some((b) => !b.dead && dist(x, y, b.x, b.y) < 14);
   const command = (a, playback = false) => {
     if (sim.current.ended || !playback && isReplay || a.tick !== sim.current.ticks) return false;
@@ -2988,10 +3388,13 @@ function createBattleEngine(input, seed, planKey = "balanced") {
       }
       defensePlays[key]--;
     } else if (isDefense) return false;
-    else if (a.k === "a") {
+    else if (a.k === "o") {
+      if (!tactics || !tactics.command(a)) return false;
+      say(a.key === "focus" ? "TARGET CALLED \u2014 squad changes its assignment!" : a.key === "protect" ? "PROTECT THE HERO \u2014 blockers form the pocket!" : a.key === "push" ? "RALLY CALLED \u2014 move to the marked turf!" : "READ AND REACT \u2014 squad resumes its routes.");
+    } else if (a.k === "a") {
       if (!started || !useAbility(a.key ?? "")) return false;
     } else {
-      if (!coordinate(a.x) || !coordinate(a.y)) return false;
+      if (!coordinate2(a.x) || !coordinate2(a.y)) return false;
       if (a.k !== "p" && !perimeterOk(a.x, a.y)) return false;
       if (a.k === "t") {
         if (!a.u || !(armyRef.current[a.u] > 0)) return false;
@@ -3024,6 +3427,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     stepSim();
     if (sim.current.ticks === previousTick) return;
     const s = sim.current;
+    if (tactics) hash([tactics.hashState(), [...s.troops, ...s.guards].map((t) => [t.id, t.targetId, t.engagementId, t.blockSeconds, t.catches])]);
     if (counterCombat) hash([s.buildings.map((b) => [b.id, b.counterAttack, b.counterSignatureT]), s.troops.map((t) => [t.id, t.wetT, t.flagT, t.braceT]), s.puddles]);
     hash([
       s.ticks,
@@ -3053,6 +3457,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
   return {
     state: sim.current,
     actions,
+    tactics,
     army: armyRef.current,
     deployedHeroes: deployedHeroesRef.current,
     specialCharges: specialChargesRef.current,
@@ -3103,13 +3508,13 @@ var multiplier = (v) => v === void 0 || record2(v) && Object.entries(v).every(([
 var heroes = (v) => Array.isArray(v) && v.length <= 9 && new Set(v.map((h) => h?.key)).size === v.length && v.every((h) => kit(h) && HERO_DEFS.some((d) => d.key === h.key && d.ability === h.ability) && text(h.name) && text(h.abilityName) && asset(h.art) && units.includes(h.unit));
 var specials = (v) => Array.isArray(v) && v.length <= 2 && new Set(v.map((h) => h?.key)).size === v.length && v.every((h) => kit(h) && SPECIALS.some((d) => d.key === h.key) && finite(h.count, 1, 40) && finite(h.charges, 1, 10) && asset(h.art) && (h.aura === void 0 || record2(h.aura) && finite(h.aura.radius, 0, 100) && finite(h.aura.keepRageT, 0, 20)));
 var squad = (v, modern) => v === void 0 || Array.isArray(v) && v.length <= 150 && new Set(v.map((p) => p?.id)).size === v.length && v.every((p) => record2(p) && text(p.id) && text(p.name) && text(p.role, 30) && units.includes(p.unit) && (!modern || record2(p.stats) && ["strength", "speed", "iq"].every((k) => finite(p.stats[k], 1, 1e3)) && finite(p.level, 1, 100)));
-var commands = (v, modern) => Array.isArray(v) && v.length <= 1500 && v.every((a, i) => record2(a) && Number.isInteger(a.tick) && finite(a.tick, 0, 1400) && (i === 0 || a.tick >= v[i - 1].tick) && ["t", "h", "s", "p", "a", "e", ...modern ? ["d"] : []].includes(a.k) && (["t", "h", "s", "p"].includes(a.k) ? finite(a.x, 0, 100) && finite(a.y, 0, 100) : true) && (a.k !== "t" || units.includes(a.u)) && (!["h", "a"].includes(a.k) || HERO_DEFS.some((h) => h.key === a.key)) && (a.k !== "s" || SPECIALS.some((s) => s.key === a.key)) && (a.k !== "p" || PLAYBOOK.some((p) => p.key === a.key)) && (a.k !== "d" || ["noise", "pkg", "timeout"].includes(a.key)));
+var commands = (v, modern, tactics) => Array.isArray(v) && v.length <= 1500 && v.every((a, i) => record2(a) && Number.isInteger(a.tick) && finite(a.tick, 0, 1400) && (i === 0 || a.tick >= v[i - 1].tick) && ["t", "h", "s", "p", "a", "e", ...modern ? ["d"] : [], ...tactics ? ["o"] : []].includes(a.k) && (["t", "h", "s", "p"].includes(a.k) ? finite(a.x, 0, 100) && finite(a.y, 0, 100) : true) && (a.k !== "t" || units.includes(a.u)) && (!["h", "a"].includes(a.k) || HERO_DEFS.some((h) => h.key === a.key)) && (a.k !== "s" || SPECIALS.some((s) => s.key === a.key)) && (a.k !== "p" || PLAYBOOK.some((p) => p.key === a.key)) && (a.k !== "d" || ["noise", "pkg", "timeout"].includes(a.key)) && (a.k !== "o" || validRaidOrder(a)));
 function validateReplay(value) {
   try {
     const serialized = JSON.stringify(value);
     if (!serialized || serialized.length > 45e4) return null;
     const v = JSON.parse(serialized);
-    if (!record2(v) || ![1, 2].includes(v.v) || !Number.isInteger(v.seed) || !finite(v.seed, 0, 4294967295) || !GAME_PLANS.some((p) => p.key === v.plan) || !layout(v.layout) || !heroes(v.heroes) || !specials(v.specials) || !multiplier(v.power) || !squad(v.squad, v.v === 2) || !commands(v.script, v.v === 2)) return null;
+    if (!record2(v) || ![1, 2].includes(v.v) || !Number.isInteger(v.seed) || !finite(v.seed, 0, 4294967295) || !GAME_PLANS.some((p) => p.key === v.plan) || !layout(v.layout) || !heroes(v.heroes) || !specials(v.specials) || !multiplier(v.power) || !squad(v.squad, v.v === 2) || !commands(v.script, v.v === 2, v.v === 2 && v.rules === RAID_TACTICS_RULES)) return null;
     if (v.v === 2) {
       if (v.script.some((a) => a.tick > v.ticks)) return null;
       const c = v.snapshot;
@@ -3163,7 +3568,7 @@ var defenseTroopBoost = (roster) => {
 // game/campusLayout.ts
 var keyOf = ({ gridX, gridY }) => `${gridX},${gridY}`;
 var record3 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-var point = (v) => record3(v) && Number.isInteger(v.gridX) && Number.isInteger(v.gridY);
+var point2 = (v) => record3(v) && Number.isInteger(v.gridX) && Number.isInteger(v.gridY);
 var ident = (v) => typeof v === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(v);
 var compareId = (a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 var inside = (p) => p.gridX >= 0 && p.gridX <= 9 && p.gridY >= 0 && p.gridY <= 9;
@@ -3183,7 +3588,7 @@ function templateCampusLayout(formation, buildings) {
 function validateCampusLayout(input, buildings) {
   const issues = [];
   const fail2 = (code, message) => issues.push({ code, message });
-  if (!record3(input) || input.version !== 1 || !FORMATION_ORDER.includes(input.formation) || !Array.isArray(input.facilities) || input.facilities.length !== Object.values(BuildingType).length || !Array.isArray(input.slots) || input.slots.length !== slotsFor("goalline").length || !Array.isArray(input.walls) || input.walls.length > 44 || !Array.isArray(input.gates) || input.gates.length !== 2 || !point(input.bus) || !input.facilities.every((p) => point(p) && record3(p) && ident(p.id) && Object.values(BuildingType).includes(p.type)) || !input.slots.every((p) => point(p) && record3(p) && ident(p.id) && ident(p.kind)) || !input.walls.every(point) || !input.gates.every((p) => point(p) && record3(p) && ident(p.id) && typeof p.label === "string" && p.label.length <= 60)) {
+  if (!record3(input) || input.version !== 1 || !FORMATION_ORDER.includes(input.formation) || !Array.isArray(input.facilities) || input.facilities.length !== Object.values(BuildingType).length || !Array.isArray(input.slots) || input.slots.length !== slotsFor("goalline").length || !Array.isArray(input.walls) || input.walls.length > 44 || !Array.isArray(input.gates) || input.gates.length !== 2 || !point2(input.bus) || !input.facilities.every((p) => point2(p) && record3(p) && ident(p.id) && Object.values(BuildingType).includes(p.type)) || !input.slots.every((p) => point2(p) && record3(p) && ident(p.id) && ident(p.kind)) || !input.walls.every(point2) || !input.gates.every((p) => point2(p) && record3(p) && ident(p.id) && typeof p.label === "string" && p.label.length <= 60)) {
     return { valid: false, issues: [{ code: "shape", message: "This layout is incomplete or uses an unsupported format." }] };
   }
   const layout2 = input;
@@ -3316,7 +3721,7 @@ function createDefenseSnapshot(source) {
     }
   }
   const squeeze = 1 - PARKING_LOT.compressPerLevel * parkingLot;
-  const coordinate = (v) => 50 + (v - 50) * squeeze;
+  const coordinate2 = (v) => 50 + (v - 50) * squeeze;
   const assignedHeroes = campus.gates.flatMap((gate) => {
     const h = pool.find((hero) => hero.key === heroGates[gate.id]);
     if (!h) return [];
@@ -3327,8 +3732,8 @@ function createDefenseSnapshot(source) {
       name: h.name,
       art: h.art,
       unit: h.unit,
-      x: coordinate(gate.gridX * 10),
-      y: coordinate(gate.gridY * 10)
+      x: coordinate2(gate.gridX * 10),
+      y: coordinate2(gate.gridY * 10)
     };
     return [{ gateId: gate.id, heroKey: h.key, guard }];
   });
@@ -3541,13 +3946,13 @@ function advanceCampus(previous, now, calendarDate, settleActivities = true) {
       return { ...player, state: "PATROLLING" /* PATROLLING */, targetPos: patrolPoint(player) };
     }
     const dx = player.targetPos.x - player.worldPos.x, dy = player.targetPos.y - player.worldPos.y;
-    const distance = Math.hypot(dx, dy);
+    const distance2 = Math.hypot(dx, dy);
     const patrolling = player.state === "PATROLLING" /* PATROLLING */;
     const step = (patrolling ? 6.5 : 15) * movementSeconds;
-    if (distance > 0.5 && distance > step) {
-      return { ...player, worldPos: { x: player.worldPos.x + dx / distance * step, y: player.worldPos.y + dy / distance * step, z: 0 }, state: player.targetPos.z === 1 ? "TRAINING" /* TRAINING */ : patrolling ? "PATROLLING" /* PATROLLING */ : "WALKING" /* WALKING */ };
+    if (distance2 > 0.5 && distance2 > step) {
+      return { ...player, worldPos: { x: player.worldPos.x + dx / distance2 * step, y: player.worldPos.y + dy / distance2 * step, z: 0 }, state: player.targetPos.z === 1 ? "TRAINING" /* TRAINING */ : patrolling ? "PATROLLING" /* PATROLLING */ : "WALKING" /* WALKING */ };
     }
-    const arrived = distance > 0 ? { ...player, worldPos: { x: player.targetPos.x, y: player.targetPos.y, z: 0 } } : player;
+    const arrived = distance2 > 0 ? { ...player, worldPos: { x: player.targetPos.x, y: player.targetPos.y, z: 0 } } : player;
     if (patrolling) return { ...arrived, targetPos: patrolPoint(arrived) };
     if (player.state === "WALKING" /* WALKING */ || player.state === "TRAINING" /* TRAINING */ && player.targetPos.z !== 1) {
       return { ...arrived, state: player.targetPos.z === 1 ? "TRAINING" /* TRAINING */ : "IDLE" /* IDLE */ };
@@ -3659,13 +4064,13 @@ function recruitBoard(state, now, random) {
   const weights = Object.entries(RECRUIT_CONFIG.rarity);
   const total = weights.reduce((sum, [, value]) => sum + value.weight, 0);
   const used = /* @__PURE__ */ new Set([...state.roster.map((value) => value.id), ...state.recruitBoard?.candidates.map((value) => value.id) ?? [], state.recruitSlot?.candidate.id]);
-  const candidates = Array.from({ length: RECRUIT_CONFIG.candidateCount }, (_, index) => {
+  const candidates = Array.from({ length: RECRUIT_CONFIG.candidateCount }, (_, index2) => {
     const role = pick(roles), unit = ROLE_UNIT[role];
     let cursor = random() * total;
     const rarity = weights.find(([, value]) => (cursor -= value.weight) < 0)?.[0] ?? "COMMON" /* COMMON */;
     const tuning = RECRUIT_CONFIG.rarity[rarity];
     const stat = () => Math.max(1, Math.round(tuning.baseStat + (random() * 2 - 1) * tuning.jitter));
-    let id = `rec_${now}_${Math.floor(random() * 1e6)}_${index}`;
+    let id = `rec_${now}_${Math.floor(random() * 1e6)}_${index2}`;
     while (used.has(id)) id += "_n";
     used.add(id);
     return {
@@ -3859,8 +4264,8 @@ function applyClubAction(previous, input, context) {
       if (!spend("GEMS" /* GEMS */, ROLL_COST_GEMS)) return fail2("insufficient_resources", "Not enough Crowns.");
       const weights = HERO_DEFS.map((value) => value.starter ? 20 : value.unlock?.gems ? 3 : 10);
       let cursor = random() * weights.reduce((sum, value) => sum + value, 0);
-      const index = weights.findIndex((weight) => (cursor -= weight) < 0);
-      const def = HERO_DEFS[index < 0 ? HERO_DEFS.length - 1 : index];
+      const index2 = weights.findIndex((weight) => (cursor -= weight) < 0);
+      const def = HERO_DEFS[index2 < 0 ? HERO_DEFS.length - 1 : index2];
       const hero = state.heroes.find((value) => value.key === def.key);
       if (!hero) return fail2("invalid_state", "The hero roster could not be verified.");
       const roll = { key: hero.key, name: def.name, isNew: !hero.unlocked, shards: hero.unlocked ? 14 + Math.floor(random() * 9) : 0 };
@@ -4133,7 +4538,7 @@ var SaveLoadError = class extends Error {
 var object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 var number = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0;
 var text2 = (v) => typeof v === "string";
-var point2 = (v) => object(v) && ["x", "y", "z"].every((k) => typeof v[k] === "number" && Number.isFinite(v[k]));
+var point3 = (v) => object(v) && ["x", "y", "z"].every((k) => typeof v[k] === "number" && Number.isFinite(v[k]));
 var numericMap = (v) => object(v) && Object.values(v).every(number);
 var stringArray = (v) => Array.isArray(v) && v.every(text2);
 function parseSavedClub(raw) {
@@ -4144,7 +4549,7 @@ function parseSavedClub(raw) {
   };
   require2(object(s.resources) && ["COINS", "GEMS", "ENERGY", "FANS"].every((k) => number(s.resources[k])), "resources");
   require2(Array.isArray(s.buildings) && s.buildings.every((b) => object(b) && text2(b.id) && Object.values(BuildingType).includes(b.type) && number(b.level) && b.level >= 1 && Number.isInteger(b.level) && Number.isFinite(b.gridX) && Number.isFinite(b.gridY) && Object.values(DrillState).includes(b.state)), "facilities");
-  require2(Array.isArray(s.roster) && s.roster.every((p) => object(p) && text2(p.id) && text2(p.name) && number(p.level) && point2(p.worldPos) && point2(p.targetPos) && Object.values(UnitGroup).includes(p.unit) && Object.values(PlayerRole).includes(p.role) && Object.values(PlayerState).includes(p.state) && object(p.stats) && ["strength", "speed", "iq"].every((k) => number(p.stats[k]))), "roster");
+  require2(Array.isArray(s.roster) && s.roster.every((p) => object(p) && text2(p.id) && text2(p.name) && number(p.level) && point3(p.worldPos) && point3(p.targetPos) && Object.values(UnitGroup).includes(p.unit) && Object.values(PlayerRole).includes(p.role) && Object.values(PlayerState).includes(p.state) && object(p.stats) && ["strength", "speed", "iq"].every((k) => number(p.stats[k]))), "roster");
   for (const field of ["lastTick", "timeOfDay", "trophies", "builders", "parkingLot", "bonusDefSlots", "shieldUntil", "energyProgressMs", "peakFans"]) {
     if (field in s) require2(number(s[field]), field);
   }
@@ -4300,11 +4705,11 @@ var integer2 = (n, lo, hi) => bounded2(n, lo, hi) && Number.isSafeInteger(n);
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var text3 = (value, length = 100) => typeof value === "string" && value.length > 0 && value.length <= length && !/[\u0000-\u001f\u007f]/u.test(value);
 var date = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value));
-var point3 = (value) => object2(value) && ["x", "y", "z"].every((key) => bounded2(value[key], -1e3, 1e3));
+var point4 = (value) => object2(value) && ["x", "y", "z"].every((key) => bounded2(value[key], -1e3, 1e3));
 var reject = () => {
   throw new MatchRuleError("invalid_legacy", "This club needs recovery before online protection can be enabled. Your local club has been kept.");
 };
-var validPlayer = (p) => object2(p) && text3(p.id) && text3(p.name) && integer2(p.level, 1, 100) && Object.prototype.hasOwnProperty.call(ROLE_UNIT, p.role) && ROLE_UNIT[p.role] === p.unit && object2(p.stats) && STAT_KEYS.every((key) => bounded2(p.stats[key], 1, 1e3)) && point3(p.worldPos) && point3(p.targetPos) && (p.rarity === void 0 || Object.values(PlayerRarity).includes(p.rarity)) && (p.maxStat === void 0 || bounded2(p.maxStat, 1, 1e3));
+var validPlayer = (p) => object2(p) && text3(p.id) && text3(p.name) && integer2(p.level, 1, 100) && Object.prototype.hasOwnProperty.call(ROLE_UNIT, p.role) && ROLE_UNIT[p.role] === p.unit && object2(p.stats) && STAT_KEYS.every((key) => bounded2(p.stats[key], 1, 1e3)) && point4(p.worldPos) && point4(p.targetPos) && (p.rarity === void 0 || Object.values(PlayerRarity).includes(p.rarity)) && (p.maxStat === void 0 || bounded2(p.maxStat, 1, 1e3));
 function validatePending(saved, now) {
   const jobs = saved.upgrades ?? [];
   if (jobs.length > 20 || new Set(jobs.map((job) => job.id)).size !== jobs.length || new Set(jobs.map((job) => `${job.kind}:${job.key}`)).size !== jobs.length) return reject();

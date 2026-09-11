@@ -25,7 +25,7 @@ export function BattleFieldReport({ troops, guards, buildings, heroes }: {
         {!actors.length && <p>No players on this side yet.</p>}
         {actors.map(actor => { const currentTarget = target(actor); return <div key={actor.id} className="border-b border-slate-800 py-2">
           <p className="font-bold text-white">{name(actor)}{actor.role ? ` · ${actor.role}` : ''}</p>
-          <p>Grit {Math.max(0, Math.round(actor.hp))}/{Math.round(actor.maxHp)} · {actor.dead ? 'Subbed out' : actor.activeAction ? 'Signature in progress' : actor.attacking ? 'Engaging' : actor.moving ? 'Moving' : 'Holding position'}{!actor.dead && currentTarget ? ` · Target: ${currentTarget}` : ''}</p>
+          <p>Grit {Math.max(0, Math.round(actor.hp))}/{Math.round(actor.maxHp)} · {actor.dead ? 'Subbed out' : actor.activeAction ? 'Signature in progress' : actor.raidActivity ?? (actor.attacking ? 'Engaging' : actor.moving ? 'Moving' : 'Holding position')}{!actor.dead && currentTarget ? ` · Target: ${currentTarget}` : ''}</p>
           {!actor.dead && <p>{[actor.rageT > 0 && 'Blitz active', actor.healT > 0 && 'Recovering', (actor.shieldT ?? 0) > 0 && 'Shielded', (actor.slowT ?? 0) > 0 && 'Slowed'].filter(Boolean).join(' · ')}</p>}
         </div>; })}
       </section>)}

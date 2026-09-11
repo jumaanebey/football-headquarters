@@ -4,6 +4,29 @@
   "repository": "jumaanebey/football-headquarters",
   "entryTemplate": "import 'https://cdn.jsdelivr.net/gh/{repository}@{commit}/{artifact}';",
   "deployed": {
+    "version": 7,
+    "artifact": "supabase/recovery/club-authority.v7.min.js",
+    "sha256": "dfe1b18ad512f83897d1ce5d0bd4019a7c66e64c8df50c0dc1255e5c25e9e77a",
+    "rules": "raid-tactics-5",
+    "commit": "d28b2a70b8aa5cd44984a389974597f6cbadf442",
+    "deployedAt": "2026-09-11T17:07:01.519000+00:00",
+    "verifyJwt": true,
+    "entryMode": "inline-artifact",
+    "entrySha256": "dfe1b18ad512f83897d1ce5d0bd4019a7c66e64c8df50c0dc1255e5c25e9e77a",
+    "recordedFrom": "Supabase v7 deployment and get_edge_function readback: index.ts exactly matches the 174117-character committed artifact. Accepts hero-actions-3, defense-counters-4 and raid-tactics-5."
+  },
+  "staged": {
+    "version": 7,
+    "artifact": "supabase/recovery/club-authority.v7.min.js",
+    "sha256": "dfe1b18ad512f83897d1ce5d0bd4019a7c66e64c8df50c0dc1255e5c25e9e77a",
+    "rules": "raid-tactics-5",
+    "commit": "d28b2a70b8aa5cd44984a389974597f6cbadf442"
+  },
+  "rollback": {
+    "healthy": "Roll back the frontend while retaining v7 authority for pending raid-tactics-5 matches and existing v6 development schedules, scouting and Stadium football. Do not restore v6 while new-rule matches can still settle, or v5 while facility activity state exists.",
+    "never": "supabase/recovery/club-authority.v2.bundle.js (crashes at startup: window guard)"
+  },
+  "previousHealthy": {
     "version": 6,
     "artifact": "supabase/recovery/club-authority.v6.min.js",
     "sha256": "519031c02a2a9019c37457a76ae2028343653836b18786826fb563a04045723d",
@@ -14,28 +37,5 @@
     "entryMode": "inline-artifact",
     "entrySha256": "519031c02a2a9019c37457a76ae2028343653836b18786826fb563a04045723d",
     "recordedFrom": "Supabase deployment v6 and get_edge_function readback: index.ts exactly matches the 163379-character committed artifact. Retains hero-actions-3 and defense-counters-4."
-  },
-  "staged": {
-    "version": 6,
-    "artifact": "supabase/recovery/club-authority.v6.min.js",
-    "sha256": "519031c02a2a9019c37457a76ae2028343653836b18786826fb563a04045723d",
-    "rules": "defense-counters-4",
-    "commit": "652169296a8a432053f043c421cd245aba08df0c"
-  },
-  "rollback": {
-    "healthy": "Roll back the frontend while retaining v6 authority for existing development schedules, prospects and Stadium football games. Do not restore v5 while v6 activity state exists.",
-    "never": "supabase/recovery/club-authority.v2.bundle.js (crashes at startup: window guard)"
-  },
-  "previousHealthy": {
-    "version": 5,
-    "artifact": "supabase/recovery/club-authority.v5.min.js",
-    "sha256": "09d2deaa68b45bfc8ab8eb2b15db30f8bfe38fc8fd701d2844d402fbb6be6f68",
-    "rules": "defense-counters-4",
-    "commit": "4319884acfcd3816bc14b7e82142b47a6d139d33",
-    "deployedAt": "2026-09-10T22:07:06.665000+00:00",
-    "verifyJwt": true,
-    "entryMode": "inline-artifact",
-    "entrySha256": "09d2deaa68b45bfc8ab8eb2b15db30f8bfe38fc8fd701d2844d402fbb6be6f68",
-    "recordedFrom": "Supabase deploy v5 plus get_edge_function readback: index.ts byte-identical (139302 bytes). Accepts hero-actions-3 and defense-counters-4; requests without rules retain hero-actions-3."
   }
 }

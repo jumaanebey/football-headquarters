@@ -1,6 +1,7 @@
 // Deterministic headless bot that plays an issued match on the shared engine and packages
 // the film the authority verifies (`match.finish` submission). Used by acceptance tests and
 // the live evidence script; it is a transparent policy, not a competitive player.
+import { UnitGroup } from '../../types';
 import { UNIT_ORDER, type ReplayAction } from '../../battle';
 import type { BattleConfig, BattleResult } from '../combat/contracts';
 import { createBattleEngine, type BattleEngine } from '../combat/engine';
@@ -25,14 +26,22 @@ const deploy = (engine: BattleEngine, action: Omit<ReplayAction, 'tick' | 'x' | 
 export interface HeadlessMatch { submission: MatchSubmission; result: BattleResult; engine: BattleEngine }
 
 /** Plays `config` from kickoff to the whistle with every player and hero deployed at once. */
-export function playHeadlessMatch(config: BattleConfig, seed: number, plan = 'balanced'): HeadlessMatch {
+export function playHeadlessMatch(config: BattleConfig, seed: number, plan = 'balanced', coachOrders = false): HeadlessMatch {
   const engine = createBattleEngine(config, seed, plan);
   if (config.mode === 'attack') {
     let slot = 0;
     for (const unit of UNIT_ORDER) for (const player of [...(config.squad ?? [])].filter(p => p.unit === unit).sort((a, b) => a.id.localeCompare(b.id))) { deploy(engine, { k: 't', u: unit }, slot); slot += 3; }
     for (const hero of config.heroes ?? []) { deploy(engine, { k: 'h', key: hero.key }, slot); slot += 3; }
   }
+  if (coachOrders && engine.tactics && config.mode === 'attack') {
+    const target=engine.state.buildings.find(b=>b.kind==='defense')??engine.state.buildings[0];
+    const hero=engine.state.troops.find(t=>t.heroKey==='qb')??engine.state.troops.find(t=>t.isHero);
+    engine.command({k:'o',key:'focus',targetId:target.id,tick:0});
+    if(hero)engine.command({k:'o',key:'protect',targetId:hero.id,u:UnitGroup.OFFENSE_LINE,tick:0});
+    engine.command({k:'o',key:'push',x:5,y:50,u:UnitGroup.DEFENSE_SECONDARY,tick:0});
+  }
   for (let tick = 0; tick < MAX_TICKS && !engine.state.ended; tick++) {
+    if(coachOrders && engine.tactics && config.mode==='attack' && engine.state.ticks===100) engine.command({k:'o',key:'auto',tick:100});
     if (config.mode === 'attack' && engine.state.ticks % 10 === 0) {
       for (const hero of config.heroes ?? []) {
         const actor = engine.state.troops.find(t => t.heroKey === hero.key);

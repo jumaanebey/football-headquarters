@@ -1,3 +1,4 @@
+import { createRaidTactics, RAID_TACTICS_RULES } from './raidTactics';
 import { DEFENSE_COUNTER_RULES, supportsCombatRules, counterSpeed, tickCounterEffects } from './defenseCounters';
 import { stepCounterEquipment } from './defenseCounterStep';
 import { canonicalJson } from './canonical';
@@ -31,7 +32,8 @@ export function createBattleEngine(input: BattleConfig, seed: number, planKey = 
   const config: BattleConfig = JSON.parse(JSON.stringify(input));
   const rules = config.authority?.rules ?? config.replay?.rules ?? COMBAT_RULES_VERSION;
   if(!supportsCombatRules(rules)) throw new Error('Unsupported match rules');
-  const counterCombat = rules === DEFENSE_COUNTER_RULES;
+  const tacticalCombat = rules === RAID_TACTICS_RULES;
+  const counterCombat = rules === DEFENSE_COUNTER_RULES || tacticalCombat;
   const isDefense = config.mode === 'defense';
   const isReplay = !!config.replay;
   const povDefense = isDefense || isReplay;
@@ -232,12 +234,34 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
       }
     }
   };
+  const tactics = tacticalCombat ? createRaidTactics(sim.current, {
+    events: consumeCombatEvents,
+    hit: (actor, target, damage, caught) => {
+      const s = sim.current, enemy = s.guards.includes(actor);
+      s.fx.push({ type: 'dmg', text: caught ? `CATCH +${Math.round(damage)}` : `${enemy ? '−' : '+'}${Math.round(damage)}${'kind' in target ? ' YDS' : ''}`, color: enemy ? '#f87171' : caught ? '#7dd3fc' : '#fde047', x: target.x, y: target.y - 2, life: .65, maxLife: .65 });
+      s.fx.push({ type: 'impact', x: target.x, y: target.y, life: .22, maxLife: .22 });
+    },
+    release: (actor, target, seconds) => sim.current.fx.push({ type: 'ballshot', x: actor.x, y: actor.y - 2, vx: target.x, vy: target.y - 1, life: seconds, maxLife: seconds }),
+    guardDown: (guard, actor) => {
+      const s = sim.current, mascot = guard.id.startsWith('mas');
+      s.fx.push({ type: 'down', text: `${guard.jersey ?? ''}`, color: '#b91c1c', x: guard.x, y: guard.y, life: 1, maxLife: 1 });
+      if (!isDefense) { s.bonus += mascot ? 50 : 25; if (!mascot) s.pancakes++; s.momentum = Math.min(100, s.momentum + (mascot ? 15 : 10) * planRef.current.momentum); }
+      say(mascot ? 'MASCOT STOPPED — the lane opens!' : `${actor.raidActivity?.startsWith('Blocking') ? 'PANCAKE BLOCK' : 'TACKLE BROKEN'} — keep the drive moving!`);
+    },
+    playerDown: actor => {
+      const s = sim.current; s.lost++; s.momentum = Math.max(0, s.momentum - 10);
+      s.fx.push({ type: 'down', text: `${actor.jersey ?? ''}`, color: '#111827', x: actor.x, y: actor.y, life: 1, maxLife: 1 });
+      say(`${heroes.find(h => h.key === actor.heroKey)?.name ?? actor.nameTag ?? 'A player'} is tackled out!`);
+    },
+  }) : null;
   const useAbility = (heroKey: string): boolean => {
     const s = sim.current;
     const h = s.troops.find(t => t.heroKey === heroKey && !t.dead);
     if (!h || (h.abilityCd ?? 0) > 0) return false;
 
-      const action = beginHeroAction(h, s.buildings, s.ticks);
+      const order = tactics?.orderFor(h);
+      const calledTarget = order?.key === 'focus' ? s.buildings.find(b => b.id === order.targetId && !b.dead) : undefined;
+      const action = beginHeroAction(h, s.buildings, s.ticks, calledTarget);
       if (!action) return false;
       h.face = spriteFacing(h.x, h.y, action.tx, action.ty, h.face);
       actions.current.push(action);
@@ -283,6 +307,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
         actions.current = actions.current.filter(action => !actionFinished(action));
       }
 
+      tactics?.step(DT);
       for (const t of s.troops) {
         if (t.dead) continue;
         if (t.hitFlash > 0) t.hitFlash = Math.max(0, t.hitFlash - DT);
@@ -300,15 +325,17 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
         if (t.sprintT) t.sprintT = Math.max(0, t.sprintT - DT);
         if (t.truckT && !t.activeAction) t.truckT = Math.max(0, t.truckT - DT);
         if(counterCombat) tickCounterEffects(t,DT);
+        if (tacticalCombat) t.engagementId = undefined;
         if (modernCombat && t.activeAction) { t.attacking = true; continue; } // plant through release
 
         const raging = t.rageT > 0;
         // WR power: catching — big damage while any thrower (QB player or QB hero) is out
         const rc = t.role ? ROLE_COMBAT[t.role] : undefined;
-        const catching = rc?.receiver && s.troops.some(o => !o.dead && (ROLE_COMBAT[o.role ?? '']?.thrower || o.heroKey === 'qb'));
+        const catching = !tacticalCombat && rc?.receiver && s.troops.some(o => !o.dead && (ROLE_COMBAT[o.role ?? '']?.thrower || o.heroKey === 'qb'));
         const dps = ((counterCombat && (t.flagT??0)>0) ? .8 : 1) * t.dps * (raging ? 2 : 1) * (catching ? RECEIVER_BONUS : 1);
         const speed = (counterCombat ? counterSpeed(t) : 1) * t.speed * (raging ? 1.5 : 1) * ((t.sprintT ?? 0) > 0 ? 1.7 : (t.truckT ?? 0) > 0 ? 1.6 : 1) * ((t.slowT ?? 0) > 0 ? 0.55 : 1);
 
+        if (tactics) { tactics.troop(t, dps, speed, DT); continue; }
         const goal = nearestBuilding(t.x, t.y, s.buildings, t.special ? undefined : UNIT_PREF[t.unit]); // position-group targeting roles
         if (!goal) continue;
         // Wall-aware routing: replan when the goal changes, the route's wall falls, or it goes stale.
@@ -449,7 +476,8 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
           s.pulses.push({ x: mas.x, y: mas.y, r: 14, life: 0.45, maxLife: 0.45, color: povDefense ? '#f97316' : '#ef4444' });
         }
       }
-      for (const g of s.guards) {
+      if (tactics) tactics.guards(DT);
+      else for (const g of s.guards) {
         if (g.dead) continue;
         if (g.hitFlash > 0) g.hitFlash = Math.max(0, g.hitFlash - DT);
         if (g.rageT > 0) g.rageT = Math.max(0, g.rageT - DT);
@@ -598,8 +626,9 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
         }
       };
       for (const b of s.buildings) {
-        if (b.dead || b.kind !== 'defense' || !b.damage || !b.range) continue;
-        if(counterCombat) { stepCounterEquipment(b,s,DT,hitTroop); continue; }
+        if (b.dead || b.kind !== 'defense' || (!b.damage && !(tacticalCombat && b.flavor === 'cooler')) || !b.range) continue;
+        if(counterCombat) { stepCounterEquipment(b,s,DT,hitTroop,tacticalCombat); continue; }
+        if (!b.damage) continue;
         // ⭐ L10 SIGNATURE PLAYS — maxed gear runs a special on its own clock. The
         // slot's level rides the layout, so raiders face signatures on real L10 bases
         // (and replays re-fire them identically — all state lives in the sim).
@@ -732,7 +761,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
         const dmgFrac = nonWallB.length ? nonWallB.reduce((sum, b) => sum + (1 - Math.max(0, b.hp) / (b.maxHp || 1)), 0) / nonWallB.length : 0;
         if (dmgFrac >= 0.5) { endBattle(); return; }
       }
-      const ballInPlay = modernCombat && actions.current.some(action => action.released && !action.resolved);
+      const ballInPlay = !!tactics?.ballInPlay || (modernCombat && actions.current.some(action => action.released && !action.resolved));
       if (allDead || s.time <= 0 || (!wavesPending && !ballInPlay && s.troops.length > 0 && !anyTroopAlive && !anyToDeploy)) endBattle();
     };
 
@@ -753,6 +782,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
       } else { for(const t of sim.current.troops) if(!t.dead) t.slowT = Math.max(t.slowT ?? 0,key==='timeout'?3.5:2.5); say(key==='timeout'?'TIMEOUT — stall their drive!':'The home crowd ERUPTS!'); }
       defensePlays[key]--;
     } else if (isDefense) return false;
+    else if (a.k === 'o') { if (!tactics || !tactics.command(a)) return false; say(a.key === 'focus' ? 'TARGET CALLED — squad changes its assignment!' : a.key === 'protect' ? 'PROTECT THE HERO — blockers form the pocket!' : a.key === 'push' ? 'RALLY CALLED — move to the marked turf!' : 'READ AND REACT — squad resumes its routes.'); }
     else if (a.k === 'a') { if (!started || !useAbility(a.key ?? '')) return false; }
     else {
       if (!coordinate(a.x) || !coordinate(a.y)) return false;
@@ -785,6 +815,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
     if (sim.current.ticks === previousTick) return;
     const s = sim.current;
     // Hash gameplay only: cosmetic quality, FPS, sound and camera cannot alter verification.
+    if(tactics) hash([tactics.hashState(), [...s.troops,...s.guards].map(t=>[t.id,t.targetId,t.engagementId,t.blockSeconds,t.catches])]);
     if(counterCombat) hash([s.buildings.map(b=>[b.id,b.counterAttack,b.counterSignatureT]),s.troops.map(t=>[t.id,t.wetT,t.flagT,t.braceT]),s.puddles]);
     hash([s.ticks,s.time,s.momentum,s.bonus,s.nextWave,s.buildings.map(b=>[b.id,b.hp,b.cooldown]),
       [...s.troops,...s.guards].map(t=>[t.id,t.x,t.y,t.hp,t.rageT,t.healT,t.shieldT,t.slowT,t.abilityCd,t.dmg,t.healingDone,t.protectionDone])]);
@@ -795,7 +826,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
     snapshot:JSON.parse(JSON.stringify({...config,replay:undefined})),finalHash:digest.toString(16).padStart(8,'0'),ticks:sim.current.ticks,
   });
   return {
-    state:sim.current,actions,army:armyRef.current,deployedHeroes:deployedHeroesRef.current,specialCharges:specialChargesRef.current,plays,defensePlays,
+    state:sim.current,actions,tactics,army:armyRef.current,deployedHeroes:deployedHeroesRef.current,specialCharges:specialChargesRef.current,plays,defensePlays,
     command,advance,finish:()=>command({k:'e',tick:sim.current.ticks}),
     setPlan:(key:string)=>{ if(started) return false; const plan=GAME_PLANS.find(p=>p.key===key); if(!plan)return false;planRef.current=plan;return true; },
     get rejectedCommands(){return rejectedCommands;},get result(){return result;},get started(){return started;},get hash(){return digest.toString(16).padStart(8,'0');},

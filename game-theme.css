@@ -541,3 +541,17 @@ button { touch-action:manipulation; }
 @media(max-width:799px){.fhq-unit-choices{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.fhq-unit-choices button{padding:5px 3px;min-width:0;text-align:center;font-size:10px;line-height:1.25}}
 
 @media(max-width:799px){.fhq-play-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.fhq-play-choices button{min-width:0;padding:6px 3px;text-align:center;font-size:11px;line-height:1.25}}
+
+/* Raid coaching: one compact mode switch keeps orders beside the field. */
+.fhq-raid-command-tabs,.fhq-order-actions,.fhq-raid-batch{display:flex;gap:5px;align-items:center;margin-bottom:5px}
+.fhq-raid-command-tabs button,.fhq-order-actions button,.fhq-raid-batch button,.fhq-order-targets button{min-height:44px;border:1px solid #3c5765;border-radius:8px;background:#142b35;color:#e4eef0;font-size:12px;font-weight:800;padding:6px 10px}
+.fhq-raid-command-tabs button{flex:1}.fhq-raid-command-tabs button:last-child{flex:0;color:#fda4af}
+.fhq-raid-command-tabs button[aria-pressed=true],.fhq-order-actions button[aria-pressed=true],.fhq-raid-batch button[aria-pressed=true]{background:#b45309;border-color:#fbbf24;color:white}
+.fhq-raid-orders{color:#cbd5e1;font-size:12px}.fhq-raid-orders label{display:flex;align-items:center;gap:8px;margin-bottom:5px}.fhq-raid-orders select{flex:1;min-width:0;min-height:44px;padding:5px;background:#0e202c;border:1px solid #486172;border-radius:7px;color:white;font-weight:700}
+.fhq-order-actions button{flex:1}.fhq-raid-orders p{margin:5px 0;line-height:1.4}.fhq-order-confirmation{color:#a7f3d0;min-height:17px}.fhq-order-targets{display:flex;gap:5px;overflow-x:auto;padding:3px 0}.fhq-order-targets button{flex-shrink:0}
+.fhq-raid-batch{justify-content:center;color:#cbd5e1;font-size:11px}.fhq-raid-batch button{padding:3px 14px}.fhq-order-overlay{position:absolute;inset:0;width:100%;height:100%;z-index:219;pointer-events:none}.fhq-deploy-tray[hidden]{display:none}
+@media(max-width:640px) and (orientation:portrait){.fhq-raid-command-tabs button,.fhq-order-actions button{font-size:11px;padding:5px 7px}.fhq-raid-orders{font-size:11px}.fhq-raid-batch{margin-bottom:3px}.fhq-battle:has(.fhq-raid-command-tabs) .fhq-battle-commands{max-height:44dvh}}
+
+.fhq-raid-command-tabs{position:sticky;top:0;z-index:6;background:#101b2c;padding:3px 0 5px;margin-top:-3px;box-shadow:0 3px 6px #101b2c}
+
+@media(max-height:540px) and (orientation:landscape){.fhq-raid-orders>p:not(.fhq-order-confirmation){display:none}.fhq-raid-orders label,.fhq-raid-orders .fhq-order-actions{margin-bottom:3px}.fhq-order-confirmation{font-size:10px;line-height:1.2!important}.fhq-raid-command-tabs{margin-bottom:3px}.fhq-order-targets{padding:0}}

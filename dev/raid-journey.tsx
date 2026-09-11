@@ -1,3 +1,5 @@
+import { INITIAL_ROSTER } from '../constants';
+import { armyFromRoster } from '../battle';
 import {openCampusArt} from '../game/artGate';
 import React,{useState} from 'react';
 import {createRoot} from 'react-dom/client';
@@ -12,6 +14,18 @@ function Fixture(){
  const [playing,setPlaying]=useState(celebration),[collected,setCollected]=useState(false);
  const [plan,setPlan]=useState<GamePlanKey>('balanced'),[hero,setHero]=useState('qb');
  const base=heroPracticeConfig('qb');
+ if(params.has('tactics')) {
+   base.title='Raid tactics · Isolated practice';base.squad=structuredClone(INITIAL_ROSTER);base.playerArmy=armyFromRoster(base.squad);
+   base.buildings=[
+     {id:'stadium',kind:'hq',x:57,y:40,size:15,hp:1800},
+     {id:'jugs',kind:'defense',flavor:'jugs',x:28,y:50,size:7,hp:650,damage:8,range:21},
+     {id:'water',kind:'defense',flavor:'cooler',x:60,y:70,size:7,hp:600,damage:0,range:21},
+     {id:'cannon',kind:'defense',flavor:'tshirt',x:75,y:45,size:7,hp:650,damage:9,range:23},
+     {id:'facility',kind:'building',x:35,y:72,size:10,hp:800},
+     ...Array.from({length:5},(_,i)=>({id:`wall-${i}`,kind:'wall' as const,x:41,y:34+i*7,size:6,hp:280})),
+   ];
+ }
+
  const rewardContext={claimedCampaignStages:[],gauntletBest:0,trophies:20};
  // Real combat/presentation with an easy target. This fixture has no App, save or transport.
  const config=celebration?{...base,practice:false,title:'Isolated reward journey',loot:{coins:693,fans:21},campaignStage:3,buildings:[{id:'fixture-hq',kind:'hq' as const,x:20,y:50,size:14,hp:1}]}:base;
