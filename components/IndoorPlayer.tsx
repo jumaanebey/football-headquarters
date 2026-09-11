@@ -6,7 +6,7 @@ import {useTeamKit} from './TeamKit';
 import bounds from '../art/players/indoor-atlas-v1.json';
 import squat from '../art/players/indoor-squat-v1.json';
 import mobility from '../art/players/indoor-mobility-v1.json';
-import recovery from '../art/players/indoor-recovery-v1.json';
+import recovery from '../art/players/indoor-recovery-v2.json';
 import film from '../art/players/indoor-film-v1.json';
 import type {WorkoutExercise} from '../game/campusActivities';
 
@@ -15,7 +15,7 @@ const atlases={
  practice:{src:new URL('../art/players/indoor-atlas-v1.webp',import.meta.url).href,bounds},
  squat:{src:new URL('../art/players/indoor-squat-v1.webp',import.meta.url).href,bounds:squat},
  mobility:{src:new URL('../art/players/indoor-mobility-v1.webp',import.meta.url).href,bounds:mobility},
- recovery:{src:new URL('../art/players/indoor-recovery-v1.webp',import.meta.url).href,bounds:recovery},
+ recovery:{src:new URL('../art/players/indoor-recovery-v2.webp',import.meta.url).href,bounds:recovery},
  film:{src:new URL('../art/players/indoor-film-v1.webp',import.meta.url).href,bounds:film},
 };
 const decoded=new Map<Activity,Promise<HTMLCanvasElement[][]>>();
@@ -46,7 +46,8 @@ export function IndoorPlayer({unit,working=false,exercise='curl',activity:suppli
       const source=frames[pose],target=canvas.current,ctx=target?.getContext('2d');if(!target||!ctx)return;
       target.width=source.width;target.height=source.height;target.dataset.pose=String(pose);
       ctx.drawImage(source,0,0);
-      if(kit){ctx.save();if(activity==='recovery'&&pose===2){ctx.beginPath();ctx.rect(0,0,source.width,source.height*.47);ctx.clip();}ctx.drawImage(teamKitFrame(source,kit),0,0);ctx.restore();}
+      // The cold-plunge pose is shirtless. Preserve its skin, water and metal colors.
+      if(kit&&!(activity==='recovery'&&pose===2))ctx.drawImage(teamKitFrame(source,kit),0,0);
     };
     const observer=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;draw();});
     if(canvas.current)observer.observe(canvas.current);
