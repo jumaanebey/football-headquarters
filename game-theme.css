@@ -319,7 +319,7 @@ button { touch-action:manipulation; }
 .fhq-prep-plans strong,.fhq-prep-plans small,.fhq-prep-plans span { display:block; }
 .fhq-prep-plans strong { font-size:13px; }.fhq-prep-plans small { font-size:11px;color:#cbd5e1;margin:5px 0; }
 .fhq-prep-plans span { font-size:11px;color:#cbd5e1; }.fhq-prep-plans [data-matchup=good]{color:#86efac}.fhq-prep-plans [data-matchup=bad]{color:#fda4af}
-.fhq-prep-heroes { display:grid;grid-template-columns:repeat(auto-fit,minmax(65px,1fr));gap:6px; }
+.fhq-prep-heroes { display:grid;grid-template-columns:repeat(auto-fit,minmax(48px,1fr));gap:6px; }
 .fhq-prep-hero-art { width:100%;height:65px; }.fhq-prep-heroes strong,.fhq-prep-heroes small { display:block;font-size:11px; }.fhq-prep-heroes small { color:#fcd34d;font-size:10px; }
 .fhq-prep-note,.fhq-prep-objectives small { color:#cbd5e1;font-size:12px;line-height:1.4; }
 .fhq-prep-objectives { border-top:1px solid #475569;padding-top:12px;display:grid;gap:4px;color:white;font-size:13px; }
