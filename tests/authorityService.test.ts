@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createAuthorityService, type AuthorityResponse, type AuthoritySuccess } from '../server/authorityService';
 import { MemoryAuthorityStore } from '../server/memoryAuthorityStore';
 import { createInitialState } from '../game/initialState';
+import { footballCalls } from '../game/stadiumFootball';
 import { playHeadlessMatch } from '../game/authority/headlessMatch';
 import { replayMatch } from '../game/combat/engine';
 import { validateReplay } from '../game/combat/replay';
@@ -309,7 +310,7 @@ describe('facility schedules and Stadium decisions through the authority ledger'
   const h=harness();await h.ok(A,{kind:'bootstrap'});
   await h.ok(A,{kind:'action',operationId:op(92001),expectedRevision:h.revision(A),action:{type:'stadium.start',opponent:'harbor'}});
   const rejected=await h.fail(A,{kind:'match.reserve',operationId:op(92002),expectedRevision:h.revision(A),choice:{kind:'campaign',stage:1}});expect(rejected.code).toBe('active_match');
-  const game=h.state(A).stadiumFootball!.game!,call={kind:'action',operationId:op(92003),expectedRevision:h.revision(A),action:{type:'stadium.call',gameId:game.id,turn:'0',call:'left'}};
+  const game=h.state(A).stadiumFootball!.game!,call={kind:'action',operationId:op(92003),expectedRevision:h.revision(A),action:{type:'stadium.call',gameId:game.id,turn:String(game.turn),call:footballCalls(game)[0].key}};
   const first=await h.ok(A,call),duplicate=await h.ok(A,call);expect(duplicate.club!.state.stadiumFootball).toEqual(first.club!.state.stadiumFootball);expect(duplicate.club!.revision).toBe(first.club!.revision);
   const stale=await h.fail(A,{...call,operationId:op(92004),expectedRevision:h.revision(A)});expect(stale.code).toBe('not_ready');
  });

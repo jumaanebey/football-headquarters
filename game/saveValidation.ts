@@ -2,6 +2,7 @@ import { BuildingType, GameState, UnitGroup, PlayerRole, PlayerState, DrillState
 import {validStadiumFootball} from './stadiumFootball';
 import {validScouting} from './scouting';
 import {validDevelopment} from './development';
+import {validLineup} from './lineup';
 import { parseCampusLayout } from './campusLayout';
 
 export class SaveLoadError extends Error {
@@ -33,6 +34,7 @@ export function parseSavedClub(raw: string): GameState {
   if(s.stadiumFootball!==undefined) require(validStadiumFootball(s.stadiumFootball),'Stadium football');
   if(s.scouting!==undefined) require(validScouting(s.scouting),'scouting activities');
   if(s.development!==undefined) require(validDevelopment(s.development),'team development');
+  if(s.lineup!==undefined) require(validLineup(s.lineup),'Stadium lineup');
   if (s.teamName != null) require(text(s.teamName), 'team name');
   if (s.heroes != null) require(Array.isArray(s.heroes) && s.heroes.every((h: unknown) => object(h) && text(h.key) && number(h.level)), 'heroes');
   if ('upgrades' in s) require(Array.isArray(s.upgrades) && s.upgrades.every((u: unknown) => object(u) && text(u.id) && text(u.key) && ['building', 'hero'].includes(u.kind) && number(u.toLevel) && number(u.startTime) && number(u.finishTime)), 'upgrades');

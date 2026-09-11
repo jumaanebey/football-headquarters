@@ -160,6 +160,9 @@ export interface UpgradeJob {
 
 export interface GameState {
   stadiumFootball?: import('./game/stadiumFootball').StadiumFootballState;
+  /** Active Stadium lineup (slot id -> player id) and reserves. Absent on clubs that never chose:
+   *  game/lineup.ts then selects a deterministic legal team from the saved roster. */
+  lineup?: import('./game/lineup').LineupState;
   scouting?: import('./game/scouting').ScoutingState;
   development?: import('./game/development').DevelopmentState;
   resources: {
