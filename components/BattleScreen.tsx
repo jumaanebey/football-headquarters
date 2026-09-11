@@ -1,3 +1,4 @@
+import { reachableRally } from '../game/raidOrderAccess';
 import { RaidOrders, RaidOrderOverlay, raidTargetName, type RaidAim } from './RaidOrders';
 import {raidEntryLanes} from '../game/raidDeployment';
 import {assetUrl} from '../game/assetUrl';
@@ -278,6 +279,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
   const tacticalCombat = !!engineRef.current?.tactics;
   const sendEngineCommand = (input: Omit<ReplayAction,'tick'>) => engineRef.current?.command({...input,tick:sim.current.ticks}) ?? false;
   const issueOrder = (order: Omit<ReplayAction,'tick'|'k'>) => {
+    if(order.key==='push'&&!reachableRally({x:order.x!,y:order.y!},sim.current.troops,sim.current.buildings,order.u)){setOrderMessage('That turf is cut off. Focus a blocking structure first, or choose reachable turf.');return;}
     const accepted = sendEngineCommand({ k:'o', ...order });
     const target = sim.current.buildings.find(b=>b.id===order.targetId);
     const hero = sim.current.troops.find(t=>t.id===order.targetId);

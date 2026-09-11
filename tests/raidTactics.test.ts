@@ -1,3 +1,4 @@
+import { reachableRally } from '../game/raidOrderAccess';
 import { describe, expect, it } from 'vitest';
 import { UnitGroup } from '../types';
 import { type BTroop, type BBuilding, type ReplayData } from '../battle';
@@ -21,6 +22,13 @@ const model = (troops:BTroop[],guards:BTroop[]=[],buildings:BBuilding[]=[buildin
 describe('raid orders and real football support',()=>{
   it('keeps every defense-counters-4 film byte-for-byte reproducible',()=>{
     for(const {id,film} of films){expect(validateReplay(film),id).not.toBeNull();expect(replayMatch(film as ReplayData).matches,id).toBe(true);}
+  });
+  it('does not offer an unreachable rally inside a closed enclosure',()=>{
+    const walls=Array.from({length:16},(_,i)=>({...building(`wall-${i}`,50+Math.cos(i*Math.PI/8)*12,50+Math.sin(i*Math.PI/8)*12,6),kind:'wall' as const}));
+    expect(reachableRally({x:50,y:50},[],walls)).toBe(false);
+    expect(reachableRally({x:5,y:50},[],walls)).toBe(true);
+    expect(reachableRally({x:50,y:50},[],[building('occupied',50,50)])).toBe(false);
+    walls.forEach(w=>w.dead=true);expect(reachableRally({x:50,y:50},[],walls)).toBe(true);
   });
   it('focuses a called target instead of the closer facility, then resumes after it falls',()=>{
     const t=actor('runner'),near=building('near',25,35),far=building('far',55,60),m=model([t],[],[near,far]);

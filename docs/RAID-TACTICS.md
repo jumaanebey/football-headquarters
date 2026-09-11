@@ -5,7 +5,7 @@ The player deploys groups and issues tactical orders. Stadium football, schedule
 ## Delivered behavior
 
 - Deploy one, three, or the remaining position group with a sideline tap. Members enter in a spread formation, with every individual deployment recorded and validated.
-- Give the whole team or one position group a rally, focus, protect-hero, or automatic-route order. Orders apply to later group deployments. Rally resumes attacking on arrival; focus resumes automatic targeting after its target falls; protect stays near the chosen live hero. Hero signatures respect a called target.
+- Give the whole team or one position group a rally, focus, protect-hero, or automatic-route order. Orders apply to later group deployments. An unreachable rally is refused with a route explanation; rally resumes attacking on arrival; focus resumes automatic targeting after its target falls; protect stays near the chosen live hero. Hero signatures respect a called target.
 - The command switch stays visible, target numbers match the battlefield, confirmed orders draw markers and routes, and keyboard aiming issues the same commands.
 - Both attackers and defenders route around live building footprints. Solid cover interrupts passing and direct equipment pressure. An enclosed target can be reached by breaching an obstruction. Existing overlapping layouts remain hittable at the outer face.
 - Linemen engage and occupy defenders instead of simultaneously damaging a building. Defenders pressure exposed passers and skill players more strongly. Nearby, unoccupied QBs with a clear lane support receiver catches; a QB elsewhere on the field grants no bonus.
@@ -17,7 +17,7 @@ The player deploys groups and issues tactical orders. Stadium football, schedule
 
 Rules `raid-tactics-5` are negotiated explicitly. `hero-actions-3` and `defense-counters-4` remain supported. Missing rules still select the legacy server contract. New orders are rejected by old-rule films. An eight-film v4 corpus was captured before changes; existing v3 fixtures remain unchanged.
 
-Local checks: 685 tests across 89 files; typecheck; all 219 balance scenarios and existing acceptance gates. Fresh Week 4: 49%; trained Week 4: 100%; highest progression Championship: 100%. Balance bots do not use tactical orders. Four of five sampled road tiers saturate on wins: these checks establish integrity and progression, not final competitive difficulty.
+Local checks: 686 tests across 89 files; typecheck; all 219 balance scenarios and existing acceptance gates. Fresh Week 4: 49%; trained Week 4: 100%; highest progression Championship: 100%. Balance bots do not use tactical orders. Four of five sampled road tiers saturate on wins: these checks establish integrity and progression, not final competitive difficulty.
 
 Native phone journey at 390×844: one tap sent three linemen; added QB; protected hero; called Stadium; used Hail Mary; deployed three playmakers and Enforcer; keyboard rally; reached debrief with 8 supported catches and 22.6 player-seconds holding defenders, no console errors. The isolated fixture creates no account and does not change saves. The same fixture is `/dev/raid-journey.html?tactics` in development only.
 
