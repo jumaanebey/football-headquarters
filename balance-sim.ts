@@ -85,7 +85,7 @@ const deploy = (engine: BattleEngine, action: ReplayAction, id: string) => {
 interface Scenario { result: BattleResult; engine: BattleEngine; signatures: number; }
 let matchesRun = 0;
 const invalidOutcomes: string[] = [];
-const simBattle = (config: BattleConfig, seed = MATCH_SEED): Scenario => {
+const simBattle = (config: BattleConfig, seed = MATCH_SEED, coachTargets = false): Scenario => {
   const engine = createBattleEngine(config, seed, 'balanced');
   if (config.mode === 'attack') {
     // Match the engine's stable within-group queue so player identity determines
@@ -96,7 +96,22 @@ const simBattle = (config: BattleConfig, seed = MATCH_SEED): Scenario => {
     for (const hero of config.heroes ?? []) deploy(engine, { k: 'h', key: hero.key, tick: 0 }, `hero:${hero.key}`);
   }
   let signatures = 0;
+  let lastTarget = '';
   for (let tick = 0; tick < MAX_TICKS && !engine.state.ended; tick++) {
+    // Same roster, positions, plan and signature cadence. Only the target calls
+    // differ. Reassess visible surviving defenses once per second, never hidden RNG.
+    if (coachTargets && engine.state.ticks % 20 === 0) {
+      const live = engine.state.troops.filter(t => !t.dead);
+      const x = live.reduce((sum, t) => sum + t.x, 0) / (live.length || 1);
+      const y = live.reduce((sum, t) => sum + t.y, 0) / (live.length || 1);
+      const target = engine.state.buildings.filter(b => !b.dead && b.kind === 'defense')
+        .sort((a,b) => Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0]
+        ?? engine.state.buildings.find(b => !b.dead && b.kind !== 'wall');
+      if (target && target.id !== lastTarget) {
+        if (!engine.command({ k: 'o', key: 'focus', targetId: target.id, tick: engine.state.ticks })) throw new Error('Benchmark target call rejected');
+        lastTarget = target.id;
+      }
+    }
     // Transparent bot policy: request each ready signature every 0.5 simulation
     // seconds, including kickoff. No targeting foresight, extra plays or reserves.
     if (engine.state.ticks % 10 === 0 && config.mode === 'attack') {
@@ -137,8 +152,10 @@ const campaignResults: Scenario[][] = CAMPAIGN_STAGES.map(stage => {
 console.log(`\n===== 2. RAIDS — deterministic bot, ${RAID_SAMPLES} targets per tier =====`);
 const TIER_TROPHIES = [0, 150, 450, 1000, 1800];
 const raidWinPct: number[] = [];
+const coachedFortresses: { samples: number; wins: number; pct: number; replays: boolean }[] = [];
 const raidChoiceResults: { samples: number; wins: number; pct: number }[][] = [];
 TIERS.forEach((tier, i) => {
+  const coached = { samples: 0, wins: 0, pct: 0, replays: true };
   let wins = 0, pctSum = 0, ballsSum = 0, signatures = 0;
   const choices = Array.from({ length: 3 }, () => ({ samples: 0, wins: 0, pct: 0 }));
   for (let sample = 0; sample < RAID_SAMPLES; sample++) {
@@ -146,15 +163,22 @@ TIERS.forEach((tier, i) => {
     const seed = (MATCH_SEED + sample * 977) >>> 0;
     const target = seeded(seed, () => generateRaidTargets(TIER_TROPHIES[i])[sample % 3]);
     const match = simBattle(tierConfig(target.buildings, tier), seed);
+    if (sample % 3 === 2) {
+      const called = simBattle(tierConfig(target.buildings, tier), seed, true);
+      coached.samples++; coached.pct += called.result.pct; coached.wins += Number(called.result.won);
+      coached.replays &&= replayMatch(called.engine.getReplay()).matches;
+    }
     pctSum += match.result.pct; ballsSum += match.result.stars; signatures += match.signatures;
     choices[sample % 3].samples++;
     choices[sample % 3].pct += match.result.pct;
     if (match.result.won) choices[sample % 3].wins++;
     if (match.result.won) wins++;
   }
+  coachedFortresses[i] = coached;
   raidWinPct[i] = wins / RAID_SAMPLES * 100;
   raidChoiceResults[i] = choices;
   console.log(`${tier.name} @${String(TIER_TROPHIES[i]).padStart(4)} trophies: ${wins}/${RAID_SAMPLES} wins (${raidWinPct[i].toFixed(1)}%), avg ${Math.round(pctSum / RAID_SAMPLES)}% House Taken, ${(ballsSum / RAID_SAMPLES).toFixed(1)} Game Balls, ${(signatures / RAID_SAMPLES).toFixed(1)} signatures`);
+  console.log(`  coached fortress: ${coached.wins}/${coached.samples} wins, avg ${Math.round(coached.pct/coached.samples)}%; identical inputs, focus calls only`);
   console.log('  ' + choices.map((choice, index) => `${['easy', 'fair', 'hard'][index]}: ${choice.wins}/${choice.samples} wins, avg ${choice.samples ? Math.round(choice.pct / choice.samples) : 'n/a'}%`).join(' · '));
 });
 
@@ -274,7 +298,10 @@ check('Rarity increases derived strength at the same level', rarityRatio > 1, `$
 check('Higher rarity does not weaken the equal-role fixture', epic.pct >= common.pct, `${common.pct}% COMMON → ${epic.pct}% EPIC`);
 check('Every trophy bracket offers a winnable easy choice', raidChoiceResults.every(choices => choices[0].wins > 0), raidChoiceResults.map((choices, i) => `${TIERS[i].name.trim()}: ${choices[0].wins}/${choices[0].samples}`).join(', '));
 check('Hard picks demand more than easy picks at every tier', raidChoiceResults.every(choices => choices[2].pct / choices[2].samples < choices[0].pct / choices[0].samples), 'lower average House Taken against fortress choices than easy choices');
-if (raidWinPct.some(rate => rate === 100)) console.log(`  CALIBRATION REVIEW: ${raidWinPct.filter(rate => rate === 100).length}/${TIERS.length} tiers won every sampled raid. Passing integrity gates does not establish a challenging difficulty curve.`);
+check('Fortresses resist an all-at-once auto-target rush at every tier', raidChoiceResults.every(choices => choices[2].wins < choices[2].samples), raidChoiceResults.map((choices,i) => `${TIERS[i].name.trim()}: ${choices[2].wins}/${choices[2].samples}`).join(', '));
+check('Coached advanced squads can win fortress raids', coachedFortresses.slice(2).every(c => c.wins > 0), coachedFortresses.slice(2).map((c,i) => `${TIERS[i+2].name.trim()}: ${c.wins}/${c.samples}`).join(', '));
+check('Target calls improve advanced fortress damage on identical inputs', coachedFortresses.slice(2).every((c,i) => c.pct/c.samples > raidChoiceResults[i+2][2].pct/raidChoiceResults[i+2][2].samples), coachedFortresses.slice(2).map((c,i) => `${TIERS[i+2].name.trim()}: ${Math.round(raidChoiceResults[i+2][2].pct/raidChoiceResults[i+2][2].samples)}% → ${Math.round(c.pct/c.samples)}%`).join(', '));
+check('Every coached fortress recording reproduces its final hash', coachedFortresses.every(c => c.replays), 'target calls replayed through the same command validator');
 
 // Existing economy bands remain scenario checks; they are not user-income promises.
 check('All-L5 income scenario remains in its historical range', hoursToAllL5 >= 1.5 && hoursToAllL5 <= 6, `${hoursToAllL5.toFixed(1)}h under the stated assumptions (band 1.5–6)`);

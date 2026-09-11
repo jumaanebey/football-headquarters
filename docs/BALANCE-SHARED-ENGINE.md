@@ -1,6 +1,11 @@
 # Shared-engine balance calibration
 
-Verified on 2026-09-09 with combat rules `hero-actions-3`.
+Historical calibration below was verified on 2026-09-09 with `hero-actions-3`.
+
+Current `raid-tactics-5` challenge calibration, paired tactical evidence and release
+gates are in [RAID-CHALLENGE.md](RAID-CHALLENGE.md). The default harness now runs
+269 matches, including 50 coached fortress comparisons; the 120-target extended
+run covers 869 matches. The older measurements below are retained as history.
 
 `balance-sim.ts` now executes `createBattleEngine` for campaign, generated road
 opponents, defense, rarity and role scenarios. It no longer contains a second

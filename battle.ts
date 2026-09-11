@@ -30,10 +30,21 @@ export interface BattleBuildingDef {
   formation?: string;
 }
 
+/** Preserve the original id-based equipment fallback across battle and scouting.
+ * Undefined deliberately retains the legacy generic/JUGS representation in films. */
+export const hashDefenseFlavor = (id: string): BattleBuildingDef['flavor'] => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
+};
+
+export type RoadChallenge = 'open' | 'contested' | 'fortress';
+
 export interface EnemyBase {
   id: string;
   name: string;
   difficulty: number;
+  challenge?: RoadChallenge;
   reward: { coins: number; fans: number };
   buildings: BattleBuildingDef[];
 }
@@ -534,7 +545,12 @@ export const generateRaidTargets = (trophies: number, random: () => number = Mat
     const strength = [0.62, 0.86, 0.75 + 0.3 * Math.exp(-bracket / 200)][i];
     const variation = i === 2 ? 0.85 + random() * 0.3 : 0.97 + random() * 0.06;
     const tier = base * strength * variation;
-    const risk = tier * (i === 2 ? 1.6 : 1); // displayed rating/rewards include fortress coverage
+    // Issuance-only tuning: old reservations and recorded films keep their exact
+    // building snapshots and raid-tactics-5 simulation. Never scale to the attacker's
+    // roster: improving a team must still help against the same trophy bracket.
+    const fortressMult = i === 2 ? 1.12 + .4 * (1 - Math.exp(-bracket / 450)) : 1;
+    const equipmentLevel = Math.min(10, 1 + Math.floor(bracket / 200));
+    const risk = tier * fortressMult * (i === 2 ? 1.6 : 1); // displayed rating/rewards include fortress coverage
     const template = ENEMY_BASES.find(candidate => candidate.id === ['valley', 'tech', 'ridge'][i])!;
     // Hard picks include fortress geometry, so better deployment and plan choice
     // matter as well as the roster's raw strength.
@@ -552,7 +568,13 @@ export const generateRaidTargets = (trophies: number, random: () => number = Mat
       const [x, y] = extraSpots[e];
       buildings.push({ id: `xd${e}`, kind: 'defense', flavor: flavors[e], x, y, hp: Math.round(220 * tier), size: 5, damage: tDmg, range: 23 });
     }
+    if (i === 2) for (const building of buildings) {
+      building.hp = Math.round(building.hp * fortressMult);
+      if (building.damage) building.damage = Math.round(building.damage * fortressMult);
+      if (building.kind === 'defense') building.level = equipmentLevel;
+    }
     return {
+      challenge: (['open', 'contested', 'fortress'] as const)[i],
       id: `mm_${i}_${Math.floor(random() * 99999)}`,
       name: RIVAL_NAMES[Math.floor(random() * RIVAL_NAMES.length)],
       difficulty: Math.round(risk * 10) / 10,

@@ -88,7 +88,7 @@ export function issueMatch(input: { state: GameState; owner: string; id: string;
     config = { ...common, mode: 'attack', title: `${stage.name} — ${stage.opponent}`, buildings: base.buildings, loot: base.reward, campaignStage: choice.stage, rival: coachForStage(choice.stage) };
   } else if (choice.kind === 'road') {
     const base = authorityRoadTargets(state, owner, now)[choice.choice];
-    config = { ...common, mode: 'attack', title: `Attacking ${base.name}`, buildings: base.buildings, loot: base.reward, rival: coachForBase(base.name) };
+    config = { ...common, mode: 'attack', title: `Attacking ${base.name}`, roadChallenge: base.challenge, buildings: base.buildings, loot: base.reward, rival: coachForBase(base.name) };
   } else if (choice.kind === 'rival') {
     if (choice.target === owner) return fail('self_attack', 'Choose another club.');
     if (!target) return fail('target_missing', 'That club is unavailable.');

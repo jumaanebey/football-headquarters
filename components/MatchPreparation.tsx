@@ -1,3 +1,4 @@
+import { RaidScoutingSummary } from './RaidScoutingSummary';
 import {HeroArt} from './HeroArt';
 import {MatchScoutBoard} from './MatchScoutBoard';
 import { DefenseCounterGuide } from './DefenseCounterGuide';
@@ -19,6 +20,7 @@ export function MatchPreparation({ config, energy, cost, plan, openingHero, onHe
     <div className="fhq-match-prep">
       <section className="fhq-prep-scout"><div className="fhq-prep-section-title"><h3>{formation?.name??'Opponent defense'}</h3><span>{config.buildings.filter(b=>b.kind!=='wall').length} targets</span></div>
         <MatchScoutBoard buildings={config.buildings}/>
+        <RaidScoutingSummary config={config}/>
         {config.pvpTarget&&<p className="fhq-prep-note">Rival preview. Reservation loads the current defense; check again before deployment.</p>}
         <DefenseCounterGuide buildings={config.buildings} rules={config.authority?.rules}/>
       </section>

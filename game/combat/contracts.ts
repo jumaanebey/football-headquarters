@@ -1,9 +1,10 @@
 import type { Player, UnitGroup } from '../../types';
-import type { BattleBuildingDef, RaidHero, SpecialDef, HomeGuardDef, GauntletWave, ReplayAction, ReplayData } from '../../battle';
+import type { BattleBuildingDef, RaidHero, SpecialDef, HomeGuardDef, GauntletWave, ReplayAction, ReplayData, RoadChallenge } from '../../battle';
 import type { RivalCoach } from '../../campaign';
 
 export interface BattleConfig {
   mode: 'attack' | 'defense';
+  roadChallenge?: RoadChallenge;
   title: string;
   buildings: BattleBuildingDef[];
   playerArmy?: Record<UnitGroup, number>;

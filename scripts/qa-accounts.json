@@ -80,6 +80,18 @@
     {
       "id": "fa4b8b25-d93d-4981-a659-f6e80b720374",
       "purpose": "raid tactics v7 live evidence C, 2026-09-11; deferred cleanup"
+    },
+    {
+      "id": "ecb7d1b3-e06f-4973-ab13-85be92931811",
+      "purpose": "raid challenge v8 evidence 2026-09-11 (A), 77 checks"
+    },
+    {
+      "id": "05e68c4e-3b9e-480b-bece-e8d9cc385472",
+      "purpose": "raid challenge v8 evidence 2026-09-11 (B), 77 checks"
+    },
+    {
+      "id": "87dd084e-60c7-43bb-8a93-9b0d309aa055",
+      "purpose": "raid challenge v8 evidence 2026-09-11 (C), 77 checks"
     }
   ]
 }

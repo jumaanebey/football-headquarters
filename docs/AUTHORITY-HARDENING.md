@@ -157,3 +157,10 @@ PR #41 consolidated the stack and merged as e3f8669. The v4 server artifact is n
 - A: `43752e03-6885-47b6-b4bc-73134e400466`
 - B: `dbe174eb-2403-47d3-83e4-a13134cec738`
 - C: `fa4b8b25-d93d-4981-a659-f6e80b720374`
+
+### Raid challenge v8 evidence — 2026-09-11
+
+77/77 live checks. Deferred cleanup, none deleted; excluded from weekly analytics:
+- A: `ecb7d1b3-e06f-4973-ab13-85be92931811`
+- B: `05e68c4e-3b9e-480b-bece-e8d9cc385472`
+- C: `87dd084e-60c7-43bb-8a93-9b0d309aa055`

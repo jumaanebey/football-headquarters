@@ -1,3 +1,4 @@
+import { RoadTargetCard } from './components/RoadTargetCard';
 import {PracticeField} from './components/PracticeField';
 import {applyClubAction,type ClubAction} from './game/authority/clubActions';
 import {footballInProgress} from './game/stadiumFootball';
@@ -1818,26 +1819,9 @@ function App() {
                 <div className="text-[11px] text-slate-500 border border-slate-800 rounded-lg px-3 py-2">🌐 <span className="text-slate-400 font-bold">Live Rivals</span> — raiding real coaches' stadiums is coming soon.</div>
               )}
               {awayTab === 'road' && raidTargets.map((b, choice) => (
-                <button key={b.id} onClick={() => { if (launchAttack({ mode: 'attack', title: `Attacking ${b.name}`, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) }, { kind: 'road', choice })) setAttackSelectOpen(false); }}
-                  className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-700 hover:border-red-500 bg-slate-800 hover:bg-slate-700/70 transition-all active:scale-95 text-left">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <img src={crestForTeam(b.name)} alt="" draggable={false}
-                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                      className="w-9 h-9 object-contain shrink-0 select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
-                  <div>
-                    <div className="font-bold text-white text-lg">{b.name}</div>
-                    <div className="text-xs text-slate-400 flex items-center gap-2">
-                      {Array.from({ length: Math.max(1, Math.min(5, Math.round(b.difficulty))) }).map((_, i) => <span key={i} className="text-[11px] leading-none inline-block">🏈</span>)}
-                      <span>• {b.buildings.filter(x => x.kind !== 'wall').length} buildings</span>
-                      {(() => { const f = b.buildings.find(x => x.kind === 'hq')?.formation; return f && FORMATIONS[f as FormationKey] ? <span className="text-sky-300 font-bold">• 📋 {FORMATIONS[f as FormationKey].name}</span> : null; })()}
-                    </div>
-                  </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-yellow-400 font-mono font-bold">+{b.reward.coins}</div>
-                    <div className="text-[10px] text-slate-500 uppercase">max loot</div>
-                  </div>
-                </button>
+                <RoadTargetCard key={b.id} base={b} choice={choice} onChoose={() => {
+                  if (launchAttack({ mode: 'attack', title: `Attacking ${b.name}`, roadChallenge: b.challenge, buildings: b.buildings, playerArmy: armyFromRoster(gameState.roster), power: raidPower(), heroes: heroesForBattle(gameState.heroes), specials: specialsForBattle(gameState.resources.FANS), loot: b.reward, rival: coachForBase(b.name) }, { kind: 'road', choice })) setAttackSelectOpen(false);
+                }}/>
               ))}
             </div>
             )}

@@ -1,0 +1,105 @@
+
+> football-headquarters@0.0.0 balance
+> esbuild balance-sim.ts --bundle --format=esm --platform=node --outfile=dist/balance.mjs && node dist/balance.mjs
+
+
+  dist/balance.mjs  162.8kb
+
+⚡ Done in 5ms
+
+Shared combat rules: raid-tactics-5. 120 reproducible raid targets per tier.
+Policy: all roster/hero deployments at kickoff, legal square edge, Balanced plan, ready signatures every 0.5s. No specials, manual plays or full-readiness boost.
+Historical BALANCE.md combat percentages used a different loop and no hero signatures. They are not acceptance bands for this report.
+
+===== 1. CAMPAIGN — damage-weighted House Taken % (Game Balls) =====
+stage                 T0 fresh  T1 early  T2 mid    T3 strong T4 maxed 
+1. Preseason Opener   100%(3)   100%(3)   100%(3)   100%(3)   100%(3)  
+2. Week 2             100%(3)   100%(3)   100%(3)   100%(3)   100%(3)  
+3. Week 3             100%(3)   100%(3)   100%(3)   100%(3)   100%(3)  
+4. Week 4              49%(0)   100%(3)   100%(3)   100%(3)   100%(3)  
+5. Week 5              41%(0)    60%(1)   100%(3)   100%(3)   100%(3)  
+6. Midseason Clash     15%(0)    30%(0)   100%(3)   100%(3)   100%(3)  
+7. Week 7              35%(0)    56%(1)   100%(3)   100%(3)   100%(3)  
+8. Week 8              27%(0)    38%(0)   100%(3)   100%(3)   100%(3)  
+9. Week 9              24%(0)    36%(0)    66%(1)   100%(3)   100%(3)  
+10. Divisional Round    8%(0)    14%(0)    36%(0)   100%(3)   100%(3)  
+11. Conference Final   14%(0)    19%(0)    31%(0)    55%(1)   100%(3)  
+12. THE CHAMPIONSHIP    3%(0)     5%(0)    11%(0)    37%(0)   100%(3)  
+
+===== 2. RAIDS — deterministic bot, 120 targets per tier =====
+T0 fresh  @   0 trophies: 81/120 wins (67.5%), avg 80% House Taken, 2.0 Game Balls, 6.9 signatures
+  coached fortress: 1/40 wins, avg 30%; identical inputs, focus calls only
+  easy: 40/40 wins, avg 100% · fair: 40/40 wins, avg 100% · hard: 1/40 wins, avg 39%
+T1 early  @ 150 trophies: 95/120 wins (79.2%), avg 83% House Taken, 2.1 Game Balls, 7.9 signatures
+  coached fortress: 8/40 wins, avg 44%; identical inputs, focus calls only
+  easy: 40/40 wins, avg 100% · fair: 40/40 wins, avg 100% · hard: 15/40 wins, avg 49%
+T2 mid    @ 450 trophies: 99/120 wins (82.5%), avg 81% House Taken, 2.0 Game Balls, 11.1 signatures
+  coached fortress: 36/40 wins, avg 67%; identical inputs, focus calls only
+  easy: 40/40 wins, avg 100% · fair: 40/40 wins, avg 97% · hard: 19/40 wins, avg 46%
+T3 strong @1000 trophies: 93/120 wins (77.5%), avg 80% House Taken, 1.9 Game Balls, 16.3 signatures
+  coached fortress: 40/40 wins, avg 73%; identical inputs, focus calls only
+  easy: 40/40 wins, avg 100% · fair: 40/40 wins, avg 95% · hard: 13/40 wins, avg 45%
+T4 maxed  @1800 trophies: 102/120 wins (85.0%), avg 84% House Taken, 2.2 Game Balls, 11.9 signatures
+  coached fortress: 39/40 wins, avg 81%; identical inputs, focus calls only
+  easy: 40/40 wins, avg 100% · fair: 40/40 wins, avg 100% · hard: 22/40 wins, avg 52%
+
+===== 3. DEFENSE — shared engine, Goal Line, purchased available base slots =====
+T0 fresh  (facilities L1, 1 emplacements, 12 walls): 21% House Taken, 0 Game Balls conceded — HELD
+T1 early  (facilities L3, 3 emplacements, 12 walls): 15% House Taken, 0 Game Balls conceded — HELD
+T2 mid    (facilities L5, 5 emplacements, 12 walls): 6% House Taken, 0 Game Balls conceded — HELD
+T3 strong (facilities L8, 7 emplacements, 12 walls): 2% House Taken, 0 Game Balls conceded — HELD
+T4 maxed  (facilities L11, 7 emplacements, 12 walls): 2% House Taken, 0 Game Balls conceded — HELD
+
+===== 4. GACHA — Monte Carlo (2000 runs) =====
+median rolls to unlock ALL heroes: 39  (=780 gems)
+median rolls to hit The Legend:    32  (=640 gems; direct-buy = 120)
+shards needed 1★→5★ per hero: 305 (≈17 average duplicate pulls of THAT hero at 14–22 shards per duplicate)
+
+===== 5. ECONOMY — legacy income scenario, current costs =====
+Income assumptions: continuous drills, L3 Stadium, 12 road games/hour at 550 Coins each. These are scenarios, not measured player earnings.
+all 5 buildings L1→L5 cost: 73,515 coins
+active income ≈ 19,867/hr (drills+stadium) + 6,600/hr raiding → ~2.8h to all-L5
+ONE hero L1→10: 55,244 coins · L1→15: 502,911 coins · ×9 heroes L15 = 4,526,199
+Historical income scenario: 40–60 Crowns/day → 2.0–3.0 Scout Searches/day; actual play/collection cadence is not modeled.
+power: 5★ vs 1★ = +140% · hero L10→15 = +38% for 447,667 coins
+Gauntlet full-clear purse: night-1 900 · night-5 4,500 · night-10 9,000 · night-20 18,000 coins
+
+===== 6. RARITY & ROLES — production statlines and shared matches =====
+effectiveStat EPIC/COMMON (RB L5, strength): 1.60x
+role   grit   yd/s  speed range
+QB       61   31.3   15.0    13
+RB      136   66.3   23.0     7
+WR       50   23.8   23.1     7
+OL      529   19.6    7.0     4
+DL      228   37.4    9.8     4
+LB      193   29.0   12.1     4
+CB       63   15.4   27.2     8
+S        72   17.6   22.3     9
+Equal L5 eight-player squad: COMMON 8% / 0 Game Balls; EPIC 29% / 0 Game Balls.
+Receiver group: with QB 8% vs LB 5%. This fixture is informational; role interactions are covered by engine tests.
+
+===== 7. SHARED-ENGINE REGRESSION GATES =====
+Historical combat bands (reporting only): passive T4 Championship 30–62%; passive T3/T4 raids 40–85%. Different engine, roster math and scoring: do not compare directly.
+  PASS  Every scenario terminates with valid outcomes and actor state — 869 matches; finite values, bounded grit, House Taken 0–100, Game Balls 0–3
+  PASS  Actual fresh roster can win the Preseason Opener — 100% / 3 Game Balls; 5 signature calls
+  PASS  Week 2 remains approachable and Week 4 asks for training — fresh Week 2 100%, fresh Week 4 49%, trained Week 4 100%
+  PASS  Championship can be fully cleared by the top progression fixture — 100% / 3 Game Balls
+  PASS  Bot exercises hero signatures — accepted signature commands in every hero campaign fixture
+  PASS  Progression does not reduce aggregate performance on identical campaign layouts — T0 fresh: 516, T1 early: 658, T2 mid: 944, T3 strong: 1092, T4 maxed: 1200
+  PASS  Progression produces a measurable campaign advantage — T0 total 516 vs T4 1200 across 12 stages
+  PASS  Tutorial recording replays to the same result and final hash — 1dfe56ce live / 1dfe56ce replay
+  PASS  Rarity increases derived strength at the same level — 1.60x EPIC/COMMON
+  PASS  Higher rarity does not weaken the equal-role fixture — 8% COMMON → 29% EPIC
+  PASS  Every trophy bracket offers a winnable easy choice — T0 fresh: 40/40, T1 early: 40/40, T2 mid: 40/40, T3 strong: 40/40, T4 maxed: 40/40
+  PASS  Hard picks demand more than easy picks at every tier — lower average House Taken against fortress choices than easy choices
+  PASS  Fortresses resist an all-at-once auto-target rush at every tier — T0 fresh: 1/40, T1 early: 15/40, T2 mid: 19/40, T3 strong: 13/40, T4 maxed: 22/40
+  PASS  Coached advanced squads can win fortress raids — T2 mid: 36/40, T3 strong: 40/40, T4 maxed: 39/40
+  PASS  Target calls improve advanced fortress damage on identical inputs — T2 mid: 46% → 67%, T3 strong: 45% → 73%, T4 maxed: 52% → 81%
+  PASS  Every coached fortress recording reproduces its final hash — target calls replayed through the same command validator
+  PASS  All-L5 income scenario remains in its historical range — 2.8h under the stated assumptions (band 1.5–6)
+  PASS  Hero L15 remains a substantial Coin sink — 502,911 Coins (historical band 350k–700k)
+  PASS  Legend direct-buy costs less than median rolling — median 32 rolls × 20 = 640 Crowns vs 120 direct
+  PASS  Gauntlet purse and ramp scale with tier — night-20: 18,000 Coins; reward/difficulty monotonic = true/true
+
+Shared-engine integrity, progression and retained economy gates pass. Human difficulty/retention calibration still requires playtesting.
+
