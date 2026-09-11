@@ -434,3 +434,70 @@ button { touch-action:manipulation; }
 .fhq-weight-session:not(.is-idle){grid-template-columns:minmax(0,1fr) auto;padding:8px 10px;gap:4px 10px;font-size:12px;align-items:center}
 .fhq-weight-session progress{grid-column:1/-1}.fhq-weight-session small{display:none}
 .fhq-weight-scene>.fhq-weight-session:not(.is-idle){margin:8px 12px}
+/* One player identity and direct room navigation throughout the roster journey. */
+.fhq-roster-workspace{padding:18px;color:#e6edf4}
+.fhq-roster-destinations{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.fhq-roster-destinations button{border:1px solid #4b5c6b;border-radius:9px;background:#1d3040;padding:10px;text-align:left;font-weight:800;color:#fff4d3}
+.fhq-roster-destinations small{display:block;font-size:11px;font-weight:400;color:#b6c9d7;margin-top:2px}
+.fhq-roster-filters{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px}
+.fhq-roster-filters input,.fhq-roster-filters select{min-width:0;width:100%;background:#101e2b;border:1px solid #465767;border-radius:7px;padding:10px;font-size:12px;color:#e4edf4}
+.fhq-roster-explainer{font-size:12px;color:#a7bdcf;margin:10px 0 14px}
+.fhq-roster-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fhq-roster-card{display:grid;grid-template-columns:80px minmax(0,1fr) 70px;grid-template-rows:auto auto auto auto;gap:8px 10px;border:1px solid #485562;border-radius:12px;padding:12px;background:linear-gradient(135deg,#233747,#122331);overflow:hidden}
+.fhq-roster-portrait{grid-row:1/3;position:relative;height:124px;background:radial-gradient(ellipse at 50% 65%,#59738588,transparent 70%);align-self:center}
+.fhq-roster-portrait>span:not(.fhq-indoor-player){position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);border-radius:4px;background:#101c28;padding:1px 7px;color:#e8c484;font-weight:800;font-size:10px}
+.fhq-roster-identity{min-width:0}
+.fhq-roster-identity p{font-size:10px;color:#d2b579;letter-spacing:.05em}
+.fhq-roster-identity h3{font-weight:900;font-size:20px;color:#fff7df;line-height:1.1;margin:4px 0 6px;overflow-wrap:anywhere}
+.fhq-roster-location{font-size:11px;color:#a8d9e9;text-align:left;line-height:1.3;padding:3px 0;min-height:32px}
+.fhq-roster-power{text-align:right;display:flex;flex-direction:column;gap:1px}
+.fhq-roster-power strong{font-size:34px;line-height:1;color:#ffcc74;font-weight:900}
+.fhq-roster-power small{font-size:9px;letter-spacing:.08em;color:#efcb85}
+.fhq-roster-power span{font-size:9px;color:#a4d1b7;margin-top:4px}
+.fhq-roster-stats{grid-column:2/4;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;align-self:end}
+.fhq-roster-stats>div{border-top:1px solid #536270;padding-top:6px}
+.fhq-roster-stats dt{font-size:10px;color:#adc1cf}
+.fhq-roster-stats dd{font-size:17px;font-weight:800;color:#eff5fa;white-space:nowrap}
+.fhq-roster-stats dd span{font-size:11px;color:#86d3ad}
+.fhq-roster-trait{grid-column:1/-1;font-size:11px;line-height:1.4;color:#c8d4dd;min-height:31px}
+.fhq-roster-card-actions{grid-column:1/-1;display:flex;gap:8px;align-items:center}
+.fhq-roster-card-actions>button:first-child{flex:1;min-height:44px;border-radius:7px;padding:7px 10px;text-align:left;background:#dba954;color:#18222b;font-size:13px;font-weight:800}
+.fhq-roster-card-actions small{display:block;font-size:10px;font-weight:500}
+.fhq-roster-card-actions .fhq-roster-release{font-size:10px;color:#a7bac9;min-height:44px;padding:6px}
+.fhq-roster-release-confirm{grid-column:1/-1;border-top:1px solid #876b5a;padding-top:10px;font-size:12px}
+.fhq-roster-release-confirm button{padding:8px;margin:6px 8px 0 0;background:#263f50;border-radius:6px}
+.fhq-roster-release-confirm button:first-of-type{background:#7a392e}
+.fhq-player-room-nav{display:flex;flex-wrap:wrap;gap:7px;padding:10px 12px;background:#152634;border-top:1px solid #3d5261}
+.fhq-player-room-nav button{flex:1;min-width:80px;min-height:36px;font-size:12px;color:#e9d4a5;border:1px solid #4b5f6c;border-radius:6px;padding:5px}
+.fhq-department-player{position:absolute;transform:translate(-50%,-100%);pointer-events:none}
+.fhq-department-player .fhq-indoor-player[data-activity=recovery]:before,.fhq-department-player .fhq-indoor-player[data-activity=film]:before{display:none}
+.fhq-film-screen{position:absolute;left:60.55%;top:17.35%;width:22.25%;height:22.4%;transform:skewY(16deg);transform-origin:top left;pointer-events:none}
+.fhq-room-residents{padding:9px 12px;font-size:12px;line-height:1.5;color:#c7d8e3;background:#142633}
+.fhq-room-residents strong{color:#f2d39c}
+.fhq-film-control{float:right;padding:3px 7px;border:1px solid #536675;border-radius:5px;color:#fff2cf;font-size:11px;margin-left:8px}
+.fhq-room-residents p{margin-top:3px;font-size:11px;color:#9eb8ca}
+@media(max-width:700px){.fhq-roster-workspace{padding:12px}
+.fhq-roster-grid{grid-template-columns:1fr}
+.fhq-roster-destinations{gap:5px}
+.fhq-roster-destinations button{font-size:10px;padding:8px 5px;text-align:center;min-height:47px}
+.fhq-roster-destinations small{font-size:9px}
+.fhq-roster-filters{grid-template-columns:1fr 1fr;gap:6px}
+.fhq-roster-filters input{grid-column:1/-1}
+.fhq-roster-filters input,.fhq-roster-filters select{padding:8px}
+.fhq-roster-explainer{font-size:10px;margin:8px 0 10px}
+.fhq-roster-card{grid-template-columns:70px minmax(0,1fr) 62px;padding:10px;gap:7px}
+.fhq-roster-identity h3{font-size:18px}
+.fhq-roster-power strong{font-size:30px}
+.fhq-room-residents{font-size:11px;padding:7px 10px}
+.fhq-room-residents p{font-size:10px}
+.fhq-player-room-nav{padding:7px 10px}
+.fhq-player-room-nav button{font-size:11px}}
+.fhq-weight-room-player:has([data-activity=squat]){width:23%}
+.fhq-department-art>.fhq-recovery-canopy-front{position:absolute;inset:0;pointer-events:none;clip-path:polygon(14.6% 31%,16.5% 31%,16.5% 67%,17.7% 69%,17.7% 70%,13.5% 70%,13.5% 68%,14.6% 66%)}
+/* Keep every occupant and screen in the same coordinate system as the room art.
+   Capping height alone letterboxed the picture but left its overlays full-width. */
+.fhq-department-art{max-height:none;margin-inline:auto}
+@media(min-width:800px) and (min-height:501px){.fhq-department-art{width:min(100%,645px,calc((88dvh - 300px)*1.5));max-height:none}}
+@media(max-width:799px){.fhq-department-art{width:min(100%,390px);max-height:none}
+.fhq-scout-room .fhq-department-art{width:min(100%,322.5px);max-height:none}}
+@media(max-height:500px) and (orientation:landscape){.fhq-department-art,.fhq-scout-room .fhq-department-art{width:100%;max-height:none}}

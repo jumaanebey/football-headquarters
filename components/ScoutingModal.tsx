@@ -1,7 +1,8 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {BuildingType,type GameState,type Player,type ResourceType,type BuildingInstance,type RecruitSlot,type UpgradeJob} from '../types';
 import {RECRUIT_CONFIG} from '../constants';
-import {rosterCap,rollBoard,candidateOvr,recruitCost,recruitSeconds} from '../recruiting';
+import {rosterCap,rollBoard,recruitCost,recruitSeconds} from '../recruiting';
+import {unitPower} from '../battle';
 import {prospectComparison} from '../game/progression/rosterCompare';
 import {IndoorPlayer} from './IndoorPlayer';
 import {Sheet} from './ui';
@@ -28,12 +29,12 @@ export const ScoutingModal:React.FC<Props>=({club,resources,roster,recruitSlot,a
    <div className="fhq-department-controls">
     {blocked&&<p role="status">Confirming your club change…</p>}
     <section className="fhq-room-activity">
-     {!recruitSlot&&<div className="fhq-scout-selector"><label>Prospect report<select aria-label="Prospect report" value={selected?.id??''} onChange={e=>setSelectedId(e.target.value)}>{board.map(p=><option key={p.id} value={p.id}>{p.name} · {p.role} · OVR {candidateOvr(p)} · {recruitCost(p)} Coins</option>)}</select></label><button disabled={blocked} onClick={()=>issuedBoard?onRefreshBoard?.():setLocalBoard(rollBoard())}>New prospects</button></div>}
+     {!recruitSlot&&<div className="fhq-scout-selector"><label>Prospect report<select aria-label="Prospect report" value={selected?.id??''} onChange={e=>setSelectedId(e.target.value)}>{board.map(p=><option key={p.id} value={p.id}>{p.name} · {p.role} · Power {Math.round(unitPower(p))} · {recruitCost(p)} Coins</option>)}</select></label><button disabled={blocked} onClick={()=>issuedBoard?onRefreshBoard?.():setLocalBoard(rollBoard())}>New prospects</button></div>}
      {!selected&&<p role="status">No prospects loaded. Choose New prospects to try again.</p>}
      {selected&&comparison&&<>
-      <header className="fhq-scout-name"><h3>{selected.name}</h3><span>{selected.role} · {selected.rarity} · OVR {candidateOvr(selected)}</span></header>
+      <header className="fhq-scout-name"><h3>{selected.name}</h3><span>{selected.role} · {selected.rarity} · Power {Math.round(unitPower(selected))}</span></header>
       <div className="fhq-room-stats">{(['strength','speed','iq'] as const).map(stat=><div key={stat}><strong>{best&&<span>{best.stats[stat]} → </span>}{selected.stats[stat]}</strong><small>{stat==='iq'?'IQ':stat[0].toUpperCase()+stat.slice(1)}</small></div>)}</div>
-      <p>{best?`Compared with ${best.name} · ${comparison.ovr-best.ovr>0?'+':''}${comparison.ovr-best.ovr} OVR`:`Your first ${selected.role} player`} · {comparison.depth.atRole} currently at this position.</p>
+      <p>{best?`Compared with ${best.name} · ${comparison.power-best.power>0?'+':''}${Math.round(comparison.power-best.power)} Power`:`Your first ${selected.role} player`} · {comparison.depth.atRole} currently at this position.</p>
       <p className="fhq-scout-note">Signing adds a teammate. Workouts then grow their level and stats.</p>
       {full&&<p role="status" className="fhq-room-warning">Roster full · upgrade this department or make room in your roster.</p>}
       <div className="fhq-scout-decision">{recruitSlot?<div className="fhq-room-recruit-job">

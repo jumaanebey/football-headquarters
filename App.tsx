@@ -1125,6 +1125,14 @@ function App() {
   // kind:'hero' jobs — this finally creates them.)
   const bumpLocalRankCelebration = () => { const after = rankFor(stateRef.current.trophies); if (after.index > rankFor(gameState.trophies).index) { centerText(`RANK UP! ${after.rank.emoji} ${after.rank.name.toUpperCase()}`, after.rank.color, -60); } };
   const heroTrainSecs = (toLevel: number) => Math.round(upgradeDurationSecs(toLevel) * 3);
+  const openPlayerFacility = (type:BuildingType) => {
+    setIsSquadOpen(false);setIsScoutingOpen(false);setRosterInitialView('players');setWeightRoomPlayer(undefined);
+    setSelectedBuilding(gameState.buildings.find(b=>b.type===type)??null);setBuildingInfoOpen(true);
+  };
+  const openPlayerRoster = () => {
+    setSelectedBuilding(null);setBuildingInfoOpen(false);setIsScoutingOpen(false);setWeightRoomPlayer(undefined);
+    setRosterFilter(null);setRosterInitialView('players');setIsSquadOpen(true);
+  };
   const handleUpgradeHero = (key: string, cost: number) => {
     if (protectedAction({ type: 'hero.train', heroKey: key }, receipt => { sfx.upgrade(); centerText('Training session started 🏋️', '#facc15'); productFunnel('upgrade_requested', {kind:'hero'}); track('hero_upgrade', { key, toLevel: Number(receipt?.toLevel ?? 0), protected: true }); })) return;
     const h0 = gameState.heroes.find(h => h.key === key);
@@ -1543,6 +1551,7 @@ function App() {
 
       {isSquadOpen && rosterInitialView === 'players' && (
         <SquadModal
+          onOpenFacility={openPlayerFacility}
           onOpenWeightRoom={id=>{setWeightRoomPlayer(id);setRosterInitialView('training');}}
           roster={gameState.roster}
           club={gameState}
@@ -1555,10 +1564,12 @@ function App() {
         />
       )}
 
-      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}/>}
+      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom onRoster={openPlayerRoster} onOpenFacility={openPlayerFacility} club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}/>}
 
       {selectedBuilding && selectedBuilding.type!==BuildingType.TRAINING_PITCH && selectedBuilding.type!==BuildingType.YOUTH_ACADEMY && buildingInfoOpen && (
           <ActionModal
+             onRoster={openPlayerRoster}
+             onFilmArchive={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);setDefenseLogOpen(true);}}
              onGameDay={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}
              onWeightRoom={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);setRosterInitialView('training');setIsSquadOpen(true);}}
              blocked={authority.pendingCount > 0 || authority.locked}

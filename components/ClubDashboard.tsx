@@ -5,7 +5,7 @@ import { Sheet, RankCrest } from './ui';
 import { clubPower, clubPowerBreakdown, rankFor } from '../ranks';
 import { GROWTH_TIERS, collectorRate } from '../constants';
 import { buildingSprite, BUILDING_ERAS, BUILDING_ART_LEVELS } from '../assets';
-import { candidateOvr } from '../recruiting';
+import {unitPower} from '../battle';
 import { formationDef } from '../fixedBase';
 import { fanMilestoneTotal } from '../game/fanProgress';
 import { isArchivedAiRaid } from '../game/defenseHistory';
@@ -32,7 +32,7 @@ export function ClubDashboard({ gs, onClose, onRoster, onGameDay, onDefense }: P
   const rank = rankFor(gs.trophies);
   const power = clubPower(gs), parts = clubPowerBreakdown(gs);
   const seasonBalls = Object.values(gs.campaign?.stars ?? {}).reduce((sum, n) => sum + n, 0);
-  const average = gs.roster.length ? Math.round(gs.roster.reduce((sum, p) => sum + candidateOvr(p), 0) / gs.roster.length) : 0;
+  const average = gs.roster.length ? Math.round(gs.roster.reduce((sum, p) => sum + unitPower(p), 0) / gs.roster.length) : 0;
   const log = (gs.defenseLog ?? []).filter(entry => !isArchivedAiRaid(entry)), held = log.filter(r => r.stars === 0).length;
   return <Sheet title="Your program" icon={<Activity size={23} />} subtitle={gs.teamName} onClose={onClose} maxWidth="max-w-3xl">
     <div className="fhq-dashboard">
@@ -63,7 +63,7 @@ export function ClubDashboard({ gs, onClose, onRoster, onGameDay, onDefense }: P
           <Stat label="Builders working" value={`${gs.upgrades.length} / ${gs.builders}`} />
         </section>
         <section className="fhq-stat-card"><h3>Team readiness</h3>
-          <Stat label="Roster" value={`${gs.roster.length} players`} /><Stat label="Average rating" value={`${average} OVR`} />
+          <Stat label="Roster" value={`${gs.roster.length} players`} /><Stat label="Average player Power" value={number(average)} />
           <Stat label="Energy" value={`${number(gs.resources.ENERGY)} / 100`} />
           <Stat label="Defensive scheme" value={formationDef(gs.formation).name} />
           <Stat label="Recorded home games" value={log.length ? `${held} held · ${log.length - held} stormed` : 'No games yet'} />
