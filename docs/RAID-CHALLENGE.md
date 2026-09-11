@@ -67,3 +67,19 @@ snapshot even after trophies or the daily offer change. No schema migration or
 account data rewrite is involved.
 
 Release status and native/live evidence are appended after deployment below.
+
+### Release evidence
+
+- Authority v8 deployed at 2026-09-11 18:07:26 UTC, JWT enabled. Exact management
+  readback matches the 174392-character artifact pinned at
+  `6f2e17713e3627ee5792caa94b4b09288b875b14`, SHA256
+  `9456bd85a269bfca1804992a3b22d195bdfa5c8809f428a5c8f371e1ce0e6b6b`.
+- Native isolated 390px/332px phone preview: three challenge cards, explicit
+  currencies, correct formation/power-move briefing, legal three-lineman group
+  deployment, hero deployment and a focus order accepted. No account transport.
+- Native 844×390 landscape replay: the entire coached fortress film reaches 62%,
+  one Game Ball and “Replay matches the recorded drive.” Debrief shows 40 supported
+  catches and actual equipment effects. No console errors or document-width overflow.
+- 693 tests across 90 files pass, including old v3/v4/v5 replay compatibility,
+  snapshot issuance/settlement and preview/engine equipment parity.
+- Extended 869-match report: `docs/evidence/raid-challenge-balance-2026-09-11.txt`.
