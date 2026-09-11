@@ -1,4 +1,3 @@
-import {WeightRoomExterior} from './WeightRoomExterior';
 import {FACILITY_INFO} from '../game/facilityPresentation';
 import { useClubStyle } from './ClubStyle';
 import { campusSilhouette } from '../game/campusSilhouette';
@@ -585,9 +584,9 @@ const BuildingSprite: React.FC<{
         width: SPRITE_W, height: SPRITE_W, left: -SPRITE_W / 2, bottom: -TILE_H / 2, transformOrigin: '50% 100%',
 
       }}>
-        {building.type===BuildingType.TRAINING_PITCH?<WeightRoomExterior level={building.level} style={{width:'100%',height:'100%',filter:'drop-shadow(0 3px 3px #0005)'}}/>:<BuildingArt type={building.type} level={building.level} label={info.name}
+        <BuildingArt type={building.type} level={building.level} label={info.name}
           className="select-none transition-[filter]"
-          style={{ width: '100%', height: '100%', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} />}
+          style={{ width: '100%', height: '100%', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} />
         {/* Scouting HQ chimney smoke — three staggered puffs rising off the roofline */}
         {isAcademy && !starter && [0, 1, 2].map(i => (
           <img key={i} src="/assets/fx/smoke-puff.webp" alt="" draggable={false} className="absolute select-none" style={{
