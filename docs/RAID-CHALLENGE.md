@@ -83,3 +83,11 @@ Release status and native/live evidence are appended after deployment below.
 - 693 tests across 90 files pass, including old v3/v4/v5 replay compatibility,
   snapshot issuance/settlement and preview/engine equipment parity.
 - Extended 869-match report: `docs/evidence/raid-challenge-balance-2026-09-11.txt`.
+- Strict release verification passed in 52 seconds: typecheck, tests, deployed-current
+  parity, atlases, restore rehearsal, derived assets, production build/cache checks
+  and the default 269-match balance gate. Optional headless Chrome checks were
+  explicitly skipped; native browser checks and actual live evidence ran separately.
+- Live authority acceptance: **77/77** checks, including current Fortress issuance,
+  confirmed rewards and exactly-once retry, forged film rejection, old-rule
+  compatibility, saved upgrade timer, rival defense snapshot and identical film.
+  Full log: `docs/evidence/raid-challenge-live-2026-09-11.txt`.
