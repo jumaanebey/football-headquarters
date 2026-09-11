@@ -539,3 +539,5 @@ button { touch-action:manipulation; }
 @media(max-height:500px) and (orientation:landscape){.fhq-football-live{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}.fhq-football-live>header{grid-column:1}.fhq-football-live>.fhq-football-score{grid-column:2;grid-row:1}.fhq-football-live>.fhq-stadium-sequence{grid-column:1}.fhq-football-live>.fhq-football-decisions{grid-column:2}}
 
 @media(max-width:799px){.fhq-unit-choices{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.fhq-unit-choices button{padding:5px 3px;min-width:0;text-align:center;font-size:10px;line-height:1.25}}
+
+@media(max-width:799px){.fhq-play-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.fhq-play-choices button{min-width:0;padding:6px 3px;text-align:center;font-size:11px;line-height:1.25}}

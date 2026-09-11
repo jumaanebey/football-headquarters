@@ -23,3 +23,15 @@ Owner decisions (11 September 2026): scheduled development continues while close
 The client needs authority v6 before production release. Combat rule identifiers remain hero-actions-3 and defense-counters-4; the backend continues accepting both. No database migration is needed. New protected activity rewards are only applied from server answers.
 
 Rollback the frontend while retaining v6 authority if any new schedules, prospects or Stadium games exist. Restoring v5 would strand new state. Physical device acceptance remains separate from browser viewport checks. Raid deployment usability is improved here; a deeper raid mechanics redesign is not claimed complete.
+
+## Live authority v6 evidence
+
+Deployed 2026-09-11 15:11:10 UTC with JWT verification enabled. The complete index.ts readback equals the artifact pinned at `652169296a8a432053f043c421cd245aba08df0c`, SHA-256 `519031c02a2a9019c37457a76ae2028343653836b18786826fb563a04045723d`. Strict deployed-current parity passes.
+
+`npm run facility:evidence` passed **41/41** against production authority: prepaid schedule, duplicate/reload recovery, no early growth, player assignment snapshot, actual Rehab Energy recovery, Film mastery/IQ and Practice Speed, different paid/free prospect pools, signing exactly once, timed relationship interest, mutually exclusive raids/Stadium, stale-turn rejection and reward collection exactly once. Result: 0–7, 20 Coins collected. Token stayed in memory; public configuration was supplied from the existing runtime environment file. No service-role key was needed.
+
+QA account `e774b44e-e1d7-4664-b29b-4f6444d32fb7` (Facility Loop QA) is listed in scripts/qa-accounts.json for funnel exclusion and deferred cleanup. No accounts were deleted. Sanitized transcript: docs/evidence/facility-gameplay-live-2026-09-11.txt.
+
+Native browser Stadium journey: return left → Flood against Zone → touchdown → PAT → deep kickoff → Zone against Verticals → opponent misses → 7–0 → Collect 100 Coins. Reload before the first call restored the exact decision. On phone, the final score, confirmed event and collection action fit together. Rehab’s own Start rehab action was reachable at 390×844 without scrolling; the room retained its shirtless player seated at the left edge of the bath.
+
+Additional phone acceptance: Film’s Study this play button is directly reachable at 390×844; the selected play is visible and timed study starts in the Film Room. A paid 120-Coin scout report returned Rocco Wolfe after 15 seconds, moved the ready prospect above new-search options, and signed him for no additional Coins (roster 10 → 11). No prospect dropdown is involved.

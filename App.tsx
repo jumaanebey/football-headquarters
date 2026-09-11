@@ -1596,7 +1596,7 @@ function App() {
         />
       )}
 
-      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom onAction={handleClubActivity} onPractice={openPracticeField} onRoster={openPlayerRoster} onOpenFacility={openPlayerFacility} club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}/>}
+      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom onAction={handleClubActivity} onPractice={openPracticeField} onRoster={openPlayerRoster} onOpenFacility={openPlayerFacility} club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openPlayerFacility(BuildingType.STADIUM);}}/>}
 
       {selectedBuilding && selectedBuilding.type!==BuildingType.TRAINING_PITCH && selectedBuilding.type!==BuildingType.YOUTH_ACADEMY && buildingInfoOpen && (
           <ActionModal
@@ -1619,7 +1619,7 @@ function App() {
              onFinishNow={handleFinishNow}
              onHireBuilder={handleHireBuilder}
              onCollect={building => { const point = {x:window.innerWidth/2,y:window.innerHeight/2}; if (building.state === DrillState.COMPLETED) handleCollect(building, point); else handleCollectResource(building, point); }}
-             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true); else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
+             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true); else if (type === BuildingType.TACTICS_ROOM) openPlayerFacility(BuildingType.STADIUM); else setDashboardOpen(true); }}
              visitLabel={selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
           />
       )}
@@ -1652,7 +1652,7 @@ function App() {
               <CCBtn label="Info" emoji="💬" onClick={() => setBuildingInfoOpen(true)} />
               <CCBtn label="Level Up" emoji="🔨" accent disabled={busy || gated || !canAfford} onClick={() => setBuildingInfoOpen(true)} />
               {isStadium && <CCBtn label="Defense" emoji="🛡️" onClick={() => { setSelectedBuilding(null); setFrontOfficeOpen(true); }} />}
-              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="🏈" onClick={() => { setSelectedBuilding(null); openRaid(); }} />}
+              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="🏈" onClick={() => openPlayerFacility(BuildingType.STADIUM)} />}
             </div>
             {!busy && <p className="max-w-sm rounded-lg bg-slate-950/95 px-3 py-2 text-center text-xs text-slate-200">{buildingEffect(b.type, b.level).label}: {buildingEffect(b.type, b.level).value} → {buildingEffect(b.type, b.level + 1).value}</p>}
           </div>
