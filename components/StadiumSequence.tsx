@@ -4,6 +4,8 @@ import {stadiumPerformance} from '../game/presentation/stadiumPerformance';
 import {StadiumPlayer} from './StadiumPlayer';
 const sx=(x:number)=>80+x*8,sy=(y:number)=>65+y*8;
 export function StadiumSequence({game,level=1,onPlayback}:{game:StadiumFootballGame;level?:number;onPlayback?:(playing:boolean)=>void}){
+ const [landscape,setLandscape]=useState(false);
+ useEffect(()=>{const media=matchMedia('(max-height: 500px) and (orientation: landscape)');const update=()=>setLandscape(media.matches);update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
  const [t,setT]=useState(1),[replay,setReplay]=useState(0),stop=useRef(false);
  const last=game.events.at(-1),eventKey=`${game.id}:${last?.turn??'ready'}`;
  useEffect(()=>{
@@ -18,9 +20,9 @@ export function StadiumSequence({game,level=1,onPlayback}:{game:StadiumFootballG
   raf=requestAnimationFrame(tick);
   return()=>{cancelAnimationFrame(raf);onPlayback?.(false);};
  },[eventKey,replay,onPlayback]);
- const scene=stadiumPerformance(game,t),focusX=Math.max(-5,Math.min(685,sx(scene.focus.x)-125)),focusY=Math.max(15,Math.min(235,sy(scene.focus.y)-115));
+ const scene=stadiumPerformance(game,t),cameraWidth=landscape?465:355,cameraHeight=landscape?210:310,focusX=Math.max(-5,Math.min(1040-cameraWidth,sx(scene.focus.x)-cameraWidth*.35)),focusY=Math.max(15,Math.min(545-cameraHeight,sy(scene.focus.y)-cameraHeight*.4));
  return <div className="fhq-stadium-sequence fhq-stadium-performance" data-playback={t<1?'playing':'complete'}>
-  <svg viewBox={`${focusX} ${focusY} 355 310`} role="img" aria-label={t<1?scene.beat:last?`${last.title}. ${scene.beat}`:'Players lined up, awaiting your call'}>
+  <svg viewBox={`${focusX} ${focusY} ${cameraWidth} ${cameraHeight}`} role="img" aria-label={t<1?scene.beat:last?`${last.title}. ${scene.beat}`:'Players lined up, awaiting your call'}>
    <rect x="-15" y="0" width="1060" height="570" fill="#192d36"/>
    {Array.from({length:level>=3?4:2},(_,row)=>Array.from({length:75},(_,i)=><g key={`${row}-${i}`} fill={i%4?'#7b9ba1':'#ddb45e'}><circle cx={i*14} cy={10+row*9+(t>.9&&last?.scored?-(i%3)*2:0)} r="2.6"/><rect x={i*14-3} y={13+row*9} width="6" height="4"/></g>))}
    <rect x="0" y="65" width="960" height={53.333*8} fill="#255b3c" stroke="#e4edd4" strokeWidth="2"/>
