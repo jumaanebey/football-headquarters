@@ -102,15 +102,62 @@ the slots that changed rather than silently showing a different team.
 
 ---
 
-## Package B — two-possession Stadium — **in progress**
+## Package B — two-possession Stadium — **available now**
 
-Reserved names, to be filled in as the package lands: `game/stadiumFootball.ts` keeps its current
-exports (`STADIUM_OPPONENTS`, `footballCalls`, `applyStadiumFootball`, `validStadiumFootball`) and
-gains event geometry (possession side, direction, start/end yard line, scoring type), a persisted
-receiving order, situational objective text and per-matchup attribution drawn from the lineup
-snapshot. `components/StadiumFootball.tsx` and `components/StadiumSequence.tsx` keep their current
-props; any addition will be listed here before it is required.
+### Module `game/stadiumFootball.ts`
+
+Existing exports are unchanged in name and signature: `STADIUM_OPPONENTS`, `footballCalls(game)`,
+`footballRatings(club)`, `applyStadiumFootball`, `validStadiumFootball`, `footballInProgress`,
+`FOOTBALL_ENTRY_ENERGY`, and the `StadiumAction` union. `footballRatings` now reads the selected
+lineup instead of the whole roster.
+
+```ts
+const STADIUM_RULES_VERSION = 2;
+type Possession = 'home' | 'away';
+type ReturnCoverage = 'edges' | 'middle' | 'balanced';
+type DefensiveLook = 'blitz' | 'deep' | 'balanced';
+type FootballActionKind = 'return'|'kick'|'pass'|'run'|'field-goal'|'conversion'|'stop'|'touchdown'|'concede';
+interface FootballActor { slot: LineupSlotId; name: string; role: PlayerRole; attribute: 'speed'|'power'|'iq'|'overall'; value: number }
+
+// FootballEvent gains (all optional; absent on pre-rewrite events)
+interface FootballEvent { …; possession?; direction?: 1|-1; startYard?: number; endYard?: number; action?: FootballActionKind; scored?: number; actors?: FootballActor[] }
+// StadiumFootballGame gains
+interface StadiumFootballGame { …; v?: number; possession?; possessionIndex?: number; receivesFirst?: Possession; seed?: number; lineup?: LineupSnapshot }
+
+isTwoPossessionGame(game): boolean          // false for a pre-rewrite game, which keeps the frozen legacy rules
+stadiumObjective(game): string              // "A field goal ties; a touchdown wins." — derived from the score
+returnCoverageOf(game): ReturnCoverage;  coverageDescription(c): string
+defensiveLookOf(game): DefensiveLook;    lookDescription(l): string
+conversionMatters(game): boolean            // false when no conversion result can change win, tie or loss
+yardsToGoal(possession, yardLine): number;  fieldGoalDistance(possession, yardLine): number
+driveDirection(possession): 1 | -1;         describeYard(yardLine): string   // "your 35" / "their 22" / "midfield"
+kickerOf(game): LineupSnapshot['players'][number] | null
+```
+
+**The field is one 0–100 scale.** Yard 0 is the home endzone line, 100 the away endzone line;
+the home club attacks 100 (`direction` +1), the opponent attacks 0 (−1). Every event records the
+yard line it started and ended on, so presentation renders the drive rather than inferring it.
+
+**Every call answers something shown.** Return coverage and the defensive look are derived from
+the game's stored `seed`, so a reload shows the same situation, and each option's `detail` says
+whether it answers that look. A balanced look is the only case where the lanes are equal, and the
+copy says so.
+
+**Conversions are skipped when they cannot matter**, and a go-ahead touchdown on the second
+possession that puts the result beyond any conversion ends the game immediately. Ties stand.
+
+### Components (props unchanged)
+
+`<StadiumFootball club blocked onAction />` and `<StadiumSequence game level />` keep their exact
+signatures — `components/CampusDepartment.tsx` needs no edit. Stadium styles live in
+`components/stadium.css`, imported by `StadiumFootball.tsx`, so `game-theme.css` is untouched.
+
+**Nothing is required of Codex for Package B.** If the roster screen wants to show the pending
+Stadium situation elsewhere, `stadiumObjective(game)` and `coverageDescription(returnCoverageOf(game))`
+are the two strings to use.
 
 ## Package C — development and scouting — **not started**
 
-Will be documented here with before/after fixtures for every economic change.
+Deferred deliberately so Packages A, B and D could land as one coherent integration, as the
+handoff allows. It will arrive as a separate additive PR and will be documented here with
+before/after fixtures for every economic change.
