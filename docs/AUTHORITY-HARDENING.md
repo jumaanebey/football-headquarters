@@ -149,3 +149,11 @@ PR #41 consolidated the stack and merged as e3f8669. The v4 server artifact is n
 ### Facility gameplay QA, 11 September 2026
 
 - `e774b44e-e1d7-4664-b29b-4f6444d32fb7` — Facility Loop QA; v6 schedule/scouting/Stadium evidence, 41 checks passed. Deferred cleanup; not deleted. Excluded in scripts/qa-accounts.json. Full evidence: docs/FACILITY-GAMEPLAY.md.
+
+
+### Raid tactics v7 evidence — 2026-09-11
+
+69/69 live checks. Deferred cleanup, none deleted; excluded from weekly analytics:
+- A: `43752e03-6885-47b6-b4bc-73134e400466`
+- B: `dbe174eb-2403-47d3-83e4-a13134cec738`
+- C: `fa4b8b25-d93d-4981-a659-f6e80b720374`

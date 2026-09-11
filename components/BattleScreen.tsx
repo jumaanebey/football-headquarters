@@ -1979,7 +1979,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
                 </div>
                 </details>
               )}
-              <div className="fhq-battle-instruction text-center text-xs text-orange-300 font-bold mb-2">
+              <div hidden={tacticalCombat&&commandMode==='orders'} className="fhq-battle-instruction text-center text-xs text-orange-300 font-bold mb-2">
                 {phase === 'fighting' && <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle"><PlanGlyph k={plan.key} size={11} className="shrink-0" /> {plan.name}</span>}
                 {instruction}
               </div>

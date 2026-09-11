@@ -21,7 +21,11 @@ Local checks: 685 tests across 89 files; typecheck; all 219 balance scenarios an
 
 Native phone journey at 390×844: one tap sent three linemen; added QB; protected hero; called Stadium; used Hail Mary; deployed three playmakers and Enforcer; keyboard rally; reached debrief with 8 supported catches and 22.6 player-seconds holding defenders, no console errors. The isolated fixture creates no account and does not change saves. The same fixture is `/dev/raid-journey.html?tactics` in development only.
 
-Server deployment and live evidence: pending final release record below.
+Authority v7 is ACTIVE with JWT verification. Inline artifact pinned at d28b2a70b8aa5cd44984a389974597f6cbadf442, sha256 dfe1b18ad512f83897d1ce5d0bd4019a7c66e64c8df50c0dc1255e5c25e9e77a. Management readback exactly matches all 174117 characters. Strict source/bundle/staged/deployed parity passes.
+
+Live evidence: **69 passed, 0 failed**. The new server accepted all three negotiated rule versions, tactical focus/protect/rally commands, completed games and exactly-once rewards; rejected forged films and unauthorized film access; completed a server-timed Stadium upgrade; preserved the assigned gate hero and defense formation; shared identical replay film between both accounts and applied the defense shield. See `docs/evidence/raid-tactics-live-2026-09-11.txt`. Three evidence account IDs are excluded in scripts/qa-accounts.json and retained for deferred cleanup.
+
+Strict release verification passed in 38 seconds. Browser automation under headless Chrome is unavailable on this machine; native browser rendering was used. Core coaching controls also verified at 844×390 landscape and 1440×900 desktop, with no page-width overflow. The final mode switch resets the command panel to its top; landscape removes redundant instruction text so group, orders, targets and hero controls fit together.
 
 ## Release / rollback
 

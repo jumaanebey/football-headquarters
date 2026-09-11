@@ -553,3 +553,5 @@ button { touch-action:manipulation; }
 @media(max-width:640px) and (orientation:portrait){.fhq-raid-command-tabs button,.fhq-order-actions button{font-size:11px;padding:5px 7px}.fhq-raid-orders{font-size:11px}.fhq-raid-batch{margin-bottom:3px}.fhq-battle:has(.fhq-raid-command-tabs) .fhq-battle-commands{max-height:44dvh}}
 
 .fhq-raid-command-tabs{position:sticky;top:0;z-index:6;background:#101b2c;padding:3px 0 5px;margin-top:-3px;box-shadow:0 3px 6px #101b2c}
+
+@media(max-height:540px) and (orientation:landscape){.fhq-raid-orders>p:not(.fhq-order-confirmation){display:none}.fhq-raid-orders label,.fhq-raid-orders .fhq-order-actions{margin-bottom:3px}.fhq-order-confirmation{font-size:10px;line-height:1.2!important}.fhq-raid-command-tabs{margin-bottom:3px}.fhq-order-targets{padding:0}}
