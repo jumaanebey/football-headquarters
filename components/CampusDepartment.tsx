@@ -31,7 +31,7 @@ export function CampusDepartment({club,building,blocked,onClose,onUpgrade,onColl
           <div className="fhq-room-actions"><button onClick={onWeightRoom}>Build readiness · work out</button><button onClick={onGameDay}>Prepare for Game Day</button></div>
         </section>}
         {type===BuildingType.MEDICAL_CENTER&&<section className="fhq-room-activity"><h3>{energy>=100?'Your team is recharged':'Recovery in progress'}</h3>
-          <div className="fhq-room-stats"><div><strong>{energy}/100</strong><small>Energy</small></div><div><strong>{(60000/interval).toFixed(1)}/min</strong><small>Recovery rate</small></div><div><strong>{energy>=100?'Ready':roomTime(toFull)}</strong><small>{energy>=100?'For your next session':'Until full · estimate'}</small></div></div>
+          <div className="fhq-room-stats"><div><strong>{energy}/100</strong><small>Energy</small></div><div><strong>{(60000/interval).toFixed(1)}/min</strong><small>Recovery rate</small></div><div><strong>{energy>=100?'Ready':roomTime(toFull)}</strong><small>{energy>=100?'Fully charged':'Until full · estimate'}</small></div></div>
           <progress aria-label="Recovered Energy" max={100} value={energy}/><p>Energy recovers automatically, including while you’re away. Upgrading this room speeds it up.</p>
           <div className="fhq-room-actions"><button onClick={onWeightRoom}>Back to the Weight Room</button><button onClick={onGameDay}>Game Day</button></div>
         </section>}

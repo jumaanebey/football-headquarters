@@ -28,4 +28,4 @@ The interior illustrations are shared across building levels; the exterior goal 
 
 ## Release
 
-Pending final-head CI, merge and production verification.
+PR #75 merged as b63c04d after final-head CI passed; Vercel production succeeded. Live bundle index-CPlWkVXz.js, build2026-09-11 06:44 UTC. All five building art taps opened their correct interiors directly in the existing live club. Stadium interior rendered on return; Gates rendered ten current hero canvases (five heroes at each gate). Resources stayed1469Coins/100Energy/12Fans/18Crowns, and no gate assignment was changed in production. A final narrow-phone text correction keeps long gate names on one line and shortens the full-recovery label. Final deployment evidence is copied into the task output report and shared handoff.
