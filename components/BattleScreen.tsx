@@ -54,7 +54,10 @@ import type { BattleConfig, BattleResult } from '../game/combat/contracts';
 export type { BattleConfig, BattleResult } from '../game/combat/contracts';
 import { createBattleEngine, type BattleEngine } from '../game/combat/engine';
 
+import type {RewardContext} from '../game/battleRewardPreview';
+
 interface Props {
+  rewardContext?:RewardContext;
   config: BattleConfig;
   clubName?: string;
   initialPlan?: GamePlanKey;
@@ -165,7 +168,7 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
   targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, special: def.key,
 });
 
-export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff, onResultViewed }) => {
+export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff, onResultViewed }) => {
   const [showThreats, setShowThreats] = useState(false);
   const [showPlayerLabels, setShowPlayerLabels] = useState(false);
   const [replayPaused, setReplayPaused] = useState(false);
@@ -494,7 +497,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
     }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => crowdBedStop(), []); // never leak the loop on exit
-  useEffect(() => { if (phase === 'result' && result) onResultViewed?.(result); }, [phase, result]);
+  useEffect(() => { if (phase === 'result' && result && !celeb) onResultViewed?.(result); }, [phase, result, celeb]);
   const kickoffNotifiedRef = useRef(false);
   useEffect(() => { if (phase === 'fighting' && !kickoffNotifiedRef.current) { kickoffNotifiedRef.current = true; onKickoff?.(); } }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1353,7 +1356,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
       {/* Top bar */}
       <div className="fhq-battle-header flex items-center justify-between gap-2 px-2.5 sm:px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button onClick={() => { if (isReplay) { onExit(false); return; } if (phase === 'fighting' && !sim.current.ended) { endBattle(); } else onExit(phase === 'deploy'); }} title={isReplay ? 'Close replay' : 'Blow the whistle — see the result'} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
+          <button disabled={phase === 'result'} onClick={() => { if (isReplay) { onExit(false); return; } if (phase === 'fighting' && !sim.current.ended) { endBattle(); } else onExit(phase === 'deploy'); }} title={isReplay ? 'Close replay' : 'Blow the whistle — see the result'} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white shrink-0"><X size={18} /></button>
           <div className="min-w-0">
             {/* Phone: ONE line, truncated — the two-line wrap crushed the whole bar */}
             <div className="font-display font-bold text-white uppercase tracking-tight leading-none flex items-center gap-1.5 sm:gap-2 text-[13px] sm:text-base min-w-0">
@@ -2041,7 +2044,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
           field while the band marches. No dark backdrop: the point is SEEING the stands
           you just turned orange, in silence. Tap anywhere to skip to the card. */}
       {phase === 'result' && result && celeb && (
-        <div className="absolute inset-0 z-10 overflow-hidden cursor-pointer" onClick={endCeleb}>
+        <button type="button" aria-label="View game result" className="absolute inset-0 z-10 w-full overflow-hidden cursor-pointer" onClick={event => { event.stopPropagation(); endCeleb(); }}>
           {Array.from({ length: 50 }).map((_, i) => (
             <div key={i} className="absolute top-0 pointer-events-none" style={{ left: `${(i * 137) % 100}%`, width: 7, height: 12, background: ['#f97316', '#fde047', '#f8fafc', '#38bdf8', '#22c55e'][i % 5], borderRadius: 2, animation: `fhq-confetti ${1.7 + (i % 5) * 0.3}s linear ${(i % 9) * 0.12}s infinite` }} />
           ))}
@@ -2053,13 +2056,13 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
               <div className="mt-2 text-[12px] font-bold uppercase tracking-widest text-white/90" style={{ textShadow: '0 2px 4px #000' }}>The band takes THEIR field</div>
             </div>
           </div>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-widest text-white/60 font-bold animate-pulse">tap to skip</div>
-        </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-widest text-white/60 font-bold animate-pulse">View game result →</div>
+        </button>
       )}
 
       {/* Result overlay */}
       {phase === 'result' && result && !celeb && (
-        <BattleDebrief config={config} result={result} actors={s.troops} stats={driveStats} modernCombat={modernCombat}
+        <BattleDebrief rewardContext={rewardContext} config={config} result={result} actors={s.troops} stats={driveStats} modernCombat={modernCombat}
           buildings={s.buildings} guards={s.guards} planKey={plan.key}
           replayVerified={engineRef.current?.hash === config.replay?.expectedHash && engineRef.current?.state.ticks === config.replay?.expectedTicks && engineRef.current?.rejectedCommands === 0 && engineRef.current?.getReplay().script.length === config.replay?.script.length}
           onContinue={destination => { if (collectedRef.current) return; collectedRef.current = true; onFinish(result, destination); }}

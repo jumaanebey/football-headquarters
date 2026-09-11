@@ -93,12 +93,13 @@ export const Sheet: React.FC<{
   icon?: React.ReactNode;
   subtitle?: React.ReactNode;
   onClose: () => void;
+  dismissible?: boolean; // Mandatory decisions keep their explicit footer actions.
   footer?: React.ReactNode;
   actions?: React.ReactNode; // header controls (e.g. Scout Search) — rendered beside close
   maxWidth?: string;
   scroll?: boolean; // false = workspace mode: children manage their own panes (two-pane layouts)
   children: React.ReactNode;
-}> = ({ title, icon, subtitle, onClose, footer, actions, maxWidth = 'max-w-lg', scroll = true, children }) => {
+}> = ({ title, icon, subtitle, onClose, dismissible = true, footer, actions, maxWidth = 'max-w-lg', scroll = true, children }) => {
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const subtitleId = useId();
@@ -113,7 +114,7 @@ export const Sheet: React.FC<{
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      onClose();
+      if (dismissible) onClose();
       return;
     }
     if (e.key !== 'Tab') return;
@@ -125,7 +126,7 @@ export const Sheet: React.FC<{
     else if (!e.shiftKey && (document.activeElement === last || document.activeElement === panel.current)) { e.preventDefault(); first.focus(); }
   };
   return (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 sm:p-4 animate-fade-in" onClick={onClose}>
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 sm:p-4 animate-fade-in" onClick={() => { if (dismissible) onClose(); }}>
     {/* Phones get FULL-SCREEN sheets (every pixel counts); desktop keeps the floating card. */}
     <div
       ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} tabIndex={-1} onKeyDown={containFocus}
@@ -140,7 +141,7 @@ export const Sheet: React.FC<{
           <h2 id={titleId} className="text-lg sm:text-xl font-display font-bold text-white uppercase tracking-tight flex items-center gap-2.5 min-w-0 flex-wrap">
             {icon}{title}
           </h2>
-          <button type="button" aria-label="Close dialog" onClick={onClose} className="min-h-11 min-w-11 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shrink-0"><X size={18} aria-hidden="true" /></button>
+          {dismissible && <button type="button" aria-label="Close dialog" onClick={onClose} className="min-h-11 min-w-11 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shrink-0"><X size={18} aria-hidden="true" /></button>}
         </div>
         {subtitle && <p id={subtitleId} className="text-slate-400 text-[12px] mt-1">{subtitle}</p>}
         {actions && <div className="mt-2.5 flex flex-wrap items-center gap-2">{actions}</div>}

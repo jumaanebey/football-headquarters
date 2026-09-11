@@ -2,6 +2,7 @@ import React,{useState,useEffect} from 'react';import {createRoot} from 'react-d
 import {createInitialState} from '../game/initialState';import {applyClubAction,settleClubState,type ClubAction} from '../game/authority/clubActions';
 import {openCampusArt} from '../game/artGate';import {BuildingType} from '../types';
 import {CampusDepartment} from '../components/CampusDepartment';import {ScoutingModal} from '../components/ScoutingModal';import {WeightRoom} from '../components/WeightRoom';import {GateAssignments} from '../components/GateAssignments';import {Sheet} from '../components/ui';
+import {TeamKitContext} from '../components/TeamKit';import {CLUB_STYLES} from '../game/clubStyle';
 import '../tailwind.css';import '../game-theme.css';import '../game-motion.css';
 function Fixture(){
  const [club,setClub]=useState(()=>{const s=createInitialState();s.teamName='Department Preview';s.resources.COINS=5000;s.resources.GEMS=100;s.resources.ENERGY=43;s.buildings=s.buildings.map(b=>({...b,level:b.type===BuildingType.STADIUM?3:1,accrued:b.type===BuildingType.STADIUM?300:b.accrued}));return applyClubAction(s,{type:'recruit.refresh'},{now:Date.now(),random:()=>.4}).state});
@@ -17,4 +18,4 @@ function Fixture(){
  :building&&<CampusDepartment club={club} building={building} blocked={false} onClose={close} onUpgrade={upgrade} onFinishNow={finish} onCollect={b=>action({type:'facility.collect',buildingId:b.id})} onDefense={()=>setView('gates')} onProgram={()=>{setNotice('Your program opened');close()}} onGameDay={()=>{setNotice('Game Day opened');close()}} onWeightRoom={()=>setView(BuildingType.TRAINING_PITCH)}/>}
  </main>
 }
-if(import.meta.env.DEV){openCampusArt();createRoot(document.getElementById('root')!).render(<Fixture/>)}
+if(import.meta.env.DEV){openCampusArt();createRoot(document.getElementById('root')!).render(<TeamKitContext.Provider value={CLUB_STYLES.find(k=>k.id===new URLSearchParams(location.search).get('kit'))??CLUB_STYLES[0]}><Fixture/></TeamKitContext.Provider>)}

@@ -1807,6 +1807,7 @@ function App() {
         <Suspense fallback={<div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4" role="status"><img src="/assets/brand/logo.webp" alt="Football Headquarters" width="240" /><p>Getting the field ready…</p></div>}><BattleScreen clubName={gameState.teamName}
           key={battleConfig.practice ? `practice-${practiceTake}` : battleConfig.replay ? `replay-${replayTake}` : 'match'}
           config={battleConfig}
+          rewardContext={{claimedCampaignStages:gameState.campaign.claimed,gauntletBest:gameState.gauntlet.best,trophies:gameState.trophies}}
           initialPlan={battleConfig.practice ? 'balanced' : preparedPlan}
           openingHero={battleConfig.practice ? undefined : openingHero}
           onFinish={handleBattleFinish}

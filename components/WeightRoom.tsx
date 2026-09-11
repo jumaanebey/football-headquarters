@@ -3,7 +3,8 @@ import React,{useEffect,useRef,useState} from 'react';
 import {BuildingType,DrillState,type GameState,type BuildingInstance} from '../types';
 import {DRILLS,trainingYieldMult,UPGRADE_CONFIG,upgradeDurationSecs} from '../constants';
 import {playerGrowth,drillEffects} from '../game/progression/playerGrowth';
-import {unitPlayerSprite} from '../assets';
+import {IndoorPlayer} from './IndoorPlayer';
+import {indoorGroupName} from '../game/indoorPlayers';
 import {Sheet} from './ui';
 
 const WORKOUTS:Record<string,string>={sled_push:'Strength circuit',routes:'Explosive movement',tackle_dummy:'Power circuit',coverage:'Agility circuit',scrimmage:'Whole-team conditioning'};
@@ -30,14 +31,14 @@ export function WeightRoom({club,blocked,initialPlayer,onClose,onStart,onCollect
  return <Sheet title="Weight Room" subtitle={`Level ${building.level} · ${club.resources.ENERGY} Energy · ${club.resources.COINS.toLocaleString()} Coins`} onClose={onClose} maxWidth="max-w-6xl">
  <div className="fhq-weight-room">
  <section className="fhq-weight-scene" aria-label="Inside your Weight Room">
- <div className="fhq-weight-room-sign"><small>{working?`${participants.length} teammates in this session`:ready?'Session complete · collect your growth':'Tap a teammate to follow their growth'}</small></div>
+ <div className="fhq-weight-room-sign"><small>{working?`${participants.length} teammates in this session`:ready?'Session complete · collect your growth':`${indoorGroupName[player.unit]} · ${participants.length} of ${club.roster.length} teammates`}</small></div>
  <WeightRoomScene participants={participants} selected={player.id} working={working} ready={ready} onSelect={setSelected}/>
 
  <div className={`fhq-weight-session ${active?'':'is-idle'}`} aria-live="polite">{active?<><strong>{WORKOUTS[active.id]??active.name}</strong><span>{ready?'Ready to collect':remaining?`${remaining}s remaining`:'Finishing your workout…'}</span><progress max="1" value={ready?1:progress}/><small>{participants.map(p=>p.name).join(' · ')}</small></>:<><strong>Your team’s home for growth</strong><span>Quick sessions. Permanent player improvements.</span></>}</div>
  </section>
  <section className="fhq-weight-controls">
  {celebrate&&<div className="fhq-weight-earned" role="status"><strong>Level {celebrate.level} · {celebrate.name}</strong><p>{celebrate.count} teammates improved. +1 Strength, Speed and IQ each.</p><button onClick={onGameDay}>Take your stronger team to Game Day →</button></div>}
- <div className="fhq-weight-player"><img src={unitPlayerSprite(player.unit)} alt=""/><label className="fhq-weight-player-label">Follow a player · next workout adds one level<select aria-label="Follow a player" value={player.id} onChange={e=>setSelected(e.target.value)}>{club.roster.map(p=><option key={p.id} value={p.id}>{p.name} · {p.role} · L{p.level}</option>)}</select></label></div>
+ <div className="fhq-weight-player"><IndoorPlayer unit={player.unit}/><label className="fhq-weight-player-label">{active?'Follow a player · session group stays unchanged':'Choose a player to bring their group inside'}<select aria-label="Follow a player" value={player.id} onChange={e=>setSelected(e.target.value)}>{club.roster.map(p=><option key={p.id} value={p.id}>{p.name} · {p.role} · L{p.level}</option>)}</select></label></div>
  <div className="fhq-weight-growth">{[['Strength',player.stats.strength],['Speed',player.stats.speed],['IQ',player.stats.iq]].map(([name,value])=><div key={name}><small>{name}</small><strong>{value} <span>→ {Number(value)+1}</span></strong></div>)}</div>
  <p className="fhq-weight-impact">On the field: Grit {Math.round(growth.combat.statline.hp)} → <b>{Math.round(growth.nextStep.after.combat.statline.hp)}</b> · Yardage {Math.round(growth.combat.statline.dps)} → <b>{Math.round(growth.nextStep.after.combat.statline.dps)}</b></p>
  {blocked&&<p role="status" className="fhq-weight-notice">Waiting for club confirmation…</p>}

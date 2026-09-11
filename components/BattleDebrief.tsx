@@ -7,6 +7,7 @@ import type { BattleConfig, BattleResult } from '../game/combat/contracts';
 import { nextBattleImprovement, battleContributions, contributionLeaders, resultPresentation, type PostBattleDestination } from '../game/battleDebrief';
 import { HeroArt } from './HeroArt';
 import { Sheet } from './ui';
+import {extraBattleRewards,type RewardContext} from '../game/battleRewardPreview';
 
 const METRICS = {
   yardage: { title: 'Yardage leader', unit: 'yards gained', color: 'text-amber-300', icon: Trophy },
@@ -15,8 +16,8 @@ const METRICS = {
 };
 const number = (value: number) => Math.round(value).toLocaleString();
 
-export function BattleDebrief({ config, result, actors, buildings = [], guards = [], planKey, stats, modernCombat, replayVerified, onContinue, onPracticeAgain, onReplayAgain }: {
-  config: BattleConfig; result: BattleResult; actors: BTroop[];
+export function BattleDebrief({ config, result, actors, buildings = [], guards = [], planKey, stats, modernCombat, replayVerified, rewardContext, onContinue, onPracticeAgain, onReplayAgain }: {
+  rewardContext?:RewardContext; config: BattleConfig; result: BattleResult; actors: BTroop[];
   buildings?: BBuilding[]; guards?: BTroop[]; planKey?: GamePlanKey;
   stats: { pancakes: number; lost: number; bonus: number } | null;
   modernCombat: boolean; replayVerified: boolean; onContinue: (destination?: PostBattleDestination) => void; onPracticeAgain?: () => void; onReplayAgain?: () => void;
@@ -37,7 +38,7 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
   const primary = 'w-full min-h-12 rounded-xl bg-orange-500 px-4 py-3 text-base font-bold text-white hover:bg-orange-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
   return <div onKeyDown={event => event.stopPropagation()}>
     <Sheet title={headline} icon={<Flag className={neutral ? 'text-sky-300' : viewerWon ? 'text-emerald-300' : 'text-rose-300'} size={22} />}
-      subtitle={eyebrow} onClose={() => onContinue()} maxWidth="max-w-md"
+      subtitle={eyebrow} dismissible={!!neutral} onClose={() => onContinue()} maxWidth="max-w-md"
       footer={<div className="space-y-2" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {replay && onReplayAgain && <button type="button" onClick={onReplayAgain} className={primary}>Watch replay again</button>}
         {config.practice && onPracticeAgain && <button type="button" onClick={onPracticeAgain} className={primary}>Practice again · Free</button>}
@@ -62,10 +63,12 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
           {replay && <p className="mt-3 text-sm text-sky-200">Recorded result. Watching this film does not change your club or award rewards.</p>}
         </div>
 
-        {!neutral && <dl className="space-y-2 rounded-xl bg-slate-900 p-3 text-sm">
+        {!neutral && <dl aria-label="Game rewards" className="space-y-2 rounded-xl bg-slate-900 p-3 text-sm">
           <div className="flex justify-between gap-4"><dt className="text-slate-300">{purse ? 'Night purse' : defense ? 'Coins lost' : 'Coins won'}</dt><dd className={`font-bold tabular-nums ${defense && !purse ? 'text-rose-300' : 'text-amber-300'}`}>{defense && !purse ? '−' : '+'}{number(purse?.coins ?? result.coins)}</dd></div>
           {(!defense || purse) && <div className="flex justify-between gap-4"><dt className="text-slate-300">New fans won over</dt><dd className="font-bold tabular-nums text-rose-300">+{number(purse?.fans ?? result.fans)}</dd></div>}
+          {extraBattleRewards(result,rewardContext).map(row=><div key={row.label} className="flex justify-between gap-4"><dt className="text-slate-300">{row.label}</dt><dd className="font-bold tabular-nums text-violet-300">{row.amount>=0?'+':'−'}{number(Math.abs(row.amount))}</dd></div>)}
         </dl>}
+        {!neutral && <p className="text-xs text-slate-400">{config.authority?'Reward preview · your club server confirms the final amounts when you collect.':defense?'Use the button below to finish reviewing this game.':'Choose Collect rewards below to add these to your club.'}</p>}
         {!neutral && <section aria-label="Your next improvement" className="rounded-xl border border-amber-800 bg-amber-950/30 p-3 text-sm text-slate-200"><h3 className="font-bold text-amber-200">{improvement.title}</h3><p className="mt-2">{improvement.reason}</p></section>}
         {actors.some(t=>(t.defenseControlSeconds??0)>0) && <section className="rounded-xl border border-sky-900 p-3 text-sm text-slate-300"><h3 className="font-bold text-white">Equipment control during this game</h3><p className="my-2 text-xs">Time affected by wet turf, flags or entanglement. Overlapping effects count once.</p>{[...actors].filter(t=>(t.defenseControlSeconds??0)>0).sort((a,b)=>(b.defenseControlSeconds??0)-(a.defenseControlSeconds??0)).slice(0,4).map(t=><p key={t.id}>{contributions.find(c=>c.id===t.id)?.name}: {(t.defenseControlSeconds??0).toFixed(1)}s · {t.lastDefenseEffect}</p>)}</section>}
         <DefenseCounterGuide buildings={config.buildings} rules={config.authority?.rules ?? config.replay?.rules} />

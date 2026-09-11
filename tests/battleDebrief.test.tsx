@@ -108,3 +108,12 @@ describe('results from the viewer’s perspective', () => {
     expect(html).toContain('Back to base');
   });
 });
+
+
+it('requires an explicit reward action while keeping practice and replay dismissible',()=>{
+ const config={...heroPracticeConfig('qb'),practice:false};
+ expect(markup(config)).not.toContain('aria-label="Close dialog"');
+ expect(markup(config)).toContain('aria-label="Game rewards"');
+ expect(markup(heroPracticeConfig('qb'))).toContain('aria-label="Close dialog"');
+ expect(markup({...config,replay})).toContain('aria-label="Close dialog"');
+});
