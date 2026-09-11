@@ -1,3 +1,5 @@
+import {CampusToday} from './components/CampusToday';
+import {campusRoomStatus,type JourneyDestination} from './game/presentation/clubJourney';
 import { RoadTargetCard } from './components/RoadTargetCard';
 import {PracticeField} from './components/PracticeField';
 import {applyClubAction,type ClubAction} from './game/authority/clubActions';
@@ -149,6 +151,7 @@ function App() {
   const [practiceTake, setPracticeTake] = useState(0);
   const [replayTake, setReplayTake] = useState(0);
   const [weightRoomPlayer,setWeightRoomPlayer]=useState<string|undefined>();
+  const [activityPlayer,setActivityPlayer]=useState<string|undefined>();
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
   const [campusEditorOpen, setCampusEditorOpen] = useState(false);
   const [commandCenterOpen, setCommandCenterOpen] = useState(false);
@@ -552,7 +555,7 @@ function App() {
     stateRef.current=outcome.state;setGameState(outcome.state);confirmed();
   };
   useEffect(()=>{const g=gameState.stadiumFootball?.game;if(g?.phase==='final')productFunnel('result',{mode:'stadium-football',matchId:g.id,won:g.home>g.away});},[gameState.stadiumFootball?.game?.id,gameState.stadiumFootball?.game?.phase]);
-  const openPracticeField=()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);setIsSquadOpen(false);setIsScoutingOpen(false);setPracticeFieldOpen(true);};
+  const openPracticeField=(playerId?:string)=>{setActivityPlayer(playerId);setSelectedBuilding(null);setBuildingInfoOpen(false);setIsSquadOpen(false);setIsScoutingOpen(false);setPracticeFieldOpen(true);};
 
   // --- HANDLERS ---
   const handleTrainGroup = (unit: UnitGroup, drillId: string) => {
@@ -1154,11 +1157,19 @@ function App() {
   // kind:'hero' jobs — this finally creates them.)
   const bumpLocalRankCelebration = () => { const after = rankFor(stateRef.current.trophies); if (after.index > rankFor(gameState.trophies).index) { centerText(`RANK UP! ${after.rank.emoji} ${after.rank.name.toUpperCase()}`, after.rank.color, -60); } };
   const heroTrainSecs = (toLevel: number) => Math.round(upgradeDurationSecs(toLevel) * 3);
-  const openPlayerFacility = (type:BuildingType) => {
-    setIsSquadOpen(false);setIsScoutingOpen(false);setRosterInitialView('players');setWeightRoomPlayer(undefined);
+  const openPlayerFacility = (type:BuildingType, playerId?:string) => {
+    setActivityPlayer(playerId);setPracticeFieldOpen(false);setDashboardOpen(false);
+    setIsSquadOpen(false);setIsScoutingOpen(false);setRosterInitialView('players');setWeightRoomPlayer(playerId);
     setSelectedBuilding(gameState.buildings.find(b=>b.type===type)??null);setBuildingInfoOpen(true);
   };
+  const openJourney = (destination:JourneyDestination) => {
+    setDashboardOpen(false);
+    if(destination==='practice')return openPracticeField();
+    if(destination==='roster')return openPlayerRoster();
+    openPlayerFacility(({weights:BuildingType.TRAINING_PITCH,rehab:BuildingType.MEDICAL_CENTER,film:BuildingType.TACTICS_ROOM,stadium:BuildingType.STADIUM,scouting:BuildingType.YOUTH_ACADEMY})[destination]);
+  };
   const openPlayerRoster = () => {
+    setActivityPlayer(undefined);setPracticeFieldOpen(false);setDashboardOpen(false);
     setSelectedBuilding(null);setBuildingInfoOpen(false);setIsScoutingOpen(false);setWeightRoomPlayer(undefined);
     setRosterFilter(null);setRosterInitialView('players');setIsSquadOpen(true);
   };
@@ -1396,14 +1407,14 @@ function App() {
   // ✂️ CUT a player — frees a roster spot so you can scout better talent.
   // Floor of 6: you can't cut your way below a fieldable squad.
   const handleCutPlayer = (id: string) => {
-    if (protectedAction({ type: 'recruit.cut', playerId: id }, () => { sfx.click(); centerText('Released to free agency ✂️', '#94a3b8'); })) return;
-    setGameState(prev => {
-      if (prev.roster.length <= 6) { sfx.error(); return prev; }
-      const p = prev.roster.find(pl => pl.id === id);
-      if (!p) return prev;
-      return { ...prev, roster: prev.roster.filter(pl => pl.id !== id) };
-    });
-    if (gameState.roster.length > 6) { sfx.click(); spawnText('Released to free agency ✂️', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); }
+    const showRelease=(receipt:AuthorityActionReceipt|null)=>{
+      const repaired=receipt&&'repaired' in receipt&&Array.isArray(receipt.repaired)?receipt.repaired:[];
+      sfx.click();centerText(repaired.length?`Player released · lineup reassigned: ${repaired.join(', ')}`:'Player released · starters unchanged','#94a3b8');
+    };
+    if(protectedAction({type:'recruit.cut',playerId:id},showRelease))return;
+    const result=applyClubAction(stateRef.current,{type:'recruit.cut',playerId:id},{now:Date.now(),random:Math.random});
+    if(!result.ok){centerText(result.message,'#fca5a5');return;}
+    stateRef.current=result.state;setGameState(result.state);showRelease(result.result);
   };
 
   // 🧪 TEST DEFENSE: run a scrimmage against your own base — see the Front Office
@@ -1535,7 +1546,8 @@ function App() {
       <TopHUD onOpenClub={() => setDashboardOpen(true)} gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
       <div className={`fhq-campus-stage absolute inset-0 ${commandCenterOpen ? "fhq-command-open" : ""}`}><IsometricMap
-        onOpenPractice={openPracticeField}
+        roomStatus={campusRoomStatus(gameState)}
+        onOpenPractice={()=>openPracticeField()}
         customLayout={!!gameState.campusLayout}
         onEditCampus={() => {setSelectedBuilding(null);setCampusEditorOpen(true);}}
         heroes={gameState.heroes}
@@ -1558,7 +1570,7 @@ function App() {
         onDeselect={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }}
         onOpenStats={() => { sfx.click(); setDashboardOpen(true); }}
         onBuildingClick={(b) => {
-          setSelectedBuilding(b); setBuildingInfoOpen(true); sfx.click();
+          setActivityPlayer(undefined);setWeightRoomPlayer(undefined);setSelectedBuilding(b); setBuildingInfoOpen(true); sfx.click();
         }}
         onCollect={b=>{setSelectedBuilding(b);setBuildingInfoOpen(true);}}
         onCollectResource={handleCollectResource}
@@ -1566,10 +1578,8 @@ function App() {
       /></div>
       {!showTutorial && commandCenterOpen && <DesktopClubPanel onClose={() => setCommandCenterOpen(false)} state={gameState} onGames={openRaid} onHeroes={() => setIsHeroOpen(true)} onDefense={() => setFrontOfficeOpen(true)} onRanks={() => {setStandingsTab('live');setIsStandingsOpen(true);}} onShare={() => setShareOwner(playerId() ?? 'local')} />}
 
-      {!showTutorial && <div className="fhq-campus-actions absolute top-[92px] left-3 z-30 flex gap-2">
-        <button onClick={() => setDashboardOpen(true)} className="rounded-xl border border-amber-300/40 bg-slate-950/95 px-4 py-3 text-sm font-bold text-amber-200">Your program</button>
-        <button aria-expanded={commandCenterOpen} onClick={() => setCommandCenterOpen(v => !v)} className="fhq-command-toggle rounded-xl border border-slate-600 bg-slate-950/95 px-4 py-3 text-sm font-bold text-white">Command center</button>
-      </div>}
+      {!showTutorial && <CampusToday club={gameState} onOpen={openJourney} onProgram={()=>setDashboardOpen(true)}/>}
+      {!showTutorial && <button aria-expanded={commandCenterOpen} onClick={()=>setCommandCenterOpen(v=>!v)} className="fhq-connected-command">Command center</button>}
       <FloatingTextLayer items={floatingTexts} />
       {/* coin flights: outer = X easing, inner = Y easing → curved arc to the HUD */}
       {coinFlights.map(f => (
@@ -1579,10 +1589,11 @@ function App() {
         </span>
       ))}
 
-      {practiceFieldOpen&&<PracticeField club={gameState} blocked={authority.pendingCount>0||authority.locked} onAction={handleClubActivity} onClose={()=>setPracticeFieldOpen(false)} onRoster={()=>{setPracticeFieldOpen(false);openPlayerRoster();}} onStadium={()=>{setPracticeFieldOpen(false);openPlayerFacility(BuildingType.STADIUM);}}/>}
+      {practiceFieldOpen&&<PracticeField initialPlayer={activityPlayer} club={gameState} blocked={authority.pendingCount>0||authority.locked} onAction={handleClubActivity} onClose={()=>setPracticeFieldOpen(false)} onRoster={()=>{setPracticeFieldOpen(false);openPlayerRoster();}} onStadium={()=>{setPracticeFieldOpen(false);openPlayerFacility(BuildingType.STADIUM);}}/>}
 
       {isSquadOpen && rosterInitialView === 'players' && (
-        <SquadModal
+        <SquadModal key={authority.owner??'local'}
+          onAction={handleClubActivity}
           onOpenPractice={openPracticeField}
           onOpenFacility={openPlayerFacility}
           onOpenWeightRoom={id=>{setWeightRoomPlayer(id);setRosterInitialView('training');}}
@@ -1597,12 +1608,13 @@ function App() {
         />
       )}
 
-      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom onAction={handleClubActivity} onPractice={openPracticeField} onRoster={openPlayerRoster} onOpenFacility={openPlayerFacility} club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openPlayerFacility(BuildingType.STADIUM);}}/>}
+      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom onAction={handleClubActivity} onPractice={()=>openPracticeField()} onRoster={openPlayerRoster} onOpenFacility={openPlayerFacility} club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openPlayerFacility(BuildingType.STADIUM);}}/>}
 
       {selectedBuilding && selectedBuilding.type!==BuildingType.TRAINING_PITCH && selectedBuilding.type!==BuildingType.YOUTH_ACADEMY && buildingInfoOpen && (
           <ActionModal
+             initialPlayer={activityPlayer}
              onAction={handleClubActivity}
-             onPractice={openPracticeField}
+             onPractice={()=>openPracticeField()}
              onRoster={openPlayerRoster}
              onFilmArchive={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);setDefenseLogOpen(true);}}
              onGameDay={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}
@@ -1673,7 +1685,7 @@ function App() {
 
       {campusEditorOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-50 bg-slate-950 text-white p-8">Opening campus editor…</div>}><CampusEditor state={gameState} blocked={authority.locked || !authority.ready || authority.pendingCount > 0} onApply={saveCampusDraft} onClose={()=>setCampusEditorOpen(false)} onTest={()=>{setCampusEditorOpen(false);startDefense();}} /></Suspense>}
       {/* 🏙 Club Dashboard — SimCity advisor panel, opened from the jumbotron */}
-      {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} onRoster={() => { setDashboardOpen(false); setRosterInitialView('players');setIsSquadOpen(true); }} onGameDay={() => { setDashboardOpen(false); openPlayerFacility(BuildingType.STADIUM); }} onDefense={() => { setDashboardOpen(false); setFrontOfficeOpen(true); }} />}
+      {dashboardOpen && <ClubDashboard onOpen={openJourney} gs={gameState} onClose={() => setDashboardOpen(false)} onRoster={() => { setDashboardOpen(false); setRosterInitialView('players');setIsSquadOpen(true); }} onGameDay={() => { setDashboardOpen(false); openPlayerFacility(BuildingType.STADIUM); }} onDefense={() => { setDashboardOpen(false); setFrontOfficeOpen(true); }} />}
 
       {/* Attack: Season campaign ladder or a live Raid */}
       {attackSelectOpen && (

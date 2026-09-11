@@ -12,7 +12,7 @@ import {MatchPreparation} from '../components/MatchPreparation';
 import {BattleScreen} from '../components/BattleScreen';
 import {heroPracticeConfig} from '../game/combat/practice';
 import type {GamePlanKey} from '../battle';
-import '../tailwind.css';import '../game-theme.css';import '../game-motion.css';
+import '../tailwind.css';import '../game-theme.css';import '../game-motion.css';import '../connected-campus.css';
 function Fixture(){
  const params=new URLSearchParams(location.search),celebration=params.has('celebration');
  const [roadChoice,setRoadChoice]=useState<number|null>(null);
@@ -21,6 +21,7 @@ function Fixture(){
  if(params.has('film'))return <BattleScreen config={{...coachedFilm.snapshot as BattleConfig,replay:{seed:coachedFilm.seed,script:coachedFilm.script as ReplayAction[],planKey:coachedFilm.plan,version:2,rules:coachedFilm.rules,expectedHash:coachedFilm.finalHash,expectedTicks:coachedFilm.ticks}}} clubName="Isolated QA" onFinish={()=>{}} onExit={()=>{}}/>;
  const base=heroPracticeConfig('qb');
  if(params.has('tactics')) {
+   base.heroes=heroesForBattle(HERO_DEFS.slice(0,5).map(h=>({key:h.key,unlocked:true,level:1,stars:1})));
    base.title='Raid tactics · Isolated practice';base.squad=structuredClone(INITIAL_ROSTER);base.playerArmy=armyFromRoster(base.squad);
    base.buildings=[
      {id:'stadium',kind:'hq',x:57,y:40,size:15,hp:1800},

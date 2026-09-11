@@ -14,6 +14,7 @@ import { advanceEconomy } from '../economy';
 import { fanMilestoneTotal, nextFanMilestone, rallyFans, rallyPreview } from '../fanProgress';
 import {applyStadiumFootball,STADIUM_OPPONENTS,footballInProgress,type StadiumAction} from '../stadiumFootball';
 import {applyScouting,SCOUTING_TRIPS,RECRUITING_CONTACTS,type ScoutingAction} from '../scouting';
+import {LINEUP_VERSION,lineupBlockers,lineupOf,lineupRatings,parseLineupAssignment,repairLineup,type LineupAssignment} from '../lineup';
 import {STATIONS,startDevelopment,isDevelopmentSteps,type DevelopmentStep} from '../development';
 import { advanceCampus } from '../campus';
 import { applyCampusLayout, parseCampusLayout, type CampusLayout } from '../campusLayout';
@@ -47,7 +48,8 @@ export type ClubAction = StadiumAction | ScoutingAction
   | { type: 'gate.assign'; postId: string; heroKey: string }
   | { type: 'campus.apply'; layout: CampusLayout }
   | { type: 'parking.upgrade' }
-  | { type: 'club.rename'; name: string };
+  | { type: 'club.rename'; name: string }
+  | { type: 'lineup.set'; lineup: LineupAssignment };
 
 export interface ClubActionContext {
   now: number;
@@ -106,6 +108,7 @@ const fields: Record<ClubAction['type'], string[]> = {
   'campus.apply': ['layout'],
   'parking.upgrade': [],
   'club.rename': ['name'],
+  'lineup.set': ['lineup'],
 };
 
 export function parseClubAction(input: unknown): ClubAction | null {
@@ -117,6 +120,10 @@ export function parseClubAction(input: unknown): ClubAction | null {
   if(value.type==='development.start'){
     if((value.unit!=='ALL'&&!Object.values(UnitGroup).includes(value.unit as UnitGroup))||!isDevelopmentSteps(value.steps))return null;
     return {type:'development.start',unit:value.unit as UnitGroup|'ALL',steps:value.steps.map(s=>({...s}))};
+  }
+  if (value.type === 'lineup.set') {
+    const lineup = parseLineupAssignment(value.lineup);
+    return lineup ? { type: 'lineup.set', lineup } : null;
   }
   if (value.type === 'campus.apply') {
     const layout = parseCampusLayout(value.layout);
@@ -399,7 +406,19 @@ export function applyClubAction(previous: GameState, input: unknown, context: Cl
       if(state.development?.schedule?.playerIds.includes(command.playerId))return fail('busy','This player is following your team schedule. Finish it before releasing them.');
       if (state.roster.length <= 6) return fail('limit_reached', 'Keep at least six players on your roster.');
       if (!state.roster.some(value => value.id === command.playerId)) return fail('not_found', 'That player was not found.');
-      return success({ ...state, roster: state.roster.filter(value => value.id !== command.playerId) }, { playerId: command.playerId });
+      const trimmed = state.roster.filter(value => value.id !== command.playerId);
+      // A released starter leaves a hole: repair it deterministically and name the slots that moved,
+      // so the club is never left with a silently invalid lineup.
+      const repair = repairLineup(trimmed, lineupOf({ roster: state.roster, lineup: state.lineup }));
+      return success({ ...state, roster: trimmed, lineup: { version: LINEUP_VERSION, slots: repair.slots, updatedAt: now } }, { playerId: command.playerId, repaired: repair.repaired });
+    }
+    case 'lineup.set': {
+      // One authoritative path: the same validation the preview uses, then the same ratings.
+      const blockers = lineupBlockers(state.roster, command.lineup);
+      const refusal = blockers.find(b => b.code !== 'unfilled') ?? blockers[0];
+      if (refusal) return fail(refusal.code === 'unknown-player' ? 'not_found' : refusal.code === 'duplicate-player' ? 'invalid' : refusal.code === 'empty-roster' ? 'not_found' : 'invalid', refusal.message);
+      const slots = { ...command.lineup };
+      return success({ ...state, lineup: { version: LINEUP_VERSION, slots, updatedAt: now } }, { slots, ratings: lineupRatings(state.roster, slots), repaired: [] });
     }
     case 'daily.claim': {
       const slate = questsForDate(state.dailies.date), quest = slate.find(value => value.id === command.questId);

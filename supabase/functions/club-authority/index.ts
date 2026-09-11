@@ -205,13 +205,13 @@ var ResourceType = /* @__PURE__ */ ((ResourceType2) => {
   ResourceType2["FANS"] = "FANS";
   return ResourceType2;
 })(ResourceType || {});
-var BuildingType = /* @__PURE__ */ ((BuildingType3) => {
-  BuildingType3["TRAINING_PITCH"] = "TRAINING_PITCH";
-  BuildingType3["YOUTH_ACADEMY"] = "YOUTH_ACADEMY";
-  BuildingType3["TACTICS_ROOM"] = "TACTICS_ROOM";
-  BuildingType3["MEDICAL_CENTER"] = "MEDICAL_CENTER";
-  BuildingType3["STADIUM"] = "STADIUM";
-  return BuildingType3;
+var BuildingType = /* @__PURE__ */ ((BuildingType2) => {
+  BuildingType2["TRAINING_PITCH"] = "TRAINING_PITCH";
+  BuildingType2["YOUTH_ACADEMY"] = "YOUTH_ACADEMY";
+  BuildingType2["TACTICS_ROOM"] = "TACTICS_ROOM";
+  BuildingType2["MEDICAL_CENTER"] = "MEDICAL_CENTER";
+  BuildingType2["STADIUM"] = "STADIUM";
+  return BuildingType2;
 })(BuildingType || {});
 var DrillState = /* @__PURE__ */ ((DrillState2) => {
   DrillState2["IDLE"] = "IDLE";
@@ -256,6 +256,83 @@ var PlayerState = /* @__PURE__ */ ((PlayerState2) => {
   PlayerState2["PATROLLING"] = "PATROLLING";
   return PlayerState2;
 })(PlayerState || {});
+
+// game/development.ts
+var FOOTBALL_PLAYS = {
+  verticals: { name: "Four verticals", concept: "Four eligible receivers attack deep lanes. The quarterback reads the safeties and throws to the best vertical matchup.", beats: "Attacks single-high man coverage", counter: "Deep safety help", stat: "speed" },
+  slants: { name: "Quick slants", concept: "The outside receivers cut inside at five yards. The quarterback reads the underneath linebacker.", beats: "Beats an outside blitz", counter: "Inside zone coverage", stat: "iq" },
+  flood: { name: "Flood right", concept: "A go route clears the sideline. A deep out and a flat route give the quarterback three levels to read.", beats: "Stretches zone coverage", counter: "Man coverage with safety help", stat: "iq" },
+  power: { name: "Power run", concept: "The guard pulls through the hole. The running back follows the lead block while the line seals the edge.", beats: "Punishes light pass defense", counter: "A stacked defensive front", stat: "strength" }
+};
+var STATIONS = {
+  weights: { name: "Weight Room", building: "TRAINING_PITCH" /* TRAINING_PITCH */, seconds: 60, energy: 8, description: "Strength +2 \xB7 player level +1" },
+  rehab: { name: "Rehab Center", building: "MEDICAL_CENTER" /* MEDICAL_CENTER */, seconds: 90, energy: 0, description: "Restore club Energy \xB7 no workout cost" },
+  film: { name: "Film Room", building: "TACTICS_ROOM" /* TACTICS_ROOM */, seconds: 75, energy: 5, description: "Football IQ +1 \xB7 readiness \xB7 play mastery" },
+  practice: { name: "Practice Field", building: "TRAINING_PITCH" /* TRAINING_PITCH */, seconds: 60, energy: 8, description: "Speed +2 \xB7 readiness \xB7 route repetitions" }
+};
+var emptyDevelopment = () => ({ schedule: null, reports: [], mastery: {} });
+var roomTier = (level) => level >= 5 ? 3 : level >= 3 ? 2 : 1;
+function developmentQuote(club, steps) {
+  return steps.map((step) => {
+    const level = club.buildings.find((b) => b.type === STATIONS[step.station].building)?.level ?? 1;
+    return { ...step, level, seconds: Math.max(20, Math.round(STATIONS[step.station].seconds / (1 + (level - 1) * 0.12))), energy: STATIONS[step.station].energy };
+  });
+}
+function startDevelopment(club, unit, steps, now) {
+  if (club.development?.schedule) return "Finish the current team schedule first.";
+  if (club.buildings.some((b) => b.type === "TRAINING_PITCH" /* TRAINING_PITCH */ && b.state !== "IDLE" /* IDLE */)) return "Collect the current workout before starting a schedule.";
+  const players = club.roster.filter((p) => unit === "ALL" || p.unit === unit);
+  if (!players.length) return "Choose a group with players.";
+  const quote = developmentQuote(club, steps), energy = quote.reduce((n, s) => n + s.energy, 0);
+  if (club.resources.ENERGY < energy) return `This schedule needs ${energy} Energy up front. Choose fewer sessions or recover first.`;
+  let cursor = now;
+  const id = `schedule_${now}`;
+  const blocks = quote.map((step, i) => {
+    const startTime = cursor;
+    cursor += step.seconds * 1e3;
+    return { station: step.station, play: step.play, level: step.level, id: `${id}_${i}`, startTime, finishTime: cursor };
+  });
+  return { ...club, resources: { ...club.resources, ENERGY: club.resources.ENERGY - energy }, development: { ...club.development ?? emptyDevelopment(), schedule: { id, unit, playerIds: players.map((p) => p.id), blocks, completed: 0, energyPaid: energy } } };
+}
+function advanceDevelopment(club, now, utc = false) {
+  const original = club.development?.schedule;
+  if (!original) return club;
+  let next = club;
+  let development = { ...club.development };
+  let completed = original.completed;
+  for (; completed < original.blocks.length && original.blocks[completed].finishTime <= now; completed++) {
+    const block = original.blocks[completed], station = block.station, tier = roomTier(block.level);
+    const energy = station === "rehab" ? Math.min(100 - next.resources.ENERGY, 12 + 4 * (tier - 1)) : 0;
+    const readiness = Math.min(100 - next.teamReadiness, station === "film" ? 10 + 2 * tier : station === "practice" ? 5 + tier : 0);
+    const stat = station === "weights" ? "strength" : station === "practice" ? "speed" : station === "film" ? "iq" : null;
+    const changes = [];
+    const roster = next.roster.map((p) => {
+      if (!original.playerIds.includes(p.id) || !stat) return p;
+      const before = p.stats[stat], after = Math.max(before, Math.min(p.maxStat, before + (station === "film" ? 1 : 2)));
+      changes.push({ id: p.id, name: p.name, stat, before, after });
+      return { ...p, level: p.level + (station === "weights" && after > before ? 1 : 0), stats: { ...p.stats, [stat]: after } };
+    });
+    const report = { id: block.id, station, play: block.play, at: block.finishTime, players: changes, energy, readiness, read: false };
+    development = { ...development, reports: [report, ...development.reports].slice(0, 24), mastery: station === "film" ? { ...development.mastery, [block.play]: Math.min(20, (development.mastery[block.play] ?? 0) + 1) } : development.mastery };
+    next = { ...next, roster, teamReadiness: next.teamReadiness + readiness, resources: { ...next.resources, ["ENERGY" /* ENERGY */]: next.resources.ENERGY + energy } };
+    if ((utc ? new Date(block.finishTime).toISOString().slice(0, 10) : todayKey(block.finishTime)) === next.dailies.date) next = progressClubDaily(next, "drills");
+  }
+  if (completed === original.completed) return club;
+  return { ...next, development: { ...development, schedule: completed === original.blocks.length ? null : { ...original, completed } } };
+}
+function isDevelopmentSteps(input) {
+  return Array.isArray(input) && input.length >= 1 && input.length <= 6 && input.every((s) => s && typeof s === "object" && !Array.isArray(s) && Object.keys(s).length === 2 && Object.prototype.hasOwnProperty.call(STATIONS, s.station) && Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, s.play));
+}
+function validDevelopment(input) {
+  if (!input || typeof input !== "object") return false;
+  const d = input;
+  const finite2 = (n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
+  if (!d.mastery || Object.entries(d.mastery).some(([k, v]) => !Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, k) || !finite2(v) || v > 20) || !Array.isArray(d.reports) || d.reports.length > 24) return false;
+  if (d.reports.some((r) => !r || typeof r.id !== "string" || !Object.prototype.hasOwnProperty.call(STATIONS, r.station) || !Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, r.play) || !finite2(r.at) || !finite2(r.energy) || r.energy > 100 || typeof r.read !== "boolean" || !Number.isFinite(r.readiness) || r.readiness < 0 || r.readiness > 100 || !Array.isArray(r.players) || r.players.some((p) => typeof p.id !== "string" || typeof p.name !== "string" || !["strength", "speed", "iq"].includes(p.stat) || !finite2(p.before) || !finite2(p.after)))) return false;
+  if (d.schedule === null) return true;
+  const s = d.schedule;
+  return !!s && typeof s.id === "string" && (s.unit === "ALL" || Object.values(UnitGroup).includes(s.unit)) && Array.isArray(s.playerIds) && s.playerIds.length > 0 && s.playerIds.length <= 150 && s.playerIds.every((id) => typeof id === "string") && new Set(s.playerIds).size === s.playerIds.length && Array.isArray(s.blocks) && s.blocks.length > 0 && s.blocks.length <= 6 && finite2(s.completed) && s.completed < s.blocks.length && finite2(s.energyPaid) && s.energyPaid <= 100 && s.blocks.every((b, i) => b && typeof b.id === "string" && Object.prototype.hasOwnProperty.call(STATIONS, b.station) && Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, b.play) && finite2(b.level) && b.level >= 1 && finite2(b.startTime) && finite2(b.finishTime) && b.finishTime > b.startTime && (i === 0 || b.startTime === s.blocks[i - 1].finishTime));
+}
 
 // constants.ts
 var DRILLS = {
@@ -1219,100 +1296,135 @@ var nearestTroop = (x, y, troops, within) => {
   return best;
 };
 
-// game/development.ts
-var FOOTBALL_PLAYS = {
-  verticals: { name: "Four verticals", concept: "Four eligible receivers attack deep lanes. The quarterback reads the safeties and throws to the best vertical matchup.", beats: "Attacks single-high man coverage", counter: "Deep safety help", stat: "speed" },
-  slants: { name: "Quick slants", concept: "The outside receivers cut inside at five yards. The quarterback reads the underneath linebacker.", beats: "Beats an outside blitz", counter: "Inside zone coverage", stat: "iq" },
-  flood: { name: "Flood right", concept: "A go route clears the sideline. A deep out and a flat route give the quarterback three levels to read.", beats: "Stretches zone coverage", counter: "Man coverage with safety help", stat: "iq" },
-  power: { name: "Power run", concept: "The guard pulls through the hole. The running back follows the lead block while the line seals the edge.", beats: "Punishes light pass defense", counter: "A stacked defensive front", stat: "strength" }
-};
-var STATIONS = {
-  weights: { name: "Weight Room", building: "TRAINING_PITCH" /* TRAINING_PITCH */, seconds: 60, energy: 8, description: "Strength +2 \xB7 player level +1" },
-  rehab: { name: "Rehab Center", building: "MEDICAL_CENTER" /* MEDICAL_CENTER */, seconds: 90, energy: 0, description: "Restore club Energy \xB7 no workout cost" },
-  film: { name: "Film Room", building: "TACTICS_ROOM" /* TACTICS_ROOM */, seconds: 75, energy: 5, description: "Football IQ +1 \xB7 readiness \xB7 play mastery" },
-  practice: { name: "Practice Field", building: "TRAINING_PITCH" /* TRAINING_PITCH */, seconds: 60, energy: 8, description: "Speed +2 \xB7 readiness \xB7 route repetitions" }
-};
-var emptyDevelopment = () => ({ schedule: null, reports: [], mastery: {} });
-var roomTier = (level) => level >= 5 ? 3 : level >= 3 ? 2 : 1;
-function developmentQuote(club, steps) {
-  return steps.map((step) => {
-    const level = club.buildings.find((b) => b.type === STATIONS[step.station].building)?.level ?? 1;
-    return { ...step, level, seconds: Math.max(20, Math.round(STATIONS[step.station].seconds / (1 + (level - 1) * 0.12))), energy: STATIONS[step.station].energy };
-  });
+// game/lineup.ts
+var LINEUP_VERSION = 1;
+var LINEUP_SLOTS = [
+  { id: "QB", label: "Quarterback", side: "offense", unit: "OFFENSE_SKILL" /* OFFENSE_SKILL */, preferredRole: "QB" /* QB */, fallback: ["OFFENSE_LINE" /* OFFENSE_LINE */, "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */, "DEFENSE_LINE" /* DEFENSE_LINE */], contributes: ["attack", "iq"] },
+  { id: "BACK", label: "Running back", side: "offense", unit: "OFFENSE_SKILL" /* OFFENSE_SKILL */, preferredRole: "RB" /* RB */, fallback: ["OFFENSE_LINE" /* OFFENSE_LINE */, "DEFENSE_LINE" /* DEFENSE_LINE */, "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */], contributes: ["attack", "power"] },
+  { id: "RECEIVER", label: "Receiver", side: "offense", unit: "OFFENSE_SKILL" /* OFFENSE_SKILL */, preferredRole: "WR" /* WR */, fallback: ["DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */, "OFFENSE_LINE" /* OFFENSE_LINE */, "DEFENSE_LINE" /* DEFENSE_LINE */], contributes: ["attack", "speed"] },
+  { id: "LINE1", label: "Left line", side: "offense", unit: "OFFENSE_LINE" /* OFFENSE_LINE */, preferredRole: "OL" /* OL */, fallback: ["DEFENSE_LINE" /* DEFENSE_LINE */, "OFFENSE_SKILL" /* OFFENSE_SKILL */, "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */], contributes: ["attack", "power"] },
+  { id: "LINE2", label: "Right line", side: "offense", unit: "OFFENSE_LINE" /* OFFENSE_LINE */, preferredRole: "OL" /* OL */, fallback: ["DEFENSE_LINE" /* DEFENSE_LINE */, "OFFENSE_SKILL" /* OFFENSE_SKILL */, "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */], contributes: ["attack", "power"] },
+  { id: "RUSHER", label: "Edge rusher", side: "defense", unit: "DEFENSE_LINE" /* DEFENSE_LINE */, preferredRole: "DL" /* DL */, fallback: ["OFFENSE_LINE" /* OFFENSE_LINE */, "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */, "OFFENSE_SKILL" /* OFFENSE_SKILL */], contributes: ["defense", "power"] },
+  { id: "BACKER", label: "Linebacker", side: "defense", unit: "DEFENSE_LINE" /* DEFENSE_LINE */, preferredRole: "LB" /* LB */, fallback: ["DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */, "OFFENSE_LINE" /* OFFENSE_LINE */, "OFFENSE_SKILL" /* OFFENSE_SKILL */], contributes: ["defense", "iq"] },
+  { id: "COVER", label: "Cornerback", side: "defense", unit: "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */, preferredRole: "CB" /* CB */, fallback: ["OFFENSE_SKILL" /* OFFENSE_SKILL */, "DEFENSE_LINE" /* DEFENSE_LINE */, "OFFENSE_LINE" /* OFFENSE_LINE */], contributes: ["defense", "speed"] },
+  { id: "SAFETY", label: "Safety", side: "defense", unit: "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */, preferredRole: "S" /* S */, fallback: ["OFFENSE_SKILL" /* OFFENSE_SKILL */, "DEFENSE_LINE" /* DEFENSE_LINE */, "OFFENSE_LINE" /* OFFENSE_LINE */], contributes: ["defense", "iq"] }
+];
+var LINEUP_SLOT_IDS = LINEUP_SLOTS.map((s) => s.id);
+var SLOT_BY_ID = new Map(LINEUP_SLOTS.map((s) => [s.id, s]));
+var STAT_FLOOR = 15;
+var rosterIndex = (roster) => new Map(roster.map((p) => [p.id, p]));
+var byStrength = (a, b) => unitPower(b) - unitPower(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+var mean = (values, fallback) => values.length ? values.reduce((s, v) => s + v, 0) / values.length : fallback;
+function slotFit(slot, player) {
+  const unitFit = player.unit === slot.unit ? 2 : slot.fallback.includes(player.unit) ? 1 : 0;
+  if (!unitFit) return 0;
+  return unitFit === 2 && player.role === slot.preferredRole ? 3 : unitFit;
 }
-function startDevelopment(club, unit, steps, now) {
-  if (club.development?.schedule) return "Finish the current team schedule first.";
-  if (club.buildings.some((b) => b.type === "TRAINING_PITCH" /* TRAINING_PITCH */ && b.state !== "IDLE" /* IDLE */)) return "Collect the current workout before starting a schedule.";
-  const players = club.roster.filter((p) => unit === "ALL" || p.unit === unit);
-  if (!players.length) return "Choose a group with players.";
-  const quote = developmentQuote(club, steps), energy = quote.reduce((n, s) => n + s.energy, 0);
-  if (club.resources.ENERGY < energy) return `This schedule needs ${energy} Energy up front. Choose fewer sessions or recover first.`;
-  let cursor = now;
-  const id = `schedule_${now}`;
-  const blocks = quote.map((step, i) => {
-    const startTime = cursor;
-    cursor += step.seconds * 1e3;
-    return { station: step.station, play: step.play, level: step.level, id: `${id}_${i}`, startTime, finishTime: cursor };
-  });
-  return { ...club, resources: { ...club.resources, ENERGY: club.resources.ENERGY - energy }, development: { ...club.development ?? emptyDevelopment(), schedule: { id, unit, playerIds: players.map((p) => p.id), blocks, completed: 0, energyPaid: energy } } };
+var isEligible = (slot, player) => slotFit(slot, player) > 0;
+function lineupRatings(roster, assignment) {
+  const index2 = rosterIndex(roster);
+  const chosen = LINEUP_SLOTS.map((slot) => ({ slot, player: assignment[slot.id] ? index2.get(assignment[slot.id]) ?? null : null })).filter((e) => !!e.player);
+  const side = (want) => chosen.filter((e) => e.slot.side === want).map((e) => unitPower(e.player));
+  const stat = (key) => mean(chosen.map((e) => combatStat(e.player, key)), STAT_FLOOR);
+  return {
+    attack: Math.round(mean(side("offense"), STAT_FLOOR)),
+    defense: Math.round(mean(side("defense"), STAT_FLOOR)),
+    speed: stat("speed"),
+    power: stat("strength"),
+    iq: stat("iq")
+  };
 }
-function advanceDevelopment(club, now, utc = false) {
-  const original = club.development?.schedule;
-  if (!original) return club;
-  let next = club;
-  let development = { ...club.development };
-  let completed = original.completed;
-  for (; completed < original.blocks.length && original.blocks[completed].finishTime <= now; completed++) {
-    const block = original.blocks[completed], station = block.station, tier = roomTier(block.level);
-    const energy = station === "rehab" ? Math.min(100 - next.resources.ENERGY, 12 + 4 * (tier - 1)) : 0;
-    const readiness = Math.min(100 - next.teamReadiness, station === "film" ? 10 + 2 * tier : station === "practice" ? 5 + tier : 0);
-    const stat = station === "weights" ? "strength" : station === "practice" ? "speed" : station === "film" ? "iq" : null;
-    const changes = [];
-    const roster = next.roster.map((p) => {
-      if (!original.playerIds.includes(p.id) || !stat) return p;
-      const before = p.stats[stat], after = Math.max(before, Math.min(p.maxStat, before + (station === "film" ? 1 : 2)));
-      changes.push({ id: p.id, name: p.name, stat, before, after });
-      return { ...p, level: p.level + (station === "weights" && after > before ? 1 : 0), stats: { ...p.stats, [stat]: after } };
-    });
-    const report = { id: block.id, station, play: block.play, at: block.finishTime, players: changes, energy, readiness, read: false };
-    development = { ...development, reports: [report, ...development.reports].slice(0, 24), mastery: station === "film" ? { ...development.mastery, [block.play]: Math.min(20, (development.mastery[block.play] ?? 0) + 1) } : development.mastery };
-    next = { ...next, roster, teamReadiness: next.teamReadiness + readiness, resources: { ...next.resources, ["ENERGY" /* ENERGY */]: next.resources.ENERGY + energy } };
-    if ((utc ? new Date(block.finishTime).toISOString().slice(0, 10) : todayKey(block.finishTime)) === next.dailies.date) next = progressClubDaily(next, "drills");
+function lineupBlockers(roster, assignment) {
+  const index2 = rosterIndex(roster);
+  const blockers = [];
+  if (!roster.length) return [{ code: "empty-roster", message: "This club has no players." }];
+  const seen = /* @__PURE__ */ new Map();
+  for (const slot of LINEUP_SLOTS) {
+    const playerId = assignment[slot.id];
+    if (!playerId) {
+      blockers.push({ code: "unfilled", slot: slot.id, message: `${slot.label} is empty.` });
+      continue;
+    }
+    const player = index2.get(playerId);
+    if (!player) {
+      blockers.push({ code: "unknown-player", slot: slot.id, playerId, message: `${slot.label} names a player who is not on this roster.` });
+      continue;
+    }
+    const first = seen.get(playerId);
+    if (first) blockers.push({ code: "duplicate-player", slot: slot.id, playerId, message: `${player.name} is already playing ${SLOT_BY_ID.get(first).label}.` });
+    else seen.set(playerId, slot.id);
+    if (!isEligible(slot, player)) blockers.push({ code: "out-of-position", slot: slot.id, playerId, message: `${player.name} cannot play ${slot.label}.` });
   }
-  if (completed === original.completed) return club;
-  return { ...next, development: { ...development, schedule: completed === original.blocks.length ? null : { ...original, completed } } };
+  return blockers;
 }
-function isDevelopmentSteps(input) {
-  return Array.isArray(input) && input.length >= 1 && input.length <= 6 && input.every((s) => s && typeof s === "object" && !Array.isArray(s) && Object.keys(s).length === 2 && Object.prototype.hasOwnProperty.call(STATIONS, s.station) && Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, s.play));
+function selectLineup(roster, keep = {}) {
+  const index2 = rosterIndex(roster);
+  const assignment = {};
+  const used = /* @__PURE__ */ new Set();
+  for (const slot of LINEUP_SLOTS) {
+    const id = keep[slot.id];
+    const player = id ? index2.get(id) : void 0;
+    if (player && !used.has(player.id) && isEligible(slot, player)) {
+      assignment[slot.id] = player.id;
+      used.add(player.id);
+    }
+  }
+  const remaining = LINEUP_SLOTS.filter((slot) => !assignment[slot.id]);
+  const supply = (slot) => roster.filter((p) => !used.has(p.id) && slotFit(slot, p) >= 2).length;
+  const order = [...remaining].sort((a, b) => supply(a) - supply(b) || LINEUP_SLOT_IDS.indexOf(a.id) - LINEUP_SLOT_IDS.indexOf(b.id));
+  for (const slot of order) {
+    const pick = roster.filter((p) => !used.has(p.id) && isEligible(slot, p)).sort((a, b) => slotFit(slot, b) - slotFit(slot, a) || byStrength(a, b))[0];
+    if (pick) {
+      assignment[slot.id] = pick.id;
+      used.add(pick.id);
+    }
+  }
+  return assignment;
 }
-function validDevelopment(input) {
-  if (!input || typeof input !== "object") return false;
-  const d = input;
-  const finite2 = (n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
-  if (!d.mastery || Object.entries(d.mastery).some(([k, v]) => !Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, k) || !finite2(v) || v > 20) || !Array.isArray(d.reports) || d.reports.length > 24) return false;
-  if (d.reports.some((r) => !r || typeof r.id !== "string" || !Object.prototype.hasOwnProperty.call(STATIONS, r.station) || !Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, r.play) || !finite2(r.at) || !finite2(r.energy) || r.energy > 100 || typeof r.read !== "boolean" || !Number.isFinite(r.readiness) || r.readiness < 0 || r.readiness > 100 || !Array.isArray(r.players) || r.players.some((p) => typeof p.id !== "string" || typeof p.name !== "string" || !["strength", "speed", "iq"].includes(p.stat) || !finite2(p.before) || !finite2(p.after)))) return false;
-  if (d.schedule === null) return true;
-  const s = d.schedule;
-  return !!s && typeof s.id === "string" && (s.unit === "ALL" || Object.values(UnitGroup).includes(s.unit)) && Array.isArray(s.playerIds) && s.playerIds.length > 0 && s.playerIds.length <= 150 && s.playerIds.every((id) => typeof id === "string") && new Set(s.playerIds).size === s.playerIds.length && Array.isArray(s.blocks) && s.blocks.length > 0 && s.blocks.length <= 6 && finite2(s.completed) && s.completed < s.blocks.length && finite2(s.energyPaid) && s.energyPaid <= 100 && s.blocks.every((b, i) => b && typeof b.id === "string" && Object.prototype.hasOwnProperty.call(STATIONS, b.station) && Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, b.play) && finite2(b.level) && b.level >= 1 && finite2(b.startTime) && finite2(b.finishTime) && b.finishTime > b.startTime && (i === 0 || b.startTime === s.blocks[i - 1].finishTime));
+var lineupOf = (club) => club.lineup?.slots && Object.keys(club.lineup.slots).length ? { ...club.lineup.slots } : selectLineup(club.roster);
+function repairLineup(roster, assignment) {
+  const next = selectLineup(roster, assignment);
+  const repaired = LINEUP_SLOT_IDS.filter((id) => (assignment[id] ?? null) !== (next[id] ?? null));
+  return { slots: next, repaired };
+}
+function parseLineupAssignment(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const value = input;
+  const keys2 = Object.keys(value);
+  if (keys2.length > LINEUP_SLOTS.length || keys2.some((key) => !SLOT_BY_ID.has(key))) return null;
+  const out = {};
+  for (const key of keys2) {
+    const id = value[key];
+    if (typeof id !== "string" || !id.length || id.length > 120) return null;
+    out[key] = id;
+  }
+  return out;
+}
+function validLineup(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return false;
+  const s = input;
+  if (!Number.isSafeInteger(s.version) || s.version < 1 || s.version > LINEUP_VERSION) return false;
+  if (!Number.isSafeInteger(s.updatedAt) || s.updatedAt < 0) return false;
+  return parseLineupAssignment(s.slots) !== null;
+}
+function lineupSnapshot(club, assignment = lineupOf(club)) {
+  const index2 = rosterIndex(club.roster);
+  const players = LINEUP_SLOT_IDS.map((id) => assignment[id]).filter((id) => !!id).map((id) => index2.get(id)).filter((p) => !!p).map((p) => ({ id: p.id, name: p.name, role: p.role, unit: p.unit, power: unitPower(p) }));
+  return { slots: { ...assignment }, players };
+}
+function validLineupSnapshot(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return false;
+  const s = input;
+  if (parseLineupAssignment(s.slots) === null || !Array.isArray(s.players) || s.players.length > LINEUP_SLOTS.length) return false;
+  return s.players.every((p) => !!p && typeof p.id === "string" && p.id.length > 0 && p.id.length <= 120 && typeof p.name === "string" && p.name.length <= 120 && Object.values(PlayerRole).includes(p.role) && Object.values(UnitGroup).includes(p.unit) && Number.isFinite(p.power) && p.power >= 0 && p.power <= 1e4);
+}
+function snapshotSlotPlayer(snapshot, slotId) {
+  const id = snapshot?.slots?.[slotId];
+  return id && snapshot?.players.find((p) => p.id === id) || null;
 }
 
-// game/stadiumFootball.ts
-var STADIUM_OPPONENTS = {
-  harbor: { name: "Harbor Hawks", power: 55, style: "zone", reward: 100 },
-  ironwood: { name: "Ironwood Bears", power: 85, style: "stack", reward: 150 },
-  summit: { name: "Summit Stars", power: 120, style: "man", reward: 220 }
-};
-var FOOTBALL_ENTRY_ENERGY = 10;
-var footballInProgress = (club) => !!club.stadiumFootball?.game && club.stadiumFootball.game.phase !== "final";
-function footballRatings(club) {
-  const mean = (units2) => {
-    const players = club.roster.filter((p) => units2.includes(p.unit));
-    return players.length ? players.reduce((n2, p) => n2 + unitPower(p), 0) / players.length : 15;
-  };
-  const n = Math.max(1, club.roster.length), stat = (key) => club.roster.reduce((s, p) => s + p.stats[key], 0) / n;
-  return { attack: Math.round(mean(["OFFENSE_LINE" /* OFFENSE_LINE */, "OFFENSE_SKILL" /* OFFENSE_SKILL */])), defense: Math.round(mean(["DEFENSE_LINE" /* DEFENSE_LINE */, "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */])), speed: stat("speed"), power: stat("strength"), iq: stat("iq"), readiness: club.teamReadiness, mastery: { ...club.development?.mastery } };
-}
-function footballCalls(game) {
+// game/stadiumFootballLegacy.ts
+function legacyFootballCalls(game) {
   switch (game.phase) {
     case "return":
       return [{ key: "left", name: "Return left", detail: "A safe sideline lane." }, { key: "middle", name: "Return up the middle", detail: "Trust speed and the lead block." }, { key: "right", name: "Return right", detail: "Challenge the outside coverage." }];
@@ -1333,28 +1445,8 @@ function footballCalls(game) {
   }
 }
 var bounded = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-function applyStadiumFootball(club, action, now, random) {
-  const state = club.stadiumFootball ?? { game: null, history: [] }, old = state.game;
-  if (action.type === "stadium.start") {
-    if (old && !old.collected) return "Finish and collect your current Stadium game first.";
-    if (club.development?.schedule) return "Finish your team schedule before taking the field.";
-    if (club.buildings.some((b) => b.activeDrillId)) return "Collect your workout before playing football.";
-    if (club.resources.ENERGY < FOOTBALL_ENTRY_ENERGY) return "A Stadium game needs 10 Energy.";
-    const game2 = { id: `football_${now}_${Math.floor(random() * 1e9)}`, opponent: action.opponent, phase: "return", turn: 0, startedAt: now, home: 0, away: 0, yardLine: 20, ratings: footballRatings(club), events: [], collected: false, reward: 0 };
-    return { ...club, teamReadiness: Math.max(0, club.teamReadiness - 12), resources: { ...club.resources, ENERGY: club.resources.ENERGY - FOOTBALL_ENTRY_ENERGY }, stadiumFootball: { ...state, game: game2 } };
-  }
-  if (!old || old.id !== action.gameId) return "That Stadium game was not found.";
-  if (action.type === "stadium.collect") {
-    if (old.phase !== "final" || old.collected) return "This result is not ready to collect.";
-    const next = { ...old, collected: true };
-    const collected = { ...club, resources: { ...club.resources, COINS: club.resources.COINS + old.reward }, stadiumFootball: { game: next, history: [{ id: old.id, opponent: old.opponent, home: old.home, away: old.away, reward: old.reward, at: now }, ...state.history].slice(0, 20) } };
-    return old.home > old.away ? progressClubDaily(collected, "win_attack") : collected;
-  }
-  if (action.type === "stadium.abandon") {
-    if (old.phase === "final") return "This game is already over.";
-    return { ...club, stadiumFootball: { ...state, game: { ...old, phase: "final", away: Math.max(old.away, old.home + 1), reward: 0, events: [...old.events, { turn: old.turn, phase: old.phase, call: "abandon", title: "Game conceded", detail: "No rewards. The entry Energy was spent at kickoff.", home: old.home, away: Math.max(old.away, old.home + 1), yards: 0 }] } } };
-  }
-  if (old.phase === "final" || String(old.turn) !== action.turn || !footballCalls(old).some((c) => c.key === action.call)) return "That play call is out of date. Use the current decision.";
+function applyLegacyStadiumCall(club, action, state, old, random) {
+  if (old.phase === "final" || String(old.turn) !== action.turn || !legacyFootballCalls(old).some((c) => c.key === action.call)) return "That play call is out of date. Use the current decision.";
   const opponent = STADIUM_OPPONENTS[old.opponent], r = old.ratings, advantage = (r.attack - opponent.power) / Math.max(25, opponent.power), defAdv = (r.defense - opponent.power) / Math.max(25, opponent.power);
   const roll = random(), call = action.call;
   let game = { ...old, turn: old.turn + 1 }, title = "", detail = "", yards = 0, play;
@@ -1480,14 +1572,364 @@ function applyStadiumFootball(club, action, now, random) {
   game.events = [...old.events, { turn: old.turn, phase: old.phase, call, title, detail, home: game.home, away: game.away, play, yards }];
   return { ...club, stadiumFootball: { ...state, game } };
 }
+var legacyCollectReward = (club, now, state, old) => {
+  const next = { ...old, collected: true };
+  const collected = { ...club, resources: { ...club.resources, COINS: club.resources.COINS + old.reward }, stadiumFootball: { game: next, history: [{ id: old.id, opponent: old.opponent, home: old.home, away: old.away, reward: old.reward, at: now }, ...state.history].slice(0, 20) } };
+  return old.home > old.away ? progressClubDaily(collected, "win_attack") : collected;
+};
+
+// game/stadiumFootball.ts
+var STADIUM_OPPONENTS = {
+  harbor: { name: "Harbor Hawks", power: 55, style: "zone", reward: 100 },
+  ironwood: { name: "Ironwood Bears", power: 85, style: "stack", reward: 150 },
+  summit: { name: "Summit Stars", power: 120, style: "man", reward: 220 }
+};
+var STADIUM_RULES_VERSION = 2;
+var FOOTBALL_ENTRY_ENERGY = 10;
+var footballInProgress = (club) => !!club.stadiumFootball?.game && club.stadiumFootball.game.phase !== "final";
+var isTwoPossessionGame = (game) => !!game && game.v === STADIUM_RULES_VERSION;
+function footballRatings(club) {
+  const r = lineupRatings(club.roster, lineupOf(club));
+  return { attack: r.attack, defense: r.defense, speed: r.speed, power: r.power, iq: r.iq, readiness: club.teamReadiness, mastery: { ...club.development?.mastery } };
+}
+var bounded2 = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+function seeded(seed, label) {
+  let h = seed >>> 0 ^ 2654435769;
+  for (let i = 0; i < label.length; i++) {
+    h = Math.imul(h ^ label.charCodeAt(i), 16777619) >>> 0;
+  }
+  return (h >>> 8 & 16777215) / 16777216;
+}
+var ENDZONE = { home: 0, away: 100 };
+var driveDirection = (possession) => possession === "home" ? 1 : -1;
+var yardsToGoal = (possession, yardLine) => possession === "home" ? 100 - yardLine : yardLine;
+var fieldGoalDistance = (possession, yardLine) => Math.max(18, Math.round(yardsToGoal(possession, yardLine) + 17));
+var advance = (possession, yardLine, yards) => bounded2(yardLine + driveDirection(possession) * yards, 0, 100);
+var returnCoverageOf = (game) => {
+  const roll = seeded(game.seed ?? 0, `coverage:${game.possessionIndex ?? 0}`);
+  return roll < 0.34 ? "edges" : roll < 0.67 ? "middle" : "balanced";
+};
+var defensiveLookOf = (game) => {
+  const roll = seeded(game.seed ?? 0, `look:${game.possessionIndex ?? 0}`);
+  return roll < 0.34 ? "blitz" : roll < 0.67 ? "deep" : "balanced";
+};
+var COVERAGE_TEXT = { edges: "Their coverage is squeezing both sidelines.", middle: "Their coverage has stacked the middle of the field.", balanced: "Their coverage is spread evenly across the field." };
+var LOOK_TEXT = { blitz: "They are crowding the line of scrimmage.", deep: "They have dropped their safeties deep.", balanced: "They are showing a balanced front." };
+var LANE_SIDE = { left: "edge", right: "edge", middle: "middle" };
+function laneQuality(coverage, call) {
+  const side = LANE_SIDE[call] ?? "middle";
+  if (coverage === "balanced") return { bonus: side === "middle" ? 2 : 0, breakaway: 0.04, note: "Even coverage: the lanes were the same width." };
+  const soft = coverage === "edges" ? "middle" : "edge";
+  return side === soft ? { bonus: 14, breakaway: 0.16, note: `You attacked the open ${soft === "middle" ? "middle" : "sideline"}.` } : { bonus: -6, breakaway: 0.01, note: `You ran into their ${coverage === "edges" ? "sideline" : "interior"} strength.` };
+}
+var PLAY_ANSWER = { slants: "blitz", verticals: "deep", flood: "balanced", power: "deep" };
+var PLAY_RISK = { slants: 0.08, verticals: 0.3, flood: 0.14, power: 0.1 };
+var SLOT_FOR_PLAY = { slants: "QB", flood: "RECEIVER", verticals: "RECEIVER", power: "BACK" };
+var ATTRIBUTE_FOR_PLAY = { slants: "iq", flood: "iq", verticals: "speed", power: "power" };
+function actorFor(game, slot, attribute, ratings) {
+  const player = snapshotSlotPlayer(game.lineup, slot);
+  if (!player) return null;
+  const value = attribute === "overall" ? player.power : Math.round(attribute === "speed" ? ratings.speed : attribute === "power" ? ratings.power : ratings.iq);
+  return { slot, name: player.name, role: player.role, attribute, value };
+}
+function kickerOf(game) {
+  const order = ["BACK", "RECEIVER", "QB", "SAFETY", "COVER"];
+  for (const slot of order) {
+    const player = snapshotSlotPlayer(game.lineup, slot);
+    if (player) return player;
+  }
+  return game.lineup?.players[0] ?? null;
+}
+function conversionMatters(game) {
+  if ((game.possessionIndex ?? 0) === 0) return true;
+  const scoring = game.possession === "home" ? "home" : "away";
+  const outcome = (extra) => {
+    const home = game.home + (scoring === "home" ? extra : 0), away = game.away + (scoring === "away" ? extra : 0);
+    return home > away ? "win" : home === away ? "tie" : "loss";
+  };
+  return new Set([0, 1, 2].map(outcome)).size > 1;
+}
+function footballCalls(game) {
+  if (!isTwoPossessionGame(game)) return legacyFootballCalls(game);
+  const mine = game.possession === "home";
+  switch (game.phase) {
+    case "return": {
+      if (!mine) return [
+        { key: "deep", name: "Kick deep", detail: "Make them start further back; a returner with speed can still break it." },
+        { key: "squib", name: "Squib kick", detail: "Gives up field position to take the long return away." }
+      ];
+      const coverage = returnCoverageOf(game);
+      const lane = (key, name) => {
+        const q = laneQuality(coverage, key);
+        return { key, name, detail: q.bonus > 4 ? "Open: their coverage is elsewhere." : q.bonus < 0 ? "Contested: this is where their coverage is." : "Even: no particular advantage." };
+      };
+      return [lane("left", "Return left"), lane("middle", "Return up the middle"), lane("right", "Return right")];
+    }
+    case "offense": {
+      if (!mine) return [
+        { key: "zone", name: "Zone \xB7 protect the deep ball", detail: "Takes away four verticals; leaves the short routes open." },
+        { key: "man", name: "Man \xB7 take away the quick game", detail: "Takes away slants; vulnerable to deep speed." },
+        { key: "stack", name: "Stack the box", detail: "Stops the power run; opens the passing lanes." }
+      ];
+      const look = defensiveLookOf(game);
+      const answer = (play, name) => ({ key: play, name, detail: `${PLAY_ANSWER[play] === look ? "Answers their look." : "Their look is set up against this."} ${Math.round(PLAY_RISK[play] * 100)}% chance of a failed play.` });
+      return [answer("slants", "Quick slants"), answer("flood", "Flood the zone"), answer("verticals", "Four verticals"), answer("power", "Power run")];
+    }
+    case "finish": {
+      if (!mine) return [
+        { key: "pressure", name: "Pressure the kicker", detail: "A block ends their possession; a miss gives up no points." },
+        { key: "contain", name: "Defend the goal line", detail: "Keeps the runner in front of you if they go for it." }
+      ];
+      const distance2 = fieldGoalDistance(game.possession ?? "home", game.yardLine);
+      const toGo = yardsToGoal(game.possession ?? "home", game.yardLine);
+      return [
+        { key: "field-goal", name: `Kick a ${distance2}-yard field goal`, detail: "Three points if your kicker has the range." },
+        { key: "go", name: toGo <= 5 ? "Goal-line push for the touchdown" : `Go for it from ${toGo} yards out`, detail: toGo <= 5 ? "One run against their goal-line front." : `${toGo} yards to the endzone in a single play.` }
+      ];
+    }
+    case "conversion": {
+      if (!mine) return [
+        { key: "block", name: "Pressure the kick", detail: "A block denies the extra point." },
+        { key: "contain", name: "Defend the two-point play", detail: "Keeps the runner out of the endzone." }
+      ];
+      return [
+        { key: "extra-point", name: "Kick the extra point", detail: "One point, rarely missed." },
+        { key: "two-point", name: "Go for two", detail: "One matchup at the goal line for two points." }
+      ];
+    }
+    default:
+      return [];
+  }
+}
+function advancePossession(game) {
+  const index2 = (game.possessionIndex ?? 0) + 1;
+  if (index2 >= 2) return { ...game, phase: "final" };
+  const next = game.possession === "home" ? "away" : "home";
+  return { ...game, possession: next, possessionIndex: index2, phase: "return", yardLine: next === "home" ? 20 : 80 };
+}
+function applyStadiumFootball(club, action, now, random) {
+  const state = club.stadiumFootball ?? { game: null, history: [] }, old = state.game;
+  if (action.type === "stadium.start") {
+    if (old && !old.collected) return "Finish and collect your current Stadium game first.";
+    if (club.development?.schedule) return "Finish your team schedule before taking the field.";
+    if (club.buildings.some((b) => b.activeDrillId)) return "Collect your workout before playing football.";
+    if (club.resources.ENERGY < FOOTBALL_ENTRY_ENERGY) return "A Stadium game needs 10 Energy.";
+    const seed = Math.floor(random() * 2147483647);
+    const receivesFirst = seeded(seed, "toss") < 0.5 ? "home" : "away";
+    const game2 = {
+      id: `football_${now}_${Math.floor(random() * 1e9)}`,
+      opponent: action.opponent,
+      phase: "return",
+      turn: 0,
+      startedAt: now,
+      home: 0,
+      away: 0,
+      yardLine: receivesFirst === "home" ? 20 : 80,
+      ratings: footballRatings(club),
+      events: [],
+      collected: false,
+      reward: 0,
+      v: STADIUM_RULES_VERSION,
+      possession: receivesFirst,
+      possessionIndex: 0,
+      receivesFirst,
+      seed,
+      lineup: lineupSnapshot(club)
+    };
+    return { ...club, teamReadiness: Math.max(0, club.teamReadiness - 12), resources: { ...club.resources, ENERGY: club.resources.ENERGY - FOOTBALL_ENTRY_ENERGY }, stadiumFootball: { ...state, game: game2 } };
+  }
+  if (!old || old.id !== action.gameId) return "That Stadium game was not found.";
+  if (action.type === "stadium.collect") {
+    if (old.phase !== "final" || old.collected) return "This result is not ready to collect.";
+    return legacyCollectReward(club, now, state, old);
+  }
+  if (action.type === "stadium.abandon") {
+    if (old.phase === "final") return "This game is already over.";
+    const away = Math.max(old.away, old.home + 1);
+    return { ...club, stadiumFootball: { ...state, game: { ...old, phase: "final", away, reward: 0, events: [...old.events, { turn: old.turn, phase: old.phase, call: "abandon", title: "Game conceded", detail: "No rewards. The entry Energy was spent at kickoff.", home: old.home, away, yards: 0, possession: old.possession, direction: old.possession ? driveDirection(old.possession) : void 0, startYard: old.yardLine, endYard: old.yardLine, action: "concede", scored: 0, actors: [] }] } } };
+  }
+  if (!isTwoPossessionGame(old)) return applyLegacyStadiumCall(club, action, state, old, random);
+  if (old.phase === "final" || String(old.turn) !== action.turn || !footballCalls(old).some((c) => c.key === action.call)) return "That play call is out of date. Use the current decision.";
+  const possession = old.possession ?? "home";
+  const mine = possession === "home";
+  const opponent = STADIUM_OPPONENTS[old.opponent], r = old.ratings;
+  const advantage = (r.attack - opponent.power) / Math.max(25, opponent.power);
+  const defAdv = (r.defense - opponent.power) / Math.max(25, opponent.power);
+  const roll = random(), call = action.call;
+  const resolution = resolve(old, call, roll, { mine, possession, advantage, defAdv, opponent, r, random });
+  let game = { ...old, turn: old.turn + 1, yardLine: resolution.endYard };
+  if (resolution.scored) {
+    const side = resolution.scoringSide ?? possession;
+    if (side === "home") game.home += resolution.scored;
+    else game.away += resolution.scored;
+  }
+  game.events = [...old.events, {
+    turn: old.turn,
+    phase: old.phase,
+    call,
+    title: resolution.title,
+    detail: resolution.detail,
+    home: game.home,
+    away: game.away,
+    play: resolution.play,
+    yards: resolution.yards,
+    possession,
+    direction: driveDirection(possession),
+    startYard: old.yardLine,
+    endYard: resolution.endYard,
+    action: resolution.action,
+    scored: resolution.scored,
+    actors: resolution.actors
+  }];
+  if (resolution.endPhase === "next-possession") game = advancePossession(game);
+  else game.phase = resolution.endPhase;
+  if (game.phase === "conversion" && !conversionMatters(game)) game = advancePossession(game);
+  if (game.phase === "final") game.reward = game.home > game.away ? opponent.reward : game.home === game.away ? Math.round(opponent.reward * 0.5) : 20;
+  return { ...club, stadiumFootball: { ...state, game } };
+}
+function resolve(game, call, roll, ctx) {
+  const { mine, possession, advantage, defAdv, opponent, r } = ctx;
+  const scoringSide = possession;
+  const actor = (slot, attribute) => {
+    const a = actorFor(game, slot, attribute, r);
+    return a ? [a] : [];
+  };
+  switch (game.phase) {
+    case "return": {
+      if (mine) {
+        const coverage = returnCoverageOf(game);
+        const quality = laneQuality(coverage, call);
+        const base = 18 + quality.bonus + r.speed * 0.35 + roll * 14 + advantage * 6;
+        if (roll < quality.breakaway + bounded2((r.speed - 15) / 220, 0, 0.06)) {
+          return { title: "Kickoff return touchdown!", detail: `${COVERAGE_TEXT[coverage]} ${quality.note} Your returner took it the distance.`, yards: 80, action: "touchdown", scored: 6, actors: actor("RECEIVER", "speed"), endPhase: "conversion", endYard: ENDZONE.away, scoringSide };
+        }
+        const yards2 = Math.round(bounded2(base, 8, 52));
+        const end2 = advance(possession, game.yardLine, yards2);
+        return { title: `Return to ${describeYard(end2)}`, detail: `${COVERAGE_TEXT[coverage]} ${quality.note} ${yards2} yards on the return.`, yards: yards2, action: "return", scored: 0, actors: actor("RECEIVER", "speed"), endPhase: "offense", endYard: end2 };
+      }
+      const squib = call === "squib";
+      const threat = bounded2(0.18 - defAdv * 0.12, 0.03, 0.35);
+      if (!squib && roll < threat) {
+        return { title: "They return the kickoff for a touchdown", detail: "Your coverage team was beaten to the sideline. Kicking deep gave them the runway.", yards: 80, action: "touchdown", scored: 6, actors: actor("COVER", "speed"), endPhase: "conversion", endYard: ENDZONE.home, scoringSide };
+      }
+      const yards = Math.round(bounded2((squib ? 16 : 28) - defAdv * 8 + roll * 10, 6, 48));
+      const end = advance(possession, game.yardLine, yards);
+      return { title: `They start at ${describeYard(end)}`, detail: squib ? "The squib kick kept the return short and handed them the field position." : "Your coverage team made the tackle after a full return.", yards, action: "kick", scored: 0, actors: actor("COVER", "speed"), endPhase: "offense", endYard: end };
+    }
+    case "offense": {
+      if (mine) {
+        const play = call;
+        const look = defensiveLookOf(game);
+        const answers = PLAY_ANSWER[play] === look;
+        const talent = play === "power" ? r.power : play === "verticals" ? r.speed : r.iq;
+        const mastery = r.mastery[play] ?? 0;
+        const toGoal2 = yardsToGoal(possession, game.yardLine);
+        const scoreChance = bounded2(0.2 + advantage * 0.24 + (answers ? 0.16 : -0.06) + (talent - 15) * 4e-3 + r.readiness * 8e-4 + mastery * 8e-3 - toGoal2 / 260, 0.04, 0.9);
+        const failChance = PLAY_RISK[play] * (answers ? 0.6 : 1.35);
+        const actors2 = [...actor(SLOT_FOR_PLAY[play], ATTRIBUTE_FOR_PLAY[play]), ...actor(play === "power" ? "LINE1" : "QB", play === "power" ? "power" : "iq")];
+        const base = `${FOOTBALL_PLAYS[play]?.name ?? play} against ${LOOK_TEXT[look].toLowerCase().replace(/^they are /, "a defense ").replace(/\.$/, "")}. ${answers ? "The call answered their look." : "Their look was set up against it."} Mastery ${mastery}/20.`;
+        if (roll < scoreChance) {
+          return { title: "Touchdown!", detail: `${base} ${toGoal2} yards, all at once.`, yards: toGoal2, action: "touchdown", scored: 6, actors: actors2, endPhase: "conversion", endYard: possession === "home" ? ENDZONE.away : ENDZONE.home, play, scoringSide };
+        }
+        if (roll > 1 - failChance) {
+          return { title: "The play breaks down", detail: `${base} No gain: the possession moves straight to your decision.`, yards: 0, action: play === "power" ? "run" : "pass", scored: 0, actors: actors2, endPhase: "finish", endYard: game.yardLine, play };
+        }
+        const yards2 = Math.round(bounded2(8 + advantage * 9 + roll * 14 + (answers ? 6 : 0), 1, Math.max(1, toGoal2 - 1)));
+        const end2 = advance(possession, game.yardLine, yards2);
+        return { title: `${yards2} yards to ${describeYard(end2)}`, detail: `${base} One decision left on this possession.`, yards: yards2, action: play === "power" ? "run" : "pass", scored: 0, actors: actors2, endPhase: "finish", endYard: end2, play };
+      }
+      const theirRoll = seeded(game.seed ?? 0, `theirplay:${game.possessionIndex ?? 0}`);
+      const theirPlay = theirRoll < 0.34 ? "slants" : theirRoll < 0.67 ? "verticals" : "power";
+      const counters = call === "zone" && theirPlay === "verticals" || call === "man" && theirPlay === "slants" || call === "stack" && theirPlay === "power";
+      const toGoal = yardsToGoal(possession, game.yardLine);
+      const theirScore = bounded2(0.2 - defAdv * 0.22 + (counters ? -0.14 : 0.08) + (toGoal < 30 ? 0.1 : 0), 0.03, 0.85);
+      const actors = [...actor(counters ? "BACKER" : "RUSHER", "iq"), ...actor("SAFETY", "overall")];
+      const name = FOOTBALL_PLAYS[theirPlay]?.name ?? theirPlay;
+      if (roll < theirScore) {
+        return { title: "They score a touchdown", detail: `They called ${name} against your ${call}. ${counters ? "Your call was right but they executed anyway." : "Your call left that option open."}`, yards: toGoal, action: "touchdown", scored: 6, actors, endPhase: "conversion", endYard: possession === "home" ? ENDZONE.away : ENDZONE.home, play: theirPlay, scoringSide };
+      }
+      if (roll > 0.9) {
+        return { title: "Stopped for no gain", detail: `Your ${call} met ${name} at the line. They face a decision from where they stand.`, yards: 0, action: "stop", scored: 0, actors, endPhase: "finish", endYard: game.yardLine, play: theirPlay };
+      }
+      const yards = Math.round(bounded2(7 - defAdv * 7 + roll * 12 + (counters ? -4 : 4), 1, Math.max(1, toGoal - 1)));
+      const end = advance(possession, game.yardLine, yards);
+      return { title: `They gain ${yards} to ${describeYard(end)}`, detail: `Your ${call} against ${name}. ${counters ? "The call took their first option away." : "They found the space your call left."}`, yards, action: "stop", scored: 0, actors, endPhase: "finish", endYard: end, play: theirPlay };
+    }
+    case "finish": {
+      const toGoal = yardsToGoal(possession, game.yardLine);
+      if (mine) {
+        if (call === "field-goal") {
+          const distance2 = fieldGoalDistance(possession, game.yardLine);
+          const kicker = kickerOf(game);
+          const steadiness = kicker ? kicker.power : Math.round(r.iq * 3);
+          const chance3 = bounded2(0.97 - (distance2 - 20) * 0.017 + (steadiness - 30) * 4e-3, 0.03, 0.97);
+          const made3 = roll < chance3;
+          const actors3 = kicker ? [{ slot: "BACK", name: kicker.name, role: kicker.role, attribute: "overall", value: kicker.power }] : [];
+          return { title: made3 ? `${distance2}-yard field goal is good` : `${distance2}-yard field goal is no good`, detail: `${kicker ? `${kicker.name} took the kick. ` : ""}A ${distance2}-yard attempt at ${Math.round(chance3 * 100)}% for this club.`, yards: 0, action: "field-goal", scored: made3 ? 3 : 0, actors: actors3, endPhase: "next-possession", endYard: game.yardLine, scoringSide };
+        }
+        const goalLine = toGoal <= 5;
+        const chance2 = bounded2((goalLine ? 0.5 : 0.3) + advantage * 0.2 + (r.power - 15) * 4e-3 - (goalLine ? 0 : toGoal * 6e-3), 0.05, 0.9);
+        const made2 = roll < chance2;
+        const actors2 = actor("BACK", "power");
+        if (made2) return { title: goalLine ? "Goal-line touchdown" : `${toGoal}-yard touchdown`, detail: goalLine ? "The runner followed the lead block through their front." : `They had to cover ${toGoal} yards in one play, and did.`, yards: toGoal, action: "touchdown", scored: 6, actors: actors2, endPhase: "conversion", endYard: possession === "home" ? ENDZONE.away : ENDZONE.home, play: "power", scoringSide };
+        return { title: goalLine ? "Goal-line stand" : "Stopped short", detail: `${toGoal} yards was too far on one play. The possession ends with no points.`, yards: 0, action: "stop", scored: 0, actors: actors2, endPhase: "next-possession", endYard: game.yardLine, play: "power" };
+      }
+      const pressure = call === "pressure";
+      const theyKick = seeded(game.seed ?? 0, `theirfinish:${game.possessionIndex ?? 0}`) < (toGoal > 8 ? 0.72 : 0.3);
+      const actors = [...actor(pressure ? "RUSHER" : "BACKER", "power"), ...actor("SAFETY", "overall")];
+      if (theyKick) {
+        const distance2 = fieldGoalDistance(possession, game.yardLine);
+        const chance2 = bounded2(0.9 - (distance2 - 20) * 0.015 - (pressure ? 0.14 : 0) + defAdv * -0.05, 0.05, 0.95);
+        const made2 = roll < chance2;
+        return { title: made2 ? `Their ${distance2}-yard field goal is good` : `Their ${distance2}-yard field goal misses`, detail: pressure ? "You sent pressure at the kick." : "You stayed back to defend the goal line; they took the points.", yards: 0, action: "field-goal", scored: made2 ? 3 : 0, actors, endPhase: "next-possession", endYard: game.yardLine, scoringSide };
+      }
+      const chance = bounded2(0.45 - defAdv * 0.2 - (pressure ? 0 : 0.16) - (toGoal > 5 ? toGoal * 0.01 : 0), 0.05, 0.9);
+      const made = roll < chance;
+      if (made) return { title: "They convert for a touchdown", detail: pressure ? "You pressured instead of defending the goal line, and they ran through it." : "You defended the goal line and they still got in.", yards: toGoal, action: "touchdown", scored: 6, actors, endPhase: "conversion", endYard: possession === "home" ? ENDZONE.away : ENDZONE.home, play: "power", scoringSide };
+      return { title: "They are stopped short", detail: pressure ? "The pressure got there before the runner did." : "Your goal-line defence held them out.", yards: 0, action: "stop", scored: 0, actors, endPhase: "next-possession", endYard: game.yardLine, play: "power" };
+    }
+    case "conversion": {
+      if (mine) {
+        const two = call === "two-point";
+        const kicker = kickerOf(game);
+        const chance2 = two ? bounded2(0.46 + advantage * 0.2 + (r.power - 15) * 4e-3, 0.1, 0.9) : bounded2(0.95 + (kicker ? (kicker.power - 30) * 15e-4 : 0), 0.7, 0.99);
+        const made2 = roll < chance2;
+        const actors2 = two ? actor("BACK", "power") : kicker ? [{ slot: "BACK", name: kicker.name, role: kicker.role, attribute: "overall", value: kicker.power }] : [];
+        return { title: made2 ? two ? "Two-point conversion is good" : "Extra point is good" : two ? "Two-point conversion stopped" : "Extra point missed", detail: two ? "One matchup at the goal line decided it." : `${kicker ? `${kicker.name} ` : ""}took the kick after the touchdown.`, yards: 0, action: "conversion", scored: made2 ? two ? 2 : 1 : 0, actors: actors2, endPhase: "next-possession", endYard: game.yardLine, scoringSide };
+      }
+      const theyGoForTwo = conversionWouldWin(game);
+      const block = call === "block";
+      const chance = theyGoForTwo ? bounded2(0.48 - defAdv * 0.18 - (block ? 0 : 0.12), 0.08, 0.9) : bounded2(0.95 - (block ? 0.1 : 0), 0.6, 0.98);
+      const made = roll < chance;
+      const actors = actor(block ? "RUSHER" : "BACKER", "power");
+      return { title: made ? theyGoForTwo ? "They convert for two" : "Their extra point is good" : theyGoForTwo ? "Their two-point try is denied" : "Their extra point is blocked", detail: theyGoForTwo ? "They needed two, and you defended it accordingly." : block ? "You sent the rush at the kick." : "You stayed home against the two-point look.", yards: 0, action: "conversion", scored: made ? theyGoForTwo ? 2 : 1 : 0, actors, endPhase: "next-possession", endYard: game.yardLine, scoringSide };
+    }
+    default:
+      return { title: "", detail: "", yards: 0, action: "stop", scored: 0, actors: [], endPhase: "final", endYard: game.yardLine };
+  }
+}
+function conversionWouldWin(game) {
+  const theirs = game.possession === "home" ? game.home : game.away;
+  const ours = game.possession === "home" ? game.away : game.home;
+  return theirs + 1 <= ours && theirs + 2 > ours;
+}
+function describeYard(yardLine) {
+  const spot = Math.round(bounded2(yardLine, 0, 100));
+  if (spot === 50) return "midfield";
+  return spot < 50 ? `your ${spot}` : `their ${100 - spot}`;
+}
 function validStadiumFootball(input) {
   if (!input || typeof input !== "object") return false;
   const s = input;
   const int = (n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
   if (!Array.isArray(s.history) || s.history.length > 20 || s.history.some((h) => !h || typeof h.id !== "string" || !Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, h.opponent) || ![h.home, h.away, h.reward, h.at].every(int))) return false;
   const g = s.game;
-  if (g === null) return true;
-  return !!g && typeof g.id === "string" && Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, g.opponent) && ["return", "offense", "finish", "conversion", "kickoff", "defense", "defend-finish", "final"].includes(g.phase) && [g.turn, g.startedAt, g.home, g.away, g.yardLine, g.reward].every(int) && g.turn <= 10 && g.home <= 8 && g.away <= 9 && g.yardLine <= 100 && g.reward <= 220 && typeof g.collected === "boolean" && !!g.ratings && ["attack", "defense", "speed", "power", "iq", "readiness"].every((k) => Number.isFinite(g.ratings[k]) && Number(g.ratings[k]) >= 0) && g.ratings.mastery && Object.entries(g.ratings.mastery).every(([k, v]) => Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, k) && int(v) && v <= 20) && Array.isArray(g.events) && g.events.length <= 11 && g.events.every((e) => e && typeof e.title === "string" && typeof e.detail === "string" && typeof e.call === "string" && [e.turn, e.home, e.away, e.yards].every(int));
+  if (g === null || g === void 0) return true;
+  const ratingsOk = !!g.ratings && ["attack", "defense", "speed", "power", "iq", "readiness"].every((k) => Number.isFinite(g.ratings[k]) && Number(g.ratings[k]) >= 0) && !!g.ratings.mastery && Object.entries(g.ratings.mastery).every(([k, v]) => Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, k) && int(v) && v <= 20);
+  const eventsOk = Array.isArray(g.events) && g.events.length <= 16 && g.events.every((e) => e && typeof e.title === "string" && typeof e.detail === "string" && typeof e.call === "string" && [e.turn, e.home, e.away, e.yards].every(int) && (e.possession === void 0 || e.possession === "home" || e.possession === "away") && (e.direction === void 0 || e.direction === 1 || e.direction === -1) && (e.startYard === void 0 || int(e.startYard) && e.startYard <= 100) && (e.endYard === void 0 || int(e.endYard) && e.endYard <= 100) && (e.scored === void 0 || int(e.scored) && e.scored <= 6) && (e.actors === void 0 || Array.isArray(e.actors) && e.actors.length <= 4 && e.actors.every((a) => !!a && typeof a.name === "string" && a.name.length <= 120 && typeof a.slot === "string" && Number.isFinite(a.value))));
+  const v2 = g.v === STADIUM_RULES_VERSION;
+  const v2Ok = !v2 || (g.possession === "home" || g.possession === "away") && int(g.possessionIndex) && g.possessionIndex <= 2 && (g.receivesFirst === "home" || g.receivesFirst === "away") && int(g.seed) && (g.lineup === void 0 || validLineupSnapshot(g.lineup));
+  return !!g && typeof g.id === "string" && Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, g.opponent) && ["return", "offense", "finish", "conversion", "kickoff", "defense", "defend-finish", "final"].includes(g.phase) && [g.turn, g.startedAt, g.home, g.away, g.yardLine, g.reward].every(int) && g.turn <= 16 && g.home <= 40 && g.away <= 40 && g.yardLine <= 100 && g.reward <= 220 && typeof g.collected === "boolean" && (g.v === void 0 || g.v === STADIUM_RULES_VERSION) && ratingsOk && eventsOk && v2Ok;
 }
 
 // game/combat/canonical.ts
@@ -3428,7 +3870,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     hash(["command", a]);
     return true;
   };
-  const advance = () => {
+  const advance2 = () => {
     if (!started || sim.current.ended) return;
     hashPlan();
     const previousTick = sim.current.ticks;
@@ -3472,7 +3914,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     plays,
     defensePlays,
     command,
-    advance,
+    advance: advance2,
     finish: () => command({ k: "e", tick: sim.current.ticks }),
     setPlan: (key) => {
       if (started) return false;
@@ -4020,7 +4462,8 @@ var fields = {
   "gate.assign": ["postId", "heroKey"],
   "campus.apply": ["layout"],
   "parking.upgrade": [],
-  "club.rename": ["name"]
+  "club.rename": ["name"],
+  "lineup.set": ["lineup"]
 };
 function parseClubAction(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
@@ -4031,6 +4474,10 @@ function parseClubAction(input) {
   if (value.type === "development.start") {
     if (value.unit !== "ALL" && !Object.values(UnitGroup).includes(value.unit) || !isDevelopmentSteps(value.steps)) return null;
     return { type: "development.start", unit: value.unit, steps: value.steps.map((s) => ({ ...s })) };
+  }
+  if (value.type === "lineup.set") {
+    const lineup = parseLineupAssignment(value.lineup);
+    return lineup ? { type: "lineup.set", lineup } : null;
   }
   if (value.type === "campus.apply") {
     const layout2 = parseCampusLayout(value.layout);
@@ -4315,7 +4762,16 @@ function applyClubAction(previous, input, context) {
       if (state.development?.schedule?.playerIds.includes(command.playerId)) return fail2("busy", "This player is following your team schedule. Finish it before releasing them.");
       if (state.roster.length <= 6) return fail2("limit_reached", "Keep at least six players on your roster.");
       if (!state.roster.some((value) => value.id === command.playerId)) return fail2("not_found", "That player was not found.");
-      return success({ ...state, roster: state.roster.filter((value) => value.id !== command.playerId) }, { playerId: command.playerId });
+      const trimmed = state.roster.filter((value) => value.id !== command.playerId);
+      const repair = repairLineup(trimmed, lineupOf({ roster: state.roster, lineup: state.lineup }));
+      return success({ ...state, roster: trimmed, lineup: { version: LINEUP_VERSION, slots: repair.slots, updatedAt: now } }, { playerId: command.playerId, repaired: repair.repaired });
+    }
+    case "lineup.set": {
+      const blockers = lineupBlockers(state.roster, command.lineup);
+      const refusal = blockers.find((b) => b.code !== "unfilled") ?? blockers[0];
+      if (refusal) return fail2(refusal.code === "unknown-player" ? "not_found" : refusal.code === "duplicate-player" ? "invalid" : refusal.code === "empty-roster" ? "not_found" : "invalid", refusal.message);
+      const slots = { ...command.lineup };
+      return success({ ...state, lineup: { version: LINEUP_VERSION, slots, updatedAt: now } }, { slots, ratings: lineupRatings(state.roster, slots), repaired: [] });
     }
     case "daily.claim": {
       const slate = questsForDate(state.dailies.date), quest = slate.find((value) => value.id === command.questId);
@@ -4564,6 +5020,7 @@ function parseSavedClub(raw) {
   if (s.stadiumFootball !== void 0) require2(validStadiumFootball(s.stadiumFootball), "Stadium football");
   if (s.scouting !== void 0) require2(validScouting(s.scouting), "scouting activities");
   if (s.development !== void 0) require2(validDevelopment(s.development), "team development");
+  if (s.lineup !== void 0) require2(validLineup(s.lineup), "Stadium lineup");
   if (s.teamName != null) require2(text2(s.teamName), "team name");
   if (s.heroes != null) require2(Array.isArray(s.heroes) && s.heroes.every((h) => object(h) && text2(h.key) && number(h.level)), "heroes");
   if ("upgrades" in s) require2(Array.isArray(s.upgrades) && s.upgrades.every((u) => object(u) && text2(u.id) && text2(u.key) && ["building", "hero"].includes(u.kind) && number(u.toLevel) && number(u.startTime) && number(u.finishTime)), "upgrades");
@@ -4708,16 +5165,16 @@ var loadState = (storage, now = Date.now()) => {
 
 // server/authorityAdmission.ts
 var STAT_KEYS = ["strength", "speed", "iq"];
-var bounded2 = (n, lo, hi) => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
-var integer2 = (n, lo, hi) => bounded2(n, lo, hi) && Number.isSafeInteger(n);
+var bounded3 = (n, lo, hi) => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
+var integer2 = (n, lo, hi) => bounded3(n, lo, hi) && Number.isSafeInteger(n);
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var text3 = (value, length = 100) => typeof value === "string" && value.length > 0 && value.length <= length && !/[\u0000-\u001f\u007f]/u.test(value);
 var date = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value));
-var point4 = (value) => object2(value) && ["x", "y", "z"].every((key) => bounded2(value[key], -1e3, 1e3));
+var point4 = (value) => object2(value) && ["x", "y", "z"].every((key) => bounded3(value[key], -1e3, 1e3));
 var reject = () => {
   throw new MatchRuleError("invalid_legacy", "This club needs recovery before online protection can be enabled. Your local club has been kept.");
 };
-var validPlayer = (p) => object2(p) && text3(p.id) && text3(p.name) && integer2(p.level, 1, 100) && Object.prototype.hasOwnProperty.call(ROLE_UNIT, p.role) && ROLE_UNIT[p.role] === p.unit && object2(p.stats) && STAT_KEYS.every((key) => bounded2(p.stats[key], 1, 1e3)) && point4(p.worldPos) && point4(p.targetPos) && (p.rarity === void 0 || Object.values(PlayerRarity).includes(p.rarity)) && (p.maxStat === void 0 || bounded2(p.maxStat, 1, 1e3));
+var validPlayer = (p) => object2(p) && text3(p.id) && text3(p.name) && integer2(p.level, 1, 100) && Object.prototype.hasOwnProperty.call(ROLE_UNIT, p.role) && ROLE_UNIT[p.role] === p.unit && object2(p.stats) && STAT_KEYS.every((key) => bounded3(p.stats[key], 1, 1e3)) && point4(p.worldPos) && point4(p.targetPos) && (p.rarity === void 0 || Object.values(PlayerRarity).includes(p.rarity)) && (p.maxStat === void 0 || bounded3(p.maxStat, 1, 1e3));
 function validatePending(saved, now) {
   const jobs = saved.upgrades ?? [];
   if (jobs.length > 20 || new Set(jobs.map((job) => job.id)).size !== jobs.length || new Set(jobs.map((job) => `${job.kind}:${job.key}`)).size !== jobs.length) return reject();
@@ -4733,7 +5190,7 @@ function validatePending(saved, now) {
   }
   if (saved.recruitSlot != null) {
     const slot = saved.recruitSlot;
-    if (!object2(slot) || !validPlayer(slot.candidate) || !bounded2(slot.cost, 0, 1e9) || !integer2(slot.finishTime, 0, now + 7 * 864e5) || saved.roster.some((p) => p.id === slot.candidate.id)) return reject();
+    if (!object2(slot) || !validPlayer(slot.candidate) || !bounded3(slot.cost, 0, 1e9) || !integer2(slot.finishTime, 0, now + 7 * 864e5) || saved.roster.some((p) => p.id === slot.candidate.id)) return reject();
   }
 }
 function pristine(saved, now) {
@@ -4760,7 +5217,7 @@ function admitClub(legacy, createdAt, activationAt, now) {
     state2.teamName = (saved.teamName || state2.teamName).trim().slice(0, 40);
     return { state: state2, origin: "new" };
   }
-  if (!bounded2(saved.resources.COINS, 0, 1e9) || !bounded2(saved.resources.GEMS, 0, 1e7) || !bounded2(saved.resources.FANS, 0, 1e8) || !bounded2(saved.resources.ENERGY, 0, 100) || !integer2(saved.lastTick, 0, now) || !integer2(saved.currentMatch, 1, 1e7) || !bounded2(saved.teamReadiness, 0, 100) || !integer2(saved.trophies, 0, 1e7) || saved.peakFans !== void 0 && !bounded2(saved.peakFans, 0, 1e8) || saved.energyProgressMs !== void 0 && !bounded2(saved.energyProgressMs, 0, 864e5) || saved.shieldUntil !== void 0 && !integer2(saved.shieldUntil, 0, now + 7 * 864e5) || !bounded2(saved.timeOfDay, 0, 24) || !Object.values(SeasonPhase).includes(saved.seasonPhase) || saved.buildings.length > 20 || new Set(saved.buildings.map((b) => b.id)).size !== saved.buildings.length || !saved.buildings.every((b) => INITIAL_BUILDINGS.some((owned) => owned.id === b.id && owned.type === b.type) && bounded2(b.level, 1, 100) && (b.accrued === void 0 || bounded2(b.accrued, 0, 1e7))) || !saved.roster.length || saved.roster.length > 150 || new Set(saved.roster.map((p) => p.id)).size !== saved.roster.length || !saved.roster.every(validPlayer)) return reject();
+  if (!bounded3(saved.resources.COINS, 0, 1e9) || !bounded3(saved.resources.GEMS, 0, 1e7) || !bounded3(saved.resources.FANS, 0, 1e8) || !bounded3(saved.resources.ENERGY, 0, 100) || !integer2(saved.lastTick, 0, now) || !integer2(saved.currentMatch, 1, 1e7) || !bounded3(saved.teamReadiness, 0, 100) || !integer2(saved.trophies, 0, 1e7) || saved.peakFans !== void 0 && !bounded3(saved.peakFans, 0, 1e8) || saved.energyProgressMs !== void 0 && !bounded3(saved.energyProgressMs, 0, 864e5) || saved.shieldUntil !== void 0 && !integer2(saved.shieldUntil, 0, now + 7 * 864e5) || !bounded3(saved.timeOfDay, 0, 24) || !Object.values(SeasonPhase).includes(saved.seasonPhase) || saved.buildings.length > 20 || new Set(saved.buildings.map((b) => b.id)).size !== saved.buildings.length || !saved.buildings.every((b) => INITIAL_BUILDINGS.some((owned) => owned.id === b.id && owned.type === b.type) && bounded3(b.level, 1, 100) && (b.accrued === void 0 || bounded3(b.accrued, 0, 1e7))) || !saved.roster.length || saved.roster.length > 150 || new Set(saved.roster.map((p) => p.id)).size !== saved.roster.length || !saved.roster.every(validPlayer)) return reject();
   validatePending(saved, now);
   if (saved.development?.schedule) {
     const schedule = saved.development.schedule;
@@ -4778,7 +5235,7 @@ function admitClub(legacy, createdAt, activationAt, now) {
   }
   const stadiumLevel = normalized.buildings.find((b) => b.type === "STADIUM" /* STADIUM */)?.level ?? 1;
   if (Object.values(normalized.defenseSlots).some((n) => n > stadiumLevel) || normalized.heroes.some((h) => h.level > heroMaxLevel(stadiumLevel))) return reject();
-  if (!integer2(normalized.builders, 1, MAX_BUILDERS) || !integer2(normalized.parkingLot, 0, 3) || !integer2(normalized.bonusDefSlots, 0, 3) || !Object.prototype.hasOwnProperty.call(FORMATIONS, normalized.formation) || normalized.heroes.length !== HERO_DEFS.length || new Set(normalized.heroes.map((h) => h.key)).size !== HERO_DEFS.length || !normalized.heroes.every((h) => HERO_DEFS.some((d) => d.key === h.key) && integer2(h.level, 1, 100) && integer2(h.stars, 1, 5) && integer2(h.shards, 0, 1e7) && typeof h.unlocked === "boolean") || Object.entries(normalized.defenseSlots).some(([key, n]) => !FORMATION_ORDER.some((f) => slotsFor(f).some((slot) => slot.id === key)) || !integer2(n, 0, MAX_SLOT_LEVEL)) || Object.entries(normalized.formationMastery).some(([key, n]) => !FORMATION_ORDER.includes(key) || !integer2(n, 0, 1e7)) || Object.entries(normalized.heroGates).some(([post, hero]) => !FORMATION_ORDER.some((f) => gatePostsFor(f).some((p) => p.id === post)) || !normalized.heroes.some((h) => h.key === hero && h.unlocked)) || !integer2(normalized.gauntlet.best, 0, 20) || !integer2(normalized.gauntlet.attempts, 0, 3) || !date(normalized.gauntlet.date) || !integer2(normalized.campaign.unlocked, 1, CAMPAIGN_STAGES.length) || Object.entries(normalized.campaign.stars).some(([key, n]) => !integer2(Number(key), 1, CAMPAIGN_STAGES.length) || !integer2(n, 0, 3)) || normalized.campaign.claimed.some((n) => !integer2(n, 1, CAMPAIGN_STAGES.length)) || new Set(normalized.campaign.claimed).size !== normalized.campaign.claimed.length || !date(normalized.dailies.date) || Object.entries(normalized.dailies.progress).some(([key, n]) => !ALL_QUESTS.some((q) => q.id === key) || !bounded2(n, 0, 1e8)) || normalized.dailies.claimed.some((key) => !ALL_QUESTS.some((q) => q.id === key)) || new Set(normalized.dailies.claimed).size !== normalized.dailies.claimed.length || normalized.upgrades.length > 20 || normalized.upgrades.some((j) => !bounded2(j.toLevel, 1, 100) || !bounded2(j.startTime, 0, now) || !bounded2(j.finishTime, j.startTime, now + 7 * 864e5))) return reject();
+  if (!integer2(normalized.builders, 1, MAX_BUILDERS) || !integer2(normalized.parkingLot, 0, 3) || !integer2(normalized.bonusDefSlots, 0, 3) || !Object.prototype.hasOwnProperty.call(FORMATIONS, normalized.formation) || normalized.heroes.length !== HERO_DEFS.length || new Set(normalized.heroes.map((h) => h.key)).size !== HERO_DEFS.length || !normalized.heroes.every((h) => HERO_DEFS.some((d) => d.key === h.key) && integer2(h.level, 1, 100) && integer2(h.stars, 1, 5) && integer2(h.shards, 0, 1e7) && typeof h.unlocked === "boolean") || Object.entries(normalized.defenseSlots).some(([key, n]) => !FORMATION_ORDER.some((f) => slotsFor(f).some((slot) => slot.id === key)) || !integer2(n, 0, MAX_SLOT_LEVEL)) || Object.entries(normalized.formationMastery).some(([key, n]) => !FORMATION_ORDER.includes(key) || !integer2(n, 0, 1e7)) || Object.entries(normalized.heroGates).some(([post, hero]) => !FORMATION_ORDER.some((f) => gatePostsFor(f).some((p) => p.id === post)) || !normalized.heroes.some((h) => h.key === hero && h.unlocked)) || !integer2(normalized.gauntlet.best, 0, 20) || !integer2(normalized.gauntlet.attempts, 0, 3) || !date(normalized.gauntlet.date) || !integer2(normalized.campaign.unlocked, 1, CAMPAIGN_STAGES.length) || Object.entries(normalized.campaign.stars).some(([key, n]) => !integer2(Number(key), 1, CAMPAIGN_STAGES.length) || !integer2(n, 0, 3)) || normalized.campaign.claimed.some((n) => !integer2(n, 1, CAMPAIGN_STAGES.length)) || new Set(normalized.campaign.claimed).size !== normalized.campaign.claimed.length || !date(normalized.dailies.date) || Object.entries(normalized.dailies.progress).some(([key, n]) => !ALL_QUESTS.some((q) => q.id === key) || !bounded3(n, 0, 1e8)) || normalized.dailies.claimed.some((key) => !ALL_QUESTS.some((q) => q.id === key)) || new Set(normalized.dailies.claimed).size !== normalized.dailies.claimed.length || normalized.upgrades.length > 20 || normalized.upgrades.some((j) => !bounded3(j.toLevel, 1, 100) || !bounded3(j.startTime, 0, now) || !bounded3(j.finishTime, j.startTime, now + 7 * 864e5))) return reject();
   const state = createInitialState(now);
   for (const key of Object.keys(state)) state[key] = normalized[key];
   state.campusLayout = normalized.campusLayout;
@@ -4790,7 +5247,7 @@ function admitClub(legacy, createdAt, activationAt, now) {
   state.recruitBoard = void 0;
   state.defenseLog = [];
   state.bonusOrbs = [];
-  if (!Array.isArray(state.matchHistory) || state.matchHistory.some((m) => !object2(m) || !integer2(m.week, 1, 1e7) || !text3(m.opponent, 200) || !bounded2(m.ourScore, 0, 1e3) || !bounded2(m.theirScore, 0, 1e3) || typeof m.won !== "boolean" || !bounded2(m.reward, 0, 1e9))) return reject();
+  if (!Array.isArray(state.matchHistory) || state.matchHistory.some((m) => !object2(m) || !integer2(m.week, 1, 1e7) || !text3(m.opponent, 200) || !bounded3(m.ourScore, 0, 1e3) || !bounded3(m.theirScore, 0, 1e3) || typeof m.won !== "boolean" || !bounded3(m.reward, 0, 1e9))) return reject();
   state.matchHistory = state.matchHistory.slice(0, 50);
   state.teamName = state.teamName.trim().slice(0, 40) || "Football Club";
   state.lastTick = now;

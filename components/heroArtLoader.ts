@@ -38,24 +38,29 @@ const id = (kind: HeroArtKind, key: string) => `${kind}:${key}`;
 const RETRY_DELAY_MS = 2500;
 
 /** The in-flight Image of each slot is kept so an obsolete, unretained request can be abandoned (src = '' aborts the download). */
-type Slot = { image: HTMLImageElement | null; abort?: () => void } | undefined;
+type Slot = { image: HTMLImageElement | null; abort?: () => void; cancelled?:boolean } | undefined;
 const loadImage = (src: string, slot?: Slot) => new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.decoding = 'async'; if (slot) { slot.image = image; slot.abort = () => { reject(new Error(`Hero art request abandoned: ${src}`)); try { image.src = ''; } catch { /* best effort */ } }; } image.onload = () => resolve(image); image.onerror = () => reject(new Error(`Hero art unavailable: ${src}`)); image.src = src; });
 const canvasOf = (width: number, height: number) => { const c = document.createElement('canvas'); c.width = width; c.height = height; return c; };
-const keyed = (image: HTMLImageElement) => {
+const keyed = (image: HTMLImageElement, alpha=false) => {
   const canvas = canvasOf(image.naturalWidth, image.naturalHeight);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Canvas unavailable');
   ctx.drawImage(image, 0, 0);
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  keyHeroPixels(data.data); ctx.putImageData(data, 0, 0);
+  if(!alpha)keyHeroPixels(data.data); ctx.putImageData(data, 0, 0);
   return { canvas, ctx, data };
 };
+// Derived images preserve every authored coordinate; original art remains a recoverable fallback.
+async function battleSource(src:string,slot?:Slot){
+ try{return keyed(await loadImage(assetUrl(src.replace(/\.webp$/,'.alpha.webp')),slot),true)}
+ catch(error){if(slot?.cancelled)throw error;return keyed(await loadImage(assetUrl(src),slot))}
+}
 const frame256 = () => { const out = canvasOf(256, 256); const target = out.getContext('2d'); if (!target) throw new Error('Canvas unavailable'); target.scale(2 / 3, 2 / 3); return { out, target }; };
 
 async function decodeElite(key: string, slot?: Slot): Promise<HeroFrames> {
   const bounds = HERO_ATLAS[key];
   if (!bounds || bounds.length !== 9) throw new Error('Incomplete hero atlas');
-  const { canvas, ctx, data } = keyed(await loadImage(assetUrl(HERO_ART_PATH.elite(key)), slot));
+  const { canvas, ctx, data } = await battleSource(HERO_ART_PATH.elite(key),slot);
   const owners = heroPixelOwners(data.data, canvas.width, canvas.height, bounds);
   const scale = Math.min(340 / Math.max(...bounds.map(b => b[2] - b[0])), 346 / Math.max(...bounds.map(b => b[3] - b[1])));
   return bounds.map((b, frame) => {
@@ -78,7 +83,7 @@ async function decodeElite(key: string, slot?: Slot): Promise<HeroFrames> {
 async function decodeMotion(key: string, slot?: Slot): Promise<HeroFrames> {
   const bounds = HERO_MOTION_BOUNDS[key], original = HERO_ATLAS[key];
   if (!bounds || !original) return [];
-  const { canvas, ctx, data } = keyed(await loadImage(assetUrl(HERO_ART_PATH.motion(key)), slot));
+  const { canvas, ctx, data } = await battleSource(HERO_ART_PATH.motion(key),slot);
   const owners = heroPixelOwners(data.data, canvas.width, canvas.height, bounds);
   const baseScale = Math.min(340 / Math.max(...original.map(b => b[2] - b[0])), 346 / Math.max(...original.map(b => b[3] - b[1])));
   const scale = Math.min((original[0][3] - original[0][1]) * baseScale / (bounds[0][3] - bounds[0][1]), 340 / Math.max(...bounds.map(b => b[2] - b[0])), 346 / Math.max(...bounds.map(b => b[3] - b[1])));
@@ -97,7 +102,7 @@ async function decodeMotion(key: string, slot?: Slot): Promise<HeroFrames> {
 async function decodeSignature(key: string, reaction: boolean, slot?: Slot): Promise<HeroFrames> {
   const spec = reaction ? (hasReactionSheet(key) ? { src: HERO_ART_PATH.reaction(key), anchorX: [.5, .5, .5, .5], stature: .92 } : undefined) : HERO_SIGNATURE_ATLAS[key];
   if (!spec) return [];
-  const { canvas, data } = keyed(await loadImage(assetUrl(spec.src), slot));
+  const { canvas, data } = await battleSource(spec.src,slot);
   return signatureRegistration(key, data.data, canvas.width, canvas.height, spec).map(frame => {
     const { out, target } = frame256();
     target.drawImage(canvas, frame.x, frame.y, frame.w, frame.h, frame.dx, frame.dy, frame.w * frame.scale, frame.h * frame.scale);

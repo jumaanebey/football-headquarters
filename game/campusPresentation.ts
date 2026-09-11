@@ -10,12 +10,12 @@ export const CAMPUS_ANCHORS: Record<BuildingType, {gridX:number;gridY:number}> =
 };
 export const CAMPUS_LANDSCAPE_ANCHORS: Record<BuildingType, {gridX:number;gridY:number}> = {
   [BuildingType.STADIUM]: {gridX:0,gridY:0},
-  [BuildingType.TACTICS_ROOM]: {gridX:-3,gridY:3},
-  [BuildingType.YOUTH_ACADEMY]: {gridX:3,gridY:-3},
-  [BuildingType.MEDICAL_CENTER]: {gridX:-2,gridY:10},
-  [BuildingType.TRAINING_PITCH]: {gridX:10,gridY:-2},
+  [BuildingType.TACTICS_ROOM]: {gridX:-2.2,gridY:3.2},
+  [BuildingType.YOUTH_ACADEMY]: {gridX:3.2,gridY:-2.2},
+  [BuildingType.MEDICAL_CENTER]: {gridX:1.2,gridY:9},
+  [BuildingType.TRAINING_PITCH]: {gridX:9,gridY:1.2},
 };
-export const CAMPUS_FIELD = {x1:3.4,y1:3.4,x2:6.6,y2:6.6};
+export const CAMPUS_FIELD = {x1:3.4,y1:3.4,x2:7.4,y2:7.4};
 export const ARRIVAL = {x1:10.2,y1:9.3,x2:13.1,y2:11.3,busX:11.6,busY:10.4};
 export function campusBuildingWidth(type: BuildingType, custom = false) {
   return 118 * (custom ? 1.35 : type === BuildingType.STADIUM ? 3.05 : 2.3);
