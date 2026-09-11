@@ -30,10 +30,10 @@ export function WeightRoomScene({participants,selected,working,ready,onSelect,le
         aria-label={`Follow ${p.name}, ${p.role}, level ${p.level}${working?', '+EXERCISE_LABELS[exercise]:ready?', workout complete':''}`}
         onClick={()=>onSelect(p.id)} style={{left:`${spot.x}%`,top:`${spot.y}%`,height:`${spot.height}%`}}>
         <IndoorPlayer unit={p.unit} working={working} exercise={exercise} offset={i*.37}/>
-        <span className="fhq-room-player-label">{selected===p.id?p.name:p.role}<small>L{p.level}{working?' · '+EXERCISE_LABELS[exercise]:ready?' · Ready':''}</small></span>
+        <span className="fhq-room-player-label">{p.name}<small>L{p.level}{working?' · '+EXERCISE_LABELS[exercise]:ready?' · Ready':''}</small></span>
       </button>;
     })}
-    {participants.length>6&&<div className="fhq-weight-room-overflow">+{participants.length-6} teammates in this session · choose a player below to follow them</div>}
+    {participants.length>6&&<div className="fhq-weight-room-overflow">+{participants.length-6} teammates in this session · follow a teammate from Your roster</div>}
     {failed&&<div className="fhq-weight-art-error" role="status">The room artwork could not load.<button onClick={()=>{setFailed(false);setAttempt(n=>n+1)}}>Retry room artwork</button></div>}
   </div>;
 }

@@ -9,6 +9,7 @@ import { BUILDING_INFO, UPGRADE_CONFIG, upgradeDurationSecs, skipGemCost, builde
 import { buildingMilestone, buildingRoadmap, buildingGoalCost } from '../game/buildingProgression';
 
 interface Props {
+  initialPlayer?:string;
   onAction?:(a:ClubAction)=>void;onPractice?:()=>void;
   building: BuildingInstance | null;
   club?: GameState;
@@ -33,7 +34,7 @@ interface Props {
 
 
 const fmt = (secs: number) => { const s=Math.max(0,Math.ceil(secs)); return s<60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`; };
-export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect, club, onDefense, onGameDay, onWeightRoom, onRoster, onFilmArchive, onAction, onPractice, blocked=false }) => {
+export const ActionModal: React.FC<Props> = ({ initialPlayer, building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect, club, onDefense, onGameDay, onWeightRoom, onRoster, onFilmArchive, onAction, onPractice, blocked=false }) => {
   if(!building) return null;
   const info=FACILITY_INFO[building.type], level=building.level;
   const cost=Math.floor(UPGRADE_CONFIG.baseCost*Math.pow(UPGRADE_CONFIG.costMultiplier,level-1));
@@ -50,7 +51,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
     : building.type===BuildingType.YOUTH_ACADEMY ? (club?.recruitSlot ? `Recruit ${Date.now()>=club.recruitSlot.finishTime?'ready to sign':`arrives in ${fmt((club.recruitSlot.finishTime-Date.now())/1000)}`}` : 'Compare prospects, then scout with Coins')
     : building.state===DrillState.ACTIVE ? `Training · ${fmt(((building.finishTime??Date.now())-Date.now())/1000)} remaining`
     : building.state===DrillState.COMPLETED ? 'Training complete · collect your squad’s progress' : `Team readiness ${club?.teamReadiness??0}/100`;
-  if(club&&[BuildingType.STADIUM,BuildingType.TACTICS_ROOM,BuildingType.MEDICAL_CENTER].includes(building.type))return <CampusDepartment onAction={onAction} onPractice={onPractice} club={club} building={building} blocked={blocked} onClose={onClose} onUpgrade={onUpgrade} onCollect={onCollect} onFinishNow={onFinishNow} onHireBuilder={onHireBuilder} onDefense={onDefense} onProgram={onVisit} onGameDay={onGameDay??onVisit} onWeightRoom={onWeightRoom} onRoster={onRoster} onFilmArchive={onFilmArchive}/>;
+  if(club&&[BuildingType.STADIUM,BuildingType.TACTICS_ROOM,BuildingType.MEDICAL_CENTER].includes(building.type))return <CampusDepartment initialPlayer={initialPlayer} onAction={onAction} onPractice={onPractice} club={club} building={building} blocked={blocked} onClose={onClose} onUpgrade={onUpgrade} onCollect={onCollect} onFinishNow={onFinishNow} onHireBuilder={onHireBuilder} onDefense={onDefense} onProgram={onVisit} onGameDay={onGameDay??onVisit} onWeightRoom={onWeightRoom} onRoster={onRoster} onFilmArchive={onFilmArchive}/>;
   return <Sheet title={info.name} subtitle={`Level ${level} · ${resources.COINS.toLocaleString()} Coins available`} onClose={onClose} maxWidth="max-w-5xl">
     <div className="fhq-facility-panel">
 

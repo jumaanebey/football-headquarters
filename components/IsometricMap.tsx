@@ -23,6 +23,7 @@ import { Check, Star, Dumbbell, Search, Coins, Hammer, Plus, Minus, Focus } from
 // remain selectable under View; combat and authority retain their original coordinates.
 
 interface Props {
+  roomStatus?:Partial<Record<BuildingType,string>>;
   customLayout?: boolean;
   onEditCampus?: () => void;
   heroes?: import('../types').HeroState[];
@@ -699,7 +700,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onOpenPractice, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ roomStatus={}, customLayout: hasCustomLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onOpenPractice, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const teamStyle=useClubStyle(clubName??'Home club');
   const [showSavedLayout,setShowSavedLayout]=useState(false);
   const customLayout=hasCustomLayout && showSavedLayout;
@@ -720,7 +721,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
     const width = campusBuildingWidth(b.type, customLayout);
     const art=artBounds[b.id];
     return art ? {left:point.x+Math.min(art.left,-125),right:point.x+Math.max(art.right,125),top:point.y+art.top-110,bottom:point.y+art.bottom+95} : {left:point.x-width/2, right:point.x+width/2,top:point.y-width+TILE_H/2,bottom:point.y+80};
-  })],viewport.width,viewport.height,landscape?160:260);
+  })],viewport.width,viewport.height,landscape?180:300);
   const scale = framing.scale;
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -1023,11 +1024,11 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
           flex: Safari START-aligns oversized flex children (Chrome centers them), which
           shoved the whole island off-screen on iPhones. translate(-50%,-50%) is identical
           in every browser. */}
-      <div className="absolute left-0 right-0 overflow-visible" style={{ top: landscape ? 90 : 138, bottom: landscape ? 70 : 132 }}>
+      <div className="absolute left-0 right-0 overflow-visible" style={{ top: landscape ? 100 : 176, bottom: landscape ? 80 : 112 }}>
         <div ref={boardRef} data-fhq-board onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onClickCapture={e=>{if(e.detail!==0 && panMovedRef.current){e.preventDefault();e.stopPropagation();panMovedRef.current=false;}}} onDoubleClick={resetCam}
           className="absolute"
           style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x + (BOARD_W/2-framing.centerX)*scale*cam.z}px), calc(-50% + ${cam.y + (BOARD_H/2-framing.centerY)*scale*cam.z}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
-          {onOpenPractice&&campusFieldClear(shownBuildings)&&!edit&&<button type="button" data-fhq-practice aria-label="Practice Field, routes and team schedule" onClick={e=>{e.stopPropagation();if(panMovedRef.current){panMovedRef.current=false;return;}onOpenPractice();}} className="fhq-map-practice" style={{left:tileToScreen((CAMPUS_FIELD.x1+CAMPUS_FIELD.x2)/2,(CAMPUS_FIELD.y1+CAMPUS_FIELD.y2)/2).x,top:tileToScreen((CAMPUS_FIELD.x1+CAMPUS_FIELD.x2)/2,(CAMPUS_FIELD.y1+CAMPUS_FIELD.y2)/2).y,minHeight:44/(scale*cam.z),fontSize:12/(scale*cam.z)}}>Practice Field<span>Routes · team schedule</span></button>}
+          {onOpenPractice&&campusFieldClear(shownBuildings)&&!edit&&<button type="button" data-fhq-practice aria-label="Practice Field, routes and team schedule" onClick={e=>{e.stopPropagation();if(panMovedRef.current){panMovedRef.current=false;return;}onOpenPractice();}} className="fhq-map-practice" style={{left:tileToScreen((CAMPUS_FIELD.x1+CAMPUS_FIELD.x2)/2,(CAMPUS_FIELD.y1+CAMPUS_FIELD.y2)/2).x,top:tileToScreen((CAMPUS_FIELD.x1+CAMPUS_FIELD.x2)/2,(CAMPUS_FIELD.y1+CAMPUS_FIELD.y2)/2).y,minHeight:44/(scale*cam.z),fontSize:12/(scale*cam.z)}}>Practice Field<span>Plan your team’s day</span></button>}
           <GroundLayer panorama={false} arrival={false} showField={campusFieldClear(shownBuildings)} buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
@@ -1080,7 +1081,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
             // onto the bowl's own right skirt so it can't read as Rehab's rooftop.
             const nudge = {dx:0,dy:0};
             const job=upgrades.find(u=>u.kind==='building' && u.key===b.id);
-            const status=job ? `Upgrading · ${fmtSecs((job.finishTime-Date.now())/1000)}` : b.state===DrillState.COMPLETED ? 'Training ready' : b.state===DrillState.ACTIVE ? `Training · ${fmtSecs(((b.finishTime??Date.now())-Date.now())/1000)}` : b.type===BuildingType.YOUTH_ACADEMY && recruitSlot ? (recruitSlot.finishTime<=Date.now() ? 'Recruit ready' : `Scouting · ${fmtSecs((recruitSlot.finishTime-Date.now())/1000)}`) : '';
+            const status=roomStatus[b.type] ?? (job ? `Upgrading · ${fmtSecs((job.finishTime-Date.now())/1000)}` : b.state===DrillState.COMPLETED ? 'Training ready' : b.state===DrillState.ACTIVE ? `Training · ${fmtSecs(((b.finishTime??Date.now())-Date.now())/1000)}` : b.type===BuildingType.YOUTH_ACADEMY && recruitSlot ? (recruitSlot.finishTime<=Date.now() ? 'Recruit ready' : `Scouting · ${fmtSecs((recruitSlot.finishTime-Date.now())/1000)}`) : '');
 
             return (
               <button type="button" data-campus-label aria-label={`Open ${FACILITY_INFO[b.type].name}`} onClick={e=>{e.stopPropagation();if(e.detail!==0 && panMovedRef.current){panMovedRef.current=false;return;}onBuildingClick(b,{x:e.clientX,y:e.clientY});}} key={`tag-${b.id}`} className="absolute -translate-x-1/2 cursor-pointer focus-visible:outline focus-visible:outline-orange-400" style={{ left: c.x + nudge.dx, top: c.y + ((artBounds[b.id]?.bottom ?? TILE_H/2)+6) + nudge.dy, display:'flex',flexDirection:'column',alignItems:'center', zIndex: 46, pointerEvents:'auto', minHeight:44/(scale*cam.z) }}>
@@ -1139,7 +1140,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
         </div>
       </div>
 
-      <div className="absolute inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none" style={{bottom:landscape?64:96}}>
+      <div className="fhq-map-tools absolute inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none" style={{bottom:landscape?64:96}}>
       <div className="flex gap-2 pointer-events-auto">
         <button type="button" onClick={onOpenPractice} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Practice</button>
         <button type="button" onClick={() => setDirectoryOpen(true)} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Facilities</button>
