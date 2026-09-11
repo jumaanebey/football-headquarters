@@ -236,3 +236,41 @@ button { touch-action:manipulation; }
  .fhq-facility-upgrade { border-top:0;border-left:1px solid #334155;padding:0 0 0 12px; }
  .fhq-facility-styles { grid-column:1 / -1; }
 }
+
+/* Visible progression replaces the collapsed appearance picker. */
+.fhq-facility-content:has(.fhq-building-roadmap) { grid-template-columns:1fr;align-items:start;gap:10px; }
+.fhq-building-roadmap { min-width:0;border-bottom:1px solid #334155;padding-bottom:8px; }
+.fhq-building-goal { display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;align-items:center;min-height:105px; }
+.fhq-building-goal .fhq-facility-art { height:105px;max-width:none; }
+.fhq-building-goal h3 { color:#fef3c7;font-size:18px;font-weight:800; }
+.fhq-building-goal p { font-size:12px;color:#e2e8f0;line-height:1.4; }
+.fhq-building-goal small { font-size:10px;color:#94a3b8;line-height:1.3; }
+.fhq-building-levels { display:flex;gap:5px;margin-top:5px; }
+.fhq-building-levels button { flex:1;min-width:0;min-height:44px;border:1px solid #475569;border-radius:8px;background:#172536;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center; }
+.fhq-building-levels button[aria-pressed=true] { border-color:#fbbf24;background:#453414;color:#fef3c7; }
+.fhq-building-levels small { font-size:9px; }
+.fhq-building-goal-cost { color:#cbd5e1;font-size:11px;line-height:1.4;margin-top:5px; }
+@media(min-width:700px) and (min-height:501px) {
+ .fhq-building-goal { grid-template-columns:180px 1fr; }
+ .fhq-building-goal .fhq-facility-art { height:145px; }
+ .fhq-facility-detail { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+ .fhq-facility-upgrade { border-top:0;border-left:1px solid #334155;padding:0 0 0 16px; }
+}
+@media(max-height:500px) and (orientation:landscape) {
+ .fhq-facility-content:has(.fhq-building-roadmap) { grid-template-columns:40% minmax(0,1fr);gap:12px; }
+ .fhq-building-roadmap { border-bottom:0;border-right:1px solid #334155;padding:0 12px 0 0; }
+ .fhq-building-goal { grid-template-columns:80px minmax(0,1fr);gap:6px; }
+ .fhq-building-goal .fhq-facility-art { height:85px; }
+ .fhq-building-goal h3 { font-size:15px; }
+ .fhq-building-goal p { font-size:11px; }
+ .fhq-facility-detail { display:flex;gap:8px; }
+ .fhq-facility-upgrade { border-left:0;border-top:1px solid #334155;padding:8px 0 0; }
+ .fhq-facility-overview { gap:4px; }
+}
+.fhq-facility-actions { display:flex;flex-direction:column;gap:8px; }
+@media(max-height:500px) and (orientation:landscape) {
+ .fhq-facility-actions { display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:5px; }
+ .fhq-facility-actions button { min-height:44px;padding:5px;font-size:12px;line-height:1.2; }
+ .fhq-facility-overview>p { font-size:11px;line-height:1.35; }
+ .fhq-facility-upgrade { gap:5px; }
+}
