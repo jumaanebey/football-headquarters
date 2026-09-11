@@ -18,11 +18,16 @@ describe('main campus composition',()=>{
   expect(campusFieldClear([{...buildings[0],gridX:4,gridY:4}])).toBe(false);
   expect(campusBuildingWidth(BuildingType.STADIUM,true)).toBeLessThan(2*118);
  });
- it('uses a separated single row on short landscape screens',()=>{
+ it('keeps a central practice lawn and distinct facility entrances in landscape',()=>{
   const saved=createInitialState(1).buildings;
-  const row=campusDisplayBuildings(saved,false,true).sort((a,b)=>a.gridX-b.gridX);
-  expect(new Set(row.map(b=>b.gridX+b.gridY)).size).toBe(1);
-  for(let i=1;i<row.length;i++) expect((row[i].gridX-row[i].gridY-row[i-1].gridX+row[i-1].gridY)*59).toBeGreaterThan(300);
+  const display=campusDisplayBuildings(saved,false,true);
+  expect(campusFieldClear(display)).toBe(true);
+  for(let i=0;i<display.length;i++)for(let j=i+1;j<display.length;j++){
+   const a=display[i],b=display[j];
+   const dx=(a.gridX-a.gridY-b.gridX+b.gridY)*59;
+   const dy=(a.gridX+a.gridY-b.gridX-b.gridY)*29.5;
+   expect(Math.hypot(dx,dy)).toBeGreaterThan(240);
+  }
   expect(campusDisplayBuildings(saved,true,true)).toEqual(saved);
  });
  it('keeps the bus inside its arrival bay beyond the facility grid',()=>{

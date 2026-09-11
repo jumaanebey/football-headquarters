@@ -3,17 +3,17 @@ import { BuildingType, type BuildingInstance } from '../types';
 /** Home-only presentation. Never used by combat, authority, or saved defense geometry. */
 export const CAMPUS_ANCHORS: Record<BuildingType, {gridX:number;gridY:number}> = {
   [BuildingType.STADIUM]: {gridX:0,gridY:0},
-  [BuildingType.TACTICS_ROOM]: {gridX:0,gridY:4},
-  [BuildingType.YOUTH_ACADEMY]: {gridX:4,gridY:0},
-  [BuildingType.MEDICAL_CENTER]: {gridX:5,gridY:8},
-  [BuildingType.TRAINING_PITCH]: {gridX:8,gridY:5},
+  [BuildingType.TACTICS_ROOM]: {gridX:1,gridY:3.5},
+  [BuildingType.YOUTH_ACADEMY]: {gridX:3.9,gridY:1.4},
+  [BuildingType.MEDICAL_CENTER]: {gridX:6.8,gridY:9.3},
+  [BuildingType.TRAINING_PITCH]: {gridX:10.5,gridY:8},
 };
 export const CAMPUS_LANDSCAPE_ANCHORS: Record<BuildingType, {gridX:number;gridY:number}> = {
-  [BuildingType.STADIUM]: {gridX:-2,gridY:10},
-  [BuildingType.TACTICS_ROOM]: {gridX:.75,gridY:7.25},
-  [BuildingType.YOUTH_ACADEMY]: {gridX:3.5,gridY:4.5},
-  [BuildingType.MEDICAL_CENTER]: {gridX:6.25,gridY:1.75},
-  [BuildingType.TRAINING_PITCH]: {gridX:9,gridY:-1},
+  [BuildingType.STADIUM]: {gridX:0,gridY:0},
+  [BuildingType.TACTICS_ROOM]: {gridX:-3,gridY:3},
+  [BuildingType.YOUTH_ACADEMY]: {gridX:3,gridY:-3},
+  [BuildingType.MEDICAL_CENTER]: {gridX:-2,gridY:10},
+  [BuildingType.TRAINING_PITCH]: {gridX:10,gridY:-2},
 };
 export const CAMPUS_FIELD = {x1:3.4,y1:3.4,x2:6.6,y2:6.6};
 export const ARRIVAL = {x1:10.2,y1:9.3,x2:13.1,y2:11.3,busX:11.6,busY:10.4};
