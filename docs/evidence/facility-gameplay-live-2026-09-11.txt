@@ -1,0 +1,58 @@
+
+> football-headquarters@0.0.0 facility:evidence
+> esbuild scripts/facility-gameplay-evidence.ts --bundle --format=esm --platform=node --outfile=dist/facility-gameplay-evidence.mjs && node --env-file=.env.production dist/facility-gameplay-evidence.mjs
+
+
+  dist/facility-gameplay-evidence.mjs  28.4kb
+
+⚡ Done in 4ms
+Facility gameplay evidence 2026-09-11T15:11:32.218Z · account e774b44e-e1d7-4664-b29b-4f6444d32fb7
+PASS fresh protected club
+PASS QA club named
+PASS QA warmup entry
+PASS QA warmup explicitly conceded
+PASS QA warmup has no reward
+PASS QA warmup entry
+PASS QA warmup explicitly conceded
+PASS QA warmup has no reward
+PASS three-stop schedule prepaid 13 Energy
+PASS duplicate schedule returns original receipt
+PASS early sync awards no session growth
+PASS team cannot raid while assigned to development
+PASS paid agent search starts during team development
+Waiting for server timer: 17 seconds
+PASS agent report reveals a ready-to-sign athlete
+PASS agent athlete signs
+PASS duplicate signing adds no second player
+PASS free scouting starts
+Waiting for server timer: 122 seconds
+Waiting for server timer: 74 seconds
+Waiting for server timer: 12 seconds
+PASS free scout reveals a different, higher-potential pool
+PASS relationship phone call starts
+Waiting for server timer: 92 seconds
+Waiting for server timer: 6 seconds
+Waiting for server timer: 1 seconds
+PASS elapsed activities settle on return
+PASS all three schedule stops finish once
+PASS Film IQ and Practice Speed reach the roster
+PASS Rehab restores Energy
+PASS play mastery and recruiting interest persist
+PASS new signing does not inherit a schedule it never joined
+PASS duplicate return does not repeat growth
+PASS fresh status restores completed development
+PASS Stadium game starts from developed club
+PASS a Stadium possession blocks simultaneous raids
+PASS status does not play the next decision
+PASS football call 0: return
+PASS lost-answer retry never runs a second play
+PASS stale football turn is rejected
+PASS football call 1: offense
+PASS football call 2: finish
+PASS football call 3: kickoff
+PASS football call 4: defense
+PASS football call 5: defend-finish
+PASS both teams receive a possession
+PASS visible final result collects exact Coins
+PASS duplicate result collection credits once
+RESULT: 41 checks passed · account e774b44e-e1d7-4664-b29b-4f6444d32fb7 · Stadium 0–7 · 20 Coins

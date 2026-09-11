@@ -19,12 +19,12 @@ export interface DailiesState {
 }
 
 export const ALL_QUESTS: DailyQuestDef[] = [
-  { id: 'win_attack', text: 'Win an attack (Season or Raid)', emoji: '⚔️', target: 1,    reward: { gems: 8 } },
-  { id: 'game_balls', text: 'Earn 5 Game Balls on offense',   emoji: '🏈', target: 5,    reward: { gems: 6 } },
-  { id: 'drills',     text: 'Collect 3 finished drills',      emoji: '🏋️', target: 3,    reward: { gems: 5 } },
+  { id: 'win_attack', text: 'Win Stadium football or a base raid', emoji: '⚔️', target: 1,    reward: { gems: 8 } },
+  { id: 'game_balls', text: 'Earn 5 Game Balls in base raids',   emoji: '🏈', target: 5,    reward: { gems: 6 } },
+  { id: 'drills',     text: 'Complete 3 development sessions',      emoji: '🏋️', target: 3,    reward: { gems: 5 } },
   { id: 'bank_coins', text: 'Bank 1,200 Stadium coins',       emoji: '🪙', target: 1200, reward: { gems: 4 } },
   { id: 'train_hero', text: 'Train a hero',                   emoji: '⭐', target: 1,    reward: { gems: 4 } },
-  { id: 'scout',      text: 'Run a Scout Search',             emoji: '🎰', target: 1,    reward: { gems: 5 } },
+  { id: 'scout',      text: 'Complete a scouting trip or hero search',             emoji: '🎰', target: 1,    reward: { gems: 5 } },
 ];
 
 export const SWEEP_BONUS_GEMS = 6;

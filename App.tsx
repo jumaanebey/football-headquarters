@@ -1,3 +1,6 @@
+import {PracticeField} from './components/PracticeField';
+import {applyClubAction,type ClubAction} from './game/authority/clubActions';
+import {footballInProgress} from './game/stadiumFootball';
 import {GateAssignments} from './components/GateAssignments';
 import {WeightRoom} from './components/WeightRoom';
 import {FACILITY_INFO} from './game/facilityPresentation';
@@ -122,6 +125,7 @@ function App() {
   authorityRef.current = authority;
   // The open server match for the battle on screen: begin is sent at kickoff, finish after the whistle.
   const authorityMatchRef = useRef<{ matchId: string; begun: boolean } | null>(null);
+  const [practiceFieldOpen,setPracticeFieldOpen]=useState(false);
   const [isSquadOpen, setIsSquadOpen] = useState(false);
   const [isScoutingOpen, setIsScoutingOpen] = useState(false);
   const [isStandingsOpen, setIsStandingsOpen] = useState(false);
@@ -497,11 +501,22 @@ function App() {
   useEffect(() => {
     // Protected clubs keep the club server's calendar (UTC day) so daily quests and Gauntlet
     // attempts never flip between two calendars; guest clubs keep the local-midnight reset.
-    const tick = () => { if (document.hidden) return; const now = Date.now(); setGameState(prev => advanceCampus(prev, now, authorityRef.current.isActiveNow() ? new Date(now).toISOString().slice(0, 10) : undefined)); };
+    const tick = () => { if (document.hidden) return; const now = Date.now(); setGameState(prev => advanceCampus(prev, now, authorityRef.current.isActiveNow() ? new Date(now).toISOString().slice(0, 10) : undefined, !authorityRef.current.isActiveNow())); };
     const loop = setInterval(tick, 100);
     document.addEventListener('visibilitychange', tick);
     return () => { clearInterval(loop); document.removeEventListener('visibilitychange', tick); };
   }, []);
+
+  // New activity rewards remain server-confirmed. The client only renders countdowns.
+  useEffect(()=>{
+    let inFlight=false,lastAttempt=0;
+    const check=()=>{const a=authorityRef.current,s=stateRef.current,now=Date.now();if(document.hidden||!a.isActiveNow()||a.locked||a.match||a.pendingCount||inFlight||now-lastAttempt<10000)return;
+      const schedule=s.development?.schedule;
+      const due=[schedule?.blocks[schedule.completed]?.finishTime,s.scouting?.trip?.finishTime,...(s.scouting?.prospects.map(p=>p.job?.finishTime)??[])].some(t=>t!==undefined&&t<=now);
+      if(!due)return;inFlight=true;lastAttempt=now;void a.dispatch({type:'sync'}).finally(()=>{inFlight=false;});
+    };
+    const timer=setInterval(check,1000);document.addEventListener('visibilitychange',check);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',check);};
+  },[]);
 
   const spawnText = (text: string, x: number, y: number, color: string = '#fbbf24') => {
     const id = Date.now() + Math.random();
@@ -526,6 +541,17 @@ function App() {
     return true;
   };
   const centerText = (text: string, color = '#fbbf24', dy = 0) => spawnText(text, window.innerWidth / 2, window.innerHeight / 2 + dy, color);
+
+  const handleClubActivity=(action:ClubAction)=>{
+    if(battleConfig||authority.match){centerText('Finish your current raid before changing the team.');return;}
+    const confirmed=()=>{sfx.click();if(action.type==='stadium.start')productFunnel('first_kickoff',{mode:'stadium-football'});if(action.type==='stadium.collect')productFunnel('confirmed_reward',{mode:'stadium-football',matchId:action.gameId});};
+    if(protectedAction(action,confirmed))return;
+    const outcome=applyClubAction(stateRef.current,action,{now:Date.now(),random:Math.random});
+    if(!outcome.ok){centerText(outcome.message,'#fca5a5');return;}
+    stateRef.current=outcome.state;setGameState(outcome.state);confirmed();
+  };
+  useEffect(()=>{const g=gameState.stadiumFootball?.game;if(g?.phase==='final')productFunnel('result',{mode:'stadium-football',matchId:g.id,won:g.home>g.away});},[gameState.stadiumFootball?.game?.id,gameState.stadiumFootball?.game?.phase]);
+  const openPracticeField=()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);setIsSquadOpen(false);setIsScoutingOpen(false);setPracticeFieldOpen(true);};
 
   // --- HANDLERS ---
   const handleTrainGroup = (unit: UnitGroup, drillId: string) => {
@@ -796,6 +822,7 @@ function App() {
   // Open the raid picker with a fresh set of trophy-scaled rivals (no more farming 2 bases).
   // When Live Rivals is connected, also fetch REAL player bases near your trophy count.
   const openRaid = () => {
+    if(footballInProgress(stateRef.current)){centerText('Resume your Stadium football game before starting a raid.');openPlayerFacility(BuildingType.STADIUM);return;}
     preloadCoachArt(); // full portrait set, warmed only now that Game Day is actually open
     if (authority.active) {
       setRaidTargets(authority.roadTargets);
@@ -873,6 +900,7 @@ function App() {
   // Every attack costs Energy — game day isn't free, so loot means something.
   // (Defense scrimmages stay free; you're not choosing to be raided.)
   const launchAttack = (config: BattleConfig, choice?: MatchChoice, confirmed = false): boolean => {
+    if(footballInProgress(stateRef.current)||stateRef.current.development?.schedule){centerText('Finish the current team activity before starting a raid.');return false;}
     if (!confirmed) {
       setPreparedPlan('balanced');
       setOpeningHero(config.heroes?.[0]?.key);
@@ -1506,6 +1534,7 @@ function App() {
       <TopHUD onOpenClub={() => setDashboardOpen(true)} gameState={gameState} onRally={handleRally} onOpenRanks={() => { setStandingsTab('ladder'); setIsStandingsOpen(true); }} />
 
       <div className={`fhq-campus-stage absolute inset-0 ${commandCenterOpen ? "fhq-command-open" : ""}`}><IsometricMap
+        onOpenPractice={openPracticeField}
         customLayout={!!gameState.campusLayout}
         onEditCampus={() => {setSelectedBuilding(null);setCampusEditorOpen(true);}}
         heroes={gameState.heroes}
@@ -1549,8 +1578,11 @@ function App() {
         </span>
       ))}
 
+      {practiceFieldOpen&&<PracticeField club={gameState} blocked={authority.pendingCount>0||authority.locked} onAction={handleClubActivity} onClose={()=>setPracticeFieldOpen(false)} onRoster={()=>{setPracticeFieldOpen(false);openPlayerRoster();}} onStadium={()=>{setPracticeFieldOpen(false);openPlayerFacility(BuildingType.STADIUM);}}/>}
+
       {isSquadOpen && rosterInitialView === 'players' && (
         <SquadModal
+          onOpenPractice={openPracticeField}
           onOpenFacility={openPlayerFacility}
           onOpenWeightRoom={id=>{setWeightRoomPlayer(id);setRosterInitialView('training');}}
           roster={gameState.roster}
@@ -1564,10 +1596,12 @@ function App() {
         />
       )}
 
-      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom onRoster={openPlayerRoster} onOpenFacility={openPlayerFacility} club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}/>}
+      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom onAction={handleClubActivity} onPractice={openPracticeField} onRoster={openPlayerRoster} onOpenFacility={openPlayerFacility} club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openPlayerFacility(BuildingType.STADIUM);}}/>}
 
       {selectedBuilding && selectedBuilding.type!==BuildingType.TRAINING_PITCH && selectedBuilding.type!==BuildingType.YOUTH_ACADEMY && buildingInfoOpen && (
           <ActionModal
+             onAction={handleClubActivity}
+             onPractice={openPracticeField}
              onRoster={openPlayerRoster}
              onFilmArchive={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);setDefenseLogOpen(true);}}
              onGameDay={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}
@@ -1585,7 +1619,7 @@ function App() {
              onFinishNow={handleFinishNow}
              onHireBuilder={handleHireBuilder}
              onCollect={building => { const point = {x:window.innerWidth/2,y:window.innerHeight/2}; if (building.state === DrillState.COMPLETED) handleCollect(building, point); else handleCollectResource(building, point); }}
-             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true); else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
+             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true); else if (type === BuildingType.TACTICS_ROOM) openPlayerFacility(BuildingType.STADIUM); else setDashboardOpen(true); }}
              visitLabel={selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
           />
       )}
@@ -1618,7 +1652,7 @@ function App() {
               <CCBtn label="Info" emoji="💬" onClick={() => setBuildingInfoOpen(true)} />
               <CCBtn label="Level Up" emoji="🔨" accent disabled={busy || gated || !canAfford} onClick={() => setBuildingInfoOpen(true)} />
               {isStadium && <CCBtn label="Defense" emoji="🛡️" onClick={() => { setSelectedBuilding(null); setFrontOfficeOpen(true); }} />}
-              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="🏈" onClick={() => { setSelectedBuilding(null); openRaid(); }} />}
+              {b.type === BuildingType.TACTICS_ROOM && <CCBtn label="Game Day" emoji="🏈" onClick={() => openPlayerFacility(BuildingType.STADIUM)} />}
             </div>
             {!busy && <p className="max-w-sm rounded-lg bg-slate-950/95 px-3 py-2 text-center text-xs text-slate-200">{buildingEffect(b.type, b.level).label}: {buildingEffect(b.type, b.level).value} → {buildingEffect(b.type, b.level + 1).value}</p>}
           </div>
@@ -1638,12 +1672,12 @@ function App() {
 
       {campusEditorOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-50 bg-slate-950 text-white p-8">Opening campus editor…</div>}><CampusEditor state={gameState} blocked={authority.locked || !authority.ready || authority.pendingCount > 0} onApply={saveCampusDraft} onClose={()=>setCampusEditorOpen(false)} onTest={()=>{setCampusEditorOpen(false);startDefense();}} /></Suspense>}
       {/* 🏙 Club Dashboard — SimCity advisor panel, opened from the jumbotron */}
-      {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} onRoster={() => { setDashboardOpen(false); setRosterInitialView('players');setIsSquadOpen(true); }} onGameDay={() => { setDashboardOpen(false); openRaid(); }} onDefense={() => { setDashboardOpen(false); setFrontOfficeOpen(true); }} />}
+      {dashboardOpen && <ClubDashboard gs={gameState} onClose={() => setDashboardOpen(false)} onRoster={() => { setDashboardOpen(false); setRosterInitialView('players');setIsSquadOpen(true); }} onGameDay={() => { setDashboardOpen(false); openPlayerFacility(BuildingType.STADIUM); }} onDefense={() => { setDashboardOpen(false); setFrontOfficeOpen(true); }} />}
 
       {/* Attack: Season campaign ladder or a live Raid */}
       {attackSelectOpen && (
         <Sheet
-          title={<>Game Day <span className="text-[12px] font-sans font-bold normal-case tracking-normal text-slate-400 bg-slate-800 border border-slate-700 rounded-full px-2 py-0.5" title="Suiting up costs Energy — regen at the Rehab Center">⚡{RAID_ENERGY} per game</span></>}
+          title={<>Base raids <span className="text-[12px] font-sans font-bold normal-case tracking-normal text-slate-400 bg-slate-800 border border-slate-700 rounded-full px-2 py-0.5" title="Suiting up costs Energy — regen at the Rehab Center">⚡{RAID_ENERGY} per raid</span></>}
           icon={<span className="text-[22px] leading-none">🏈</span>}
           onClose={() => setAttackSelectOpen(false)}
           maxWidth="max-w-3xl"
@@ -1890,6 +1924,7 @@ function App() {
         if (!academy) return null;
         return (
           <ScoutingModal
+            onAction={handleClubActivity}
           club={gameState}
             resources={gameState.resources}
             roster={gameState.roster}
@@ -2309,7 +2344,7 @@ function App() {
         rosterOpen={isSquadOpen} heroesOpen={isHeroOpen} defenseOpen={frontOfficeOpen}
         ranksOpen={isStandingsOpen} unseenDefenses={unseenDefenses}
         onRoster={() => {setRosterInitialView('players');setIsSquadOpen(true);}} onHeroes={() => {setFocusedHero('qb');setIsHeroOpen(true);}}
-        onGameDay={openRaid} onRanks={() => setIsStandingsOpen(true)}
+        onGameDay={()=>openPlayerFacility(BuildingType.STADIUM)} onRanks={() => setIsStandingsOpen(true)}
         onDefense={() => { setFrontOfficeOpen(true); setSelectedBuilding(null); }}
       />
     </div>

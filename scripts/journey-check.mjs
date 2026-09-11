@@ -74,10 +74,11 @@ for (let round = 1; round <= rounds; round++) {
     await esc();
   }
   await nav('Game Day'); await page.waitForTimeout(600);
+  await tapInDialog(/^Base raids$/i);
   await tap(/^Next$|Prepare|Preseason Opener|Play next/i);
   await page.waitForTimeout(400);
-  line(/PREPARE YOUR GAME|game plan/i.test(await text()), `round ${round}: preparation sheet with the matchup`);
-  await tap(/Reserve game|Kick off|Play/i);
+  line(/PREPARE YOUR (GAME|RAID)|raid plan/i.test(await text()), `round ${round}: preparation sheet with the matchup`);
+  await tap(/Reserve (?:game|raid)|Kick off|Play/i);
   const field = await page.waitForSelector('[aria-label="Battlefield"]', { timeout: 30000 }).then(() => true).catch(() => false);
   line(field, `round ${round}: battle reached`);
   const drawn = new Set();

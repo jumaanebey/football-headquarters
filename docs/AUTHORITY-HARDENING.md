@@ -145,3 +145,7 @@ Future runs: `scripts/authority-evidence.ts` prints its account ids; `scripts/au
 ## Deployment reconciliation update — 2026-09-10 v4
 
 PR #41 consolidated the stack and merged as e3f8669. The v4 server artifact is now ACTIVE with JWT verification enabled; management readback matches the committed artifact exactly. The 57-check live evidence suite passed; strict deployed-current parity passed. Items 1, 2 and 16 now have the staged server fixes deployed. See AUTHORITY-RECOVERY.md for artifact/rollback details and the three additional evidence account IDs. Copy diagnostics is implemented and browser-verified in the Codex follow-up, awaiting its client release. CI workflow credentials and retention/stateVersion policy remain separate outstanding items.
+
+### Facility gameplay QA, 11 September 2026
+
+- `e774b44e-e1d7-4664-b29b-4f6444d32fb7` — Facility Loop QA; v6 schedule/scouting/Stadium evidence, 41 checks passed. Deferred cleanup; not deleted. Excluded in scripts/qa-accounts.json. Full evidence: docs/FACILITY-GAMEPLAY.md.

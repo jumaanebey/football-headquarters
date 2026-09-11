@@ -159,6 +159,9 @@ export interface UpgradeJob {
 }
 
 export interface GameState {
+  stadiumFootball?: import('./game/stadiumFootball').StadiumFootballState;
+  scouting?: import('./game/scouting').ScoutingState;
+  development?: import('./game/development').DevelopmentState;
   resources: {
     [key in ResourceType]: number;
   };

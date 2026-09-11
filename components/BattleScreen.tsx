@@ -1,3 +1,4 @@
+import {raidEntryLanes} from '../game/raidDeployment';
 import {assetUrl} from '../game/assetUrl';
 import {KitLayer} from './TeamKit';
 import {clearTeamKitFrames} from '../game/teamKit';
@@ -1247,7 +1248,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
   const attackKit=(isDefense||isReplay)?opponentStyle:teamStyle;
   const guardKit=(isDefense||isReplay)?teamStyle:opponentStyle;
   useEffect(()=>()=>clearTeamKitFrames(),[]);
-  const modeLabel=config.practice?'Practice':config.gauntlet?'Gauntlet':config.campaignStage?'Season':config.pvpTarget?'Rival game':config.mode==='defense'?'Defense test':'Away game';
+  const modeLabel=config.practice?'Practice':config.gauntlet?'Gauntlet':config.campaignStage?'Campaign raid':config.pvpTarget?'Rival raid':config.mode==='defense'?'Defense test':'Base raid';
   const s = sim.current;
   // CAMERA DRIFT: focus on whoever is trading blows right now (fall back to the
   // advancing pack), ease a small translate toward them. Capped at ±4% of the field
@@ -1386,6 +1387,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
           const spots = [[20,80],[8,80],[8,20],[20,8],[80,8],[92,20],[92,80],[80,92],[8,8],[92,92]];
           const spot = spots.find(([x,y]) => perimeterOk(x,y));
           if (!spot || !doDeployHero(pendingHero.key,spot[0],spot[1])) return;
+          record({k:'h',key:pendingHero.key,x:spot[0],y:spot[1]});
           deployedHeroesRef.current.add(pendingHero.key);
           setDeployedHeroes(prev => new Set(prev).add(pendingHero.key));
           const heroKey = pendingHero.key;
@@ -1947,6 +1949,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
                 {phase === 'fighting' && <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle"><PlanGlyph k={plan.key} size={11} className="shrink-0" /> {plan.name}</span>}
                 {instruction}
               </div>
+              {!castMode&&!isReplay&&!isDefense&&(pendingHero||pendingSpecial||(army[selected]??0)>0)&&<div className="fhq-raid-entry" aria-label="Send players by sideline"><span>Send {pendingHero?.name??pendingSpecial?.name??TROOP_STATS[selected].label}</span><div>{raidEntryLanes(s.buildings).map(lane=><button type="button" key={lane.key} disabled={!lane.point} aria-label={`Deploy ${pendingHero?.name??pendingSpecial?.name??TROOP_STATS[selected].label} from ${lane.label}`} onClick={()=>{if(lane.point){setFieldCursor(lane.point);activateField(lane.point.x,lane.point.y);}}}>{lane.label}{!lane.point?' · blocked':' ↗'}</button>)}</div></div>}
               {modernCombat && <HeroCommandBar heroes={heroes} troops={s.troops} selected={pendingHero?.key}
                 onSelect={hero => { setPendingHero(hero); setCastMode(null); setPendingSpecial(null); }} onAbility={useAbility} />}
               {/* Phones: ONE scrollable card tray (CC-style) — wrapping 18 cards into

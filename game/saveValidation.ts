@@ -1,4 +1,7 @@
 import { BuildingType, GameState, UnitGroup, PlayerRole, PlayerState, DrillState } from '../types';
+import {validStadiumFootball} from './stadiumFootball';
+import {validScouting} from './scouting';
+import {validDevelopment} from './development';
 import { parseCampusLayout } from './campusLayout';
 
 export class SaveLoadError extends Error {
@@ -27,6 +30,9 @@ export function parseSavedClub(raw: string): GameState {
   for (const field of ['lastTick', 'timeOfDay', 'trophies', 'builders', 'parkingLot', 'bonusDefSlots', 'shieldUntil', 'energyProgressMs', 'peakFans']) {
     if (field in s) require(number(s[field]), field);
   }
+  if(s.stadiumFootball!==undefined) require(validStadiumFootball(s.stadiumFootball),'Stadium football');
+  if(s.scouting!==undefined) require(validScouting(s.scouting),'scouting activities');
+  if(s.development!==undefined) require(validDevelopment(s.development),'team development');
   if (s.teamName != null) require(text(s.teamName), 'team name');
   if (s.heroes != null) require(Array.isArray(s.heroes) && s.heroes.every((h: unknown) => object(h) && text(h.key) && number(h.level)), 'heroes');
   if ('upgrades' in s) require(Array.isArray(s.upgrades) && s.upgrades.every((u: unknown) => object(u) && text(u.id) && text(u.key) && ['building', 'hero'].includes(u.kind) && number(u.toLevel) && number(u.startTime) && number(u.finishTime)), 'upgrades');
