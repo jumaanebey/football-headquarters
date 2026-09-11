@@ -1,95 +1,41 @@
-import {useEffect,useState} from 'react';
-import type {FootballEvent,StadiumFootballGame} from '../game/stadiumFootball';
-import {driveDirection} from '../game/stadiumFootball';
-import {unitPlayerSprite} from '../assets';
-import {UnitGroup} from '../types';
-
-// The drive is rendered from the event's own geometry: which side had the ball, which way it was
-// going, and the yard lines it started and ended on. Nothing here infers position from the phase
-// name or from fixed animation coordinates, so a touchdown lands in the endzone the event says it
-// did and a 12-yard gain looks like twelve yards.
-const FIELD_LEFT=95,FIELD_RIGHT=725,ENDZONE=59;
-/** Absolute yard (0 = home endzone line, 100 = away endzone line) to a screen x. */
-const xOfYard=(yard:number)=>FIELD_LEFT+Math.max(0,Math.min(100,yard))*(FIELD_RIGHT-FIELD_LEFT)/100;
-/** Where a score is placed: inside the endzone the scoring side was attacking. */
-const xOfScore=(possession:'home'|'away')=>possession==='home'?FIELD_RIGHT+ENDZONE/2:FIELD_LEFT-ENDZONE/2;
-
-export function StadiumSequence({game,level=1}:{game:StadiumFootballGame;level?:number}){
- const [t,setT]=useState(0);
- const last=game.events.at(-1);
+import {useEffect,useRef,useState} from 'react';
+import type {StadiumFootballGame} from '../game/stadiumFootball';
+import {stadiumPerformance} from '../game/presentation/stadiumPerformance';
+import {StadiumPlayer} from './StadiumPlayer';
+const sx=(x:number)=>80+x*8,sy=(y:number)=>65+y*8;
+export function StadiumSequence({game,level=1,onPlayback}:{game:StadiumFootballGame;level?:number;onPlayback?:(playing:boolean)=>void}){
+ const [landscape,setLandscape]=useState(false);
+ useEffect(()=>{const media=matchMedia('(max-height: 500px) and (orientation: landscape)');const update=()=>setLandscape(media.matches);update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
+ const [t,setT]=useState(1),[replay,setReplay]=useState(0),stop=useRef(false);
+ const last=game.events.at(-1),eventKey=`${game.id}:${last?.turn??'ready'}`;
  useEffect(()=>{
-  setT(0);
-  if(!game.events.length)return;
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches){setT(1);return;}
-  const started=Date.now();
-  const timer=setInterval(()=>{const p=Math.min(1,(Date.now()-started)/900);setT(p);if(p>=1)clearInterval(timer);},1000/30);
-  return ()=>clearInterval(timer);
- },[game.events.length]);
-
- const geometry=readGeometry(last,game);
- const p=last?t:0;
- const ballX=geometry.fromX+(geometry.toX-geometry.fromX)*p;
- const arc=geometry.kind==='field-goal'||geometry.kind==='conversion'?Math.sin(p*Math.PI)*130:geometry.kind==='pass'?Math.sin(p*Math.PI)*58:Math.sin(p*Math.PI)*12;
- const ballY=240-arc;
- // The possessing side always advances towards the endzone it attacks.
- const offenceUnit=geometry.possession==='home'?UnitGroup.OFFENSE_SKILL:UnitGroup.DEFENSE_SECONDARY;
- const defenceUnit=geometry.possession==='home'?UnitGroup.DEFENSE_LINE:UnitGroup.OFFENSE_LINE;
- const sprite=(x:number,y:number,unit:UnitGroup,index:number)=>
-  <g key={`${unit}-${index}`} transform={`translate(${x},${y})`}>
-   <ellipse cy="8" rx="13" ry="5" fill={unit===offenceUnit?'#fbc85888':'#b6ddff88'}/>
-   <image href={unitPlayerSprite(unit)} x="-16" y="-34" width="32" height="42" style={{transform:geometry.direction<0?'scaleX(-1)':undefined,transformOrigin:'center'}}/>
-  </g>;
-
- return <div className="fhq-stadium-sequence">
-  <svg viewBox="0 0 820 460" role="img" aria-label={last?`${last.title}: ${last.detail}`:'Your Stadium, ready for kickoff'}>
-   <rect width="820" height="460" fill="#10212c" rx="12"/>
-   {Array.from({length:level>=3?5:3},(_,row)=>Array.from({length:45},(_,i)=>
-    <g key={`${row}-${i}`} fill={i%3===0?'#e89533':'#47687c'}><rect x={53+i*16} y={12+row*11} width="12" height="8" rx="2"/></g>))}
-   <rect x="35" y="49" width="750" height="362" fill="#235c36" stroke="#e4edd4" strokeWidth="3"/>
-   {Array.from({length:11},(_,i)=><line key={i} x1={xOfYard(i*10)} y1="50" x2={xOfYard(i*10)} y2="410" stroke="#e4edd4" strokeWidth={i===5?3:1.5} opacity=".8"/>)}
-   {Array.from({length:9},(_,i)=><text key={i} x={xOfYard((i+1)*10)} y="402" textAnchor="middle" fontSize="13" fill="#dfeee0" opacity=".75">{(i+1)*10<=50?(i+1)*10:100-(i+1)*10}</text>)}
-   {/* Opposite endzones: the home club defends the left, attacks the right. */}
-   <rect x={FIELD_LEFT-ENDZONE} y="50" width={ENDZONE} height="360" fill="#bc682c"/>
-   <rect x={FIELD_RIGHT} y="50" width={ENDZONE} height="360" fill="#2c6abc"/>
-   <text x={FIELD_LEFT-ENDZONE/2} y="230" transform={`rotate(-90 ${FIELD_LEFT-ENDZONE/2} 230)`} fill="#ffe5ab" textAnchor="middle" fontSize="18" fontWeight="bold">HOME</text>
-   <text x={FIELD_RIGHT+ENDZONE/2} y="230" transform={`rotate(90 ${FIELD_RIGHT+ENDZONE/2} 230)`} fill="#d8ebff" textAnchor="middle" fontSize="18" fontWeight="bold">AWAY</text>
-   {/* The line of scrimmage this play began on. */}
-   <line x1={geometry.fromX} y1="56" x2={geometry.fromX} y2="404" stroke="#f9d04d" strokeWidth="2" strokeDasharray="7 6" opacity=".85"/>
-   {Array.from({length:10},(_,i)=>{
-    const y=110+(i%5)*56;
-    const spread=Math.floor(i/5)*34*geometry.direction;
-    return sprite(geometry.fromX-28*geometry.direction+spread+(ballX-geometry.fromX)*.82,y,offenceUnit,i);
-   })}
-   {Array.from({length:11},(_,i)=>{
-    const y=100+(i%6)*55;
-    const depth=(28+Math.floor(i/6)*48)*geometry.direction;
-    return sprite(geometry.fromX+depth+(ballX-geometry.fromX)*.55,y,defenceUnit,i);
-   })}
-   <ellipse cx={ballX} cy={ballY-8} rx="7" ry="4" fill="#9b5128" stroke="#fff2c2" strokeWidth="1.5"/>
-   <rect x="200" y="376" width="420" height="26" rx="8" fill="#0a201ade"/>
-   <text x="410" y="394" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#fff0cb">{!last?'AWAITING YOUR CALL':t<1?last.title:geometry.caption}</text>
+  stop.current=false;
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  if(!last||last.startYard===undefined||last.endYard===undefined||last.action==='concede'||reduced.matches){setT(1);onPlayback?.(false);return;}
+  setT(0);onPlayback?.(true);let raf=0,previous=0,elapsed=0;
+  const tick=(now:number)=>{if(stop.current||reduced.matches){setT(1);onPlayback?.(false);return;}
+   if(previous&&!document.hidden)elapsed+=Math.min(60,now-previous);previous=now;
+   const p=Math.min(1,elapsed/5200);setT(p);if(p<1)raf=requestAnimationFrame(tick);else onPlayback?.(false);
+  };
+  raf=requestAnimationFrame(tick);
+  return()=>{cancelAnimationFrame(raf);onPlayback?.(false);};
+ },[eventKey,replay,onPlayback]);
+ const scene=stadiumPerformance(game,t),cameraWidth=landscape?465:355,cameraHeight=landscape?200:310,focusX=Math.max(-5,Math.min(1040-cameraWidth,sx(scene.focus.x)-cameraWidth*.35)),focusY=Math.max(15,Math.min(545-cameraHeight,sy(scene.focus.y)-cameraHeight*.4));
+ return <div className="fhq-stadium-sequence fhq-stadium-performance" data-playback={t<1?'playing':'complete'}>
+  <svg viewBox={`${focusX} ${focusY} ${cameraWidth} ${cameraHeight}`} role="img" aria-label={t<1?scene.beat:last?`${last.title}. ${scene.beat}`:'Players lined up, awaiting your call'}>
+   <rect x="-15" y="0" width="1060" height="570" fill="#192d36"/>
+   {Array.from({length:level>=3?4:2},(_,row)=>Array.from({length:75},(_,i)=><g key={`${row}-${i}`} fill={i%4?'#7b9ba1':'#ddb45e'}><circle cx={i*14} cy={10+row*9+(t>.9&&last?.scored?-(i%3)*2:0)} r="2.6"/><rect x={i*14-3} y={13+row*9} width="6" height="4"/></g>))}
+   <rect x="0" y="65" width="960" height={53.333*8} fill="#255b3c" stroke="#e4edd4" strokeWidth="2"/>
+   <rect x="0" y="65" width="80" height={53.333*8} fill="#915f2a"/><rect x="880" y="65" width="80" height={53.333*8} fill="#305979"/>
+   <text x="40" y="280" transform="rotate(-90 40 280)" fill="#fff2c9" textAnchor="middle" fontSize="20" fontWeight="800">HOME</text><text x="920" y="280" transform="rotate(90 920 280)" fill="#e3f3ff" textAnchor="middle" fontSize="20" fontWeight="800">AWAY</text>
+   {Array.from({length:21},(_,i)=><g key={i}><line x1={sx(i*5)} x2={sx(i*5)} y1="65" y2={sy(53.333)} stroke="#e5ebd6" opacity={i%2?.22:.7}/>{i%2===0&&i>0&&i<20&&[105,460].map(y=><text key={y} x={sx(i*5)} y={y} textAnchor="middle" fontSize="13" fill="#e6ecd8">{Math.min(i*5,100-i*5)}</text>)}</g>)}
+   {Array.from({length:99},(_,i)=>[23.583,29.75].map(y=><line key={`${i}-${y}`} x1={sx(i+1)} x2={sx(i+1)} y1={sy(y)} y2={sy(y)+4} stroke="#dbe6d2" opacity=".7"/>))}
+   <line x1={sx(last?.startYard??game.yardLine)} x2={sx(last?.startYard??game.yardLine)} y1="65" y2={sy(53.333)} stroke="#ffd975" strokeDasharray="4 5" opacity=".5"/>
+   {[-10,110].map(x=><g key={x}><path d={`M${sx(x)} 233v38m-16-38v-20m32 20v-20m-32 20h32`} stroke="#f5c44d" strokeWidth="3" fill="none"/></g>)}
+   {[...scene.actors].sort((a,b)=>a.y-b.y).map(a=><StadiumPlayer key={a.id} {...a} x={sx(a.x)} y={sy(a.y)}/>)}
+   {scene.ball.visible&&<ellipse cx={sx(scene.ball.x)} cy={sy(scene.ball.y)-12} rx="5" ry="3" fill="#b17140" stroke="#fff1c2"/>}
+   {Array.from({length:14},(_,i)=><g key={i}><rect x={i*65+15} y="530" width="38" height="5" fill="#9da9a3"/><circle cx={i*65+20} cy="512" r="3.5" fill="#bf9e7d"/><path d={`M${i*65+16} 517h8v10h-8z`} fill={i%2?'#d9e4e1':'#475f70'}/></g>)}
   </svg>
-  <p>{geometry.possession==='home'?'Home possession':'Away possession'} · {last?`${geometry.caption}`:'Awaiting your call'} · {level>=3?'Expanded grandstand':'Home grandstand'}</p>
+  <div className="fhq-performance-caption"><p aria-live="polite">{scene.beat}</p>{scene.animated&&(t<1?<button onClick={()=>{stop.current=true;setT(1);onPlayback?.(false);}}>Skip animation</button>:<button onClick={()=>setReplay(r=>r+1)}>Replay play</button>)}</div>
  </div>;
-}
-
-interface Geometry {possession:'home'|'away';direction:1|-1;fromX:number;toX:number;kind:string;caption:string}
-/** Read the event's persisted geometry. Pre-rewrite events carry none: those hold a still frame at
- *  the current spot rather than animating a position the event never recorded. */
-function readGeometry(last:FootballEvent|undefined,game:StadiumFootballGame):Geometry{
- const possession=(last?.possession??game.possession??'home') as 'home'|'away';
- const direction=last?.direction??driveDirection(possession);
- if(!last||last.startYard===undefined||last.endYard===undefined){
-  const x=xOfYard(game.yardLine);
-  return {possession,direction,fromX:x,toX:x,kind:last?.action??'stop',caption:last?`${last.title}`:'Awaiting your call'};
- }
- const scored=(last.scored??0)>=6;
- const toX=scored?xOfScore(possession):last.action==='field-goal'?xOfScore(possession):xOfYard(last.endYard);
- const yards=Math.abs(last.endYard-last.startYard);
- const caption=scored?'Touchdown'
-  :last.action==='field-goal'?(last.scored===3?'Field goal is good':'Field goal missed')
-  :last.action==='conversion'?(last.scored?'Conversion good':'Conversion no good')
-  :last.action==='stop'?(yards?`${yards} yards`:'No gain')
-  :`${yards} yards`;
- return {possession,direction,fromX:xOfYard(last.startYard),toX,kind:last.action??'stop',caption};
 }

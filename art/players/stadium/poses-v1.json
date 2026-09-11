@@ -1,0 +1,263 @@
+{
+  "cellWidth": 128,
+  "cellHeight": 160,
+  "columns": 8,
+  "frames": [
+    {
+      "source": "skill",
+      "id": 16499,
+      "left": 35,
+      "top": 13,
+      "width": 251,
+      "height": 309
+    },
+    {
+      "source": "skill",
+      "id": 18070,
+      "left": 388,
+      "top": 14,
+      "width": 202,
+      "height": 309
+    },
+    {
+      "source": "skill",
+      "id": 18386,
+      "left": 691,
+      "top": 14,
+      "width": 213,
+      "height": 308
+    },
+    {
+      "source": "skill",
+      "id": 17460,
+      "left": 1005,
+      "top": 13,
+      "width": 204,
+      "height": 306
+    },
+    {
+      "source": "skill",
+      "id": 415268,
+      "left": 36,
+      "top": 331,
+      "width": 248,
+      "height": 309
+    },
+    {
+      "source": "skill",
+      "id": 415588,
+      "left": 380,
+      "top": 331,
+      "width": 220,
+      "height": 307
+    },
+    {
+      "source": "skill",
+      "id": 414653,
+      "left": 690,
+      "top": 330,
+      "width": 216,
+      "height": 311
+    },
+    {
+      "source": "skill",
+      "id": 416230,
+      "left": 1002,
+      "top": 331,
+      "width": 216,
+      "height": 310
+    },
+    {
+      "source": "skill",
+      "id": 832826,
+      "left": 41,
+      "top": 664,
+      "width": 274,
+      "height": 248
+    },
+    {
+      "source": "skill",
+      "id": 805536,
+      "left": 378,
+      "top": 642,
+      "width": 266,
+      "height": 275
+    },
+    {
+      "source": "skill",
+      "id": 809671,
+      "left": 668,
+      "top": 645,
+      "width": 245,
+      "height": 281
+    },
+    {
+      "source": "skill",
+      "id": 831295,
+      "left": 982,
+      "top": 662,
+      "width": 244,
+      "height": 256
+    },
+    {
+      "source": "skill",
+      "id": 1187725,
+      "left": 45,
+      "top": 947,
+      "width": 215,
+      "height": 289
+    },
+    {
+      "source": "skill",
+      "id": 1201775,
+      "left": 366,
+      "top": 958,
+      "width": 220,
+      "height": 277
+    },
+    {
+      "source": "skill",
+      "id": 1146999,
+      "left": 687,
+      "top": 914,
+      "width": 214,
+      "height": 310
+    },
+    {
+      "source": "skill",
+      "id": 1171147,
+      "left": 1024,
+      "top": 933,
+      "width": 206,
+      "height": 303
+    },
+    {
+      "source": "action",
+      "id": 52869,
+      "left": 45,
+      "top": 42,
+      "width": 208,
+      "height": 251
+    },
+    {
+      "source": "action",
+      "id": 28097,
+      "left": 343,
+      "top": 22,
+      "width": 251,
+      "height": 271
+    },
+    {
+      "source": "action",
+      "id": 29662,
+      "left": 634,
+      "top": 23,
+      "width": 289,
+      "height": 270
+    },
+    {
+      "source": "action",
+      "id": 37510,
+      "left": 933,
+      "top": 29,
+      "width": 308,
+      "height": 264
+    },
+    {
+      "source": "action",
+      "id": 419014,
+      "left": 43,
+      "top": 334,
+      "width": 221,
+      "height": 261
+    },
+    {
+      "source": "action",
+      "id": 413057,
+      "left": 353,
+      "top": 329,
+      "width": 230,
+      "height": 271
+    },
+    {
+      "source": "action",
+      "id": 409619,
+      "left": 637,
+      "top": 326,
+      "width": 234,
+      "height": 271
+    },
+    {
+      "source": "action",
+      "id": 452569,
+      "left": 960,
+      "top": 360,
+      "width": 280,
+      "height": 232
+    },
+    {
+      "source": "action",
+      "id": 783902,
+      "left": 63,
+      "top": 625,
+      "width": 169,
+      "height": 286
+    },
+    {
+      "source": "action",
+      "id": 784213,
+      "left": 347,
+      "top": 625,
+      "width": 241,
+      "height": 283
+    },
+    {
+      "source": "action",
+      "id": 782018,
+      "left": 655,
+      "top": 623,
+      "width": 245,
+      "height": 292
+    },
+    {
+      "source": "action",
+      "id": 784836,
+      "left": 954,
+      "top": 625,
+      "width": 272,
+      "height": 283
+    },
+    {
+      "source": "action",
+      "id": 1166369,
+      "left": 80,
+      "top": 930,
+      "width": 138,
+      "height": 291
+    },
+    {
+      "source": "action",
+      "id": 1176737,
+      "left": 348,
+      "top": 938,
+      "width": 189,
+      "height": 269
+    },
+    {
+      "source": "action",
+      "id": 1176997,
+      "left": 635,
+      "top": 938,
+      "width": 274,
+      "height": 280
+    },
+    {
+      "source": "action",
+      "id": 1168503,
+      "left": 953,
+      "top": 931,
+      "width": 256,
+      "height": 289
+    }
+  ]
+}
