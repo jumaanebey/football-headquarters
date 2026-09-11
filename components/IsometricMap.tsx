@@ -136,14 +136,14 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
           <polygon points={[tileToScreen(ARRIVAL.x1,ARRIVAL.y1),tileToScreen(road.x2,ARRIVAL.y1),tileToScreen(road.x2,ARRIVAL.y2),tileToScreen(ARRIVAL.x1,ARRIVAL.y2)].map(p=>`${p.x},${p.y}`).join(' ')} fill="#313f40" stroke="#748276" strokeWidth="3" />
           <polygon points={[tileToScreen(ARRIVAL.x1+.2,ARRIVAL.y1+.2),tileToScreen(ARRIVAL.x2-.2,ARRIVAL.y1+.2),tileToScreen(ARRIVAL.x2-.2,ARRIVAL.y2-.2),tileToScreen(ARRIVAL.x1+.2,ARRIVAL.y2-.2)].map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#c8c4a0" strokeWidth="2" />
         </g>}
-        <g data-campus-walkways stroke="#9b997b" strokeWidth="9" strokeLinecap="round" opacity=".45">
+        <g data-campus-walkways stroke="#829080" strokeWidth="22" strokeLinecap="round" opacity=".6">
           {arrival && <line x1={tileToScreen(6.6,6.6).x} y1={tileToScreen(6.6,6.6).y} x2={tileToScreen(ARRIVAL.x1,ARRIVAL.y1).x} y2={tileToScreen(ARRIVAL.x1,ARRIVAL.y1).y} />}
-          {!panorama && buildings.map(b=>{const p=tileToScreen(b.gridX+.5,b.gridY+.5);const mid=tileToScreen(5.5,5.5);return <line key={b.id} x1={p.x} y1={p.y+22} x2={mid.x} y2={mid.y} />;})}
+          {!panorama && buildings.map(b=>{const p=tileToScreen(b.gridX+.5,b.gridY+.5);const mid=tileToScreen(Math.max(field.x1-.6,Math.min(field.x2+.6,b.gridX+.5)),Math.max(field.y1-.6,Math.min(field.y2+.6,b.gridY+.5)));return <line key={b.id} x1={p.x} y1={p.y+22} x2={mid.x} y2={mid.y} />;})}
           {panorama && <line x1={tileToScreen(-2,10).x} y1={tileToScreen(-2,10).y+40} x2={tileToScreen(9,-1).x} y2={tileToScreen(9,-1).y+40} />}
         </g>
         {/* One grass plane beneath every facility: no brighter campus diamond
             cutting through their feet. Only the field's mowing stripes vary. */}
-        {showField && <polygon points={pathRing} fill="none" stroke="#a6926c" strokeWidth="15" strokeLinejoin="round" opacity=".4" />}
+        {showField && <polygon points={pathRing} fill="none" stroke="#a6926c" strokeWidth="26" strokeLinejoin="round" opacity=".65" />}
         {showField && <polygon points={pathRing} fill="none" stroke="#cec09b" strokeWidth="1" opacity=".25" />}
         {showField && <FieldPaint project={tileToScreen} x1={field.x1} y1={field.y1} x2={field.x2} y2={field.y2} lineWidth={1.25} />}
       </svg>
@@ -339,7 +339,6 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
 
 // Arrival bay and a restrained perimeter. Parked bus only; no animated traffic.
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
-  {slug:'team-bus',gridX:ARRIVAL.busX,gridY:ARRIVAL.busY,scale:.9},
   {slug:'floodlight',gridX:-1,gridY:3,scale:.9},
   {slug:'floodlight',gridX:3,gridY:-1,scale:.9},
   {slug:'tree-cluster',gridX:-2,gridY:5,scale:.9},
@@ -715,7 +714,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
     const width = campusBuildingWidth(b.type, customLayout);
     const art=artBounds[b.id];
     return art ? {left:point.x+Math.min(art.left,-125),right:point.x+Math.max(art.right,125),top:point.y+art.top-35,bottom:point.y+art.bottom+95} : {left:point.x-width/2, right:point.x+width/2,top:point.y-width+TILE_H/2,bottom:point.y+80};
-  }),...(!customLayout && !landscape?[{left:tileToScreen(ARRIVAL.x1,ARRIVAL.y2).x,right:tileToScreen(ARRIVAL.x2,ARRIVAL.y1).x,top:tileToScreen(ARRIVAL.x1,ARRIVAL.y1).y-80,bottom:tileToScreen(ARRIVAL.x2,ARRIVAL.y2).y+25}]:[])],viewport.width,viewport.height,landscape?220:260);
+  })],viewport.width,viewport.height,landscape?220:260);
   const scale = framing.scale;
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -1022,7 +1021,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
         <div ref={boardRef} data-fhq-board onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onClickCapture={e=>{if(e.detail!==0 && panMovedRef.current){e.preventDefault();e.stopPropagation();panMovedRef.current=false;}}} onDoubleClick={resetCam}
           className="absolute"
           style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x + (BOARD_W/2-framing.centerX)*scale*cam.z}px), calc(-50% + ${cam.y + (BOARD_H/2-framing.centerY)*scale*cam.z}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
-          <GroundLayer panorama={landscape} arrival={!customLayout && !landscape} showField={campusFieldClear(shownBuildings)} buildings={shownBuildings} field={edit?.field} road={edit?.road} />
+          <GroundLayer panorama={landscape} arrival={false} showField={campusFieldClear(shownBuildings)} buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
           {edit && <Jumbotron clubName={clubName} trophies={showTrophies} fans={showFans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} clickGuard={panMovedRef} />}

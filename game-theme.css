@@ -217,3 +217,22 @@ button { touch-action:manipulation; }
 .fhq-mode-tag { font-size:10px; text-transform:uppercase; color:var(--fhq-mode-color,#fbbf24); border:1px solid currentColor; border-radius:5px; padding:2px 5px; white-space:nowrap; }
 @media(max-width:700px) { .fhq-team-crest { width:32px; height:34px; font-size:12px; } }
 @media(max-height:500px) and (orientation:landscape) { .fhq-resource small { display:block; font-size:9px; line-height:1; } }
+
+/* A facility opens with its useful actions and upgrade in one view. */
+.fhq-facility-upgrade { display:flex;flex-direction:column;gap:8px;border-top:1px solid #334155;padding-top:12px; }
+.fhq-facility-styles { font-size:12px;color:#94a3b8; }
+.fhq-facility-styles summary { cursor:pointer;padding:8px 0; }
+.fhq-facility-styles > div { display:flex;flex-direction:column;gap:8px; }
+@media (max-width:600px) and (min-height:501px) {
+ .fhq-facility-art { height:90px; }
+ .fhq-facility-detail { gap:8px;font-size:13px; }
+ .fhq-facility-panel { gap:4px; }
+ .fhq-facility-detail button { min-height:42px; }
+}
+.fhq-facility-overview { display:flex;flex-direction:column;gap:8px; }
+@media (max-height:500px) and (orientation:landscape) {
+ .fhq-facility-content { grid-template-columns:18% minmax(0,1fr);gap:12px;align-items:start; }
+ .fhq-facility-detail { display:grid;grid-template-columns:1fr 1fr;gap:8px 16px; }
+ .fhq-facility-upgrade { border-top:0;border-left:1px solid #334155;padding:0 0 0 12px; }
+ .fhq-facility-styles { grid-column:1 / -1; }
+}

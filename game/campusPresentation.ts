@@ -5,8 +5,8 @@ export const CAMPUS_ANCHORS: Record<BuildingType, {gridX:number;gridY:number}> =
   [BuildingType.STADIUM]: {gridX:0,gridY:0},
   [BuildingType.TACTICS_ROOM]: {gridX:0,gridY:4},
   [BuildingType.YOUTH_ACADEMY]: {gridX:4,gridY:0},
-  [BuildingType.MEDICAL_CENTER]: {gridX:5,gridY:9},
-  [BuildingType.TRAINING_PITCH]: {gridX:9,gridY:5},
+  [BuildingType.MEDICAL_CENTER]: {gridX:5,gridY:8},
+  [BuildingType.TRAINING_PITCH]: {gridX:8,gridY:5},
 };
 export const CAMPUS_LANDSCAPE_ANCHORS: Record<BuildingType, {gridX:number;gridY:number}> = {
   [BuildingType.STADIUM]: {gridX:-2,gridY:10},

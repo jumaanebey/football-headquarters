@@ -26,7 +26,6 @@ interface Props {
 
 const fmt = (secs: number) => { const s=Math.max(0,Math.ceil(secs)); return s<60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`; };
 export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect, club, onDefense, blocked=false }) => {
-  const [tab,setTab]=useState<'overview'|'upgrade'|'growth'>('overview');
   const [era,setEra]=useState<number|null>(null);
   if(!building) return null;
   const info=BUILDING_INFO[building.type], level=building.level;
@@ -46,30 +45,29 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
     : building.state===DrillState.COMPLETED ? 'Training complete · collect your squad’s progress' : `Team readiness ${club?.teamReadiness??0}/100`;
   return <Sheet title={info.name} subtitle={`Level ${level} · ${resources.COINS.toLocaleString()} Coins available`} onClose={onClose} maxWidth="max-w-3xl">
     <div className="fhq-facility-panel">
-      <div className="fhq-facility-tabs" role="group" aria-label="Facility sections">{(['overview','upgrade','growth'] as const).map(t=><button key={t} aria-pressed={tab===t} onClick={()=>setTab(t)}>{t==='growth'?'Building styles':t}</button>)}</div>
+
       <div className="fhq-facility-content">
-        <div className="fhq-facility-art"><BuildingArt type={building.type} level={tab==='growth'?chosen:level} label={info.name} className="w-full h-full" /></div>
+        <div className="fhq-facility-art"><BuildingArt type={building.type} level={era??level} label={info.name} className="w-full h-full" /></div>
         <div className="fhq-facility-detail">
           {blocked && <p role="status" className="text-blue-300">Confirming club change…</p>}
-          {tab==='overview' && <>
+          <section className="fhq-facility-overview">
             <h3>{current.label}: {current.value}</h3><p>{status}</p>
-            {job && <p className="text-amber-300">Level {job.toLevel} upgrade · {fmt(remaining)}</p>}
             {onCollect&&collect&&<button disabled={blocked} className="fhq-facility-primary" onClick={()=>onCollect(building)}>{building.state===DrillState.COMPLETED?'Collect training':`Collect ${Math.floor(building.accrued??0)} Coins`}</button>}
             {onVisit&&<button onClick={onVisit} className="fhq-facility-primary">{visitLabel} →</button>}
             {onDefense&&building.type===BuildingType.STADIUM&&<button onClick={onDefense}>Home defense · equipment & schemes</button>}
-          </>}
-          {tab==='upgrade' && <>
-            <h3>{current.label}</h3><p className="fhq-facility-comparison">{current.value} → <strong>{next.value}</strong></p>
+          </section>
+          <section className="fhq-facility-upgrade" aria-label="Building upgrade">
+            <h3>Upgrade to level {level+1}</h3><p className="fhq-facility-comparison">{current.value} → <strong>{next.value}</strong></p>
             {job ? <><p>Level {job.toLevel} · {fmt(remaining)} remaining</p><button disabled={blocked||resources.GEMS<skipGemCost(remaining)} onClick={()=>onFinishNow(job.id)}>Finish now · {skipGemCost(remaining)} Crowns</button></>
               : gated ? <p>Requires Stadium level {level+1}</p>
               : <><button className="fhq-facility-primary" disabled={blocked||resources.COINS<cost||free<=0} onClick={()=>onUpgrade(building.id,cost)}>{free<=0?'Builders busy':resources.COINS<cost?'Need Coins':'Upgrade'} · {cost.toLocaleString()} Coins</button><p>Takes {fmt(upgradeDurationSecs(level+1))} · {free}/{builders} builders free</p></>}
-            {builders<MAX_BUILDERS&&<button disabled={blocked||resources.GEMS<hire} onClick={onHireBuilder}>Hire builder · {hire} Crowns</button>}
-          </>}
-          {tab==='growth' && <>
+            {free<=0&&builders<MAX_BUILDERS&&<button disabled={blocked||resources.GEMS<hire} onClick={onHireBuilder}>Hire builder · {hire} Crowns</button>}
+          </section>
+          <details className="fhq-facility-styles"><summary>Building appearances</summary><div>
             <h3>{BUILDING_ERAS[building.type]?.[tiers.indexOf(chosen)]??info.name}</h3><p>Level {chosen} appearance · {chosen<=level?'Unlocked':'Reach this level to unlock'}</p>
             <div className="fhq-facility-eras" role="group" aria-label="Building appearances">{tiers.map(l=><button key={l} aria-pressed={chosen===l} onClick={()=>setEra(l)}>L{l}</button>)}</div>
             <p>Appearance changes with building level. Upgrades improve {current.label.toLowerCase()}.</p>
-          </>}
+          </div></details>
         </div>
       </div>
     </div>
