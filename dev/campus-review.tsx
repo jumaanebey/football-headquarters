@@ -1,0 +1,11 @@
+import React,{useState} from 'react';
+import {createRoot} from 'react-dom/client';
+import {IsometricMap} from '../components/IsometricMap';
+import {ActionModal} from '../components/ActionModal';
+import {createInitialState} from '../game/initialState';
+import {openCampusArt} from '../game/artGate';
+import {TeamKitProvider} from '../components/TeamKit';
+import {BuildingInstance,BuildingType} from '../types';
+import '../tailwind.css';import '../game-theme.css';import '../game-motion.css';
+function Review(){const[state,setState]=useState(()=>{const s=createInitialState();s.resources.COINS=2000;s.buildings.find(b=>b.type===BuildingType.STADIUM)!.accrued=300;return s;}),[selected,setSelected]=useState<BuildingInstance|null>(null);return <TeamKitProvider name="Campus Review"><main style={{height:'100dvh',background:'#102f20'}}><div style={{position:'absolute',top:20,left:20,zIndex:50,color:'white'}}><strong>Campus Review</strong><p>Coins {state.resources.COINS} · isolated preview</p></div><IsometricMap buildings={state.buildings} players={[]} bonusOrbs={[]} heroes={state.heroes} timeOfDay={12} clubName="Campus Review" onBuildingClick={b=>setSelected(b)} onCollect={()=>{}} onOrbClick={()=>{}}/>{selected&&<ActionModal building={state.buildings.find(b=>b.id===selected.id)!} resources={state.resources} stadiumLevel={1} upgrades={state.upgrades} builders={state.builders} club={state} onClose={()=>setSelected(null)} onUpgrade={(id,cost)=>setState(s=>({...s,resources:{...s.resources,COINS:s.resources.COINS-cost},upgrades:[...s.upgrades,{id:'preview',kind:'building',key:id,toLevel:2,finishTime:Date.now()+60000,startTime:Date.now()}]}))} onFinishNow={()=>{}} onHireBuilder={()=>{}} onCollect={b=>setState(s=>({...s,buildings:s.buildings.map(x=>x.id===b.id?{...x,accrued:0}:x)}))} onDefense={()=>{}} onVisit={()=>{}} visitLabel="Open department"/>}</main></TeamKitProvider>};
+if(import.meta.env.DEV){openCampusArt();createRoot(document.getElementById('root')!).render(<Review/>)}

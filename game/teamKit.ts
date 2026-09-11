@@ -13,20 +13,24 @@ export function tintUniformPixels(pixels:Uint8ClampedArray,primary:string) {
     for(let c=0;c<3;c++)pixels[i+c]=Math.round(pixels[i+c]*(1-weight)+Math.min(255,rgb[c]*shade)*weight);
   }
 }
-const FRAME_SIZE=160,MAX_FRAMES=192;
+const MAX_FRAMES=192,MAX_BYTES=32*1024*1024;
+let cachedBytes=0;
 let sourceIds=new WeakMap<object,number>(),nextId=0;
 const frames=new Map<string,HTMLCanvasElement>();
-/** One bounded cache shared by all actors; 192×160²×4 = 18.75 MiB maximum. */
+/** Preserve source pixels; evict by actual byte size rather than shrinking every frame. */
 export function teamKitFrame(source:HTMLCanvasElement|HTMLImageElement,kit:TeamKit):HTMLCanvasElement|HTMLImageElement {
   let id=sourceIds.get(source);if(!id){id=++nextId;sourceIds.set(source,id);}
   const identity='src' in source ? `image:${source.currentSrc||source.src}` : `canvas:${id}`;
   const key=`${identity}:${kit.id}`,cached=frames.get(key);
   if(cached){frames.delete(key);frames.set(key,cached);return cached;}
-  const canvas=document.createElement('canvas');canvas.width=FRAME_SIZE;canvas.height=FRAME_SIZE;
+  const canvas=document.createElement('canvas');canvas.width=('naturalWidth' in source ? source.naturalWidth : source.width);canvas.height=('naturalHeight' in source ? source.naturalHeight : source.height);
   const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)return source;
-  try{ctx.drawImage(source,0,0,FRAME_SIZE,FRAME_SIZE);const pixels=ctx.getImageData(0,0,FRAME_SIZE,FRAME_SIZE);tintUniformPixels(pixels.data,kit.primary);ctx.putImageData(pixels,0,0);}catch{return source;}
-  frames.set(key,canvas);while(frames.size>MAX_FRAMES)frames.delete(frames.keys().next().value!);
+  try{ctx.drawImage(source,0,0,canvas.width,canvas.height);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);tintUniformPixels(pixels.data,kit.primary);ctx.putImageData(pixels,0,0);}catch{return source;}
+  const bytes=canvas.width*canvas.height*4;
+  if(bytes>MAX_BYTES)return canvas;
+  frames.set(key,canvas);cachedBytes+=bytes;
+  while(frames.size>MAX_FRAMES||cachedBytes>MAX_BYTES){const oldest=frames.keys().next().value!;const frame=frames.get(oldest)!;cachedBytes-=frame.width*frame.height*4;frames.delete(oldest);}
   return canvas;
 }
-export const teamKitCacheStats=()=>({frames:frames.size,maxFrames:MAX_FRAMES,maxBytes:MAX_FRAMES*FRAME_SIZE*FRAME_SIZE*4});
-export function clearTeamKitFrames(){frames.clear();sourceIds=new WeakMap();nextId=0;}
+export const teamKitCacheStats=()=>({frames:frames.size,maxFrames:MAX_FRAMES,bytes:cachedBytes,maxBytes:MAX_BYTES});
+export function clearTeamKitFrames(){frames.clear();cachedBytes=0;sourceIds=new WeakMap();nextId=0;}
