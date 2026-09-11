@@ -11,12 +11,12 @@ export function stadiumPerformance(game:StadiumFootballGame,time:number):Stadium
  const start=e?.startYard??game.yardLine,end=e?.endYard??start,valid=e?.startYard!==undefined&&e?.endYard!==undefined;
  const kind=eventKind(e),active=!!e&&valid;
  const name=(slot:string)=>!away?game.lineup?.players.find(p=>p.id===game.lineup?.slots[slot as keyof typeof game.lineup.slots])?.name:undefined;
- if(active&&kind==='return'){
-  const lane=e.call.includes('left')?'left':e.call.includes('right')?'right':'middle';
+ if((active&&kind==='return')||(!e&&game.phase==='return')){
+  const lane=e?.call.includes('left')?'left':e?.call.includes('right')?'right':'middle';
   const s=returnPerformance(start,end,lane,t,d);
   const actors=s.actors.map((a,i):StageActor=>({id:a.id,x:a.x,y:a.y,away:a.side==='return'?away:!away,facing:a.side==='return'?d:(-d as 1|-1),large:a.role==='Blocker',
-   pose:a.id==='returner'?(t<.1?14:t<.18?15:t>.4&&t<.5?9:t===1?11:cycle(t)):a.role==='Blocker'?(t<.15?16:t<.45?17:18+Math.floor(t*8+i)%2):a.role==='Pursuit'?(t===1?23:4+cycle(t,i)):(t<.3?21:22),label:a.id==='returner'?name('RECEIVER')??'Returner':undefined}));
-  return {actors,ball:t<.12?{x:lerp(start+35*d,start,at(t,0,.12)),y:26.667-Math.sin(at(t,0,.12)*Math.PI)*8,visible:true}:{...s.ball,visible:false},focus:s.ball,beat:t===1?e.title:s.beat,animated:true};
+   pose:!active?(a.id==='returner'?12:a.side==='return'?16:20):a.id==='returner'?(t<.1?14:t<.18?15:t>.4&&t<.5?9:t===1?11:cycle(t)):a.role==='Blocker'?(t<.15?16:t<.45?17:18+Math.floor(t*8+i)%2):a.role==='Pursuit'?(t===1?23:4+cycle(t,i)):(t<.3?21:22),label:a.id==='returner'?name('RECEIVER')??'Returner':undefined}));
+  return {actors,ball:active&&t<.12?{x:lerp(start+35*d,start,at(t,0,.12)),y:26.667-Math.sin(at(t,0,.12)*Math.PI)*8,visible:true}:{...s.ball,visible:false},focus:s.ball,beat:!active?'Kickoff unit set · awaiting your call':t===1?e!.title:s.beat,animated:active};
  }
  const isKick=kind==='kick',isRun=kind==='run',a=active?at(t,.14,.9):0;
  const targetY=isRun?29:e?.play==='flood'?43:e?.play==='verticals'?12:20;

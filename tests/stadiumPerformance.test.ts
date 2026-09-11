@@ -4,6 +4,11 @@ import type {FootballEvent,StadiumFootballGame} from '../game/stadiumFootball';
 const event:FootballEvent={turn:1,phase:'offense',call:'zone',title:'They gain 12 yards',detail:'',home:0,away:0,yards:12,play:'slants',action:'stop',possession:'away',direction:-1,startYard:60,endYard:48,scored:0};
 const game=(e:FootballEvent)=>({id:'presentation',opponent:'harbor',phase:'finish',turn:2,startedAt:0,home:0,away:0,yardLine:e.endYard,ratings:{attack:40,defense:40,speed:15,power:15,iq:15,readiness:0,mastery:{}},events:[e],collected:false,reward:0,possession:e.possession,v:2} as StadiumFootballGame);
 describe('Stadium performance',()=>{
+ it('sets the kickoff unit before the first call without inventing a play',()=>{
+  const initial={...game(event),events:[],phase:'return' as const};
+  const s=stadiumPerformance(initial,0);
+  expect(s.actors.some(a=>a.id==='returner')).toBe(true);expect(s.animated).toBe(false);expect(s.ball.visible).toBe(false);
+ });
  it('renders 11 per side and respects persisted direction and finish',()=>{
   const s=stadiumPerformance(game(event),1);
   expect(s.actors).toHaveLength(22);expect(s.actors.filter(a=>a.away)).toHaveLength(11);
