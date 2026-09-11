@@ -1,3 +1,6 @@
+import {LineupBoard} from './LineupBoard';
+import {lineupView} from '../game/lineup';
+import type {ClubAction} from '../game/authority/clubActions';
 import {unitPower} from '../battle';
 import {playerWork,journeyTime} from '../game/presentation/clubJourney';
 import {indoorGroupName} from '../game/indoorPlayers';
@@ -7,18 +10,20 @@ import {TENDENCIES,type TendencyKey} from '../constants';
 import {IndoorPlayer} from './IndoorPlayer';
 import {Sheet} from './ui';
 interface Props{
- roster:Player[];club:GameState;blocked:boolean;playerFilter:UnitGroup|null;
+ onAction?:(action:ClubAction)=>void;roster:Player[];club:GameState;blocked:boolean;playerFilter:UnitGroup|null;
  onFilterChange:(unit:UnitGroup|null)=>void;onClose:()=>void;onCutPlayer?:(id:string)=>void;onScout?:()=>void;
  onOpenPractice?:(id?:string)=>void;onOpenWeightRoom:(playerId?:string)=>void;onOpenFacility?:(type:BuildingType,id?:string)=>void;
 }
-export const SquadModal:React.FC<Props>=({roster,club,blocked,playerFilter,onFilterChange,onClose,onCutPlayer,onScout,onOpenWeightRoom,onOpenFacility,onOpenPractice})=>{
+export const SquadModal:React.FC<Props>=({onAction,roster,club,blocked,playerFilter,onFilterChange,onClose,onCutPlayer,onScout,onOpenWeightRoom,onOpenFacility,onOpenPractice})=>{
  const[search,setSearch]=useState(''),[sort,setSort]=useState('power'),[release,setRelease]=useState<string|null>(null);
  const shown=roster.filter(p=>(!playerFilter||p.unit===playerFilter)&&`${p.name} ${p.role} ${p.rarity}`.toLowerCase().includes(search.trim().toLowerCase())).sort((a,b)=>(sort==='growth'?a.level-b.level:unitPower(b)-unitPower(a))||a.name.localeCompare(b.name));
+ const lineup=lineupView(club);
  const mean=Math.round(roster.reduce((sum,p)=>sum+unitPower(p),0)/Math.max(1,roster.length));
  const openWork=(p:Player)=>{const work=playerWork(club,p.id);if(work.destination==='practice')onOpenPractice?.(p.id);else if(work.destination==='weights')onOpenWeightRoom(p.id);else onOpenFacility?.(work.destination==='film'?BuildingType.TACTICS_ROOM:BuildingType.MEDICAL_CENTER,p.id)};
  return <Sheet title="Your roster" subtitle={`${roster.length} athletes · ${mean} average Power`} onClose={onClose} maxWidth="max-w-6xl">
   <div className="fhq-roster-workspace">
    <header className="fhq-roster-intro"><div><small>BUILD YOUR TEAM</small><h3>Know your players. Grow their game.</h3><p>Choose an attribute to plan that athlete’s group session.</p></div><button onClick={onScout}>Scout a player ↗</button></header>
+   {onAction&&<LineupBoard club={club} blocked={blocked} onAction={onAction}/>}
    <div className="fhq-roster-filters">
     <input aria-label="Find a player" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Find a player or position"/>
     <select aria-label="Player group" value={playerFilter??'all'} onChange={e=>onFilterChange(e.target.value==='all'?null:e.target.value as UnitGroup)}><option value="all">All positions</option>{Object.entries(indoorGroupName).map(([key,name])=><option key={key} value={key}>{name}</option>)}</select>
@@ -29,7 +34,7 @@ export const SquadModal:React.FC<Props>=({roster,club,blocked,playerFilter,onFil
    <div className="fhq-roster-grid">{shown.map(p=>{
     const work=playerWork(club,p.id),trait=TENDENCIES[p.tendency as TendencyKey],busy=work.state!=='available';
     return <article key={p.id} className="fhq-athlete-card" aria-label={`${p.name}, ${p.role}, level ${p.level}`} data-player-id={p.id}>
-     <div className="fhq-athlete-heading"><div className="fhq-athlete-art"><IndoorPlayer unit={p.unit} label={`${p.name} in club practice kit`}/></div><div><small>{p.role} · {p.rarity} · L{p.level}</small><h3>{p.name}</h3><span className="fhq-athlete-status" data-state={work.state}>{work.title}</span></div><div className="fhq-athlete-power"><strong>{unitPower(p)}</strong><small>Power</small></div></div>
+     <div className="fhq-athlete-heading"><div className="fhq-athlete-art"><IndoorPlayer unit={p.unit} label={`${p.name} in club practice kit`}/></div><div><small>{p.role} · {p.rarity} · L{p.level}</small><h3>{p.name}</h3><span className="fhq-athlete-status" data-state={work.state}>{lineup.slots.find(s=>s.playerId===p.id)?.label??"Reserve"} · {work.title}</span></div><div className="fhq-athlete-power"><strong>{unitPower(p)}</strong><small>Power</small></div></div>
      <div className="fhq-athlete-development" aria-label={`${p.name} development`}>
       <button aria-label={`Train ${p.name} Strength in Weight Room`} onClick={()=>onOpenWeightRoom(p.id)}><span>Strength</span><strong>{p.stats.strength}<small> / {p.maxStat}</small></strong><span>Weight Room ↗</span></button>
       <button aria-label={`Train ${p.name} Speed at Practice Field`} onClick={()=>onOpenPractice?.(p.id)}><span>Speed</span><strong>{p.stats.speed}<small> / {p.maxStat}</small></strong><span>Practice Field ↗</span></button>

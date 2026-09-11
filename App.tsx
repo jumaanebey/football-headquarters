@@ -1407,14 +1407,14 @@ function App() {
   // ✂️ CUT a player — frees a roster spot so you can scout better talent.
   // Floor of 6: you can't cut your way below a fieldable squad.
   const handleCutPlayer = (id: string) => {
-    if (protectedAction({ type: 'recruit.cut', playerId: id }, () => { sfx.click(); centerText('Released to free agency ✂️', '#94a3b8'); })) return;
-    setGameState(prev => {
-      if (prev.roster.length <= 6) { sfx.error(); return prev; }
-      const p = prev.roster.find(pl => pl.id === id);
-      if (!p) return prev;
-      return { ...prev, roster: prev.roster.filter(pl => pl.id !== id) };
-    });
-    if (gameState.roster.length > 6) { sfx.click(); spawnText('Released to free agency ✂️', window.innerWidth / 2, window.innerHeight / 2, '#94a3b8'); }
+    const showRelease=(receipt:AuthorityActionReceipt|null)=>{
+      const repaired=receipt&&'repaired' in receipt&&Array.isArray(receipt.repaired)?receipt.repaired:[];
+      sfx.click();centerText(repaired.length?`Player released · lineup reassigned: ${repaired.join(', ')}`:'Player released · starters unchanged','#94a3b8');
+    };
+    if(protectedAction({type:'recruit.cut',playerId:id},showRelease))return;
+    const result=applyClubAction(stateRef.current,{type:'recruit.cut',playerId:id},{now:Date.now(),random:Math.random});
+    if(!result.ok){centerText(result.message,'#fca5a5');return;}
+    stateRef.current=result.state;setGameState(result.state);showRelease(result.result);
   };
 
   // 🧪 TEST DEFENSE: run a scrimmage against your own base — see the Front Office
@@ -1593,6 +1593,7 @@ function App() {
 
       {isSquadOpen && rosterInitialView === 'players' && (
         <SquadModal
+          onAction={handleClubActivity}
           onOpenPractice={openPracticeField}
           onOpenFacility={openPlayerFacility}
           onOpenWeightRoom={id=>{setWeightRoomPlayer(id);setRosterInitialView('training');}}

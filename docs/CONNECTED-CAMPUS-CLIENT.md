@@ -28,3 +28,13 @@ The Claude handoff is `docs/CLAUDE-CONNECTED-CLUB-HANDOFF.md`. Claude owns lineu
 Still open: active lineup UI awaiting its rule contract; Stadium decision improvements; meaningful group training tradeoffs and longer away schedules; differentiated prospect relationships; individual player art (position groups still share art); larger raid mechanics work. This PR does not replace or claim completion of those items.
 
 Nothing from this branch has been deployed.
+
+## Integration with PR #85
+
+Claude's exact head `70f0973` is merged into this client branch; his branch is unchanged. Starting slots, reserves, swap preview and confirmed `lineup.set` now render in Roster. Existing Stadium games explicitly retain the kickoff lineup. Local player release now uses the authority reducer and reports repaired slots instead of bypassing lineup repair.
+
+Native ESM inspection found a real startup crash in `stadiumFootballLegacy.ts`: a top-level `void STADIUM_OPPONENTS` accessed a cyclic import before initialization. Removed that evaluation, retaining all legacy arithmetic. Corrected redundant yard-line articles, malformed defensive-look grammar, and duplicate actor chips. Authority v9 was regenerated for these integration fixes.
+
+Approved derived art is now used by the loader, with original-art fallback: 40.96 MB → 6.04 MB including the roster atlas. All image dimensions and alpha pixels are exact; RGB uses quality-90 WebP, no resizing or repainting. `npm run art:players -- --check` checks source/output hashes and dimensions. Authored originals remain untouched.
+
+Integrated offline release: 740 tests and all eleven offline release stages pass. Native browser: reserve Tank replaces Fridge, Attack preview 38→36 equals confirmation and survives reload; Stadium preview is 36; both possessions played to a 3–0 final and explicit 100-Coin result. The automated Chrome suite cannot launch in this environment (SIGABRT/EPERM), including after network permission was granted. This is an execution limitation, not a passing browser budget result. Transfer budgets remain unchanged.

@@ -187,7 +187,7 @@ export function footballCalls(game:StadiumFootballGame):{key:string;name:string;
  }
  case 'finish':{
   if(!mine)return [
-   {key:'pressure',name:'Pressure the kicker',detail:'A block ends it; a miss costs you nothing.'},
+   {key:'pressure',name:'Pressure the kicker',detail:'A block ends their possession; a miss gives up no points.'},
    {key:'contain',name:'Defend the goal line',detail:'Keeps the runner in front of you if they go for it.'}];
   const distance=fieldGoalDistance(game.possession??'home',game.yardLine);
   const toGo=yardsToGoal(game.possession??'home',game.yardLine);
@@ -285,7 +285,7 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
    }
    const yards=Math.round(bounded(base,8,52));
    const end=advance(possession,game.yardLine,yards);
-   return {title:`Return to the ${describeYard(end)}`,detail:`${COVERAGE_TEXT[coverage]} ${quality.note} ${yards} yards on the return.`,yards,action:'return',scored:0,actors:actor('RECEIVER','speed'),endPhase:'offense',endYard:end};
+   return {title:`Return to ${describeYard(end)}`,detail:`${COVERAGE_TEXT[coverage]} ${quality.note} ${yards} yards on the return.`,yards,action:'return',scored:0,actors:actor('RECEIVER','speed'),endPhase:'offense',endYard:end};
   }
   const squib=call==='squib';
   const threat=bounded(.18-defAdv*.12,.03,.35);
@@ -294,7 +294,7 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
   }
   const yards=Math.round(bounded((squib?16:28)-defAdv*8+roll*10,6,48));
   const end=advance(possession,game.yardLine,yards);
-  return {title:`They start at the ${describeYard(end)}`,detail:squib?'The squib kick kept the return short and handed them the field position.':'Your coverage team made the tackle after a full return.',yards,action:'kick',scored:0,actors:actor('COVER','speed'),endPhase:'offense',endYard:end};
+  return {title:`They start at ${describeYard(end)}`,detail:squib?'The squib kick kept the return short and handed them the field position.':'Your coverage team made the tackle after a full return.',yards,action:'kick',scored:0,actors:actor('COVER','speed'),endPhase:'offense',endYard:end};
  }
  case 'offense':{
   if(mine){
@@ -307,7 +307,7 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
    const scoreChance=bounded(.2+advantage*.24+(answers?.16:-.06)+(talent-15)*.004+r.readiness*.0008+mastery*.008-(toGoal/260),.04,.9);
    const failChance=PLAY_RISK[play]*(answers?.6:1.35);
    const actors=[...actor(SLOT_FOR_PLAY[play],ATTRIBUTE_FOR_PLAY[play]),...actor(play==='power'?'LINE1':'QB',play==='power'?'power':'iq')];
-   const base=`${FOOTBALL_PLAYS[play]?.name??play} against ${LOOK_TEXT[look].toLowerCase().replace(/^they /,'a defense that is ').replace(/\.$/,'')}. ${answers?'The call answered their look.':'Their look was set up against it.'} Mastery ${mastery}/20.`;
+   const base=`${FOOTBALL_PLAYS[play]?.name??play} against ${LOOK_TEXT[look].toLowerCase().replace(/^they are /,'a defense ').replace(/\.$/,'')}. ${answers?'The call answered their look.':'Their look was set up against it.'} Mastery ${mastery}/20.`;
    if(roll<scoreChance){
     return {title:'Touchdown!',detail:`${base} ${toGoal} yards, all at once.`,yards:toGoal,action:'touchdown',scored:6,actors,endPhase:'conversion',endYard:possession==='home'?ENDZONE.away:ENDZONE.home,play,scoringSide};
    }
@@ -316,7 +316,7 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
    }
    const yards=Math.round(bounded(8+advantage*9+roll*14+(answers?6:0),1,Math.max(1,toGoal-1)));
    const end=advance(possession,game.yardLine,yards);
-   return {title:`${yards} yards to the ${describeYard(end)}`,detail:`${base} One decision left on this possession.`,yards,action:play==='power'?'run':'pass',scored:0,actors,endPhase:'finish',endYard:end,play};
+   return {title:`${yards} yards to ${describeYard(end)}`,detail:`${base} One decision left on this possession.`,yards,action:play==='power'?'run':'pass',scored:0,actors,endPhase:'finish',endYard:end,play};
   }
   const theirRoll=seeded(game.seed??0,`theirplay:${game.possessionIndex??0}`);
   const theirPlay:FootballPlay=theirRoll<.34?'slants':theirRoll<.67?'verticals':'power';
@@ -333,7 +333,7 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
   }
   const yards=Math.round(bounded(7-defAdv*7+roll*12+(counters?-4:4),1,Math.max(1,toGoal-1)));
   const end=advance(possession,game.yardLine,yards);
-  return {title:`They gain ${yards} to the ${describeYard(end)}`,detail:`Your ${call} against ${name}. ${counters?'The call took their first option away.':'They found the space your call left.'}`,yards,action:'stop',scored:0,actors,endPhase:'finish',endYard:end,play:theirPlay};
+  return {title:`They gain ${yards} to ${describeYard(end)}`,detail:`Your ${call} against ${name}. ${counters?'The call took their first option away.':'They found the space your call left.'}`,yards,action:'stop',scored:0,actors,endPhase:'finish',endYard:end,play:theirPlay};
  }
  case 'finish':{
   const toGoal=yardsToGoal(possession,game.yardLine);

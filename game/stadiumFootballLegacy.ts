@@ -65,4 +65,3 @@ export const legacyCollectReward=(club:GameState,now:number,state:StadiumFootbal
  const collected:GameState={...club,resources:{...club.resources,COINS:club.resources.COINS+old.reward},stadiumFootball:{game:next,history:[{id:old.id,opponent:old.opponent,home:old.home,away:old.away,reward:old.reward,at:now},...state.history].slice(0,20)}};
  return old.home>old.away?progressClubDaily(collected,'win_attack'):collected;
 };
-void FOOTBALL_PLAYS; void STADIUM_OPPONENTS;

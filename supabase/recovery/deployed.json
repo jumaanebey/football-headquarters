@@ -18,10 +18,10 @@
   "staged": {
     "version": 9,
     "artifact": "supabase/recovery/club-authority.v9.min.js",
-    "sha256": "3e904d7f490a2f018422251cf299705f085720473b0b371feb33fb8c2835a116",
+    "sha256": "90ae3d20bcd33ab2bd58c60af7135ea51edd0421314858526de17b3620cb7bf2",
     "rules": "raid-tactics-5",
     "commit": null,
-    "note": "Connected club milestone: Stadium two-possession rules (game version 2), the lineup.set action and lineup-derived Stadium ratings. Raid rules are unchanged at raid-tactics-5; hero-actions-3, defense-counters-4 and raid-tactics-5 films remain supported, and pre-rewrite Stadium games keep the frozen legacy resolver. Not deployed: Codex coordinates one release."
+    "note": "Connected club milestone: Stadium two-possession rules (game version 2), the lineup.set action and lineup-derived Stadium ratings. Raid rules are unchanged at raid-tactics-5; hero-actions-3, defense-counters-4 and raid-tactics-5 films remain supported, and pre-rewrite Stadium games keep the frozen legacy resolver. Not deployed: Codex coordinates one release. Integration removes an eager legacy-module constant read that crashes native ESM; legacy rule arithmetic unchanged."
   },
   "rollback": {
     "healthy": "Retain v8 when rolling the frontend back. v7 can replay the same raid-tactics-5 snapshots if an authority rollback is necessary; it issues the earlier road curve. Do not restore v6 while raid-tactics-5 matches can settle, or v5 while facility activity state exists.",

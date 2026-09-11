@@ -22,13 +22,13 @@ const decoded=new Map<Activity,Promise<HTMLCanvasElement[][]>>();
 function loadFrames(activity:Activity){
  const cached=decoded.get(activity);if(cached)return cached;
  const job=new Promise<HTMLCanvasElement[][]>((resolve,reject)=>{
-  const image=new Image();
+  const image=new Image();let alpha=activity==='practice';
   image.onload=()=>{try{resolve(atlases[activity].bounds.map(poses=>poses.map(({x,y,w,h})=>{
    const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
    const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw new Error('Canvas unavailable');
-   ctx.drawImage(image,x,y,w,h,0,0,w,h);const data=ctx.getImageData(0,0,w,h);keyIndoorMatte(data.data);ctx.putImageData(data,0,0);return canvas;
+   ctx.drawImage(image,x,y,w,h,0,0,w,h);const data=ctx.getImageData(0,0,w,h);if(!alpha)keyIndoorMatte(data.data);ctx.putImageData(data,0,0);return canvas;
   })));}catch(error){decoded.delete(activity);reject(error);}};
-  image.onerror=()=>{decoded.delete(activity);reject(new Error('Player artwork unavailable'));};image.src=atlases[activity].src;
+  image.onerror=()=>{if(alpha){alpha=false;image.src=atlases[activity].src;return;}decoded.delete(activity);reject(new Error('Player artwork unavailable'));};image.src=alpha?new URL('../art/players/indoor-atlas-v1.alpha.webp',import.meta.url).href:atlases[activity].src;
  });decoded.set(activity,job);return job;
 }
 /** Indoor practice art. No game state changes or outdoor/battle art requests. */

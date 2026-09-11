@@ -41,7 +41,7 @@ describe('hero art loader', () => {
     const a = loadHeroArt('elite', 'qb'), b = loadHeroArt('elite', 'qb');
     expect(a).toBe(b); expect(heroArtInFlight('elite', 'qb')).toBe(true);
     await flush();
-    expect(requests).toEqual(['/assets/heroes/elite/qb.webp']);
+    expect(requests).toEqual(['/assets/heroes/elite/qb.alpha.webp']);
     expect((await a).length).toBe(9);
     expect(heroArtIfReady('elite', 'qb')?.length).toBe(9);
     expect(heroArtIfReady('motion', 'qb')).toBeNull(); // nothing else was requested as a side effect
@@ -49,7 +49,7 @@ describe('hero art loader', () => {
   it('loads motion, reactions and signatures as independent requests', async () => {
     const { loadHeroArt } = await load();
     const motion = loadHeroArt('motion', 'qb'); const signature = loadHeroArt('signature', 'qb'); const reaction = loadHeroArt('reaction', 'qb');
-    expect(requests.sort()).toEqual(['/assets/heroes/motion/qb.webp', '/assets/heroes/reactions/qb.webp', '/assets/heroes/signatures/qb.webp']);
+    expect(requests.sort()).toEqual(['/assets/heroes/motion/qb.alpha.webp', '/assets/heroes/reactions/qb.alpha.webp', '/assets/heroes/signatures/qb.alpha.webp']);
     const first = pending.shift()!; first(); await tick();
     expect((await motion).length).toBe(32);
     let signatureDone = false; void signature.then(() => { signatureDone = true; });
@@ -62,16 +62,23 @@ describe('hero art loader', () => {
   it('forgets a failed download so the next call retries, and the retry helper retries after a delay', async () => {
     vi.useFakeTimers();
     const { loadHeroArt, loadHeroArtWithRetry, heroArtIfReady } = await load();
-    failing.add('/assets/heroes/motion/enforcer.webp');
+    failing.add('/assets/heroes/motion/enforcer.alpha.webp'); failing.add('/assets/heroes/motion/enforcer.webp');
     await expect((async () => { const p = loadHeroArt('motion', 'enforcer'); await flush(); return p; })()).rejects.toThrow('Hero art unavailable');
     expect(heroArtIfReady('motion', 'enforcer')).toBeNull();
     const retried = loadHeroArtWithRetry('motion', 'enforcer');
     await flush(); // first attempt fails
-    failing.delete('/assets/heroes/motion/enforcer.webp');
+    failing.delete('/assets/heroes/motion/enforcer.alpha.webp'); failing.delete('/assets/heroes/motion/enforcer.webp');
     await vi.advanceTimersByTimeAsync(2500);
     await flush();
     expect((await retried).length).toBe(32);
-    expect(requests.filter(r => r.includes('motion/enforcer')).length).toBe(3);
+    expect(requests.filter(r => r.includes('motion/enforcer')).length).toBe(5);
+  });
+  it('falls back to the original when the derived sheet is unavailable', async()=>{
+    const {loadHeroArt}=await load();
+    failing.add('/assets/heroes/elite/qb.alpha.webp');
+    const result=loadHeroArt('elite','qb');await flush();
+    expect((await result).length).toBe(9);
+    expect(requests).toEqual(['/assets/heroes/elite/qb.alpha.webp','/assets/heroes/elite/qb.webp']);
   });
   it('campus sheets wait for the art gate and validate their layout', async () => {
     const { loadHeroArt, gate } = await load();
@@ -105,7 +112,7 @@ describe('hero art loader', () => {
     vi.stubGlobal('window', { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: true }) });
     const { warmHeroArt } = await load();
     warmHeroArt(['enforcer']); await flush();
-    expect(requests).toEqual(['/assets/heroes/elite/enforcer.webp']);
+    expect(requests).toEqual(['/assets/heroes/elite/enforcer.alpha.webp']);
   });
 });
 
@@ -119,7 +126,7 @@ describe('warming handles and decoded-art lifecycle', () => {
     const firstOutcome = await first.done;
     expect(firstOutcome.cancelled).toBe(true);
     await flush(); await flush();
-    const heroes = new Set(requests.filter(Boolean).map(r => r.split('/').pop()!.replace('.webp', '')));
+    const heroes = new Set(requests.filter(Boolean).map(r => r.split('/').pop()!.replace(/(?:\.alpha)?\.webp$/, '')));
     expect([...heroes].every(h => ['coach', 'kicker', 'qb'].includes(h))).toBe(true); // only what had started plus the new selection
     for (const never of ['burner', 'medic', 'captain']) expect(heroes.has(never), never).toBe(false); // the queued rest of the stale selection is never requested
     expect(heroArtStats().entries.some(e => e.key === 'burner')).toBe(false);
