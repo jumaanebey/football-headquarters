@@ -8,7 +8,7 @@ import {indoorGroupName} from '../game/indoorPlayers';
 import {Sheet} from './ui';
 
 const WORKOUTS:Record<string,string>={sled_push:'Strength circuit',routes:'Explosive movement',tackle_dummy:'Power circuit',coverage:'Agility circuit',scrimmage:'Whole-team conditioning'};
-export function WeightRoom({club,blocked,initialPlayer,onClose,onStart,onCollect,onUpgrade,onGameDay}:{club:GameState;blocked:boolean;initialPlayer?:string;onClose:()=>void;onStart:(unit:GameState['roster'][number]['unit'],id:string)=>void;onCollect:(b:BuildingInstance)=>void;onUpgrade:(id:string,cost:number)=>void;onGameDay:()=>void}){
+export function WeightRoom({club,blocked,initialPlayer,onClose,onStart,onCollect,onUpgrade,onGameDay,onRoster,onOpenFacility}:{club:GameState;blocked:boolean;initialPlayer?:string;onClose:()=>void;onStart:(unit:GameState['roster'][number]['unit'],id:string)=>void;onCollect:(b:BuildingInstance)=>void;onUpgrade:(id:string,cost:number)=>void;onGameDay:()=>void;onRoster?:()=>void;onOpenFacility?:(type:BuildingType)=>void}){
  const [selected,setSelected]=useState(initialPlayer??club.roster[0]?.id);const[now,setNow]=useState(Date.now());
  const [celebrate,setCelebrate]=useState<{name:string;level:number;count:number}|null>(null);
  const previous=useRef(new Map(club.roster.map(p=>[p.id,p.level])));
@@ -35,6 +35,7 @@ export function WeightRoom({club,blocked,initialPlayer,onClose,onStart,onCollect
  <WeightRoomScene participants={participants} selected={player.id} working={working} ready={ready} onSelect={setSelected}/>
 
  <div className={`fhq-weight-session ${active?'':'is-idle'}`} aria-live="polite">{active?<><strong>{WORKOUTS[active.id]??active.name}</strong><span>{ready?'Ready to collect':remaining?`${remaining}s remaining`:'Finishing your workout…'}</span><progress max="1" value={ready?1:progress}/><small>{participants.map(p=>p.name).join(' · ')}</small></>:<><strong>Your team’s home for growth</strong><span>Quick sessions. Permanent player improvements.</span></>}</div>
+ <nav className="fhq-player-room-nav" aria-label="Continue with your players"><button onClick={onRoster}>Your roster</button><button onClick={()=>onOpenFacility?.(BuildingType.MEDICAL_CENTER)}>Recovery</button><button onClick={()=>onOpenFacility?.(BuildingType.TACTICS_ROOM)}>Film Room</button></nav>
  </section>
  <section className="fhq-weight-controls">
  {celebrate&&<div className="fhq-weight-earned" role="status"><strong>Level {celebrate.level} · {celebrate.name}</strong><p>{celebrate.count} teammates improved. +1 Strength, Speed and IQ each.</p><button onClick={onGameDay}>Take your stronger team to Game Day →</button></div>}

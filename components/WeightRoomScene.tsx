@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import type {Player} from '../types';
+import {stationExercise,EXERCISE_LABELS} from '../game/campusActivities';
 import {IndoorPlayer} from './IndoorPlayer';
 
 const interior = new URL('../art/rooms/weight-room-interior-v3.webp', import.meta.url).href;
@@ -22,12 +23,12 @@ export function WeightRoomScene({participants,selected,working,ready,onSelect}:{
       alt="Inside the campus Weight Room: timber beams, orange trim, black padded benches, dumbbell racks and a turf lane"
       onError={()=>setFailed(true)}/>
     {!failed&&visible.map((p,i)=>{
-      const spot=SPOTS[visible.length<=3?i+3:i];
+      const spot=SPOTS[visible.length<=3?i+3:i],exercise=stationExercise(participants.indexOf(p));
       return <button type="button" key={p.id} className="fhq-weight-room-player" aria-pressed={selected===p.id}
-        aria-label={`Follow ${p.name}, ${p.role}, level ${p.level}${working?', working out':ready?', workout complete':''}`}
+        aria-label={`Follow ${p.name}, ${p.role}, level ${p.level}${working?', '+EXERCISE_LABELS[exercise]:ready?', workout complete':''}`}
         onClick={()=>onSelect(p.id)} style={{left:`${spot.x}%`,top:`${spot.y}%`,height:`${spot.height}%`}}>
-        <IndoorPlayer unit={p.unit} working={working} offset={i*.37}/>
-        <span className="fhq-room-player-label">{selected===p.id?p.name:p.role}<small>L{p.level}{working?' · In session':ready?' · Ready':''}</small></span>
+        <IndoorPlayer unit={p.unit} working={working} exercise={exercise} offset={i*.37}/>
+        <span className="fhq-room-player-label">{selected===p.id?p.name:p.role}<small>L{p.level}{working?' · '+EXERCISE_LABELS[exercise]:ready?' · Ready':''}</small></span>
       </button>;
     })}
     {participants.length>6&&<div className="fhq-weight-room-overflow">+{participants.length-6} teammates in this session · choose a player below to follow them</div>}
