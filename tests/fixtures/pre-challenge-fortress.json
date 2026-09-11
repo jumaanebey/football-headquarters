@@ -1,0 +1,1487 @@
+{
+  "v": 2,
+  "rules": "raid-tactics-5",
+  "seed": 771,
+  "plan": "balanced",
+  "heroes": [
+    {
+      "key": "qb",
+      "name": "The Franchise",
+      "ability": "hailmary",
+      "abilityName": "Hail Mary",
+      "abilityDesc": "Gain 300 + 4× your yardage stat against the closest facility",
+      "unit": "OFFENSE_SKILL",
+      "hp": 1326,
+      "dps": 154.7,
+      "speed": 13,
+      "range": 9,
+      "color": "#f59e0b",
+      "emoji": "🎯",
+      "art": "/assets/heroes/qb.webp",
+      "level": 10
+    },
+    {
+      "key": "enforcer",
+      "name": "The Enforcer",
+      "ability": "truckstick",
+      "abilityName": "Truck Stick",
+      "abilityDesc": "Plant, drive forward and burst on contact. Refill grit and gain 6 seconds of double yardage.",
+      "unit": "DEFENSE_LINE",
+      "hp": 2541,
+      "dps": 132.6,
+      "speed": 10,
+      "range": 4,
+      "color": "#7c3aed",
+      "emoji": "🚛",
+      "art": "/assets/heroes/enforcer.webp",
+      "level": 10
+    },
+    {
+      "key": "coach",
+      "name": "The General",
+      "ability": "motivation",
+      "abilityName": "Inspire",
+      "abilityDesc": "Give nearby teammates 4 seconds of Blitz",
+      "unit": "OFFENSE_LINE",
+      "hp": 2100,
+      "dps": 99.44999999999999,
+      "speed": 8,
+      "range": 4,
+      "color": "#10b981",
+      "emoji": "📋",
+      "art": "/assets/heroes/coach.webp",
+      "level": 10
+    },
+    {
+      "key": "kicker",
+      "name": "The Specialist",
+      "ability": "onside_bomb",
+      "abilityName": "Onside Bomb",
+      "abilityDesc": "Gain 500 yards against the closest facility and 250 against nearby facilities",
+      "unit": "OFFENSE_SKILL",
+      "hp": 1050,
+      "dps": 193.37499999999997,
+      "speed": 12,
+      "range": 12,
+      "color": "#3b82f6",
+      "emoji": "🏈",
+      "art": "/assets/heroes/kicker.webp",
+      "level": 10
+    },
+    {
+      "key": "burner",
+      "name": "The Burner",
+      "ability": "burner_dash",
+      "abilityName": "Jet Sweep",
+      "abilityDesc": "Dash to the closest facility with 2.5 seconds of Blitz",
+      "unit": "OFFENSE_SKILL",
+      "hp": 1215,
+      "dps": 176.79999999999998,
+      "speed": 18,
+      "range": 5,
+      "color": "#ef4444",
+      "emoji": "🔥",
+      "art": "/assets/heroes/burner.webp",
+      "level": 10
+    },
+    {
+      "key": "medic",
+      "name": "Dr. Sloane",
+      "ability": "field_medic",
+      "abilityName": "Field Medic",
+      "abilityDesc": "Restore 35% of nearby teammates’ maximum grit, plus 5 seconds of recovery",
+      "unit": "DEFENSE_SECONDARY",
+      "hp": 1657,
+      "dps": 55.24999999999999,
+      "speed": 13,
+      "range": 6,
+      "color": "#22c55e",
+      "emoji": "⛑️",
+      "art": "/assets/heroes/medic.webp",
+      "level": 10
+    },
+    {
+      "key": "captain",
+      "name": "The Captain",
+      "ability": "shield_wall",
+      "abilityName": "Shield Wall",
+      "abilityDesc": "Nearby teammates take half pressure for 5 seconds",
+      "unit": "DEFENSE_SECONDARY",
+      "hp": 2431,
+      "dps": 88.39999999999999,
+      "speed": 11,
+      "range": 4,
+      "color": "#0ea5e9",
+      "emoji": "🛡️",
+      "art": "/assets/heroes/captain.webp",
+      "level": 10
+    },
+    {
+      "key": "playmaker",
+      "name": "The Playmaker",
+      "ability": "trick_play",
+      "abilityName": "Trick Play",
+      "abilityDesc": "Bring three extra skill players onto the field",
+      "unit": "OFFENSE_SKILL",
+      "hp": 1381,
+      "dps": 165.74999999999997,
+      "speed": 16,
+      "range": 7,
+      "color": "#ec4899",
+      "emoji": "🎩",
+      "art": "/assets/heroes/playmaker.webp",
+      "level": 10
+    },
+    {
+      "key": "legend",
+      "name": "The Legend",
+      "ability": "hall_of_fame",
+      "abilityName": "Hall of Fame",
+      "abilityDesc": "Refill your whole squad’s grit and give them 6 seconds of Blitz",
+      "unit": "OFFENSE_SKILL",
+      "hp": 2873,
+      "dps": 220.99999999999997,
+      "speed": 14,
+      "range": 8,
+      "color": "#a855f7",
+      "emoji": "👑",
+      "art": "/assets/heroes/legend.webp",
+      "level": 10
+    }
+  ],
+  "specials": [],
+  "layout": [
+    {
+      "id": "hq",
+      "kind": "hq",
+      "x": 50,
+      "y": 50,
+      "hp": 15058,
+      "size": 8,
+      "formation": "maxprotect"
+    },
+    {
+      "id": "d1",
+      "kind": "defense",
+      "x": 38,
+      "y": 32,
+      "hp": 4876,
+      "size": 5,
+      "damage": 446,
+      "range": 26
+    },
+    {
+      "id": "d2",
+      "kind": "defense",
+      "x": 62,
+      "y": 32,
+      "hp": 4876,
+      "size": 5,
+      "damage": 446,
+      "range": 26
+    },
+    {
+      "id": "d3",
+      "kind": "defense",
+      "x": 32,
+      "y": 62,
+      "hp": 4876,
+      "size": 5,
+      "damage": 446,
+      "range": 26
+    },
+    {
+      "id": "d4",
+      "kind": "defense",
+      "x": 68,
+      "y": 62,
+      "hp": 4876,
+      "size": 5,
+      "damage": 446,
+      "range": 26
+    },
+    {
+      "id": "d5",
+      "kind": "defense",
+      "x": 50,
+      "y": 68,
+      "hp": 4876,
+      "size": 5,
+      "damage": 446,
+      "range": 26
+    },
+    {
+      "id": "b1",
+      "kind": "building",
+      "x": 44,
+      "y": 44,
+      "hp": 3155,
+      "size": 5
+    },
+    {
+      "id": "b2",
+      "kind": "building",
+      "x": 56,
+      "y": 44,
+      "hp": 3155,
+      "size": 5
+    },
+    {
+      "id": "w1",
+      "kind": "wall",
+      "x": 63,
+      "y": 50,
+      "hp": 4876,
+      "size": 4
+    },
+    {
+      "id": "w2",
+      "kind": "wall",
+      "x": 59,
+      "y": 59,
+      "hp": 4876,
+      "size": 4
+    },
+    {
+      "id": "w3",
+      "kind": "wall",
+      "x": 50,
+      "y": 63,
+      "hp": 4876,
+      "size": 4
+    },
+    {
+      "id": "w4",
+      "kind": "wall",
+      "x": 41,
+      "y": 59,
+      "hp": 4876,
+      "size": 4
+    },
+    {
+      "id": "w5",
+      "kind": "wall",
+      "x": 37,
+      "y": 50,
+      "hp": 4876,
+      "size": 4
+    },
+    {
+      "id": "w6",
+      "kind": "wall",
+      "x": 41,
+      "y": 41,
+      "hp": 4876,
+      "size": 4
+    },
+    {
+      "id": "w7",
+      "kind": "wall",
+      "x": 50,
+      "y": 37,
+      "hp": 4876,
+      "size": 4
+    },
+    {
+      "id": "w8",
+      "kind": "wall",
+      "x": 59,
+      "y": 41,
+      "hp": 4876,
+      "size": 4
+    },
+    {
+      "id": "xd0",
+      "kind": "defense",
+      "flavor": "tshirt",
+      "x": 30,
+      "y": 50,
+      "hp": 3155,
+      "size": 5,
+      "damage": 446,
+      "range": 23
+    },
+    {
+      "id": "xd1",
+      "kind": "defense",
+      "flavor": "ref",
+      "x": 70,
+      "y": 50,
+      "hp": 3155,
+      "size": 5,
+      "damage": 446,
+      "range": 23
+    },
+    {
+      "id": "xd2",
+      "kind": "defense",
+      "flavor": "sled",
+      "x": 50,
+      "y": 30,
+      "hp": 3155,
+      "size": 5,
+      "damage": 446,
+      "range": 23
+    },
+    {
+      "id": "xd3",
+      "kind": "defense",
+      "flavor": "cooler",
+      "x": 50,
+      "y": 70,
+      "hp": 3155,
+      "size": 5,
+      "damage": 446,
+      "range": 23
+    },
+    {
+      "id": "xd4",
+      "kind": "defense",
+      "flavor": "ref",
+      "x": 38,
+      "y": 64,
+      "hp": 3155,
+      "size": 5,
+      "damage": 446,
+      "range": 23
+    }
+  ],
+  "script": [
+    {
+      "k": "t",
+      "u": "OFFENSE_LINE",
+      "tick": 0,
+      "x": 95,
+      "y": 50
+    },
+    {
+      "k": "t",
+      "u": "OFFENSE_LINE",
+      "tick": 0,
+      "x": 95,
+      "y": 95
+    },
+    {
+      "k": "t",
+      "u": "OFFENSE_LINE",
+      "tick": 0,
+      "x": 50,
+      "y": 95
+    },
+    {
+      "k": "t",
+      "u": "OFFENSE_SKILL",
+      "tick": 0,
+      "x": 5,
+      "y": 95
+    },
+    {
+      "k": "t",
+      "u": "OFFENSE_SKILL",
+      "tick": 0,
+      "x": 5,
+      "y": 50
+    },
+    {
+      "k": "t",
+      "u": "OFFENSE_SKILL",
+      "tick": 0,
+      "x": 5,
+      "y": 5
+    },
+    {
+      "k": "t",
+      "u": "DEFENSE_LINE",
+      "tick": 0,
+      "x": 50,
+      "y": 5
+    },
+    {
+      "k": "t",
+      "u": "DEFENSE_LINE",
+      "tick": 0,
+      "x": 95,
+      "y": 5
+    },
+    {
+      "k": "t",
+      "u": "DEFENSE_SECONDARY",
+      "tick": 0,
+      "x": 95,
+      "y": 50
+    },
+    {
+      "k": "t",
+      "u": "DEFENSE_SECONDARY",
+      "tick": 0,
+      "x": 95,
+      "y": 95
+    },
+    {
+      "k": "h",
+      "key": "qb",
+      "tick": 0,
+      "x": 50,
+      "y": 95
+    },
+    {
+      "k": "h",
+      "key": "enforcer",
+      "tick": 0,
+      "x": 5,
+      "y": 95
+    },
+    {
+      "k": "h",
+      "key": "coach",
+      "tick": 0,
+      "x": 5,
+      "y": 50
+    },
+    {
+      "k": "h",
+      "key": "kicker",
+      "tick": 0,
+      "x": 5,
+      "y": 5
+    },
+    {
+      "k": "h",
+      "key": "burner",
+      "tick": 0,
+      "x": 50,
+      "y": 5
+    },
+    {
+      "k": "h",
+      "key": "medic",
+      "tick": 0,
+      "x": 95,
+      "y": 5
+    },
+    {
+      "k": "h",
+      "key": "captain",
+      "tick": 0,
+      "x": 95,
+      "y": 50
+    },
+    {
+      "k": "h",
+      "key": "playmaker",
+      "tick": 0,
+      "x": 95,
+      "y": 95
+    },
+    {
+      "k": "h",
+      "key": "legend",
+      "tick": 0,
+      "x": 50,
+      "y": 95
+    },
+    {
+      "k": "o",
+      "key": "focus",
+      "targetId": "d1",
+      "tick": 0
+    },
+    {
+      "k": "o",
+      "key": "protect",
+      "targetId": "hero_qb_11",
+      "u": "OFFENSE_LINE",
+      "tick": 0
+    },
+    {
+      "k": "o",
+      "key": "push",
+      "x": 5,
+      "y": 50,
+      "u": "DEFENSE_SECONDARY",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "qb",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "enforcer",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "coach",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "kicker",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "burner",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "medic",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "captain",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "playmaker",
+      "tick": 0
+    },
+    {
+      "k": "a",
+      "key": "legend",
+      "tick": 0
+    },
+    {
+      "k": "o",
+      "key": "auto",
+      "tick": 100
+    },
+    {
+      "k": "a",
+      "key": "kicker",
+      "tick": 220
+    },
+    {
+      "k": "a",
+      "key": "legend",
+      "tick": 220
+    },
+    {
+      "k": "a",
+      "key": "legend",
+      "tick": 440
+    },
+    {
+      "k": "a",
+      "key": "legend",
+      "tick": 660
+    },
+    {
+      "k": "a",
+      "key": "legend",
+      "tick": 880
+    },
+    {
+      "k": "a",
+      "key": "legend",
+      "tick": 1100
+    }
+  ],
+  "squad": [
+    {
+      "id": "ol1",
+      "name": "Big Mike",
+      "role": "OL",
+      "unit": "OFFENSE_LINE",
+      "rarity": "COMMON",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 20,
+        "y": 20,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 20,
+        "y": 20,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#94a3b8",
+      "tendency": "general"
+    },
+    {
+      "id": "ol2",
+      "name": "Tank",
+      "role": "OL",
+      "unit": "OFFENSE_LINE",
+      "rarity": "COMMON",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 22,
+        "y": 22,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 22,
+        "y": 22,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#94a3b8",
+      "tendency": "wildcard"
+    },
+    {
+      "id": "ol3",
+      "name": "Fridge",
+      "role": "OL",
+      "unit": "OFFENSE_LINE",
+      "rarity": "RARE",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 24,
+        "y": 20,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 24,
+        "y": 20,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#94a3b8",
+      "tendency": "blitzer"
+    },
+    {
+      "id": "qb1",
+      "name": "Ace QB",
+      "role": "QB",
+      "unit": "OFFENSE_SKILL",
+      "rarity": "EPIC",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 30,
+        "y": 30,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 30,
+        "y": 30,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#ef4444",
+      "tendency": "anchor"
+    },
+    {
+      "id": "wr1",
+      "name": "Speedy",
+      "role": "WR",
+      "unit": "OFFENSE_SKILL",
+      "rarity": "RARE",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 35,
+        "y": 25,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 35,
+        "y": 25,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#ef4444",
+      "tendency": "blitzer"
+    },
+    {
+      "id": "rb1",
+      "name": "Power Back",
+      "role": "RB",
+      "unit": "OFFENSE_SKILL",
+      "rarity": "COMMON",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 32,
+        "y": 35,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 32,
+        "y": 35,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#ef4444",
+      "tendency": "ironwall"
+    },
+    {
+      "id": "dl1",
+      "name": "Crusher",
+      "role": "DL",
+      "unit": "DEFENSE_LINE",
+      "rarity": "RARE",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 60,
+        "y": 60,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 60,
+        "y": 60,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#3b82f6",
+      "tendency": "wildcard"
+    },
+    {
+      "id": "lb1",
+      "name": "Hawk",
+      "role": "LB",
+      "unit": "DEFENSE_LINE",
+      "rarity": "COMMON",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 65,
+        "y": 62,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 65,
+        "y": 62,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#3b82f6",
+      "tendency": "ironwall"
+    },
+    {
+      "id": "cb1",
+      "name": "Island",
+      "role": "CB",
+      "unit": "DEFENSE_SECONDARY",
+      "rarity": "EPIC",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 70,
+        "y": 30,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 70,
+        "y": 30,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#1e40af",
+      "tendency": "blitzer"
+    },
+    {
+      "id": "s1",
+      "name": "Viper",
+      "role": "S",
+      "unit": "DEFENSE_SECONDARY",
+      "rarity": "RARE",
+      "level": 1,
+      "stats": {
+        "strength": 10,
+        "speed": 10,
+        "iq": 10
+      },
+      "maxStat": 50,
+      "worldPos": {
+        "x": 75,
+        "y": 35,
+        "z": 0
+      },
+      "targetPos": {
+        "x": 75,
+        "y": 35,
+        "z": 0
+      },
+      "state": "IDLE",
+      "avatarColor": "#1e40af",
+      "tendency": "anchor"
+    }
+  ],
+  "snapshot": {
+    "mode": "attack",
+    "title": "Pre-challenge v7 fortress reservation",
+    "buildings": [
+      {
+        "id": "hq",
+        "kind": "hq",
+        "x": 50,
+        "y": 50,
+        "hp": 15058,
+        "size": 8,
+        "formation": "maxprotect"
+      },
+      {
+        "id": "d1",
+        "kind": "defense",
+        "x": 38,
+        "y": 32,
+        "hp": 4876,
+        "size": 5,
+        "damage": 446,
+        "range": 26
+      },
+      {
+        "id": "d2",
+        "kind": "defense",
+        "x": 62,
+        "y": 32,
+        "hp": 4876,
+        "size": 5,
+        "damage": 446,
+        "range": 26
+      },
+      {
+        "id": "d3",
+        "kind": "defense",
+        "x": 32,
+        "y": 62,
+        "hp": 4876,
+        "size": 5,
+        "damage": 446,
+        "range": 26
+      },
+      {
+        "id": "d4",
+        "kind": "defense",
+        "x": 68,
+        "y": 62,
+        "hp": 4876,
+        "size": 5,
+        "damage": 446,
+        "range": 26
+      },
+      {
+        "id": "d5",
+        "kind": "defense",
+        "x": 50,
+        "y": 68,
+        "hp": 4876,
+        "size": 5,
+        "damage": 446,
+        "range": 26
+      },
+      {
+        "id": "b1",
+        "kind": "building",
+        "x": 44,
+        "y": 44,
+        "hp": 3155,
+        "size": 5
+      },
+      {
+        "id": "b2",
+        "kind": "building",
+        "x": 56,
+        "y": 44,
+        "hp": 3155,
+        "size": 5
+      },
+      {
+        "id": "w1",
+        "kind": "wall",
+        "x": 63,
+        "y": 50,
+        "hp": 4876,
+        "size": 4
+      },
+      {
+        "id": "w2",
+        "kind": "wall",
+        "x": 59,
+        "y": 59,
+        "hp": 4876,
+        "size": 4
+      },
+      {
+        "id": "w3",
+        "kind": "wall",
+        "x": 50,
+        "y": 63,
+        "hp": 4876,
+        "size": 4
+      },
+      {
+        "id": "w4",
+        "kind": "wall",
+        "x": 41,
+        "y": 59,
+        "hp": 4876,
+        "size": 4
+      },
+      {
+        "id": "w5",
+        "kind": "wall",
+        "x": 37,
+        "y": 50,
+        "hp": 4876,
+        "size": 4
+      },
+      {
+        "id": "w6",
+        "kind": "wall",
+        "x": 41,
+        "y": 41,
+        "hp": 4876,
+        "size": 4
+      },
+      {
+        "id": "w7",
+        "kind": "wall",
+        "x": 50,
+        "y": 37,
+        "hp": 4876,
+        "size": 4
+      },
+      {
+        "id": "w8",
+        "kind": "wall",
+        "x": 59,
+        "y": 41,
+        "hp": 4876,
+        "size": 4
+      },
+      {
+        "id": "xd0",
+        "kind": "defense",
+        "flavor": "tshirt",
+        "x": 30,
+        "y": 50,
+        "hp": 3155,
+        "size": 5,
+        "damage": 446,
+        "range": 23
+      },
+      {
+        "id": "xd1",
+        "kind": "defense",
+        "flavor": "ref",
+        "x": 70,
+        "y": 50,
+        "hp": 3155,
+        "size": 5,
+        "damage": 446,
+        "range": 23
+      },
+      {
+        "id": "xd2",
+        "kind": "defense",
+        "flavor": "sled",
+        "x": 50,
+        "y": 30,
+        "hp": 3155,
+        "size": 5,
+        "damage": 446,
+        "range": 23
+      },
+      {
+        "id": "xd3",
+        "kind": "defense",
+        "flavor": "cooler",
+        "x": 50,
+        "y": 70,
+        "hp": 3155,
+        "size": 5,
+        "damage": 446,
+        "range": 23
+      },
+      {
+        "id": "xd4",
+        "kind": "defense",
+        "flavor": "ref",
+        "x": 38,
+        "y": 64,
+        "hp": 3155,
+        "size": 5,
+        "damage": 446,
+        "range": 23
+      }
+    ],
+    "loot": {
+      "coins": 9887,
+      "fans": 327
+    },
+    "squad": [
+      {
+        "id": "ol1",
+        "name": "Big Mike",
+        "role": "OL",
+        "unit": "OFFENSE_LINE",
+        "rarity": "COMMON",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 20,
+          "y": 20,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 20,
+          "y": 20,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#94a3b8",
+        "tendency": "general"
+      },
+      {
+        "id": "ol2",
+        "name": "Tank",
+        "role": "OL",
+        "unit": "OFFENSE_LINE",
+        "rarity": "COMMON",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 22,
+          "y": 22,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 22,
+          "y": 22,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#94a3b8",
+        "tendency": "wildcard"
+      },
+      {
+        "id": "ol3",
+        "name": "Fridge",
+        "role": "OL",
+        "unit": "OFFENSE_LINE",
+        "rarity": "RARE",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 24,
+          "y": 20,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 24,
+          "y": 20,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#94a3b8",
+        "tendency": "blitzer"
+      },
+      {
+        "id": "qb1",
+        "name": "Ace QB",
+        "role": "QB",
+        "unit": "OFFENSE_SKILL",
+        "rarity": "EPIC",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 30,
+          "y": 30,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 30,
+          "y": 30,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#ef4444",
+        "tendency": "anchor"
+      },
+      {
+        "id": "wr1",
+        "name": "Speedy",
+        "role": "WR",
+        "unit": "OFFENSE_SKILL",
+        "rarity": "RARE",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 35,
+          "y": 25,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 35,
+          "y": 25,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#ef4444",
+        "tendency": "blitzer"
+      },
+      {
+        "id": "rb1",
+        "name": "Power Back",
+        "role": "RB",
+        "unit": "OFFENSE_SKILL",
+        "rarity": "COMMON",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 32,
+          "y": 35,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 32,
+          "y": 35,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#ef4444",
+        "tendency": "ironwall"
+      },
+      {
+        "id": "dl1",
+        "name": "Crusher",
+        "role": "DL",
+        "unit": "DEFENSE_LINE",
+        "rarity": "RARE",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 60,
+          "y": 60,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 60,
+          "y": 60,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#3b82f6",
+        "tendency": "wildcard"
+      },
+      {
+        "id": "lb1",
+        "name": "Hawk",
+        "role": "LB",
+        "unit": "DEFENSE_LINE",
+        "rarity": "COMMON",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 65,
+          "y": 62,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 65,
+          "y": 62,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#3b82f6",
+        "tendency": "ironwall"
+      },
+      {
+        "id": "cb1",
+        "name": "Island",
+        "role": "CB",
+        "unit": "DEFENSE_SECONDARY",
+        "rarity": "EPIC",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 70,
+          "y": 30,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 70,
+          "y": 30,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#1e40af",
+        "tendency": "blitzer"
+      },
+      {
+        "id": "s1",
+        "name": "Viper",
+        "role": "S",
+        "unit": "DEFENSE_SECONDARY",
+        "rarity": "RARE",
+        "level": 1,
+        "stats": {
+          "strength": 10,
+          "speed": 10,
+          "iq": 10
+        },
+        "maxStat": 50,
+        "worldPos": {
+          "x": 75,
+          "y": 35,
+          "z": 0
+        },
+        "targetPos": {
+          "x": 75,
+          "y": 35,
+          "z": 0
+        },
+        "state": "IDLE",
+        "avatarColor": "#1e40af",
+        "tendency": "anchor"
+      }
+    ],
+    "playerArmy": {
+      "OFFENSE_LINE": 3,
+      "OFFENSE_SKILL": 3,
+      "DEFENSE_LINE": 2,
+      "DEFENSE_SECONDARY": 2
+    },
+    "heroes": [
+      {
+        "key": "qb",
+        "name": "The Franchise",
+        "ability": "hailmary",
+        "abilityName": "Hail Mary",
+        "abilityDesc": "Gain 300 + 4× your yardage stat against the closest facility",
+        "unit": "OFFENSE_SKILL",
+        "hp": 1326,
+        "dps": 154.7,
+        "speed": 13,
+        "range": 9,
+        "color": "#f59e0b",
+        "emoji": "🎯",
+        "art": "/assets/heroes/qb.webp",
+        "level": 10
+      },
+      {
+        "key": "enforcer",
+        "name": "The Enforcer",
+        "ability": "truckstick",
+        "abilityName": "Truck Stick",
+        "abilityDesc": "Plant, drive forward and burst on contact. Refill grit and gain 6 seconds of double yardage.",
+        "unit": "DEFENSE_LINE",
+        "hp": 2541,
+        "dps": 132.6,
+        "speed": 10,
+        "range": 4,
+        "color": "#7c3aed",
+        "emoji": "🚛",
+        "art": "/assets/heroes/enforcer.webp",
+        "level": 10
+      },
+      {
+        "key": "coach",
+        "name": "The General",
+        "ability": "motivation",
+        "abilityName": "Inspire",
+        "abilityDesc": "Give nearby teammates 4 seconds of Blitz",
+        "unit": "OFFENSE_LINE",
+        "hp": 2100,
+        "dps": 99.44999999999999,
+        "speed": 8,
+        "range": 4,
+        "color": "#10b981",
+        "emoji": "📋",
+        "art": "/assets/heroes/coach.webp",
+        "level": 10
+      },
+      {
+        "key": "kicker",
+        "name": "The Specialist",
+        "ability": "onside_bomb",
+        "abilityName": "Onside Bomb",
+        "abilityDesc": "Gain 500 yards against the closest facility and 250 against nearby facilities",
+        "unit": "OFFENSE_SKILL",
+        "hp": 1050,
+        "dps": 193.37499999999997,
+        "speed": 12,
+        "range": 12,
+        "color": "#3b82f6",
+        "emoji": "🏈",
+        "art": "/assets/heroes/kicker.webp",
+        "level": 10
+      },
+      {
+        "key": "burner",
+        "name": "The Burner",
+        "ability": "burner_dash",
+        "abilityName": "Jet Sweep",
+        "abilityDesc": "Dash to the closest facility with 2.5 seconds of Blitz",
+        "unit": "OFFENSE_SKILL",
+        "hp": 1215,
+        "dps": 176.79999999999998,
+        "speed": 18,
+        "range": 5,
+        "color": "#ef4444",
+        "emoji": "🔥",
+        "art": "/assets/heroes/burner.webp",
+        "level": 10
+      },
+      {
+        "key": "medic",
+        "name": "Dr. Sloane",
+        "ability": "field_medic",
+        "abilityName": "Field Medic",
+        "abilityDesc": "Restore 35% of nearby teammates’ maximum grit, plus 5 seconds of recovery",
+        "unit": "DEFENSE_SECONDARY",
+        "hp": 1657,
+        "dps": 55.24999999999999,
+        "speed": 13,
+        "range": 6,
+        "color": "#22c55e",
+        "emoji": "⛑️",
+        "art": "/assets/heroes/medic.webp",
+        "level": 10
+      },
+      {
+        "key": "captain",
+        "name": "The Captain",
+        "ability": "shield_wall",
+        "abilityName": "Shield Wall",
+        "abilityDesc": "Nearby teammates take half pressure for 5 seconds",
+        "unit": "DEFENSE_SECONDARY",
+        "hp": 2431,
+        "dps": 88.39999999999999,
+        "speed": 11,
+        "range": 4,
+        "color": "#0ea5e9",
+        "emoji": "🛡️",
+        "art": "/assets/heroes/captain.webp",
+        "level": 10
+      },
+      {
+        "key": "playmaker",
+        "name": "The Playmaker",
+        "ability": "trick_play",
+        "abilityName": "Trick Play",
+        "abilityDesc": "Bring three extra skill players onto the field",
+        "unit": "OFFENSE_SKILL",
+        "hp": 1381,
+        "dps": 165.74999999999997,
+        "speed": 16,
+        "range": 7,
+        "color": "#ec4899",
+        "emoji": "🎩",
+        "art": "/assets/heroes/playmaker.webp",
+        "level": 10
+      },
+      {
+        "key": "legend",
+        "name": "The Legend",
+        "ability": "hall_of_fame",
+        "abilityName": "Hall of Fame",
+        "abilityDesc": "Refill your whole squad’s grit and give them 6 seconds of Blitz",
+        "unit": "OFFENSE_SKILL",
+        "hp": 2873,
+        "dps": 220.99999999999997,
+        "speed": 14,
+        "range": 8,
+        "color": "#a855f7",
+        "emoji": "👑",
+        "art": "/assets/heroes/legend.webp",
+        "level": 10
+      }
+    ]
+  },
+  "finalHash": "ba2f5a7a",
+  "ticks": 1201
+}

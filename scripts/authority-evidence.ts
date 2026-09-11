@@ -106,6 +106,14 @@ const main = async () => {
     const cancelled = await call(A, op(A, 'match.cancel', { matchId }));
     check(cancelled.ok === true && cancelled.result.refunded === false, `A: cancel a started game → released, refunded=${cancelled.result?.refunded}`);
   }
+  // Current issuance curve: server owns the exact fortress and the client replays it.
+  {
+    const road = await playMatch(A, {kind:'road',choice:2}, 'fortress road raid');
+    if (!road) throw new Error('fortress road play failed');
+    check(road.config.roadChallenge === 'fortress' && road.config.buildings.filter(b => b.kind === 'defense').every(b => (b.level ?? 0) >= 1), 'A: server issued the new fortress challenge with equipment levels');
+    const again = await call(A, road.finishOp);
+    check(again.ok === true && canonicalJson(again.result) === canonicalJson(road.settled.result), 'A: fortress finish retry returns the identical reward receipt');
+  }
   // A's saved upgrade: Stadium L1→L2 (server timer), then settle it.
   const st = await call(A, { kind: 'status' });
   const stadium = st.club.state.buildings.find((b: any) => b.type === 'STADIUM');

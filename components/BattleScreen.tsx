@@ -1,3 +1,4 @@
+import { hashDefenseFlavor } from '../battle';
 import { reachableRally } from '../game/raidOrderAccess';
 import { RaidOrders, RaidOrderOverlay, raidTargetName, type RaidAim } from './RaidOrders';
 import {raidEntryLanes} from '../game/raidDeployment';
@@ -247,11 +248,6 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
   // Turrets without an explicit flavor take one from the same id-hash that picks their
   // sprite — so every turret BEHAVES like it LOOKS. h%4===0 stays generic (football lobs,
   // 0.7s cadence — matches the jugs-machine art it renders).
-  const hashFlavor = (id: string): BattleBuildingDef['flavor'] => {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    return ([undefined, 'sled', 'ref', 'tshirt'] as const)[h % 4];
-  };
   const sim = useRef<{ troops: BTroop[]; guards: BTroop[]; buildings: BBuilding[]; shots: Shot[]; pulses: Pulse[]; fx: Fx[]; puddles: { x: number; y: number; r: number; life: number; maxLife: number }[]; shakeT: number; punchT: number; time: number; ended: boolean; guardT: number; warned: boolean; commentary: { text: string; t: number }; momentum: number; pancakes: number; lost: number; bonus: number; freezeT: number; goalLine: boolean; crowdT?: number; ticks: number; mascotOut: boolean; mascotT: number; nextWave: number; banner: { label: string; until: number; key: number } | null }>({
     troops: (config.preTroops || []).map(t => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
@@ -267,7 +263,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
         return { id: `hg${++troopUid}`, unit: g.unit ?? UnitGroup.DEFENSE_LINE, x: gx, y: gy, hp: g.hp, maxHp: g.hp, dps: g.dps, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: g.jersey, guardArt: g.art } as BTroop & { guardArt?: string };
       });
     })(),
-    buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
+    buildings: config.buildings.map(b => ({ ...b, flavor: b.flavor ?? (b.kind === 'defense' ? hashDefenseFlavor(b.id) : undefined), maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [], pulses: [], fx: [], puddles: [], shakeT: 0, punchT: 0, time: BATTLE_SECONDS, ended: false, guardT: 0, warned: false, commentary: { text: '', t: 0 },
     momentum: 0, pancakes: 0, lost: 0, bonus: 0, freezeT: 0, goalLine: false, crowdT: 0, ticks: 0, mascotOut: false, mascotT: 0, nextWave: 0, banner: null,
   });

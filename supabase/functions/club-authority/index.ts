@@ -624,6 +624,11 @@ var defenseSprite = (kind, level = 1) => {
 };
 
 // battle.ts
+var hashDefenseFlavor = (id) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = h * 31 + id.charCodeAt(i) >>> 0;
+  return [void 0, "sled", "ref", "tshirt"][h % 4];
+};
 var TROOP_STATS = {
   // Names and hints are written for someone who has never played this and may not follow
   // football. No position abbreviations, no internal terms — a first-timer reads these
@@ -944,7 +949,9 @@ var generateRaidTargets = (trophies, random = Math.random) => {
     const strength = [0.62, 0.86, 0.75 + 0.3 * Math.exp(-bracket / 200)][i];
     const variation = i === 2 ? 0.85 + random() * 0.3 : 0.97 + random() * 0.06;
     const tier = base * strength * variation;
-    const risk = tier * (i === 2 ? 1.6 : 1);
+    const fortressMult = i === 2 ? 1.12 + 0.4 * (1 - Math.exp(-bracket / 450)) : 1;
+    const equipmentLevel = Math.min(10, 1 + Math.floor(bracket / 200));
+    const risk = tier * fortressMult * (i === 2 ? 1.6 : 1);
     const template = ENEMY_BASES.find((candidate) => candidate.id === ["valley", "tech", "ridge"][i]);
     const tDmg = Math.round(14 * Math.pow(tier, 1.3));
     const botFormation = tier >= 2.2 ? "maxprotect" : tier >= 1.4 ? "cover3" : "goalline";
@@ -956,7 +963,13 @@ var generateRaidTargets = (trophies, random = Math.random) => {
       const [x, y] = extraSpots[e];
       buildings.push({ id: `xd${e}`, kind: "defense", flavor: flavors[e], x, y, hp: Math.round(220 * tier), size: 5, damage: tDmg, range: 23 });
     }
+    if (i === 2) for (const building of buildings) {
+      building.hp = Math.round(building.hp * fortressMult);
+      if (building.damage) building.damage = Math.round(building.damage * fortressMult);
+      if (building.kind === "defense") building.level = equipmentLevel;
+    }
     return {
+      challenge: ["open", "contested", "fortress"][i],
       id: `mm_${i}_${Math.floor(random() * 99999)}`,
       name: RIVAL_NAMES[Math.floor(random() * RIVAL_NAMES.length)],
       difficulty: Math.round(risk * 10) / 10,
@@ -2616,11 +2629,6 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     healT: 0,
     special: def.key
   });
-  const hashFlavor = (id) => {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = h * 31 + id.charCodeAt(i) >>> 0;
-    return [void 0, "sled", "ref", "tshirt"][h % 4];
-  };
   const sim = { current: {
     troops: (config.preTroops || []).map((t) => makeTroop(t.unit, t.x, t.y, config.aiMult ?? 1)),
     // Defense mode: YOUR recruited defenders start the game ringed around the stadium.
@@ -2635,7 +2643,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
         return { id: `hg${++troopUid}`, unit: g.unit ?? "DEFENSE_LINE" /* DEFENSE_LINE */, x: gx, y: gy, hp: g.hp, maxHp: g.hp, dps: g.dps, speed: 12, range: 3, targetId: null, dead: false, hitFlash: 0, rageT: 0, healT: 0, jersey: g.jersey, guardArt: g.art };
       });
     })(),
-    buildings: config.buildings.map((b) => ({ ...b, flavor: b.flavor ?? (b.kind === "defense" ? hashFlavor(b.id) : void 0), maxHp: b.hp, dead: false, cooldown: 0 })),
+    buildings: config.buildings.map((b) => ({ ...b, flavor: b.flavor ?? (b.kind === "defense" ? hashDefenseFlavor(b.id) : void 0), maxHp: b.hp, dead: false, cooldown: 0 })),
     shots: [],
     pulses: [],
     fx: [],
@@ -4407,7 +4415,7 @@ function issueMatch(input) {
     config = { ...common, mode: "attack", title: `${stage.name} \u2014 ${stage.opponent}`, buildings: base.buildings, loot: base.reward, campaignStage: choice.stage, rival: coachForStage(choice.stage) };
   } else if (choice.kind === "road") {
     const base = authorityRoadTargets(state, owner, now)[choice.choice];
-    config = { ...common, mode: "attack", title: `Attacking ${base.name}`, buildings: base.buildings, loot: base.reward, rival: coachForBase(base.name) };
+    config = { ...common, mode: "attack", title: `Attacking ${base.name}`, roadChallenge: base.challenge, buildings: base.buildings, loot: base.reward, rival: coachForBase(base.name) };
   } else if (choice.kind === "rival") {
     if (choice.target === owner) return fail("self_attack", "Choose another club.");
     if (!target) return fail("target_missing", "That club is unavailable.");
