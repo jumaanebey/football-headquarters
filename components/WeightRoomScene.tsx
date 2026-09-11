@@ -2,7 +2,7 @@ import {useState} from 'react';
 import type {Player} from '../types';
 import {unitPlayerSprite} from '../assets';
 
-const interior = new URL('../art/rooms/weight-room-interior-v2.webp', import.meta.url).href;
+const interior = new URL('../art/rooms/weight-room-interior-v3.webp', import.meta.url).href;
 // Feet sit on the illustrated floor, in front of the equipment. Back row paints first.
 const SPOTS = [
   {x:39,y:61,height:30}, {x:59,y:66,height:30}, {x:78,y:72,height:30},

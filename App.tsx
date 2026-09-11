@@ -1,3 +1,4 @@
+import {GateAssignments} from './components/GateAssignments';
 import {WeightRoom} from './components/WeightRoom';
 import {FACILITY_INFO} from './game/facilityPresentation';
 import {TeamKitProvider} from './components/TeamKit';
@@ -73,7 +74,7 @@ import { subscribeCloudWriteStatus, acceptCloudRevision, type CloudSave, getClou
 import { track, trafficSource } from './analytics';
 import { DailyQuestsModal } from './components/DailyQuestsModal';
 
-import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, gatePostsFor, masteryLevel, nextMasteryAt } from './fixedBase';
+import { FORMATIONS, FORMATION_ORDER, FormationKey, formationDef, formationUnlocked, anchorsFor, slotsFor, slotById, slotUnlocked, slotUpgradeCost, MAX_SLOT_LEVEL, slotHpMult, slotDmgMult, wallsFor, wallHpFor, masteryLevel, nextMasteryAt } from './fixedBase';
 import { defenseSprite, DEFENSE_ART_GATES } from './assets';
 
 import type { BattleResult, BattleConfig } from './components/BattleScreen';
@@ -1556,8 +1557,10 @@ function App() {
 
       {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}/>}
 
-      {selectedBuilding && selectedBuilding.type!==BuildingType.TRAINING_PITCH && buildingInfoOpen && (
+      {selectedBuilding && selectedBuilding.type!==BuildingType.TRAINING_PITCH && selectedBuilding.type!==BuildingType.YOUTH_ACADEMY && buildingInfoOpen && (
           <ActionModal
+             onGameDay={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}
+             onWeightRoom={()=>{setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);setRosterInitialView('training');setIsSquadOpen(true);}}
              blocked={authority.pendingCount > 0 || authority.locked}
              club={gameState}
              onDefense={() => {setSelectedBuilding(null);setBuildingInfoOpen(false);setFrontOfficeOpen(true);}}
@@ -1572,7 +1575,7 @@ function App() {
              onHireBuilder={handleHireBuilder}
              onCollect={building => { const point = {x:window.innerWidth/2,y:window.innerHeight/2}; if (building.state === DrillState.COMPLETED) handleCollect(building, point); else handleCollectResource(building, point); }}
              onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true); else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
-             visitLabel={selectedBuilding.type === BuildingType.YOUTH_ACADEMY ? 'Compare & scout players' : selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
+             visitLabel={selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
           />
       )}
 
@@ -1870,7 +1873,7 @@ function App() {
         />
       )}
 
-      {isScoutingOpen && (() => {
+      {(isScoutingOpen || (selectedBuilding?.type===BuildingType.YOUTH_ACADEMY && buildingInfoOpen)) && (() => {
         const academy = gameState.buildings.find(b => b.type === BuildingType.YOUTH_ACADEMY);
         if (!academy) return null;
         return (
@@ -1882,13 +1885,15 @@ function App() {
             academy={academy}
             blocked={authority.pendingCount > 0 || authority.locked}
             upgradeJob={gameState.upgrades.find(job => job.kind === "building" && job.key === academy.id)}
-            onRoster={() => { setIsScoutingOpen(false); setRosterFilter(null); setRosterInitialView('players');setIsSquadOpen(true); }}
+            onRoster={() => { setIsScoutingOpen(false); setSelectedBuilding(null); setBuildingInfoOpen(false); setRosterFilter(null); setRosterInitialView('players');setIsSquadOpen(true); }}
             stadiumLevel={stadiumLevel}
-            onClose={() => setIsScoutingOpen(false)}
+            onClose={() => {setIsScoutingOpen(false);setSelectedBuilding(null);setBuildingInfoOpen(false);}}
             onStartRecruit={handleStartRecruit}
             onRush={handleRushRecruit}
             onSign={handleSignRecruit}
             onUpgrade={handleUpgradeBuilding}
+            onFinishNow={handleFinishNow}
+            onHireBuilder={handleHireBuilder}
             board={authority.active ? (gameState.recruitBoard?.candidates ?? []) : undefined}
             onRefreshBoard={() => { protectedAction({ type: 'recruit.refresh' }); }}
           />
@@ -2063,37 +2068,7 @@ function App() {
 
               </>}
               {defenseTab === 'gates' && <>
-              {/* ⭐ HERO GATES — who holds each gate when your stadium is stormed */}
-              <div>
-                <div className="text-[12px] uppercase tracking-widest font-bold text-slate-400 mb-2">⭐ Hero Gate Assignment</div>
-                <div className="space-y-1.5">
-                  {gatePostsFor(gameState.formation).map(post => {
-                    const unlockedHeroes = gameState.heroes.filter(h => h.unlocked !== false);
-                    const assignedKey = gameState.heroGates[post.id];
-                    return (
-                      <div key={post.id} className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-                        <span className="text-[12px] font-bold text-white w-32 shrink-0 truncate">🚪 {post.label}</span>
-                        <div className="flex gap-1.5 flex-wrap min-w-0">
-                          {unlockedHeroes.map(h => {
-                            const def = HERO_DEFS.find(d => d.key === h.key);
-                            if (!def) return null;
-                            const active = assignedKey === h.key;
-                            return (
-                              <button key={h.key} onClick={() => handleAssignHeroGate(post.id, h.key)} aria-pressed={active} aria-label={`Assign ${def.name} to ${post.label}`} title={`${def.name} — Lv${h.level}`}
-                                className={`min-h-14 rounded-xl overflow-hidden relative flex items-center gap-2 px-3 py-2 border-2 transition-all active:scale-90 ${active ? 'border-yellow-400 ring-2 ring-yellow-400/40' : 'border-slate-600 opacity-60 hover:opacity-100'}`}
-                                style={{ background: `radial-gradient(circle at 50% 35%, ${def.color}cc, #0f172a 90%)` }}>
-                                <span className="text-sm">{def.emoji}</span><span className="text-left text-sm text-white">{def.name}<small className="block text-slate-300">{def.role} · Level {h.level}</small></span>
-                                <img src={def.art} alt="" draggable={false} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="w-10 h-10 object-contain" />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div className="text-[11px] text-slate-500">Unassigned gates auto-fill with your strongest heroes. One gate per hero.</div>
-                </div>
-              </div>
+              <GateAssignments club={gameState} blocked={authority.pendingCount>0||authority.locked} onAssign={handleAssignHeroGate}/>
 
               </>}
               {/* Perimeter + crowd — automatic layers, shown so the player knows they exist */}

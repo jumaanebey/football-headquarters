@@ -1,0 +1,46 @@
+[
+  {
+    "name": "weight-room-interior-v3",
+    "prompt": "Use case: precise-object-edit. Edit the supplied approved game gym interior. Keep the entire composition, equipment, warm wood, orange trim, lamps, charcoal walls, colors, shadows and illustration quality. Correct only its geometry: make the three orange floor training rectangles clean and straight, all corresponding edges parallel in the same isometric perspective, consistent spacing and uniform line thickness with sharp corners. Make floor panel seams, the turf boundary and white turf stripe straight and aligned with those perspective axes. Straighten any bowed rack uprights, barbell and bench edges; preserve believable perspective. Keep the same room framing and open foreground floor for existing game characters. Do not add people or text. 1536x1024.",
+    "references": [
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/art/rooms/weight-room-interior-v2.webp"
+    ],
+    "mode": "built-in image_gen"
+  },
+  {
+    "name": "film-room-interior-v1",
+    "prompt": "Use case: stylized-concept. Production football campus game interior, one 1536x1024 landscape illustration. References are style/material references: the approved detailed gym interior and the existing campus buildings. Match the polished painted 3D game finish, crisp dark outlines, rich materials, warm wood posts, charcoal structural framing and orange trim. Elevated three-quarter cutaway room, fills the composition with little empty margin, deep navy background beyond room. Coherent architectural perspective: straight beams, straight floor seams, parallel edges aligned to the same perspective axes, properly grounded equipment. Strong large readable objects on a phone. No people, no text or letters, no numbers, no logos, no UI, no diagrams outside the room. Finished environment art, not a sketch or wireframe. Scene: enter the Film Room from the top-left campus reference. A handsome football coaching film room: large green chalkboard with a few simple chalk X/O play marks on the back wall, a wide dark video screen with a football field still, vintage reel projector and film reels on a side shelf, three rows of charcoal padded team seats with orange edging, a coach's warm wood desk with one football and remote, playbooks on a shelf, warm ceiling lamps. Open foreground aisle. The chalkboard and screen are the focus. Different room and equipment from the gym; no gym weights.",
+    "references": [
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/art/rooms/weight-room-interior-v2.webp",
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/public/assets/buildings/starter-campus-cutouts.webp"
+    ],
+    "mode": "built-in image_gen"
+  },
+  {
+    "name": "scouting-room-interior-v1",
+    "prompt": "Use case: stylized-concept. Production football campus game interior, one 1536x1024 landscape illustration. References are style/material references: the approved detailed gym interior and the existing campus buildings. Match the polished painted 3D game finish, crisp dark outlines, rich materials, warm wood posts, charcoal structural framing and orange trim. Elevated three-quarter cutaway room, fills the composition with little empty margin, deep navy background beyond room. Coherent architectural perspective: straight beams, straight floor seams, parallel edges aligned to the same perspective axes, properly grounded equipment. Strong large readable objects on a phone. No people, no text or letters, no numbers, no logos, no UI, no diagrams outside the room. Finished environment art, not a sketch or wireframe. Scene: enter the Scouting Department from the top-right campus reference. An inviting football scouting office: warm wood desk with blank clipped prospect folders, binoculars, football and small laptop; a large back-wall scouting board with neat blank rectangular cards and colored position tabs without text; charcoal-and-orange folding chairs for prospects, open empty foreground area in front of the desk where a real roster sprite will later be composited; wood shelves with football helmets and archived folders, warm task lamps, dark roof frame and canvas panel details connecting to its campus canopy. The desk and prospect board are the focus. No gym equipment.",
+    "references": [
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/art/rooms/weight-room-interior-v2.webp",
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/public/assets/buildings/starter-campus-cutouts.webp"
+    ],
+    "mode": "built-in image_gen"
+  },
+  {
+    "name": "rehab-room-interior-v1",
+    "prompt": "Use case: stylized-concept. Production football campus game interior, one 1536x1024 landscape illustration. References are style/material references: the approved detailed gym interior and the existing campus buildings. Match the polished painted 3D game finish, crisp dark outlines, rich materials, warm wood posts, charcoal structural framing and orange trim. Elevated three-quarter cutaway room, fills the composition with little empty margin, deep navy background beyond room. Coherent architectural perspective: straight beams, straight floor seams, parallel edges aligned to the same perspective axes, properly grounded equipment. Strong large readable objects on a phone. No people, no text or letters, no numbers, no logos, no UI, no diagrams outside the room. Finished environment art, not a sketch or wireframe. Scene: enter the Rehab Center from the bottom-left campus reference. Calm football recovery room: stainless ice bath with clear blue water and ice cubes on left, black padded treatment bench with orange edge on right, neatly folded white towels, orange drinks cooler, massage rollers, small therapy station and tidy white supply cabinet, a simple window with morning light, wood posts and dark canopy roof framing. Spacious central rubber floor. Aqua-blue water and clean pale equipment contrast with warm timber and charcoal walls. Welcoming athletic recovery setting. No injured people, no hospital or emergency imagery.",
+    "references": [
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/art/rooms/weight-room-interior-v2.webp",
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/public/assets/buildings/starter-campus-cutouts.webp"
+    ],
+    "mode": "built-in image_gen"
+  },
+  {
+    "name": "stadium-interior-v1",
+    "prompt": "Use case: stylized-concept. Production football campus game interior, one 1536x1024 landscape illustration. References are style/material references: the approved detailed gym interior and the existing campus buildings. Match the polished painted 3D game finish, crisp dark outlines, rich materials, warm wood posts, charcoal structural framing and orange trim. Elevated three-quarter cutaway room, fills the composition with little empty margin, deep navy background beyond room. Coherent architectural perspective: straight beams, straight floor seams, parallel edges aligned to the same perspective axes, properly grounded equipment. Strong large readable objects on a phone. No people, no text or letters, no numbers, no logos, no UI, no diagrams outside the room. Finished environment art, not a sketch or wireframe. Scene: inside the home Stadium clubhouse, a three-quarter cutaway football stadium tunnel and equipment room opening toward the home field. Wide opening at back reveals crisp green football turf and modest orderly orange-and-charcoal spectator bleachers. Inside foreground: polished warm timber bench, helmet cubbies with black/orange football helmets, two hanging generic black jerseys without numbers, neatly stacked footballs, a small gate ticket desk with brass cash tray and rolled admission tickets, warm lamps, dark structure with orange trim. Make the stadium field opening and tunnel feel spacious and welcoming. No crowd or people, no invented text. Match the small growing football campus, not a giant futuristic arena.",
+    "references": [
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/art/rooms/weight-room-interior-v2.webp",
+      "/Users/j.beymacbookpro/Documents/Codex/2026-09-09/create-an-image-of-4/work/football-headquarters/public/assets/buildings/starter-campus-cutouts.webp"
+    ],
+    "mode": "built-in image_gen"
+  }
+]
