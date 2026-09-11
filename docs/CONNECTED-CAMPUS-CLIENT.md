@@ -38,3 +38,14 @@ Native ESM inspection found a real startup crash in `stadiumFootballLegacy.ts`: 
 Approved derived art is now used by the loader, with original-art fallback: 40.96 MB → 6.04 MB including the roster atlas. All image dimensions and alpha pixels are exact; RGB uses quality-90 WebP, no resizing or repainting. `npm run art:players -- --check` checks source/output hashes and dimensions. Authored originals remain untouched.
 
 Integrated offline release: 740 tests and all eleven offline release stages pass. Native browser: reserve Tank replaces Fridge, Attack preview 38→36 equals confirmation and survives reload; Stadium preview is 36; both possessions played to a 3–0 final and explicit 100-Coin result. The automated Chrome suite cannot launch in this environment (SIGABRT/EPERM), including after network permission was granted. This is an execution limitation, not a passing browser budget result. Transfer budgets remain unchanged.
+
+
+### Release acceptance, September 11
+
+Authority v9 ACTIVE, JWT verified; exact source readback SHA-256 `90ae3d20bcd33ab2bd58c60af7135ea51edd0421314858526de17b3620cb7bf2`, artifact commit `8d55241`. Strict parity with `--require-deployed-current` passes. Keep v9 for frontend rollback while v2 Stadium games exist.
+
+Live dedicated evidence: **28/28** (`scripts/connected-club-evidence.ts`): selected lineup rating equals preview, duplicate confirmation once, status restores lineup, unknown player rejected, kickoff snapshot retained, mid-game changes refused, both possessions, final result and duplicate reward collection. First evidence attempt incorrectly expected mid-game lineup edits to be allowed; the rule correctly refused them. Corrected the test expectation and disabled UI edits during play. Both QA ids are recorded for exclusion and deferred cleanup, neither deleted: `129a10f3-975f-400a-8d37-58d3e8afd2b2` (stopped at the refusal with a pending game) and `76bdec3c-549a-4406-9366-70b4490cd7e6` (completed evidence).
+
+Measured native built-client requests using an isolated static server, no cache and no compression, cloud disabled: naming 2,851,701 bytes; campus additional 1,712,018 bytes; Roster additional 154,340 bytes (its alpha atlas); four-hero deployment interval 3,135,556 bytes, including repeated projectiles and defender art. The two previously failing intervals are below their existing 0.8 MiB / 6 MiB budgets. This manual server-response measurement does not replace the full Chrome waterfall or offline suites. No browser errors or warnings were reported during the raid. Desktop hero controls use three columns to prevent the observed text overlap.
+
+Roster local proposals reset on account-owner changes. Mid-game lineup fields are disabled with the final-whistle explanation. Added presentation checks cover readable ratings, nine slots/reserve and pending/game locks.

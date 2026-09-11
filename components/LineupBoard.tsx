@@ -5,6 +5,8 @@ import {lineupView,lineupOf,compareLineupChange,type LineupSlotId,type LineupAss
 
 /** A proposal stays separate from confirmed club state until the authority answers. */
 export function LineupBoard({club,blocked,onAction}:{club:GameState;blocked:boolean;onAction:(action:ClubAction)=>void}){
+ const gameActive=!!club.stadiumFootball?.game&&club.stadiumFootball.game.phase!=='final';
+ blocked=blocked||gameActive;
  const [proposal,setProposal]=useState<{slot:LineupSlotId;player:string}|null>(null);
  const confirmed=lineupView(club);
  const preview=proposal?compareLineupChange(club,proposal.slot,proposal.player):null;
@@ -20,8 +22,8 @@ export function LineupBoard({club,blocked,onAction}:{club:GameState;blocked:bool
   <div className="fhq-lineup-ratings">{ratings.map(key=><div key={key}><small>{key==='iq'?'IQ':key==='power'?'Strength':key}</small><strong>{value(confirmed.ratings[key])}{preview&&preview.after[key]!==preview.before[key]&&<span> → {value(preview.after[key])}</span>}</strong></div>)}</div>
   {(['offense','defense'] as const).map(side=><fieldset key={side} disabled={blocked}><legend>{side==='offense'?'Offense':'Defense'}</legend><div className="fhq-lineup-slots">{displayed.slots.filter(s=>s.side===side).map(s=><label key={s.slot}><span>{s.label}{s.outOfPosition?' · out of position':''}</span><select aria-label={`${s.label} starter`} value={s.playerId??''} onChange={e=>setProposal({slot:s.slot,player:e.target.value})}><option value="" disabled>Choose a starter</option>{s.candidates.map(c=><option key={c.playerId} value={c.playerId}>{c.name} · {c.role} · {c.power}{c.selectedElsewhere&&c.selectedElsewhere!==s.slot?' · swap starter':''}{c.outOfPosition?' · out of position':''}</option>)}</select></label>)}</div></fieldset>)}
   {preview&&<div className="fhq-lineup-proposal" role="status"><p>{preview.incoming?.name} replaces {preview.outgoing?.name??'an empty slot'}. This is a preview until confirmed.</p>{preview.blockers.map((b,i)=><p key={i}>{b.message}</p>)}<button disabled={blocked||!preview.valid} onClick={save}>{blocked?'Confirming lineup…':'Confirm starting lineup'}</button><button disabled={blocked} onClick={()=>setProposal(null)}>Cancel change</button></div>}
-  {!preview&&<p role="status">{blocked?'Waiting for club confirmation…':`Current starters · ${confirmed.reserves.map(p=>p.name).join(', ')||'none'} in reserve`}</p>}
-  {club.stadiumFootball?.game&&!club.stadiumFootball.game.collected&&<p>Your current Stadium game keeps the lineup recorded at kickoff. Changes apply to your next game.</p>}
+  {!preview&&<p role="status">{gameActive?'Lineup locked until the final whistle.':blocked?'Waiting for club confirmation…':`Current starters · ${confirmed.reserves.map(p=>p.name).join(', ')||'none'} in reserve`}</p>}
+  {club.stadiumFootball?.game&&!club.stadiumFootball.game.collected&&<p>Finish your current Stadium game before changing starters. Its kickoff lineup stays fixed.</p>}
   {!confirmed.valid&&!preview&&confirmed.blockers.map((b,i)=><p role="alert" key={i}>{b.message}</p>)}
  </section>;
 }

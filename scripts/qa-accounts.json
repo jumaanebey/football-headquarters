@@ -92,6 +92,14 @@
     {
       "id": "87dd084e-60c7-43bb-8a93-9b0d309aa055",
       "purpose": "raid challenge v8 evidence 2026-09-11 (C), 77 checks"
+    },
+    {
+      "id": "129a10f3-975f-400a-8d37-58d3e8afd2b2",
+      "purpose": "Connected Lineup QA · v9 integration evidence; retained for deferred cleanup"
+    },
+    {
+      "id": "76bdec3c-549a-4406-9366-70b4490cd7e6",
+      "purpose": "Connected Lineup QA · v9 integration evidence; retained for deferred cleanup"
     }
   ]
 }

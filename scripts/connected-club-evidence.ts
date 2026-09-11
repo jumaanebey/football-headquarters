@@ -23,8 +23,8 @@ answer=await call({kind:'status'});check(lineupOf(answer.club.state)[slot.slot]=
 const invalid=await call(op({type:'lineup.set',lineup:{...preview.assignment,QB:'not-on-this-club'}}));check(!invalid.ok,'foreign or unknown athlete refused');
 answer=await call(op({type:'stadium.start',opponent:'harbor'}));check(answer.ok,'new Stadium starts');
 let game=answer.club.state.stadiumFootball.game;check(game.v===2&&!!game.lineup,'v2 game snapshots starters');
-const snapshot=JSON.stringify(game.lineup);answer=await call(op({type:'lineup.set',lineup:lineupOf(initial)}));check(answer.ok,'next-game lineup can change');check(JSON.stringify(answer.club.state.stadiumFootball.game.lineup)===snapshot,'pending game keeps kickoff lineup');
-const status=await call({kind:'status'});check(status.club.state.stadiumFootball.game.turn===game.turn,'status never advances a possession');
+const snapshot=JSON.stringify(game.lineup);answer=await call(op({type:'lineup.set',lineup:lineupOf(initial)}));check(!answer.ok,'pending Stadium locks lineup changes');
+const status=await call({kind:'status'});check(status.club.state.stadiumFootball.game.turn===game.turn,'status never advances a possession');check(JSON.stringify(status.club.state.stadiumFootball.game.lineup)===snapshot,'pending game keeps kickoff lineup');
 for(let turn=0;game.phase!=='final'&&turn<12;turn++){
  const request=op({type:'stadium.call',gameId:game.id,turn:String(game.turn),call:footballCalls(game)[0].key});answer=await call(request);check(answer.ok,`call ${game.turn} confirmed`);game=answer.club.state.stadiumFootball.game;
  const retry=await call(request);check(retry.ok&&retry.club.state.stadiumFootball.game.turn===game.turn,`call ${turn} retry stays once`);

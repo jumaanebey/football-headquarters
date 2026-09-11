@@ -1592,7 +1592,7 @@ function App() {
       {practiceFieldOpen&&<PracticeField initialPlayer={activityPlayer} club={gameState} blocked={authority.pendingCount>0||authority.locked} onAction={handleClubActivity} onClose={()=>setPracticeFieldOpen(false)} onRoster={()=>{setPracticeFieldOpen(false);openPlayerRoster();}} onStadium={()=>{setPracticeFieldOpen(false);openPlayerFacility(BuildingType.STADIUM);}}/>}
 
       {isSquadOpen && rosterInitialView === 'players' && (
-        <SquadModal
+        <SquadModal key={authority.owner??'local'}
           onAction={handleClubActivity}
           onOpenPractice={openPracticeField}
           onOpenFacility={openPlayerFacility}

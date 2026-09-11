@@ -4,6 +4,30 @@
   "repository": "jumaanebey/football-headquarters",
   "entryTemplate": "import 'https://cdn.jsdelivr.net/gh/{repository}@{commit}/{artifact}';",
   "deployed": {
+    "version": 9,
+    "artifact": "supabase/recovery/club-authority.v9.min.js",
+    "sha256": "90ae3d20bcd33ab2bd58c60af7135ea51edd0421314858526de17b3620cb7bf2",
+    "rules": "raid-tactics-5",
+    "commit": "8d552410e0ac7ce24e0b24e1d915995516da29a8",
+    "deployedAt": "2026-09-11T20:45:33.342000+00:00",
+    "verifyJwt": true,
+    "entryMode": "inline-artifact",
+    "entrySha256": "90ae3d20bcd33ab2bd58c60af7135ea51edd0421314858526de17b3620cb7bf2",
+    "recordedFrom": "Supabase v9 deployment and exact get_edge_function readback of committed inline artifact. Connected lineups and Stadium v2; existing raid rules and legacy Stadium arithmetic retained."
+  },
+  "staged": {
+    "version": 9,
+    "artifact": "supabase/recovery/club-authority.v9.min.js",
+    "sha256": "90ae3d20bcd33ab2bd58c60af7135ea51edd0421314858526de17b3620cb7bf2",
+    "rules": "raid-tactics-5",
+    "commit": "8d552410e0ac7ce24e0b24e1d915995516da29a8",
+    "note": "Deployed with exact inline-artifact readback; native ESM initialization and presentation corrections included."
+  },
+  "rollback": {
+    "healthy": "Retain v9 on frontend rollback: it accepts legacy Stadium games and the new v2 games, and preserves lineups. Do not restore v8 while v2 Stadium games exist; retain its immutable artifact for forensic recovery only.",
+    "never": "supabase/recovery/club-authority.v2.bundle.js (crashes at startup: window guard)"
+  },
+  "previousHealthy": {
     "version": 8,
     "artifact": "supabase/recovery/club-authority.v8.min.js",
     "sha256": "9456bd85a269bfca1804992a3b22d195bdfa5c8809f428a5c8f371e1ce0e6b6b",
@@ -14,29 +38,5 @@
     "entryMode": "inline-artifact",
     "entrySha256": "9456bd85a269bfca1804992a3b22d195bdfa5c8809f428a5c8f371e1ce0e6b6b",
     "recordedFrom": "Supabase v8 deployment and get_edge_function readback: index.ts exactly matches the 174392-character committed artifact. New road challenge snapshots; existing hero-actions-3, defense-counters-4 and raid-tactics-5 films remain supported."
-  },
-  "staged": {
-    "version": 9,
-    "artifact": "supabase/recovery/club-authority.v9.min.js",
-    "sha256": "90ae3d20bcd33ab2bd58c60af7135ea51edd0421314858526de17b3620cb7bf2",
-    "rules": "raid-tactics-5",
-    "commit": null,
-    "note": "Connected club milestone: Stadium two-possession rules (game version 2), the lineup.set action and lineup-derived Stadium ratings. Raid rules are unchanged at raid-tactics-5; hero-actions-3, defense-counters-4 and raid-tactics-5 films remain supported, and pre-rewrite Stadium games keep the frozen legacy resolver. Not deployed: Codex coordinates one release. Integration removes an eager legacy-module constant read that crashes native ESM; legacy rule arithmetic unchanged."
-  },
-  "rollback": {
-    "healthy": "Retain v8 when rolling the frontend back. v7 can replay the same raid-tactics-5 snapshots if an authority rollback is necessary; it issues the earlier road curve. Do not restore v6 while raid-tactics-5 matches can settle, or v5 while facility activity state exists.",
-    "never": "supabase/recovery/club-authority.v2.bundle.js (crashes at startup: window guard)"
-  },
-  "previousHealthy": {
-    "version": 7,
-    "artifact": "supabase/recovery/club-authority.v7.min.js",
-    "sha256": "dfe1b18ad512f83897d1ce5d0bd4019a7c66e64c8df50c0dc1255e5c25e9e77a",
-    "rules": "raid-tactics-5",
-    "commit": "d28b2a70b8aa5cd44984a389974597f6cbadf442",
-    "deployedAt": "2026-09-11T17:07:01.519000+00:00",
-    "verifyJwt": true,
-    "entryMode": "inline-artifact",
-    "entrySha256": "dfe1b18ad512f83897d1ce5d0bd4019a7c66e64c8df50c0dc1255e5c25e9e77a",
-    "recordedFrom": "Supabase v7 deployment and get_edge_function readback: index.ts exactly matches the 174117-character committed artifact. Accepts hero-actions-3, defense-counters-4 and raid-tactics-5."
   }
 }
