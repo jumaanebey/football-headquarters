@@ -1,3 +1,5 @@
+import {WeightRoom} from './components/WeightRoom';
+import {FACILITY_INFO} from './game/facilityPresentation';
 import {TeamKitProvider} from './components/TeamKit';
 import { COMBAT_RULES_VERSION } from './game/combat/actions';
 import { ClubStylePicker } from './components/ClubStyle';
@@ -140,6 +142,7 @@ function App() {
   }, [battleConfig, openingHero]);
   const [practiceTake, setPracticeTake] = useState(0);
   const [replayTake, setReplayTake] = useState(0);
+  const [weightRoomPlayer,setWeightRoomPlayer]=useState<string|undefined>();
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingInstance | null>(null);
   const [campusEditorOpen, setCampusEditorOpen] = useState(false);
   const [commandCenterOpen, setCommandCenterOpen] = useState(false);
@@ -764,7 +767,7 @@ function App() {
     const center = { x: window.innerWidth / 2, y: 320 };
     const find = (t: BuildingType) => gameState.buildings.find(b => b.type === t);
     switch (id) {
-      case 'collect-drill': { const d = gameState.buildings.find(b => b.state === DrillState.COMPLETED); if (d) handleCollect(d, center); break; }
+      case 'collect-drill': setRosterInitialView('training');setIsSquadOpen(true); break;
       case 'collect-coins': { const st = find(BuildingType.STADIUM); if (st) handleCollectResource(st, center); break; }
       case 'play': openRaid(); break;
       // Straight into the next season game — no menu. If it can't launch (no energy,
@@ -1499,7 +1502,7 @@ function App() {
         heroes={gameState.heroes}
         onOpenHeroes={key => { setFocusedHero(key); setIsHeroOpen(true); }}
         buildings={gameState.buildings}
-        players={gameState.roster}
+        players={gameState.roster.filter(p=>!gameState.buildings.some(b=>b.type===BuildingType.TRAINING_PITCH && b.activeDrillId && (DRILLS[b.activeDrillId]?.targetUnit==='ALL'||b.targetUnit===p.unit)))}
         bonusOrbs={gameState.bonusOrbs}
         timeOfDay={gameState.timeOfDay}
         recruitSlot={gameState.recruitSlot}
@@ -1518,7 +1521,7 @@ function App() {
         onBuildingClick={(b) => {
           setSelectedBuilding(b); setBuildingInfoOpen(true); sfx.click();
         }}
-        onCollect={handleCollect}
+        onCollect={b=>{setSelectedBuilding(b);setBuildingInfoOpen(true);}}
         onCollectResource={handleCollectResource}
         onOrbClick={() => {}}
       /></div>
@@ -1537,25 +1540,23 @@ function App() {
         </span>
       ))}
 
-      {isSquadOpen && (
+      {isSquadOpen && rosterInitialView === 'players' && (
         <SquadModal
-          initialView={rosterInitialView}
+          onOpenWeightRoom={id=>{setWeightRoomPlayer(id);setRosterInitialView('training');}}
           roster={gameState.roster}
-          resources={gameState.resources}
           club={gameState}
           blocked={authority.pendingCount > 0 || authority.locked}
           playerFilter={rosterFilter}
           onFilterChange={setRosterFilter}
-          onCollect={b => handleCollect(b, {x: window.innerWidth / 2, y: window.innerHeight / 2})}
           onClose={() => {setIsSquadOpen(false);setRosterInitialView('players');}}
-          onTrainGroup={handleTrainGroup}
           onCutPlayer={handleCutPlayer}
-          onOpenHeroes={() => { setIsSquadOpen(false); setIsHeroOpen(true); }}
           onScout={() => { setIsSquadOpen(false); setIsScoutingOpen(true); }}
         />
       )}
 
-      {selectedBuilding && buildingInfoOpen && (
+      {((isSquadOpen && rosterInitialView==='training') || (selectedBuilding?.type===BuildingType.TRAINING_PITCH && buildingInfoOpen)) && <WeightRoom club={gameState} blocked={authority.pendingCount>0||authority.locked} initialPlayer={weightRoomPlayer} onClose={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);setWeightRoomPlayer(undefined);}} onStart={handleTrainGroup} onCollect={b=>handleCollect(b,{x:window.innerWidth/2,y:window.innerHeight/2})} onUpgrade={handleUpgradeBuilding} onGameDay={()=>{setIsSquadOpen(false);setRosterInitialView('players');setSelectedBuilding(null);setBuildingInfoOpen(false);openRaid();}}/>}
+
+      {selectedBuilding && selectedBuilding.type!==BuildingType.TRAINING_PITCH && buildingInfoOpen && (
           <ActionModal
              blocked={authority.pendingCount > 0 || authority.locked}
              club={gameState}
@@ -1570,8 +1571,8 @@ function App() {
              onFinishNow={handleFinishNow}
              onHireBuilder={handleHireBuilder}
              onCollect={building => { const point = {x:window.innerWidth/2,y:window.innerHeight/2}; if (building.state === DrillState.COMPLETED) handleCollect(building, point); else handleCollectResource(building, point); }}
-             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true); else if (type === BuildingType.TRAINING_PITCH) {setRosterInitialView('training');setIsSquadOpen(true);} else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
-             visitLabel={selectedBuilding.type === BuildingType.YOUTH_ACADEMY ? 'Compare & scout players' : selectedBuilding.type === BuildingType.TRAINING_PITCH ? 'Open roster & training' : selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
+             onVisit={() => { const type = selectedBuilding.type; setSelectedBuilding(null); setBuildingInfoOpen(false); if (type === BuildingType.YOUTH_ACADEMY) setIsScoutingOpen(true); else if (type === BuildingType.TACTICS_ROOM) openRaid(); else setDashboardOpen(true); }}
+             visitLabel={selectedBuilding.type === BuildingType.YOUTH_ACADEMY ? 'Compare & scout players' : selectedBuilding.type === BuildingType.TACTICS_ROOM ? 'Prepare for Game Day' : 'View your program'}
           />
       )}
 
@@ -1583,7 +1584,7 @@ function App() {
       {selectedBuilding && !buildingInfoOpen && <ClickAwayCloser onClose={() => { setSelectedBuilding(null); setBuildingInfoOpen(false); }} />}
       {selectedBuilding && !buildingInfoOpen && (() => {
         const b = gameState.buildings.find(x => x.id === selectedBuilding.id) ?? selectedBuilding;
-        const info = BUILDING_INFO[b.type];
+        const info = FACILITY_INFO[b.type];
         const cost = Math.floor(UPGRADE_CONFIG.baseCost * Math.pow(UPGRADE_CONFIG.costMultiplier, b.level - 1));
         const isStadium = b.type === BuildingType.STADIUM;
         const gated = !isStadium && b.level >= stadiumLevel;

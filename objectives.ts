@@ -88,7 +88,7 @@ export const getObjective = (gs: GameState): Objective => {
   const activeDrill = gs.buildings.some(b => b.state === DrillState.ACTIVE);
 
   if (completedDrill)
-    return { text: 'Tap the green ✓ over your Training Field to collect', iconKey: 'check', tone: 'go', target: 'drill-done' };
+    return { text: 'Open your Weight Room to collect player growth', iconKey: 'check', tone: 'go', target: 'drill-done' };
   if (gs.teamReadiness >= 100)
     return { text: 'Squad FIRED UP (+15% power) — tap the ⚔️ to raid!', iconKey: 'trophy', tone: 'go', target: 'trophy' };
   if (banked >= Math.max(30, cap * 0.25))

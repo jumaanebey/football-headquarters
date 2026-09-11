@@ -1,3 +1,5 @@
+import {WeightRoomExterior} from './WeightRoomExterior';
+import {FACILITY_INFO} from '../game/facilityPresentation';
 import { useClubStyle } from './ClubStyle';
 import { campusSilhouette } from '../game/campusSilhouette';
 import { CAMPUS_ANCHORS, CAMPUS_FIELD, ARRIVAL, campusBuildingWidth, campusDisplayBuildings, campusFieldClear } from '../game/campusPresentation';
@@ -470,7 +472,7 @@ const BuildingSprite: React.FC<{
   celebrating?: boolean;
 }> = ({ onGeometry, displayScale, compactLayout = false, building, recruitSlot, upgradeJob, clickGuard, onBuildingClick, onCollect, onCollectResource, selected, celebrating }) => {
   const c = tileToScreen(building.gridX + 0.5, building.gridY + 0.5); // 2×2 footprint center
-  const info = BUILDING_INFO[building.type];
+  const info = FACILITY_INFO[building.type];
   const starter = isStarterFacility(building.type, building.level);
 
   const isCompleted = building.state === DrillState.COMPLETED;
@@ -583,9 +585,9 @@ const BuildingSprite: React.FC<{
         width: SPRITE_W, height: SPRITE_W, left: -SPRITE_W / 2, bottom: -TILE_H / 2, transformOrigin: '50% 100%',
 
       }}>
-        <BuildingArt type={building.type} level={building.level} label={info.name}
+        {building.type===BuildingType.TRAINING_PITCH?<WeightRoomExterior level={building.level} style={{width:'100%',height:'100%',filter:'drop-shadow(0 3px 3px #0005)'}}/>:<BuildingArt type={building.type} level={building.level} label={info.name}
           className="select-none transition-[filter]"
-          style={{ width: '100%', height: '100%', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} />
+          style={{ width: '100%', height: '100%', filter: 'saturate(0.9) drop-shadow(0 3px 3px rgba(0,0,0,0.3))' }} />}
         {/* Scouting HQ chimney smoke — three staggered puffs rising off the roofline */}
         {isAcademy && !starter && [0, 1, 2].map(i => (
           <img key={i} src="/assets/fx/smoke-puff.webp" alt="" draggable={false} className="absolute select-none" style={{
@@ -994,7 +996,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
     if (!GRID_ON) return;
     /* eslint-disable no-console */
     console.table([
-      ...buildings.map(b => ({ object: BUILDING_INFO[b.type].name, col: b.gridX, row: b.gridY, footprint: '2×2' })),
+      ...buildings.map(b => ({ object: FACILITY_INFO[b.type].name, col: b.gridX, row: b.gridY, footprint: '2×2' })),
       ...OUTER_DECOR.map(d => ({ object: `decor:${d.slug}${d.flip ? ' (flipped)' : ''}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
       ...DECOR.map(d => ({ object: `decor:${d.slug}`, col: d.gridX, row: d.gridY, footprint: `~${(1.35 * d.scale).toFixed(1)}t wide` })),
       { object: 'ribbonboard (scoreboard)', col: BOARD_ANCHOR.gx, row: BOARD_ANCHOR.gy, footprint: `${BOARD_ANCHOR.w}t wide (native, cropped)` },
@@ -1080,10 +1082,10 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
             const status=job ? `Upgrading · ${fmtSecs((job.finishTime-Date.now())/1000)}` : b.state===DrillState.COMPLETED ? 'Training ready' : b.state===DrillState.ACTIVE ? `Training · ${fmtSecs(((b.finishTime??Date.now())-Date.now())/1000)}` : b.type===BuildingType.YOUTH_ACADEMY && recruitSlot ? (recruitSlot.finishTime<=Date.now() ? 'Recruit ready' : `Scouting · ${fmtSecs((recruitSlot.finishTime-Date.now())/1000)}`) : '';
 
             return (
-              <button type="button" data-campus-label aria-label={`Open ${BUILDING_INFO[b.type].name}`} onClick={e=>{e.stopPropagation();if(e.detail!==0 && panMovedRef.current){panMovedRef.current=false;return;}onBuildingClick(b,{x:e.clientX,y:e.clientY});}} key={`tag-${b.id}`} className="absolute -translate-x-1/2 cursor-pointer focus-visible:outline focus-visible:outline-orange-400" style={{ left: c.x + nudge.dx, top: c.y + ((artBounds[b.id]?.bottom ?? TILE_H/2)+6) + nudge.dy, display:'flex',flexDirection:'column',alignItems:'center', zIndex: 46, pointerEvents:'auto', minHeight:44/(scale*cam.z) }}>
+              <button type="button" data-campus-label aria-label={`Open ${FACILITY_INFO[b.type].name}`} onClick={e=>{e.stopPropagation();if(e.detail!==0 && panMovedRef.current){panMovedRef.current=false;return;}onBuildingClick(b,{x:e.clientX,y:e.clientY});}} key={`tag-${b.id}`} className="absolute -translate-x-1/2 cursor-pointer focus-visible:outline focus-visible:outline-orange-400" style={{ left: c.x + nudge.dx, top: c.y + ((artBounds[b.id]?.bottom ?? TILE_H/2)+6) + nudge.dy, display:'flex',flexDirection:'column',alignItems:'center', zIndex: 46, pointerEvents:'auto', minHeight:44/(scale*cam.z) }}>
                 <div className="flex items-baseline gap-1.5 px-2 py-[3px] rounded-[5px] whitespace-nowrap select-none"
                   style={{ background: 'rgba(5,10,18,0.72)', border: '1px solid rgba(249,115,22,0.4)', boxShadow: '0 1px 4px rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}>
-                  <span className="font-display font-bold uppercase" style={{ fontSize: Math.max(12, 11 / (scale * cam.z)), letterSpacing: 0, color: 'rgba(255,255,255,0.92)' }}>{BUILDING_INFO[b.type].name}</span>
+                  <span className="font-display font-bold uppercase" style={{ fontSize: Math.max(12, 11 / (scale * cam.z)), letterSpacing: 0, color: 'rgba(255,255,255,0.92)' }}>{FACILITY_INFO[b.type].name}</span>
                   <span className="font-display font-black" style={{ fontSize: Math.max(12, 11 / (scale * cam.z)), color: '#fdba74' }}>{b.level}</span>
                 </div>
                 {status && <span className="mt-1 whitespace-nowrap rounded bg-slate-950/90 px-2 text-amber-200" style={{fontSize:11/(scale*cam.z)}}>{status}</span>}
@@ -1118,7 +1120,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
               <EditMarker gx={edit.board.gx} gy={edit.board.gy} color="#a855f7" label={`scoreboard (${edit.board.gx}, ${edit.board.gy})`}
                 sel={sel?.kind === 'board'} onDown={markerDown({ kind: 'board' })} onMove={markerMove} onUp={markerUp} />
               {shownBuildings.map(b => (
-                <EditMarker key={`m-b${b.id}`} gx={b.gridX} gy={b.gridY} color="#ef4444" label={`${BUILDING_INFO[b.type].name} (${b.gridX}, ${b.gridY})`}
+                <EditMarker key={`m-b${b.id}`} gx={b.gridX} gy={b.gridY} color="#ef4444" label={`${FACILITY_INFO[b.type].name} (${b.gridX}, ${b.gridY})`}
                   sel={sel?.kind === 'bldg' && sel.t === b.type} onDown={markerDown({ kind: 'bldg', t: b.type })} onMove={markerMove} onUp={markerUp} />
               ))}
               {([0, 1] as const).map(c => (
@@ -1155,8 +1157,8 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
       {directoryOpen && <Sheet title="Campus facilities" subtitle="Open a department or arrange your saved campus." footer={onEditCampus && <button onClick={()=>{setDirectoryOpen(false);setShowSavedLayout(true);onEditCampus();}} className="w-full rounded-xl bg-orange-500 p-3 font-bold text-white">Edit campus layout</button>} onClose={() => setDirectoryOpen(false)} maxWidth="max-w-lg">
         <div className="p-4 space-y-3">{buildings.map(b => {
           const job = upgrades.find(u => u.kind === 'building' && u.key === b.id);
-          const status = job ? `Upgrading to level ${job.toLevel}` : b.state === DrillState.COMPLETED ? 'Training ready to collect' : b.state === DrillState.ACTIVE ? 'Training in progress' : b.type === BuildingType.STADIUM ? `${Math.floor(b.accrued ?? 0)} Coins stored` : b.type === BuildingType.YOUTH_ACADEMY && recruitSlot ? (recruitSlot.finishTime <= Date.now() ? 'Recruit ready to sign' : 'Scouting in progress') : BUILDING_INFO[b.type].description;
-          return <button key={b.id} onClick={e => {e.stopPropagation();setDirectoryOpen(false);onBuildingClick(b,{x:viewport.width/2,y:viewport.height/2});}} className="w-full min-h-16 rounded-xl border border-slate-700 bg-slate-800 p-4 text-left"><strong className="block text-white">{BUILDING_INFO[b.type].name} · Level {b.level}</strong><span className="mt-1 block text-sm text-slate-300">{status}</span></button>;
+          const status = job ? `Upgrading to level ${job.toLevel}` : b.state === DrillState.COMPLETED ? 'Training ready to collect' : b.state === DrillState.ACTIVE ? 'Training in progress' : b.type === BuildingType.STADIUM ? `${Math.floor(b.accrued ?? 0)} Coins stored` : b.type === BuildingType.YOUTH_ACADEMY && recruitSlot ? (recruitSlot.finishTime <= Date.now() ? 'Recruit ready to sign' : 'Scouting in progress') : FACILITY_INFO[b.type].description;
+          return <button key={b.id} onClick={e => {e.stopPropagation();setDirectoryOpen(false);onBuildingClick(b,{x:viewport.width/2,y:viewport.height/2});}} className="w-full min-h-16 rounded-xl border border-slate-700 bg-slate-800 p-4 text-left"><strong className="block text-white">{FACILITY_INFO[b.type].name} · Level {b.level}</strong><span className="mt-1 block text-sm text-slate-300">{status}</span></button>;
         })}</div>
       </Sheet>}
 
@@ -1194,7 +1196,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
               : sel.kind === 'campus' ? edit.campus[sel.i]?.slug
               : sel.kind === 'growth' ? (edit.growth[sel.i] ? `${edit.growth[sel.i].slug} · growth tier ${edit.growth[sel.i].tier}` : undefined)
               : sel.kind === 'board' ? 'scoreboard'
-              : sel.kind === 'bldg' ? BUILDING_INFO[sel.t].name
+              : sel.kind === 'bldg' ? FACILITY_INFO[sel.t].name
               : sel.kind === 'field' ? `practice field · ${sel.c ? 'bottom' : 'top'} corner`
               : `road · ${sel.c ? 'bottom' : 'top'} corner`;
             if (name === undefined) return null; // selection outlived a delete

@@ -1,3 +1,4 @@
+import {FACILITY_INFO} from '../game/facilityPresentation';
 import React from 'react';
 import { BuildingArt } from './BuildingArt';
 import { Sheet } from './ui';
@@ -27,7 +28,7 @@ interface Props {
 const fmt = (secs: number) => { const s=Math.max(0,Math.ceil(secs)); return s<60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`; };
 export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel, upgrades, builders, onClose, onUpgrade, onFinishNow, onHireBuilder, onVisit, visitLabel, onCollect, club, onDefense, blocked=false }) => {
   if(!building) return null;
-  const info=BUILDING_INFO[building.type], level=building.level;
+  const info=FACILITY_INFO[building.type], level=building.level;
   const cost=Math.floor(UPGRADE_CONFIG.baseCost*Math.pow(UPGRADE_CONFIG.costMultiplier,level-1));
   const job=upgrades.find(u=>u.kind==='building'&&u.key===building.id);
   const remaining=job ? Math.max(0,(job.finishTime-Date.now())/1000) : 0;
