@@ -21,4 +21,4 @@ Generated using built-in imagegen, 2026-09-11. Original request returned painted
 
 Native phone run completed 3–0 with a 40-yard field goal, then collected 100 Coins. No console errors or warnings. Kick formation was tightened afterward so the four supporting protectors hold their assignments and the holder is seven yards behind the line; regression test added.
 
-Landscape acceptance found the replay control below the fold. The short-screen camera now uses a wider 465×210 viewport, so the field and playback control fit alongside the result at 844×390. This changes camera framing only.
+Landscape acceptance found the replay control below the fold. The short-screen camera now uses a wider 465×200 viewport, so the field and playback control fit alongside the result at 844×390. This changes camera framing only.

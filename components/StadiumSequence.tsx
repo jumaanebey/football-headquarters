@@ -20,7 +20,7 @@ export function StadiumSequence({game,level=1,onPlayback}:{game:StadiumFootballG
   raf=requestAnimationFrame(tick);
   return()=>{cancelAnimationFrame(raf);onPlayback?.(false);};
  },[eventKey,replay,onPlayback]);
- const scene=stadiumPerformance(game,t),cameraWidth=landscape?465:355,cameraHeight=landscape?210:310,focusX=Math.max(-5,Math.min(1040-cameraWidth,sx(scene.focus.x)-cameraWidth*.35)),focusY=Math.max(15,Math.min(545-cameraHeight,sy(scene.focus.y)-cameraHeight*.4));
+ const scene=stadiumPerformance(game,t),cameraWidth=landscape?465:355,cameraHeight=landscape?200:310,focusX=Math.max(-5,Math.min(1040-cameraWidth,sx(scene.focus.x)-cameraWidth*.35)),focusY=Math.max(15,Math.min(545-cameraHeight,sy(scene.focus.y)-cameraHeight*.4));
  return <div className="fhq-stadium-sequence fhq-stadium-performance" data-playback={t<1?'playing':'complete'}>
   <svg viewBox={`${focusX} ${focusY} ${cameraWidth} ${cameraHeight}`} role="img" aria-label={t<1?scene.beat:last?`${last.title}. ${scene.beat}`:'Players lined up, awaiting your call'}>
    <rect x="-15" y="0" width="1060" height="570" fill="#192d36"/>
