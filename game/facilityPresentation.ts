@@ -1,4 +1,4 @@
 import {BUILDING_INFO} from '../constants';
 import {BuildingType} from '../types';
 /** Display names can evolve without changing persisted building identities. */
-export const FACILITY_INFO={...BUILDING_INFO,[BuildingType.TRAINING_PITCH]:{...BUILDING_INFO[BuildingType.TRAINING_PITCH],name:'Weight Room',description:'Work out with your teammates and grow stronger.'}};
+export const FACILITY_INFO={...BUILDING_INFO,[BuildingType.TRAINING_PITCH]:{...BUILDING_INFO[BuildingType.TRAINING_PITCH],name:'Weight Room',description:'Schedule strength sessions, grow player level and unlock performance equipment.'},[BuildingType.TACTICS_ROOM]:{...BUILDING_INFO[BuildingType.TACTICS_ROOM],description:'Study football plays to grow IQ, readiness and play mastery.'},[BuildingType.MEDICAL_CENTER]:{...BUILDING_INFO[BuildingType.MEDICAL_CENTER],description:'Run recovery sessions and restore club Energy.'},[BuildingType.YOUTH_ACADEMY]:{...BUILDING_INFO[BuildingType.YOUTH_ACADEMY],name:'Scouting Department',description:'Send scouts, build recruiting relationships or use the agent network.'}};

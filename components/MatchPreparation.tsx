@@ -14,8 +14,8 @@ export function MatchPreparation({ config, energy, cost, plan, openingHero, onHe
   const key = config.buildings.find(b => b.kind === 'hq')?.formation as FormationKey | undefined;
   const formation = key ? FORMATIONS[key] : undefined;
   const count = Object.values(config.playerArmy ?? {}).reduce((sum, n) => sum + n, 0);
-  return <Sheet title="Prepare your game" subtitle={config.title} onClose={onClose} maxWidth="max-w-5xl"
-    footer={<div className="fhq-prep-footer"><div><strong>{config.loot.coins.toLocaleString()} Coins · {config.loot.fans} Fans</strong><small>Target loot · bonuses separate · {energy} Energy available</small></div><Btn disabled={energy<cost} onClick={onStart}>Reserve game · {cost} Energy</Btn><Btn variant="secondary" onClick={onClose}>Back to club</Btn></div>}>
+  return <Sheet title="Prepare your raid" subtitle={config.title} onClose={onClose} maxWidth="max-w-5xl"
+    footer={<div className="fhq-prep-footer"><div><strong>{config.loot.coins.toLocaleString()} Coins · {config.loot.fans} Fans</strong><small>Target loot · bonuses separate · {energy} Energy available</small></div><Btn disabled={energy<cost} onClick={onStart}>Reserve raid · {cost} Energy</Btn><Btn variant="secondary" onClick={onClose}>Back to club</Btn></div>}>
     <div className="fhq-match-prep">
       <section className="fhq-prep-scout"><div className="fhq-prep-section-title"><h3>{formation?.name??'Opponent defense'}</h3><span>{config.buildings.filter(b=>b.kind!=='wall').length} targets</span></div>
         <MatchScoutBoard buildings={config.buildings}/>
@@ -23,7 +23,7 @@ export function MatchPreparation({ config, energy, cost, plan, openingHero, onHe
         <DefenseCounterGuide buildings={config.buildings} rules={config.authority?.rules}/>
       </section>
       <section className="fhq-prep-decisions">
-        <fieldset><legend>1 · Choose your game plan</legend><div className="fhq-prep-plans">{GAME_PLANS.map(p=>{
+        <fieldset><legend>1 · Choose your raid plan</legend><div className="fhq-prep-plans">{GAME_PLANS.map(p=>{
           const mult=formation?.counter.weakTo.includes(p.key)?COUNTER_WEAK_MULT:formation?.counter.strongVs.includes(p.key)?COUNTER_STRONG_MULT:1;
           return <button key={p.key} type="button" aria-pressed={plan===p.key} onClick={()=>onPlan(p.key)}><strong>{p.name}</strong><small>{p.blurb}</small><span data-matchup={mult>1?'good':mult<1?'bad':'neutral'}>{mult>1?`+${Math.round((mult-1)*100)}% matchup`:mult<1?`${Math.round((mult-1)*100)}% matchup`:'Neutral matchup'}</span></button>;
         })}</div></fieldset>

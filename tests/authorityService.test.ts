@@ -295,3 +295,22 @@ describe('authority rival matches use one server-built defense snapshot', () => 
     expect((await h.fail('cccccccc-cccc-4ccc-8ccc-cccccccccccc', { kind: 'film', matchId })).code).toBe('film_unavailable');
   });
 });
+
+describe('facility schedules and Stadium decisions through the authority ledger',()=>{
+ it('commits a schedule once, settles each room once and preserves the reports on retry',async()=>{
+  const h=harness();await h.ok(A,{kind:'bootstrap'});
+  const request={kind:'action',operationId:op(91001),expectedRevision:h.revision(A),action:{type:'development.start',unit:'ALL',steps:[{station:'film',play:'slants'},{station:'rehab',play:'power'}]}};
+  const started=await h.ok(A,request),again=await h.ok(A,request);expect(again.club!.revision).toBe(started.club!.revision);expect(h.state(A).resources.ENERGY).toBe(95);
+  h.advance(180000);const sync={kind:'action',operationId:op(91002),expectedRevision:h.revision(A),action:{type:'sync'}};
+  const finished=await h.ok(A,sync);expect(finished.club!.state.development!.schedule).toBeNull();expect(finished.club!.state.development!.reports).toHaveLength(2);
+  const repeated=await h.ok(A,sync);expect(repeated.club!.revision).toBe(finished.club!.revision);expect(repeated.club!.state.roster[0].stats.iq).toBe(11);
+ });
+ it('blocks concurrent raid/Stadium play and binds each call to its exact turn',async()=>{
+  const h=harness();await h.ok(A,{kind:'bootstrap'});
+  await h.ok(A,{kind:'action',operationId:op(92001),expectedRevision:h.revision(A),action:{type:'stadium.start',opponent:'harbor'}});
+  const rejected=await h.fail(A,{kind:'match.reserve',operationId:op(92002),expectedRevision:h.revision(A),choice:{kind:'campaign',stage:1}});expect(rejected.code).toBe('active_match');
+  const game=h.state(A).stadiumFootball!.game!,call={kind:'action',operationId:op(92003),expectedRevision:h.revision(A),action:{type:'stadium.call',gameId:game.id,turn:'0',call:'left'}};
+  const first=await h.ok(A,call),duplicate=await h.ok(A,call);expect(duplicate.club!.state.stadiumFootball).toEqual(first.club!.state.stadiumFootball);expect(duplicate.club!.revision).toBe(first.club!.revision);
+  const stale=await h.fail(A,{...call,operationId:op(92004),expectedRevision:h.revision(A)});expect(stale.code).toBe('not_ready');
+ });
+});

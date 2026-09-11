@@ -43,6 +43,7 @@ interface Props {
   trophies?: number;
   fans?: number;
   growthFans?: number; // permanent campus record; scoreboard still shows available Fans
+  onOpenPractice?: () => void;
   onOpenStats?: () => void;            // tap the jumbotron → Club Dashboard
   onBuildingClick: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
   onCollect: (building: BuildingInstance, screenPos: { x: number; y: number }) => void;
@@ -698,7 +699,7 @@ const BonusOrbSprite: React.FC<{ orb: BonusOrb; onOrbClick: Props['onOrbClick'] 
   );
 };
 
-export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
+export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = false, onEditCampus, heroes = [], onOpenHeroes, buildings, players, bonusOrbs, timeOfDay, recruitSlot, upgrades = [], formationName, rankColor, rankName, clubName, trophies, fans, growthFans = fans, selectedId, celebrationId, onDeselect, onOpenStats, onOpenPractice, onBuildingClick, onCollect, onCollectResource, onOrbClick }) => {
   const teamStyle=useClubStyle(clubName??'Home club');
   const [showSavedLayout,setShowSavedLayout]=useState(false);
   const customLayout=hasCustomLayout && showSavedLayout;
@@ -1026,6 +1027,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
         <div ref={boardRef} data-fhq-board onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onClickCapture={e=>{if(e.detail!==0 && panMovedRef.current){e.preventDefault();e.stopPropagation();panMovedRef.current=false;}}} onDoubleClick={resetCam}
           className="absolute"
           style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x + (BOARD_W/2-framing.centerX)*scale*cam.z}px), calc(-50% + ${cam.y + (BOARD_H/2-framing.centerY)*scale*cam.z}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
+          {onOpenPractice&&campusFieldClear(shownBuildings)&&!edit&&<button type="button" data-fhq-practice aria-label="Practice Field, routes and team schedule" onClick={e=>{e.stopPropagation();if(panMovedRef.current){panMovedRef.current=false;return;}onOpenPractice();}} className="fhq-map-practice" style={{left:tileToScreen((CAMPUS_FIELD.x1+CAMPUS_FIELD.x2)/2,(CAMPUS_FIELD.y1+CAMPUS_FIELD.y2)/2).x,top:tileToScreen((CAMPUS_FIELD.x1+CAMPUS_FIELD.x2)/2,(CAMPUS_FIELD.y1+CAMPUS_FIELD.y2)/2).y,minHeight:44/(scale*cam.z),fontSize:12/(scale*cam.z)}}>Practice Field<span>Routes · team schedule</span></button>}
           <GroundLayer panorama={false} arrival={false} showField={campusFieldClear(shownBuildings)} buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
@@ -1139,6 +1141,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
 
       <div className="absolute inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none" style={{bottom:landscape?64:96}}>
       <div className="flex gap-2 pointer-events-auto">
+        <button type="button" onClick={onOpenPractice} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Practice</button>
         <button type="button" onClick={() => setDirectoryOpen(true)} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Facilities</button>
 
       </div>

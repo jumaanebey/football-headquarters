@@ -16,11 +16,10 @@
     "recordedFrom": "Supabase deploy v5 plus get_edge_function readback: index.ts byte-identical (139302 bytes). Accepts hero-actions-3 and defense-counters-4; requests without rules retain hero-actions-3."
   },
   "staged": {
-    "version": 5,
-    "artifact": "supabase/recovery/club-authority.v5.min.js",
-    "sha256": "09d2deaa68b45bfc8ab8eb2b15db30f8bfe38fc8fd701d2844d402fbb6be6f68",
-    "rules": "defense-counters-4",
-    "commit": "4319884acfcd3816bc14b7e82142b47a6d139d33"
+    "version": 6,
+    "artifact": "supabase/recovery/club-authority.v6.min.js",
+    "sha256": "519031c02a2a9019c37457a76ae2028343653836b18786826fb563a04045723d",
+    "rules": "defense-counters-4"
   },
   "rollback": {
     "healthy": "Roll back the frontend while retaining dual-rule v5 authority for outstanding defense-counters-4 matches. Prior healthy v4 accepts only hero-actions-3; do not restore it while new-rule reservations exist.",

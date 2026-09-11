@@ -3,14 +3,15 @@ import type {Player} from '../types';
 import {stationExercise,EXERCISE_LABELS} from '../game/campusActivities';
 import {IndoorPlayer} from './IndoorPlayer';
 
+const renovatedInterior = new URL('../art/rooms/weights-interior-level3.webp', import.meta.url).href;
 const interior = new URL('../art/rooms/weight-room-interior-v3.webp', import.meta.url).href;
 // Feet sit on the illustrated floor, in front of the equipment. Back row paints first.
 const SPOTS = [
   {x:36,y:63,height:29}, {x:55,y:68,height:29}, {x:75,y:73,height:29},
   {x:27,y:77,height:32}, {x:48,y:84,height:32}, {x:68,y:92,height:32},
 ];
-export function WeightRoomScene({participants,selected,working,ready,onSelect}:{
-  participants:Player[];selected:string;working:boolean;ready:boolean;onSelect:(id:string)=>void;
+export function WeightRoomScene({participants,selected,working,ready,onSelect,level=1}:{
+  level?:number;participants:Player[];selected:string;working:boolean;ready:boolean;onSelect:(id:string)=>void;
 }) {
   const [failed,setFailed]=useState(false);
   const [attempt,setAttempt]=useState(0);
@@ -19,9 +20,10 @@ export function WeightRoomScene({participants,selected,working,ready,onSelect}:{
   const focus=participants.find(p=>p.id===selected);
   if(focus&&!visible.includes(focus))visible[visible.length-1]=focus;
   return <div className="fhq-weight-interior" data-working={working} data-ready={ready}>
-    <img key={attempt} className="fhq-weight-interior-art" src={interior} width={1536} height={1024}
+    <img key={attempt} className="fhq-weight-interior-art" src={level>=3?renovatedInterior:interior} width={1536} height={1024}
       alt="Inside the campus Weight Room: timber beams, orange trim, black padded benches, dumbbell racks and a turf lane"
       onError={()=>setFailed(true)}/>
+    <span className="fhq-interior-level">{level>=3?'L3 renovation · performance equipment':'Starter interior · renovation at L3'}</span>
     {!failed&&visible.map((p,i)=>{
       const spot=SPOTS[visible.length<=3?i+3:i],exercise=stationExercise(participants.indexOf(p));
       return <button type="button" key={p.id} className="fhq-weight-room-player" aria-pressed={selected===p.id}

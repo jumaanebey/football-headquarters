@@ -162,11 +162,39 @@ function createSupabaseAuthorityStore(options) {
   };
 }
 
-// game/combat/canonical.ts
-function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item === void 0 ? null : item)).join(",")}]`;
-  if (value && typeof value === "object") return `{${Object.keys(value).sort().filter((key) => value[key] !== void 0).map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
-  return JSON.stringify(value) ?? "null";
+// dailies.ts
+var ALL_QUESTS = [
+  { id: "win_attack", text: "Win Stadium football or a base raid", emoji: "\u2694\uFE0F", target: 1, reward: { gems: 8 } },
+  { id: "game_balls", text: "Earn 5 Game Balls in base raids", emoji: "\u{1F3C8}", target: 5, reward: { gems: 6 } },
+  { id: "drills", text: "Complete 3 development sessions", emoji: "\u{1F3CB}\uFE0F", target: 3, reward: { gems: 5 } },
+  { id: "bank_coins", text: "Bank 1,200 Stadium coins", emoji: "\u{1FA99}", target: 1200, reward: { gems: 4 } },
+  { id: "train_hero", text: "Train a hero", emoji: "\u2B50", target: 1, reward: { gems: 4 } },
+  { id: "scout", text: "Complete a scouting trip or hero search", emoji: "\u{1F3B0}", target: 1, reward: { gems: 5 } }
+];
+var SWEEP_BONUS_GEMS = 6;
+var todayKey = (now = Date.now()) => {
+  const d = new Date(now);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+var questsForDate = (dateKey) => {
+  let h = 0;
+  for (let i = 0; i < dateKey.length; i++) h = h * 31 + dateKey.charCodeAt(i) >>> 0;
+  const pool = [...ALL_QUESTS];
+  const picks = [];
+  for (let k = 0; k < 3 && pool.length; k++) {
+    h = h * 1103515245 + 12345 >>> 0;
+    picks.push(pool.splice(h % pool.length, 1)[0]);
+  }
+  return picks;
+};
+var freshDailies = (date2 = todayKey()) => ({ date: date2, progress: {}, claimed: [], sweepClaimed: false });
+
+// game/dailyProgress.ts
+function progressClubDaily(state, questId, count = 1) {
+  const quest = questsForDate(state.dailies.date).find((value) => value.id === questId);
+  if (!quest || state.dailies.claimed.includes(questId) || !Number.isFinite(count) || count <= 0) return state;
+  const progress = Math.min(quest.target, (state.dailies.progress[questId] ?? 0) + count);
+  return { ...state, dailies: { ...state.dailies, progress: { ...state.dailies.progress, [questId]: progress } } };
 }
 
 // types.ts
@@ -177,13 +205,13 @@ var ResourceType = /* @__PURE__ */ ((ResourceType2) => {
   ResourceType2["FANS"] = "FANS";
   return ResourceType2;
 })(ResourceType || {});
-var BuildingType = /* @__PURE__ */ ((BuildingType2) => {
-  BuildingType2["TRAINING_PITCH"] = "TRAINING_PITCH";
-  BuildingType2["YOUTH_ACADEMY"] = "YOUTH_ACADEMY";
-  BuildingType2["TACTICS_ROOM"] = "TACTICS_ROOM";
-  BuildingType2["MEDICAL_CENTER"] = "MEDICAL_CENTER";
-  BuildingType2["STADIUM"] = "STADIUM";
-  return BuildingType2;
+var BuildingType = /* @__PURE__ */ ((BuildingType3) => {
+  BuildingType3["TRAINING_PITCH"] = "TRAINING_PITCH";
+  BuildingType3["YOUTH_ACADEMY"] = "YOUTH_ACADEMY";
+  BuildingType3["TACTICS_ROOM"] = "TACTICS_ROOM";
+  BuildingType3["MEDICAL_CENTER"] = "MEDICAL_CENTER";
+  BuildingType3["STADIUM"] = "STADIUM";
+  return BuildingType3;
 })(BuildingType || {});
 var DrillState = /* @__PURE__ */ ((DrillState2) => {
   DrillState2["IDLE"] = "IDLE";
@@ -228,49 +256,6 @@ var PlayerState = /* @__PURE__ */ ((PlayerState2) => {
   PlayerState2["PATROLLING"] = "PATROLLING";
   return PlayerState2;
 })(PlayerState || {});
-
-// game/combat/defenseCounters.ts
-var LEGACY_COMBAT_RULES = "hero-actions-3";
-var DEFENSE_COUNTER_RULES = "defense-counters-4";
-var supportsCombatRules = (v) => v === LEGACY_COMBAT_RULES || v === DEFENSE_COUNTER_RULES;
-var EQUIPMENT_COUNTERS = {
-  jugs: { name: "JUGS", cooldown: 0.55, windup: 0, damage: 1, radius: 0, duration: 0, counter: "Deploy blockers first. Nearby offensive linemen absorb pressure for vulnerable players." },
-  sled: { name: "Sled", cooldown: 1.1, windup: 0.3, damage: 1.8, radius: 0, duration: 0.6, counter: "Linemen brace against the impact. Ranged players can attack from outside its reach." },
-  ref: { name: "Ref Tower", cooldown: 1.5, windup: 0.55, damage: 1.6, radius: 0, duration: 1.4, counter: "Higher IQ shortens the flag. Leave its range during the warning to avoid the call." },
-  tshirt: { name: "T-Shirt Cannon", cooldown: 1.15, windup: 0.3, damage: 1.4, radius: 7, duration: 0.9, counter: "Spread out. Damage and entanglement fall to 35% at the edge of the marked area." },
-  cooler: { name: "Water Station", cooldown: 3.2, windup: 0.4, damage: 0, radius: 7, duration: 3.5, counter: "Water controls turf without direct damage. RB, WR and CB retain 80% speed; other roles retain 60%." }
-};
-function counterRole(t) {
-  if (t.role) return t.role;
-  const heroes2 = { qb: "QB", enforcer: "OL", captain: "OL", burner: "WR", playmaker: "WR", kicker: "QB", coach: "S", medic: "S", legend: "LB" };
-  return heroes2[t.heroKey ?? ""] ?? { ["OFFENSE_LINE" /* OFFENSE_LINE */]: "OL", ["OFFENSE_SKILL" /* OFFENSE_SKILL */]: "WR", ["DEFENSE_LINE" /* DEFENSE_LINE */]: "DL", ["DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */]: "CB" }[t.unit];
-}
-function defenseResistance(t) {
-  const role = counterRole(t), heavy = ["OL", "DL"].includes(role);
-  return {
-    brace: heavy ? 0.35 : role === "LB" ? 0.65 : 1,
-    traction: ["RB", "WR", "CB"].includes(role) ? 0.8 : 0.6,
-    discipline: 1 / Math.max(0.7, Math.min(1.6, t.chargeRate ?? 1))
-  };
-}
-var splashFalloff = (distance, radius) => distance > radius ? 0 : 1 - 0.65 * Math.max(0, distance) / radius;
-function counterSpeed(t) {
-  return Math.min((t.wetT ?? 0) > 0 ? defenseResistance(t).traction : 1, (t.flagT ?? 0) > 0 ? 0.75 : 1, (t.braceT ?? 0) > 0 ? 0.65 : 1);
-}
-function tickCounterEffects(t, dt) {
-  if (Math.max(t.wetT ?? 0, t.flagT ?? 0, t.braceT ?? 0) > 0) t.defenseControlSeconds = (t.defenseControlSeconds ?? 0) + dt;
-  for (const key of ["wetT", "flagT", "braceT"]) t[key] = Math.max(0, (t[key] ?? 0) - dt);
-}
-function displaceFrom(t, b, distance, buildings) {
-  const length = Math.hypot(t.x - b.x, t.y - b.y) || 1, dx = (t.x - b.x) / length, dy = (t.y - b.y) / length;
-  for (let moved = 0; moved < distance; moved += 0.25) {
-    const step = Math.min(0.25, distance - moved), x = t.x + dx * step, y = t.y + dy * step;
-    if (x < 2 || x > 98 || y < 2 || y > 98 || buildings.some((o) => !o.dead && o.id !== b.id && Math.hypot(x - o.x, y - o.y) < o.size * 0.5 + 0.5)) break;
-    t.x = x;
-    t.y = y;
-  }
-  t.plan = void 0;
-}
 
 // constants.ts
 var DRILLS = {
@@ -1220,6 +1205,327 @@ var nearestTroop = (x, y, troops, within) => {
   }
   return best;
 };
+
+// game/development.ts
+var FOOTBALL_PLAYS = {
+  verticals: { name: "Four verticals", concept: "Four eligible receivers attack deep lanes. The quarterback reads the safeties and throws to the best vertical matchup.", beats: "Attacks single-high man coverage", counter: "Deep safety help", stat: "speed" },
+  slants: { name: "Quick slants", concept: "The outside receivers cut inside at five yards. The quarterback reads the underneath linebacker.", beats: "Beats an outside blitz", counter: "Inside zone coverage", stat: "iq" },
+  flood: { name: "Flood right", concept: "A go route clears the sideline. A deep out and a flat route give the quarterback three levels to read.", beats: "Stretches zone coverage", counter: "Man coverage with safety help", stat: "iq" },
+  power: { name: "Power run", concept: "The guard pulls through the hole. The running back follows the lead block while the line seals the edge.", beats: "Punishes light pass defense", counter: "A stacked defensive front", stat: "strength" }
+};
+var STATIONS = {
+  weights: { name: "Weight Room", building: "TRAINING_PITCH" /* TRAINING_PITCH */, seconds: 60, energy: 8, description: "Strength +2 \xB7 player level +1" },
+  rehab: { name: "Rehab Center", building: "MEDICAL_CENTER" /* MEDICAL_CENTER */, seconds: 90, energy: 0, description: "Restore club Energy \xB7 no workout cost" },
+  film: { name: "Film Room", building: "TACTICS_ROOM" /* TACTICS_ROOM */, seconds: 75, energy: 5, description: "Football IQ +1 \xB7 readiness \xB7 play mastery" },
+  practice: { name: "Practice Field", building: "TRAINING_PITCH" /* TRAINING_PITCH */, seconds: 60, energy: 8, description: "Speed +2 \xB7 readiness \xB7 route repetitions" }
+};
+var emptyDevelopment = () => ({ schedule: null, reports: [], mastery: {} });
+var roomTier = (level) => level >= 5 ? 3 : level >= 3 ? 2 : 1;
+function developmentQuote(club, steps) {
+  return steps.map((step) => {
+    const level = club.buildings.find((b) => b.type === STATIONS[step.station].building)?.level ?? 1;
+    return { ...step, level, seconds: Math.max(20, Math.round(STATIONS[step.station].seconds / (1 + (level - 1) * 0.12))), energy: STATIONS[step.station].energy };
+  });
+}
+function startDevelopment(club, unit, steps, now) {
+  if (club.development?.schedule) return "Finish the current team schedule first.";
+  if (club.buildings.some((b) => b.type === "TRAINING_PITCH" /* TRAINING_PITCH */ && b.state !== "IDLE" /* IDLE */)) return "Collect the current workout before starting a schedule.";
+  const players = club.roster.filter((p) => unit === "ALL" || p.unit === unit);
+  if (!players.length) return "Choose a group with players.";
+  const quote = developmentQuote(club, steps), energy = quote.reduce((n, s) => n + s.energy, 0);
+  if (club.resources.ENERGY < energy) return `This schedule needs ${energy} Energy up front. Choose fewer sessions or recover first.`;
+  let cursor = now;
+  const id = `schedule_${now}`;
+  const blocks = quote.map((step, i) => {
+    const startTime = cursor;
+    cursor += step.seconds * 1e3;
+    return { station: step.station, play: step.play, level: step.level, id: `${id}_${i}`, startTime, finishTime: cursor };
+  });
+  return { ...club, resources: { ...club.resources, ENERGY: club.resources.ENERGY - energy }, development: { ...club.development ?? emptyDevelopment(), schedule: { id, unit, playerIds: players.map((p) => p.id), blocks, completed: 0, energyPaid: energy } } };
+}
+function advanceDevelopment(club, now, utc = false) {
+  const original = club.development?.schedule;
+  if (!original) return club;
+  let next = club;
+  let development = { ...club.development };
+  let completed = original.completed;
+  for (; completed < original.blocks.length && original.blocks[completed].finishTime <= now; completed++) {
+    const block = original.blocks[completed], station = block.station, tier = roomTier(block.level);
+    const energy = station === "rehab" ? Math.min(100 - next.resources.ENERGY, 12 + 4 * (tier - 1)) : 0;
+    const readiness = Math.min(100 - next.teamReadiness, station === "film" ? 10 + 2 * tier : station === "practice" ? 5 + tier : 0);
+    const stat = station === "weights" ? "strength" : station === "practice" ? "speed" : station === "film" ? "iq" : null;
+    const changes = [];
+    const roster = next.roster.map((p) => {
+      if (!original.playerIds.includes(p.id) || !stat) return p;
+      const before = p.stats[stat], after = Math.max(before, Math.min(p.maxStat, before + (station === "film" ? 1 : 2)));
+      changes.push({ id: p.id, name: p.name, stat, before, after });
+      return { ...p, level: p.level + (station === "weights" && after > before ? 1 : 0), stats: { ...p.stats, [stat]: after } };
+    });
+    const report = { id: block.id, station, play: block.play, at: block.finishTime, players: changes, energy, readiness, read: false };
+    development = { ...development, reports: [report, ...development.reports].slice(0, 24), mastery: station === "film" ? { ...development.mastery, [block.play]: Math.min(20, (development.mastery[block.play] ?? 0) + 1) } : development.mastery };
+    next = { ...next, roster, teamReadiness: next.teamReadiness + readiness, resources: { ...next.resources, ["ENERGY" /* ENERGY */]: next.resources.ENERGY + energy } };
+    if ((utc ? new Date(block.finishTime).toISOString().slice(0, 10) : todayKey(block.finishTime)) === next.dailies.date) next = progressClubDaily(next, "drills");
+  }
+  if (completed === original.completed) return club;
+  return { ...next, development: { ...development, schedule: completed === original.blocks.length ? null : { ...original, completed } } };
+}
+function isDevelopmentSteps(input) {
+  return Array.isArray(input) && input.length >= 1 && input.length <= 6 && input.every((s) => s && typeof s === "object" && !Array.isArray(s) && Object.keys(s).length === 2 && Object.prototype.hasOwnProperty.call(STATIONS, s.station) && Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, s.play));
+}
+function validDevelopment(input) {
+  if (!input || typeof input !== "object") return false;
+  const d = input;
+  const finite2 = (n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
+  if (!d.mastery || Object.entries(d.mastery).some(([k, v]) => !Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, k) || !finite2(v) || v > 20) || !Array.isArray(d.reports) || d.reports.length > 24) return false;
+  if (d.reports.some((r) => !r || typeof r.id !== "string" || !Object.prototype.hasOwnProperty.call(STATIONS, r.station) || !Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, r.play) || !finite2(r.at) || !finite2(r.energy) || r.energy > 100 || typeof r.read !== "boolean" || !Number.isFinite(r.readiness) || r.readiness < 0 || r.readiness > 100 || !Array.isArray(r.players) || r.players.some((p) => typeof p.id !== "string" || typeof p.name !== "string" || !["strength", "speed", "iq"].includes(p.stat) || !finite2(p.before) || !finite2(p.after)))) return false;
+  if (d.schedule === null) return true;
+  const s = d.schedule;
+  return !!s && typeof s.id === "string" && (s.unit === "ALL" || Object.values(UnitGroup).includes(s.unit)) && Array.isArray(s.playerIds) && s.playerIds.length > 0 && s.playerIds.length <= 150 && s.playerIds.every((id) => typeof id === "string") && new Set(s.playerIds).size === s.playerIds.length && Array.isArray(s.blocks) && s.blocks.length > 0 && s.blocks.length <= 6 && finite2(s.completed) && s.completed < s.blocks.length && finite2(s.energyPaid) && s.energyPaid <= 100 && s.blocks.every((b, i) => b && typeof b.id === "string" && Object.prototype.hasOwnProperty.call(STATIONS, b.station) && Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, b.play) && finite2(b.level) && b.level >= 1 && finite2(b.startTime) && finite2(b.finishTime) && b.finishTime > b.startTime && (i === 0 || b.startTime === s.blocks[i - 1].finishTime));
+}
+
+// game/stadiumFootball.ts
+var STADIUM_OPPONENTS = {
+  harbor: { name: "Harbor Hawks", power: 55, style: "zone", reward: 100 },
+  ironwood: { name: "Ironwood Bears", power: 85, style: "stack", reward: 150 },
+  summit: { name: "Summit Stars", power: 120, style: "man", reward: 220 }
+};
+var FOOTBALL_ENTRY_ENERGY = 10;
+var footballInProgress = (club) => !!club.stadiumFootball?.game && club.stadiumFootball.game.phase !== "final";
+function footballRatings(club) {
+  const mean = (units2) => {
+    const players = club.roster.filter((p) => units2.includes(p.unit));
+    return players.length ? players.reduce((n2, p) => n2 + unitPower(p), 0) / players.length : 15;
+  };
+  const n = Math.max(1, club.roster.length), stat = (key) => club.roster.reduce((s, p) => s + p.stats[key], 0) / n;
+  return { attack: Math.round(mean(["OFFENSE_LINE" /* OFFENSE_LINE */, "OFFENSE_SKILL" /* OFFENSE_SKILL */])), defense: Math.round(mean(["DEFENSE_LINE" /* DEFENSE_LINE */, "DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */])), speed: stat("speed"), power: stat("strength"), iq: stat("iq"), readiness: club.teamReadiness, mastery: { ...club.development?.mastery } };
+}
+function footballCalls(game) {
+  switch (game.phase) {
+    case "return":
+      return [{ key: "left", name: "Return left", detail: "A safe sideline lane." }, { key: "middle", name: "Return up the middle", detail: "Trust speed and the lead block." }, { key: "right", name: "Return right", detail: "Challenge the outside coverage." }];
+    case "offense":
+      return [{ key: "slants", name: "Quick slants", detail: "IQ and timing against the blitz." }, { key: "flood", name: "Flood right", detail: "Three route depths stretch zone coverage." }, { key: "verticals", name: "Hail Mary \xB7 four verticals", detail: "Speed against man coverage; more risk." }, { key: "power", name: "Power run", detail: "Strength against a light box." }];
+    case "finish":
+      return [{ key: "field-goal", name: `Kick a ${Math.max(18, 117 - game.yardLine)}-yard field goal`, detail: "Take three if your range allows it." }, { key: "goal-line", name: "Go for the touchdown", detail: "One final run against their goal-line front." }];
+    case "conversion":
+      return [{ key: "extra-point", name: "Kick the extra point", detail: "Safer \xB7 one point." }, { key: "two-point", name: "Go for two", detail: "A talent matchup at the goal line." }];
+    case "kickoff":
+      return [{ key: "deep", name: "Kick deep", detail: "Trust your coverage speed." }, { key: "squib", name: "Squib kick", detail: "Limits a big return; gives up field position." }];
+    case "defense":
+      return [{ key: "zone", name: "Zone \xB7 protect the deep ball", detail: "Counters vertical passes; leaves room to run." }, { key: "man", name: "Man \xB7 take away quick passes", detail: "Counters quick routes; vulnerable to deep speed." }, { key: "stack", name: "Stack the box", detail: "Stops power runs; opens the passing lanes." }];
+    case "defend-finish":
+      return [{ key: "block", name: "Pressure the kick", detail: "Try to block the extra point." }, { key: "contain", name: "Protect against two points", detail: "Keep the runner in front of you." }];
+    default:
+      return [];
+  }
+}
+var bounded = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+function applyStadiumFootball(club, action, now, random) {
+  const state = club.stadiumFootball ?? { game: null, history: [] }, old = state.game;
+  if (action.type === "stadium.start") {
+    if (old && !old.collected) return "Finish and collect your current Stadium game first.";
+    if (club.development?.schedule) return "Finish your team schedule before taking the field.";
+    if (club.buildings.some((b) => b.activeDrillId)) return "Collect your workout before playing football.";
+    if (club.resources.ENERGY < FOOTBALL_ENTRY_ENERGY) return "A Stadium game needs 10 Energy.";
+    const game2 = { id: `football_${now}_${Math.floor(random() * 1e9)}`, opponent: action.opponent, phase: "return", turn: 0, startedAt: now, home: 0, away: 0, yardLine: 20, ratings: footballRatings(club), events: [], collected: false, reward: 0 };
+    return { ...club, teamReadiness: Math.max(0, club.teamReadiness - 12), resources: { ...club.resources, ENERGY: club.resources.ENERGY - FOOTBALL_ENTRY_ENERGY }, stadiumFootball: { ...state, game: game2 } };
+  }
+  if (!old || old.id !== action.gameId) return "That Stadium game was not found.";
+  if (action.type === "stadium.collect") {
+    if (old.phase !== "final" || old.collected) return "This result is not ready to collect.";
+    const next = { ...old, collected: true };
+    const collected = { ...club, resources: { ...club.resources, COINS: club.resources.COINS + old.reward }, stadiumFootball: { game: next, history: [{ id: old.id, opponent: old.opponent, home: old.home, away: old.away, reward: old.reward, at: now }, ...state.history].slice(0, 20) } };
+    return old.home > old.away ? progressClubDaily(collected, "win_attack") : collected;
+  }
+  if (action.type === "stadium.abandon") {
+    if (old.phase === "final") return "This game is already over.";
+    return { ...club, stadiumFootball: { ...state, game: { ...old, phase: "final", away: Math.max(old.away, old.home + 1), reward: 0, events: [...old.events, { turn: old.turn, phase: old.phase, call: "abandon", title: "Game conceded", detail: "No rewards. The entry Energy was spent at kickoff.", home: old.home, away: Math.max(old.away, old.home + 1), yards: 0 }] } } };
+  }
+  if (old.phase === "final" || String(old.turn) !== action.turn || !footballCalls(old).some((c) => c.key === action.call)) return "That play call is out of date. Use the current decision.";
+  const opponent = STADIUM_OPPONENTS[old.opponent], r = old.ratings, advantage = (r.attack - opponent.power) / Math.max(25, opponent.power), defAdv = (r.defense - opponent.power) / Math.max(25, opponent.power);
+  const roll = random(), call = action.call;
+  let game = { ...old, turn: old.turn + 1 }, title = "", detail = "", yards = 0, play;
+  const theirTurn = () => {
+    game.phase = "kickoff";
+    game.yardLine = 20;
+  };
+  switch (old.phase) {
+    case "return": {
+      const lane = call === "middle" ? 0.04 : call === "left" ? 0.01 : -0.01;
+      if (advantage > 1.05 && roll < bounded(0.65 + (r.speed - 15) / 100 + lane, 0.2, 0.95)) {
+        game.home += 6;
+        game.phase = "conversion";
+        yards = 100;
+        title = "Kickoff return touchdown!";
+        detail = "Your return speed and blocking overwhelmed their coverage.";
+      } else {
+        yards = Math.round(bounded(23 + advantage * 12 + r.speed * 0.2 + roll * 12, 15, 65));
+        game.yardLine = yards;
+        game.phase = "offense";
+        title = `Return to your ${yards}`;
+        detail = `${call === "middle" ? "The central lane" : `The ${call} sideline`} sets up your offensive possession.`;
+      }
+      break;
+    }
+    case "offense": {
+      play = call;
+      const coverage = opponent.style, beats = play === "slants" && coverage === "stack" || play === "verticals" && coverage === "man" || play === "flood" && coverage === "zone" || play === "power" && coverage === "man";
+      const talent = play === "power" ? r.power : play === "verticals" ? r.speed : r.iq;
+      const probability = bounded(0.38 + advantage * 0.28 + (beats ? 0.16 : -0.06) + (talent - 15) * 4e-3 + r.readiness * 1e-3 + (r.mastery[play] ?? 0) * 8e-3, 0.08, 0.96);
+      if (roll < probability) {
+        yards = 100 - game.yardLine;
+        game.home += 6;
+        game.phase = "conversion";
+        title = "Touchdown!";
+      } else {
+        yards = Math.round(bounded(12 + advantage * 10 + roll * 12, 0, 45));
+        game.yardLine = Math.min(98, game.yardLine + yards);
+        game.phase = "finish";
+        title = `${yards} yards \xB7 one decision left`;
+      }
+      detail = `${play === "verticals" ? "Four verticals" : FOOTBALL_PLAYS[play].name} against ${coverage} coverage. ${beats ? "Your call found the matchup." : "Their scheme challenged the call."} Attack ${r.attack} vs ${opponent.power}; mastery ${r.mastery[play] ?? 0}/20.`;
+      break;
+    }
+    case "finish": {
+      if (call === "field-goal") {
+        const distance = Math.max(18, 117 - game.yardLine), chance = bounded(0.99 - (distance - 20) * 0.016 + (r.iq - 15) * 4e-3, 0.03, 0.98);
+        const made = roll < chance;
+        if (made) game.home += 3;
+        title = made ? "Field goal is good" : "Field goal missed";
+        detail = `${distance}-yard attempt. Distance and team timing determined the kick.`;
+      } else {
+        play = "power";
+        const made = roll < bounded(0.28 + advantage * 0.22 + (r.power - 15) * 5e-3 + (game.yardLine - 70) * 5e-3, 0.05, 0.9);
+        if (made) {
+          game.home += 6;
+          game.phase = "conversion";
+          title = "Goal-line touchdown";
+          detail = "The runner followed the lead block through the front.";
+          break;
+        }
+        title = "Goal-line stand";
+        detail = "The defense held. Your possession ends without a score.";
+      }
+      theirTurn();
+      break;
+    }
+    case "conversion": {
+      const two = call === "two-point", made = roll < bounded(two ? 0.48 + advantage * 0.2 : 0.94 + (r.iq - 15) * 1e-3, 0.1, 0.99);
+      if (made) game.home += two ? 2 : 1;
+      title = made ? two ? "Two points!" : "Extra point is good" : "Conversion stopped";
+      detail = two ? "One run-pass matchup from the two-yard line." : "The kick completes your scoring possession.";
+      theirTurn();
+      break;
+    }
+    case "kickoff": {
+      const squib = call === "squib";
+      if (!squib && defAdv < -0.5 && roll < 0.22) {
+        game.away += 6;
+        game.phase = "defend-finish";
+        title = "They return it for a touchdown";
+        detail = "Their return team broke your coverage.";
+      } else {
+        yards = Math.round(bounded((squib ? 40 : 25) - defAdv * 9 + roll * 8, 15, 65));
+        game.yardLine = yards;
+        game.phase = "defense";
+        title = `Opponent starts at their ${yards}`;
+        detail = squib ? "The squib prevented a long return, at the cost of field position." : "Your coverage team made the tackle.";
+      }
+      break;
+    }
+    case "defense": {
+      const theirPlay = roll < 0.34 ? "slants" : roll < 0.67 ? "verticals" : "power";
+      play = theirPlay;
+      const counter = call === "zone" && theirPlay === "verticals" || call === "man" && theirPlay === "slants" || call === "stack" && theirPlay === "power";
+      const stopChance = bounded(0.4 + defAdv * 0.3 + (counter ? 0.24 : -0.08) + r.readiness * 1e-3, 0.05, 0.97), stopped = random() < stopChance;
+      if (stopped) {
+        const kickDistance = Math.max(25, 117 - (game.yardLine + 22));
+        const kickMade = random() < bounded(0.92 - (kickDistance - 25) * 0.014, 0.08, 0.9);
+        if (kickMade) game.away += 3;
+        game.phase = "final";
+        title = kickMade ? "You force a field goal" : "Defensive stop \xB7 their kick misses";
+        detail = `${call} against ${theirPlay === "verticals" ? "four verticals" : FOOTBALL_PLAYS[theirPlay].name}. ${counter ? "The call took away their first option." : "Your defenders won their assignments."}`;
+      } else {
+        game.away += 6;
+        game.phase = "defend-finish";
+        title = "Opponent touchdown";
+        detail = `They called ${theirPlay === "verticals" ? "four verticals" : FOOTBALL_PLAYS[theirPlay].name} against your ${call}. Defense ${r.defense} vs ${opponent.power}.`;
+      }
+      break;
+    }
+    case "defend-finish": {
+      const two = game.away + 1 < game.home && game.away + 2 >= game.home;
+      const made = roll < bounded(two ? 0.5 - defAdv * 0.2 - (call === "contain" ? 0.12 : 0) : 0.94 - (call === "block" ? 0.08 : 0), 0.05, 0.98);
+      if (made) game.away += two ? 2 : 1;
+      title = made ? two ? "They convert for two" : "Their extra point is good" : "Conversion denied";
+      detail = "Both teams have now completed one possession. Equal scores stay tied.";
+      game.phase = "final";
+      break;
+    }
+  }
+  if (game.phase === "final") game.reward = game.home > game.away ? opponent.reward : game.home === game.away ? Math.round(opponent.reward * 0.5) : 20;
+  game.events = [...old.events, { turn: old.turn, phase: old.phase, call, title, detail, home: game.home, away: game.away, play, yards }];
+  return { ...club, stadiumFootball: { ...state, game } };
+}
+function validStadiumFootball(input) {
+  if (!input || typeof input !== "object") return false;
+  const s = input;
+  const int = (n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
+  if (!Array.isArray(s.history) || s.history.length > 20 || s.history.some((h) => !h || typeof h.id !== "string" || !Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, h.opponent) || ![h.home, h.away, h.reward, h.at].every(int))) return false;
+  const g = s.game;
+  if (g === null) return true;
+  return !!g && typeof g.id === "string" && Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, g.opponent) && ["return", "offense", "finish", "conversion", "kickoff", "defense", "defend-finish", "final"].includes(g.phase) && [g.turn, g.startedAt, g.home, g.away, g.yardLine, g.reward].every(int) && g.turn <= 10 && g.home <= 8 && g.away <= 9 && g.yardLine <= 100 && g.reward <= 220 && typeof g.collected === "boolean" && !!g.ratings && ["attack", "defense", "speed", "power", "iq", "readiness"].every((k) => Number.isFinite(g.ratings[k]) && Number(g.ratings[k]) >= 0) && g.ratings.mastery && Object.entries(g.ratings.mastery).every(([k, v]) => Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, k) && int(v) && v <= 20) && Array.isArray(g.events) && g.events.length <= 11 && g.events.every((e) => e && typeof e.title === "string" && typeof e.detail === "string" && typeof e.call === "string" && [e.turn, e.home, e.away, e.yards].every(int));
+}
+
+// game/combat/canonical.ts
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item === void 0 ? null : item)).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().filter((key) => value[key] !== void 0).map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  return JSON.stringify(value) ?? "null";
+}
+
+// game/combat/defenseCounters.ts
+var LEGACY_COMBAT_RULES = "hero-actions-3";
+var DEFENSE_COUNTER_RULES = "defense-counters-4";
+var supportsCombatRules = (v) => v === LEGACY_COMBAT_RULES || v === DEFENSE_COUNTER_RULES;
+var EQUIPMENT_COUNTERS = {
+  jugs: { name: "JUGS", cooldown: 0.55, windup: 0, damage: 1, radius: 0, duration: 0, counter: "Deploy blockers first. Nearby offensive linemen absorb pressure for vulnerable players." },
+  sled: { name: "Sled", cooldown: 1.1, windup: 0.3, damage: 1.8, radius: 0, duration: 0.6, counter: "Linemen brace against the impact. Ranged players can attack from outside its reach." },
+  ref: { name: "Ref Tower", cooldown: 1.5, windup: 0.55, damage: 1.6, radius: 0, duration: 1.4, counter: "Higher IQ shortens the flag. Leave its range during the warning to avoid the call." },
+  tshirt: { name: "T-Shirt Cannon", cooldown: 1.15, windup: 0.3, damage: 1.4, radius: 7, duration: 0.9, counter: "Spread out. Damage and entanglement fall to 35% at the edge of the marked area." },
+  cooler: { name: "Water Station", cooldown: 3.2, windup: 0.4, damage: 0, radius: 7, duration: 3.5, counter: "Water controls turf without direct damage. RB, WR and CB retain 80% speed; other roles retain 60%." }
+};
+function counterRole(t) {
+  if (t.role) return t.role;
+  const heroes2 = { qb: "QB", enforcer: "OL", captain: "OL", burner: "WR", playmaker: "WR", kicker: "QB", coach: "S", medic: "S", legend: "LB" };
+  return heroes2[t.heroKey ?? ""] ?? { ["OFFENSE_LINE" /* OFFENSE_LINE */]: "OL", ["OFFENSE_SKILL" /* OFFENSE_SKILL */]: "WR", ["DEFENSE_LINE" /* DEFENSE_LINE */]: "DL", ["DEFENSE_SECONDARY" /* DEFENSE_SECONDARY */]: "CB" }[t.unit];
+}
+function defenseResistance(t) {
+  const role = counterRole(t), heavy = ["OL", "DL"].includes(role);
+  return {
+    brace: heavy ? 0.35 : role === "LB" ? 0.65 : 1,
+    traction: ["RB", "WR", "CB"].includes(role) ? 0.8 : 0.6,
+    discipline: 1 / Math.max(0.7, Math.min(1.6, t.chargeRate ?? 1))
+  };
+}
+var splashFalloff = (distance, radius) => distance > radius ? 0 : 1 - 0.65 * Math.max(0, distance) / radius;
+function counterSpeed(t) {
+  return Math.min((t.wetT ?? 0) > 0 ? defenseResistance(t).traction : 1, (t.flagT ?? 0) > 0 ? 0.75 : 1, (t.braceT ?? 0) > 0 ? 0.65 : 1);
+}
+function tickCounterEffects(t, dt) {
+  if (Math.max(t.wetT ?? 0, t.flagT ?? 0, t.braceT ?? 0) > 0) t.defenseControlSeconds = (t.defenseControlSeconds ?? 0) + dt;
+  for (const key of ["wetT", "flagT", "braceT"]) t[key] = Math.max(0, (t[key] ?? 0) - dt);
+}
+function displaceFrom(t, b, distance, buildings) {
+  const length = Math.hypot(t.x - b.x, t.y - b.y) || 1, dx = (t.x - b.x) / length, dy = (t.y - b.y) / length;
+  for (let moved = 0; moved < distance; moved += 0.25) {
+    const step = Math.min(0.25, distance - moved), x = t.x + dx * step, y = t.y + dy * step;
+    if (x < 2 || x > 98 || y < 2 || y > 98 || buildings.some((o) => !o.dead && o.id !== b.id && Math.hypot(x - o.x, y - o.y) < o.size * 0.5 + 0.5)) break;
+    t.x = x;
+    t.y = y;
+  }
+  t.plan = void 0;
+}
 
 // campaign.ts
 var coachArt = (slug) => `/assets/coaches/${slug}.webp`;
@@ -3078,33 +3384,6 @@ var rosterCap = (scoutLevel) => RECRUIT_CONFIG.baseRosterCap + scoutLevel * RECR
 var recruitCost = (p) => RECRUIT_CONFIG.rarity[p.rarity].cost;
 var recruitSeconds = (p) => RECRUIT_CONFIG.rarity[p.rarity].seconds;
 
-// dailies.ts
-var ALL_QUESTS = [
-  { id: "win_attack", text: "Win an attack (Season or Raid)", emoji: "\u2694\uFE0F", target: 1, reward: { gems: 8 } },
-  { id: "game_balls", text: "Earn 5 Game Balls on offense", emoji: "\u{1F3C8}", target: 5, reward: { gems: 6 } },
-  { id: "drills", text: "Collect 3 finished drills", emoji: "\u{1F3CB}\uFE0F", target: 3, reward: { gems: 5 } },
-  { id: "bank_coins", text: "Bank 1,200 Stadium coins", emoji: "\u{1FA99}", target: 1200, reward: { gems: 4 } },
-  { id: "train_hero", text: "Train a hero", emoji: "\u2B50", target: 1, reward: { gems: 4 } },
-  { id: "scout", text: "Run a Scout Search", emoji: "\u{1F3B0}", target: 1, reward: { gems: 5 } }
-];
-var SWEEP_BONUS_GEMS = 6;
-var todayKey = (now = Date.now()) => {
-  const d = new Date(now);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-var questsForDate = (dateKey) => {
-  let h = 0;
-  for (let i = 0; i < dateKey.length; i++) h = h * 31 + dateKey.charCodeAt(i) >>> 0;
-  const pool = [...ALL_QUESTS];
-  const picks = [];
-  for (let k = 0; k < 3 && pool.length; k++) {
-    h = h * 1103515245 + 12345 >>> 0;
-    picks.push(pool.splice(h % pool.length, 1)[0]);
-  }
-  return picks;
-};
-var freshDailies = (date2 = todayKey()) => ({ date: date2, progress: {}, claimed: [], sweepClaimed: false });
-
 // game/economy.ts
 function levelTimeline(building, jobs, from, to) {
   const upgrades = jobs.filter((job) => job.kind === "building" && job.key === building.id && job.finishTime <= to).sort((a, b) => a.finishTime - b.finishTime);
@@ -3165,8 +3444,88 @@ function advanceEconomy(previous, now) {
   };
 }
 
+// game/scouting.ts
+var SCOUTING_TRIPS = {
+  local: { name: "Local Friday nights", level: 1, seconds: 120, coins: 120, rarity: "RARE" /* RARE */, stats: 21, description: "Find a standout from the local circuit." },
+  regional: { name: "Regional showcase", level: 3, seconds: 600, coins: 400, rarity: "EPIC" /* EPIC */, stats: 28, description: "Meet an elite athlete at a regional camp." },
+  national: { name: "National all-star camp", level: 5, seconds: 1800, coins: 1e3, rarity: "LEGENDARY" /* LEGENDARY */, stats: 36, description: "Build a relationship with a national blue-chip athlete." }
+};
+var RECRUITING_CONTACTS = {
+  call: { name: "Call the athlete", seconds: 90, interest: 20, description: "Talk about their role and what they want from a team." },
+  praise: { name: "Praise their film", seconds: 60, interest: 15, description: "Review their best play and send specific feedback." },
+  visit: { name: "Visit their school", seconds: 240, interest: 30, description: "Watch them practice and meet their coaches." },
+  tour: { name: "Host a campus visit", seconds: 360, interest: 35, description: "Introduce the team and show where they will develop." }
+};
+var emptyScouting = () => ({ trip: null, prospects: [] });
+function advanceScouting(club, now, utc = false) {
+  if (!club.scouting) return club;
+  let scouting = club.scouting, changed = false, reportAt;
+  if (scouting.trip && scouting.trip.finishTime <= now) {
+    const trip = scouting.trip;
+    reportAt = trip.finishTime;
+    scouting = { ...scouting, trip: null, prospects: [...scouting.prospects, { player: trip.player, source: trip.source, interest: trip.source === "agent" ? 100 : 0, completed: [], job: null }], lastReport: { name: trip.player.name, tier: trip.tier, at: trip.finishTime } };
+    changed = true;
+  }
+  const prospects = scouting.prospects.map((p) => {
+    if (!p.job || p.job.finishTime > now) return p;
+    changed = true;
+    return { ...p, interest: Math.min(100, p.interest + RECRUITING_CONTACTS[p.job.contact].interest), completed: [...p.completed, p.job.contact], job: null };
+  });
+  const next = changed ? { ...club, scouting: { ...scouting, prospects } } : club;
+  return reportAt && (utc ? new Date(reportAt).toISOString().slice(0, 10) : todayKey(reportAt)) === next.dailies.date ? progressClubDaily(next, "scout") : next;
+}
+function scoutingRushCost(seconds) {
+  return Math.max(1, Math.ceil(seconds / 3));
+}
+function applyScouting(club, action, now, random) {
+  const scouting = club.scouting ?? emptyScouting(), level = club.buildings.find((b) => b.type === "YOUTH_ACADEMY" /* YOUTH_ACADEMY */)?.level ?? 1;
+  if (action.type === "scouting.search") {
+    const trip = SCOUTING_TRIPS[action.tier];
+    if (scouting.trip) return "Your scout is already on a trip.";
+    if (scouting.prospects.length >= 6) return "Sign a prospect before adding another to your six-player shortlist.";
+    if (level < trip.level) return `Upgrade the Scouting Department to Level ${trip.level} for this trip.`;
+    const cost2 = action.pace === "coins" ? trip.coins : 0;
+    if (club.resources.COINS < cost2) return "Not enough Coins for an express scouting trip.";
+    const pick = (values) => values[Math.floor(random() * values.length)];
+    const role = pick(Object.values(PlayerRole)), unit = ROLE_UNIT[role], id = `prospect_${now}_${Math.floor(random() * 1e9)}`;
+    const source = action.pace === "coins" ? "agent" : "academy";
+    const stat = () => trip.stats + (source === "agent" ? 6 : 0) + Math.floor(random() * 7);
+    const player = { id, name: `${pick(RECRUIT_FIRST_NAMES)} ${pick(RECRUIT_LAST_NAMES)}`, role, unit, rarity: trip.rarity, level: 1, stats: { strength: stat(), speed: stat(), iq: stat() }, maxStat: RARITY_CONFIG[trip.rarity].maxStat + (source === "academy" ? 15 : 0), worldPos: { x: 60, y: 12, z: 0 }, targetPos: { x: 60, y: 12, z: 0 }, state: "IDLE" /* IDLE */, avatarColor: UNIT_COLOR[unit], tendency: pick(TENDENCY_KEYS) };
+    return { ...club, resources: { ...club.resources, COINS: club.resources.COINS - cost2 }, scouting: { ...scouting, trip: { id, tier: action.tier, source, startTime: now, finishTime: now + (action.pace === "coins" ? 15 : trip.seconds) * 1e3, player } } };
+  }
+  const prospect = scouting.prospects.find((p) => p.player.id === action.playerId);
+  if (!prospect) return "That prospect is no longer on your shortlist.";
+  if (action.type === "scouting.dismiss") return { ...club, scouting: { ...scouting, prospects: scouting.prospects.filter((p) => p !== prospect) } };
+  if (action.type === "scouting.sign") {
+    if (prospect.interest < 100 || prospect.job) return "Finish building this athlete\u2019s interest before signing.";
+    if (club.roster.length >= rosterCap(level)) return "Your roster is full. Upgrade Scouting or release a player.";
+    if (club.roster.some((p) => p.id === prospect.player.id)) return "This player has already signed.";
+    return { ...club, roster: [...club.roster, prospect.player], scouting: { ...scouting, prospects: scouting.prospects.filter((p) => p !== prospect) } };
+  }
+  let updated, cost = 0;
+  if (action.type === "scouting.contact") {
+    if (prospect.job) return "Finish this recruiting activity first.";
+    if (prospect.completed.includes(action.contact)) return "You have already completed this activity with this athlete.";
+    const contact = RECRUITING_CONTACTS[action.contact];
+    updated = { ...prospect, job: { id: `contact_${now}_${action.contact}`, contact: action.contact, startTime: now, finishTime: now + Math.round(contact.seconds / (1 + (level - 1) * 0.1)) * 1e3 } };
+  } else {
+    if (!prospect.job || prospect.job.id !== action.jobId) return "This recruiting activity is already finished.";
+    cost = scoutingRushCost((prospect.job.finishTime - now) / 1e3);
+    if (club.resources.COINS < cost) return "Not enough Coins to finish this activity now.";
+    updated = { ...prospect, job: { ...prospect.job, finishTime: now } };
+  }
+  return advanceScouting({ ...club, resources: { ...club.resources, COINS: club.resources.COINS - cost }, scouting: { ...scouting, prospects: scouting.prospects.map((p) => p === prospect ? updated : p) } }, now);
+}
+function validScouting(input) {
+  if (!input || typeof input !== "object") return false;
+  const s = input;
+  const time = (v) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+  const player = (p) => p && typeof p.id === "string" && typeof p.name === "string" && Object.values(PlayerRole).includes(p.role) && Object.values(UnitGroup).includes(p.unit) && Object.values(PlayerRarity).includes(p.rarity) && time(p.level) && time(p.maxStat) && p.stats && Object.values(p.stats).length === 3 && ["strength", "speed", "iq"].every((k) => time(p.stats[k])) && p.worldPos && p.targetPos && ["x", "y", "z"].every((k) => Number.isFinite(p.worldPos[k]) && Number.isFinite(p.targetPos[k]));
+  return Array.isArray(s.prospects) && s.prospects.length <= 6 && new Set(s.prospects.map((p) => p?.player?.id)).size === s.prospects.length && s.prospects.every((p) => p && ["academy", "agent"].includes(p.source) && player(p.player) && time(p.interest) && p.interest <= 100 && Array.isArray(p.completed) && new Set(p.completed).size === p.completed.length && p.completed.every((c) => Object.prototype.hasOwnProperty.call(RECRUITING_CONTACTS, c)) && (p.job === null || p.job && typeof p.job.id === "string" && Object.prototype.hasOwnProperty.call(RECRUITING_CONTACTS, p.job.contact) && time(p.job.startTime) && time(p.job.finishTime) && p.job.finishTime >= p.job.startTime)) && (s.trip === null || s.trip && ["academy", "agent"].includes(s.trip.source) && typeof s.trip.id === "string" && Object.prototype.hasOwnProperty.call(SCOUTING_TRIPS, s.trip.tier) && time(s.trip.startTime) && time(s.trip.finishTime) && s.trip.finishTime > s.trip.startTime && player(s.trip.player));
+}
+
 // game/campus.ts
-function advanceCampus(previous, now, calendarDate) {
+function advanceCampus(previous, now, calendarDate, settleActivities = true) {
   if (!Number.isFinite(now) || now <= previous.lastTick) return previous;
   const seconds = (now - previous.lastTick) / 1e3;
   const movementSeconds = Math.min(seconds, 0.25);
@@ -3196,7 +3555,7 @@ function advanceCampus(previous, now, calendarDate) {
     return arrived;
   });
   const date2 = calendarDate ?? todayKey(now);
-  return {
+  const advanced = {
     ...previous,
     ...economy,
     roster,
@@ -3206,11 +3565,24 @@ function advanceCampus(previous, now, calendarDate) {
     timeOfDay: (previous.timeOfDay + seconds / 60 * 24) % 24,
     lastTick: now
   };
+  return settleActivities ? advanceScouting(advanceDevelopment(advanced, now, calendarDate !== void 0), now, calendarDate !== void 0) : advanced;
 }
 
 // game/authority/clubActions.ts
 var fields = {
   "sync": [],
+  "stadium.start": ["opponent"],
+  "stadium.call": ["gameId", "turn", "call"],
+  "stadium.collect": ["gameId"],
+  "stadium.abandon": ["gameId"],
+  "scouting.search": ["tier", "pace"],
+  "scouting.contact": ["playerId", "contact"],
+  "scouting.rush": ["playerId", "jobId"],
+  "scouting.sign": ["playerId"],
+  "scouting.dismiss": ["playerId"],
+  "development.start": ["unit", "steps"],
+  "development.read": ["reportId"],
+  "development.stop": ["scheduleId"],
   "facility.collect": ["buildingId"],
   "facility.upgrade": ["buildingId"],
   "facility.rush": ["jobId"],
@@ -3243,6 +3615,10 @@ function parseClubAction(input) {
   if (typeof value.type !== "string" || !Object.prototype.hasOwnProperty.call(fields, value.type)) return null;
   const required2 = fields[value.type];
   if (Object.keys(value).length !== required2.length + 1 || Object.keys(value).some((key) => key !== "type" && !required2.includes(key))) return null;
+  if (value.type === "development.start") {
+    if (value.unit !== "ALL" && !Object.values(UnitGroup).includes(value.unit) || !isDevelopmentSteps(value.steps)) return null;
+    return { type: "development.start", unit: value.unit, steps: value.steps.map((s) => ({ ...s })) };
+  }
   if (value.type === "campus.apply") {
     const layout2 = parseCampusLayout(value.layout);
     return layout2 ? { type: "campus.apply", layout: layout2 } : null;
@@ -3252,6 +3628,10 @@ function parseClubAction(input) {
     return { type: "defense.seen", ids: [...value.ids] };
   }
   if (!required2.every((key) => typeof value[key] === "string" && value[key].length > 0 && value[key].length <= 120)) return null;
+  if (value.type === "stadium.start" && !Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, String(value.opponent))) return null;
+  if (value.type === "stadium.call" && !/^(0|[1-9][0-9]?)$/.test(String(value.turn))) return null;
+  if (value.type === "scouting.search" && (!Object.prototype.hasOwnProperty.call(SCOUTING_TRIPS, String(value.tier)) || !["time", "coins"].includes(String(value.pace)))) return null;
+  if (value.type === "scouting.contact" && !Object.prototype.hasOwnProperty.call(RECRUITING_CONTACTS, String(value.contact))) return null;
   if (value.type === "training.start" && !Object.values(UnitGroup).includes(value.unit)) return null;
   if (value.type === "formation.set" && !FORMATION_ORDER.includes(value.formation)) return null;
   if (value.type === "club.rename" && (String(value.name).trim().length < 2 || String(value.name).trim().length > 24 || /[\u0000-\u001f\u007f-\u009f]/u.test(String(value.name)))) return null;
@@ -3263,19 +3643,12 @@ function settleClubState(previous, clock) {
   if (!Number.isFinite(now) || now < previous.lastTick) return previous;
   const date2 = context.calendarDate ?? new Date(now).toISOString().slice(0, 10);
   return {
-    ...advanceCampus(previous, now),
-    ...advanceEconomy(previous, now),
+    ...advanceCampus(previous, now, date2),
     lastTick: now,
     peakFans: fanMilestoneTotal(previous),
     dailies: previous.dailies.date === date2 ? previous.dailies : freshDailies(date2),
     gauntlet: previous.gauntlet.date === date2 ? previous.gauntlet : { ...previous.gauntlet, date: date2, attempts: 3 }
   };
-}
-function progressClubDaily(state, questId, count = 1) {
-  const quest = questsForDate(state.dailies.date).find((value) => value.id === questId);
-  if (!quest || state.dailies.claimed.includes(questId) || !Number.isFinite(count) || count <= 0) return state;
-  const progress = Math.min(quest.target, (state.dailies.progress[questId] ?? 0) + count);
-  return { ...state, dailies: { ...state.dailies, progress: { ...state.dailies.progress, [questId]: progress } } };
 }
 function validBalances(state) {
   return Object.values(ResourceType).every((key) => Number.isFinite(state.resources[key]) && state.resources[key] >= 0) && state.resources.ENERGY <= 100 && Number.isFinite(state.lastTick) && state.buildings.every((value) => Number.isSafeInteger(value.level) && value.level >= 1) && state.heroes.every((value) => Number.isSafeInteger(value.level) && value.level >= 1 && Number.isSafeInteger(value.stars) && value.stars >= 1 && value.stars <= MAX_STARS && Number.isFinite(value.shards) && value.shards >= 0);
@@ -3334,7 +3707,37 @@ function applyClubAction(previous, input, context) {
     while (state.upgrades.some((value) => value.id === id)) id += "_n";
     return { id, kind, key, toLevel, startTime: now, finishTime: now + duration * 1e3 };
   };
+  if (footballInProgress(state) && !["sync", "stadium.call", "stadium.abandon"].includes(command.type)) return fail2("active_match", "Finish your Stadium game before changing the team.");
   switch (command.type) {
+    case "stadium.start":
+    case "stadium.call":
+    case "stadium.collect":
+    case "stadium.abandon": {
+      const next = applyStadiumFootball(state, command, now, random);
+      return typeof next === "string" ? fail2("not_ready", next) : success(next);
+    }
+    case "scouting.search":
+    case "scouting.contact":
+    case "scouting.rush":
+    case "scouting.sign":
+    case "scouting.dismiss": {
+      const next = applyScouting(state, command, now, random);
+      return typeof next === "string" ? fail2("not_ready", next) : success(next);
+    }
+    case "development.start": {
+      const next = startDevelopment(state, command.unit, command.steps, now);
+      return typeof next === "string" ? fail2("not_ready", next) : success(next, { scheduleId: next.development.schedule.id });
+    }
+    case "development.stop": {
+      const schedule = state.development?.schedule;
+      if (!schedule || schedule.id !== command.scheduleId) return fail2("not_found", "This schedule is already finished.");
+      const refund = Math.min(100 - state.resources.ENERGY, schedule.blocks.slice(schedule.completed + 1).reduce((n, b) => n + STATIONS[b.station].energy, 0));
+      return success({ ...state, resources: { ...state.resources, ENERGY: state.resources.ENERGY + refund }, development: { ...state.development, schedule: null } }, { gained: { ENERGY: refund } });
+    }
+    case "development.read": {
+      if (!state.development?.reports.some((r) => r.id === command.reportId)) return fail2("not_found", "That session report was not found.");
+      return success({ ...state, development: { ...state.development, reports: state.development.reports.map((r) => r.id === command.reportId ? { ...r, read: true } : r) } });
+    }
     case "sync":
       return success(state);
     case "defense.seen": {
@@ -3387,6 +3790,7 @@ function applyClubAction(previous, input, context) {
       return success(rallyFans(state), { spent: { FANS: preview.fanCost }, gained: { ENERGY: preview.energyGain } });
     }
     case "training.start": {
+      if (state.development?.schedule) return fail2("busy", "Finish your team schedule before starting another workout.");
       const drill = Object.prototype.hasOwnProperty.call(DRILLS, command.drillId) ? DRILLS[command.drillId] : void 0;
       if (!drill || drill.targetUnit !== "ALL" && drill.targetUnit !== command.unit) return fail2("invalid_command", "That drill does not train this unit.");
       const pitch = state.buildings.find((value) => value.type === "TRAINING_PITCH" /* TRAINING_PITCH */ && value.state === "IDLE" /* IDLE */);
@@ -3495,6 +3899,7 @@ function applyClubAction(previous, input, context) {
       return success({ ...next, recruitBoard: recruitBoard(next, now, random) }, { playerId: slot.candidate.id });
     }
     case "recruit.cut": {
+      if (state.development?.schedule?.playerIds.includes(command.playerId)) return fail2("busy", "This player is following your team schedule. Finish it before releasing them.");
       if (state.roster.length <= 6) return fail2("limit_reached", "Keep at least six players on your roster.");
       if (!state.roster.some((value) => value.id === command.playerId)) return fail2("not_found", "That player was not found.");
       return success({ ...state, roster: state.roster.filter((value) => value.id !== command.playerId) }, { playerId: command.playerId });
@@ -3584,6 +3989,7 @@ function issueMatch(input) {
   const { owner, id, seed, now, choice, target } = input;
   if (!uuid2(owner) || !uuid2(id) || !Number.isSafeInteger(seed) || seed < 0 || seed > 4294967295) return fail("invalid_identity", "The match could not be issued.");
   let state = settleClubState(input.state, { now });
+  if (state.development?.schedule) return fail("team_busy", "Finish the team schedule before starting a raid.");
   const cost = choice.kind === "gauntlet" ? 0 : RAID_ENERGY;
   if (state.resources.ENERGY < cost) return fail("energy", `This game needs ${cost} Energy.`);
   const power = armyStrength(state.roster);
@@ -3742,6 +4148,9 @@ function parseSavedClub(raw) {
   for (const field of ["lastTick", "timeOfDay", "trophies", "builders", "parkingLot", "bonusDefSlots", "shieldUntil", "energyProgressMs", "peakFans"]) {
     if (field in s) require2(number(s[field]), field);
   }
+  if (s.stadiumFootball !== void 0) require2(validStadiumFootball(s.stadiumFootball), "Stadium football");
+  if (s.scouting !== void 0) require2(validScouting(s.scouting), "scouting activities");
+  if (s.development !== void 0) require2(validDevelopment(s.development), "team development");
   if (s.teamName != null) require2(text2(s.teamName), "team name");
   if (s.heroes != null) require2(Array.isArray(s.heroes) && s.heroes.every((h) => object(h) && text2(h.key) && number(h.level)), "heroes");
   if ("upgrades" in s) require2(Array.isArray(s.upgrades) && s.upgrades.every((u) => object(u) && text2(u.id) && text2(u.key) && ["building", "hero"].includes(u.kind) && number(u.toLevel) && number(u.startTime) && number(u.finishTime)), "upgrades");
@@ -3886,16 +4295,16 @@ var loadState = (storage, now = Date.now()) => {
 
 // server/authorityAdmission.ts
 var STAT_KEYS = ["strength", "speed", "iq"];
-var bounded = (n, lo, hi) => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
-var integer2 = (n, lo, hi) => bounded(n, lo, hi) && Number.isSafeInteger(n);
+var bounded2 = (n, lo, hi) => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
+var integer2 = (n, lo, hi) => bounded2(n, lo, hi) && Number.isSafeInteger(n);
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var text3 = (value, length = 100) => typeof value === "string" && value.length > 0 && value.length <= length && !/[\u0000-\u001f\u007f]/u.test(value);
 var date = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value));
-var point3 = (value) => object2(value) && ["x", "y", "z"].every((key) => bounded(value[key], -1e3, 1e3));
+var point3 = (value) => object2(value) && ["x", "y", "z"].every((key) => bounded2(value[key], -1e3, 1e3));
 var reject = () => {
   throw new MatchRuleError("invalid_legacy", "This club needs recovery before online protection can be enabled. Your local club has been kept.");
 };
-var validPlayer = (p) => object2(p) && text3(p.id) && text3(p.name) && integer2(p.level, 1, 100) && Object.prototype.hasOwnProperty.call(ROLE_UNIT, p.role) && ROLE_UNIT[p.role] === p.unit && object2(p.stats) && STAT_KEYS.every((key) => bounded(p.stats[key], 1, 1e3)) && point3(p.worldPos) && point3(p.targetPos) && (p.rarity === void 0 || Object.values(PlayerRarity).includes(p.rarity)) && (p.maxStat === void 0 || bounded(p.maxStat, 1, 1e3));
+var validPlayer = (p) => object2(p) && text3(p.id) && text3(p.name) && integer2(p.level, 1, 100) && Object.prototype.hasOwnProperty.call(ROLE_UNIT, p.role) && ROLE_UNIT[p.role] === p.unit && object2(p.stats) && STAT_KEYS.every((key) => bounded2(p.stats[key], 1, 1e3)) && point3(p.worldPos) && point3(p.targetPos) && (p.rarity === void 0 || Object.values(PlayerRarity).includes(p.rarity)) && (p.maxStat === void 0 || bounded2(p.maxStat, 1, 1e3));
 function validatePending(saved, now) {
   const jobs = saved.upgrades ?? [];
   if (jobs.length > 20 || new Set(jobs.map((job) => job.id)).size !== jobs.length || new Set(jobs.map((job) => `${job.kind}:${job.key}`)).size !== jobs.length) return reject();
@@ -3911,12 +4320,12 @@ function validatePending(saved, now) {
   }
   if (saved.recruitSlot != null) {
     const slot = saved.recruitSlot;
-    if (!object2(slot) || !validPlayer(slot.candidate) || !bounded(slot.cost, 0, 1e9) || !integer2(slot.finishTime, 0, now + 7 * 864e5) || saved.roster.some((p) => p.id === slot.candidate.id)) return reject();
+    if (!object2(slot) || !validPlayer(slot.candidate) || !bounded2(slot.cost, 0, 1e9) || !integer2(slot.finishTime, 0, now + 7 * 864e5) || saved.roster.some((p) => p.id === slot.candidate.id)) return reject();
   }
 }
 function pristine(saved, now) {
   const fresh = createInitialState(now);
-  return saved.currentMatch === 1 && saved.trophies === 0 && saved.teamReadiness === 0 && saved.resources.COINS <= 500 && saved.resources.GEMS <= 10 && saved.resources.FANS === 0 && (saved.peakFans ?? 0) === 0 && (saved.builders ?? fresh.builders) === fresh.builders && (saved.parkingLot ?? 0) === 0 && (saved.bonusDefSlots ?? 0) === 0 && !saved.campusLayout && (!saved.formation || saved.formation === "goalline") && !saved.recruitSlot && !saved.recruitBoard && !saved.upgrades?.length && !saved.matchHistory?.length && !saved.defenseLog?.length && saved.buildings.length === fresh.buildings.length && saved.buildings.every((b) => b.level === 1 && b.state === "IDLE" /* IDLE */) && saved.roster.length === INITIAL_ROSTER.length && saved.roster.every((p) => {
+  return !saved.development && !saved.scouting && !saved.stadiumFootball && saved.currentMatch === 1 && saved.trophies === 0 && saved.teamReadiness === 0 && saved.resources.COINS <= 500 && saved.resources.GEMS <= 10 && saved.resources.FANS === 0 && (saved.peakFans ?? 0) === 0 && (saved.builders ?? fresh.builders) === fresh.builders && (saved.parkingLot ?? 0) === 0 && (saved.bonusDefSlots ?? 0) === 0 && !saved.campusLayout && (!saved.formation || saved.formation === "goalline") && !saved.recruitSlot && !saved.recruitBoard && !saved.upgrades?.length && !saved.matchHistory?.length && !saved.defenseLog?.length && saved.buildings.length === fresh.buildings.length && saved.buildings.every((b) => b.level === 1 && b.state === "IDLE" /* IDLE */) && saved.roster.length === INITIAL_ROSTER.length && saved.roster.every((p) => {
     const initial = INITIAL_ROSTER.find((value) => value.id === p.id);
     return initial && p.level === 1 && p.role === initial.role && p.unit === initial.unit && p.rarity === initial.rarity && STAT_KEYS.every((k) => p.stats[k] === initial.stats[k]);
   }) && (!saved.heroes || saved.heroes.length === HERO_DEFS.length && saved.heroes.every((h) => h.level === 1 && (h.stars ?? 1) === 1 && (h.shards ?? 0) === 0 && (h.unlocked ?? !!HERO_DEFS.find((d) => d.key === h.key)?.starter) === !!HERO_DEFS.find((d) => d.key === h.key)?.starter)) && (!saved.campaign || saved.campaign.unlocked === 1 && !Object.keys(saved.campaign.stars).length && !saved.campaign.claimed.length) && (!saved.gauntlet || saved.gauntlet.best === 0 && saved.gauntlet.attempts === 3) && (!saved.dailies || !Object.values(saved.dailies.progress).some((n) => n > 0) && !saved.dailies.claimed.length && !saved.dailies.sweepClaimed) && (!saved.formationMastery || !Object.values(saved.formationMastery).some((n) => n > 0)) && (!saved.defenseSlots || Object.entries(saved.defenseSlots).every(([key, n]) => key === "D1" ? n === 1 : n === 0));
@@ -3938,8 +4347,14 @@ function admitClub(legacy, createdAt, activationAt, now) {
     state2.teamName = (saved.teamName || state2.teamName).trim().slice(0, 40);
     return { state: state2, origin: "new" };
   }
-  if (!bounded(saved.resources.COINS, 0, 1e9) || !bounded(saved.resources.GEMS, 0, 1e7) || !bounded(saved.resources.FANS, 0, 1e8) || !bounded(saved.resources.ENERGY, 0, 100) || !integer2(saved.lastTick, 0, now) || !integer2(saved.currentMatch, 1, 1e7) || !bounded(saved.teamReadiness, 0, 100) || !integer2(saved.trophies, 0, 1e7) || saved.peakFans !== void 0 && !bounded(saved.peakFans, 0, 1e8) || saved.energyProgressMs !== void 0 && !bounded(saved.energyProgressMs, 0, 864e5) || saved.shieldUntil !== void 0 && !integer2(saved.shieldUntil, 0, now + 7 * 864e5) || !bounded(saved.timeOfDay, 0, 24) || !Object.values(SeasonPhase).includes(saved.seasonPhase) || saved.buildings.length > 20 || new Set(saved.buildings.map((b) => b.id)).size !== saved.buildings.length || !saved.buildings.every((b) => INITIAL_BUILDINGS.some((owned) => owned.id === b.id && owned.type === b.type) && bounded(b.level, 1, 100) && (b.accrued === void 0 || bounded(b.accrued, 0, 1e7))) || !saved.roster.length || saved.roster.length > 150 || new Set(saved.roster.map((p) => p.id)).size !== saved.roster.length || !saved.roster.every(validPlayer)) return reject();
+  if (!bounded2(saved.resources.COINS, 0, 1e9) || !bounded2(saved.resources.GEMS, 0, 1e7) || !bounded2(saved.resources.FANS, 0, 1e8) || !bounded2(saved.resources.ENERGY, 0, 100) || !integer2(saved.lastTick, 0, now) || !integer2(saved.currentMatch, 1, 1e7) || !bounded2(saved.teamReadiness, 0, 100) || !integer2(saved.trophies, 0, 1e7) || saved.peakFans !== void 0 && !bounded2(saved.peakFans, 0, 1e8) || saved.energyProgressMs !== void 0 && !bounded2(saved.energyProgressMs, 0, 864e5) || saved.shieldUntil !== void 0 && !integer2(saved.shieldUntil, 0, now + 7 * 864e5) || !bounded2(saved.timeOfDay, 0, 24) || !Object.values(SeasonPhase).includes(saved.seasonPhase) || saved.buildings.length > 20 || new Set(saved.buildings.map((b) => b.id)).size !== saved.buildings.length || !saved.buildings.every((b) => INITIAL_BUILDINGS.some((owned) => owned.id === b.id && owned.type === b.type) && bounded2(b.level, 1, 100) && (b.accrued === void 0 || bounded2(b.accrued, 0, 1e7))) || !saved.roster.length || saved.roster.length > 150 || new Set(saved.roster.map((p) => p.id)).size !== saved.roster.length || !saved.roster.every(validPlayer)) return reject();
   validatePending(saved, now);
+  if (saved.development?.schedule) {
+    const schedule = saved.development.schedule;
+    if (schedule.blocks.some((b) => b.startTime > now + 864e5 || b.finishTime > now + 864e5 || b.level > (saved.buildings.find((f) => f.type === { weights: "TRAINING_PITCH" /* TRAINING_PITCH */, rehab: "MEDICAL_CENTER" /* MEDICAL_CENTER */, film: "TACTICS_ROOM" /* TACTICS_ROOM */, practice: "TRAINING_PITCH" /* TRAINING_PITCH */ }[b.station])?.level ?? 1)) || schedule.playerIds.some((id) => !saved.roster.some((p) => p.id === id))) return reject();
+  }
+  if (saved.scouting && (saved.scouting.trip && saved.scouting.trip.finishTime > now + 864e5 || saved.scouting.prospects.some((p) => p.job && p.job.finishTime > now + 864e5))) return reject();
+  if (saved.stadiumFootball?.game && !saved.stadiumFootball.game.collected) throw new MatchRuleError("active_match", "Finish and collect your local Stadium game before enabling online protection.");
   let normalized;
   try {
     const memory = { getItem: (key) => key === SAVE_KEY ? raw : null, setItem: () => {
@@ -3950,16 +4365,19 @@ function admitClub(legacy, createdAt, activationAt, now) {
   }
   const stadiumLevel = normalized.buildings.find((b) => b.type === "STADIUM" /* STADIUM */)?.level ?? 1;
   if (Object.values(normalized.defenseSlots).some((n) => n > stadiumLevel) || normalized.heroes.some((h) => h.level > heroMaxLevel(stadiumLevel))) return reject();
-  if (!integer2(normalized.builders, 1, MAX_BUILDERS) || !integer2(normalized.parkingLot, 0, 3) || !integer2(normalized.bonusDefSlots, 0, 3) || !Object.prototype.hasOwnProperty.call(FORMATIONS, normalized.formation) || normalized.heroes.length !== HERO_DEFS.length || new Set(normalized.heroes.map((h) => h.key)).size !== HERO_DEFS.length || !normalized.heroes.every((h) => HERO_DEFS.some((d) => d.key === h.key) && integer2(h.level, 1, 100) && integer2(h.stars, 1, 5) && integer2(h.shards, 0, 1e7) && typeof h.unlocked === "boolean") || Object.entries(normalized.defenseSlots).some(([key, n]) => !FORMATION_ORDER.some((f) => slotsFor(f).some((slot) => slot.id === key)) || !integer2(n, 0, MAX_SLOT_LEVEL)) || Object.entries(normalized.formationMastery).some(([key, n]) => !FORMATION_ORDER.includes(key) || !integer2(n, 0, 1e7)) || Object.entries(normalized.heroGates).some(([post, hero]) => !FORMATION_ORDER.some((f) => gatePostsFor(f).some((p) => p.id === post)) || !normalized.heroes.some((h) => h.key === hero && h.unlocked)) || !integer2(normalized.gauntlet.best, 0, 20) || !integer2(normalized.gauntlet.attempts, 0, 3) || !date(normalized.gauntlet.date) || !integer2(normalized.campaign.unlocked, 1, CAMPAIGN_STAGES.length) || Object.entries(normalized.campaign.stars).some(([key, n]) => !integer2(Number(key), 1, CAMPAIGN_STAGES.length) || !integer2(n, 0, 3)) || normalized.campaign.claimed.some((n) => !integer2(n, 1, CAMPAIGN_STAGES.length)) || new Set(normalized.campaign.claimed).size !== normalized.campaign.claimed.length || !date(normalized.dailies.date) || Object.entries(normalized.dailies.progress).some(([key, n]) => !ALL_QUESTS.some((q) => q.id === key) || !bounded(n, 0, 1e8)) || normalized.dailies.claimed.some((key) => !ALL_QUESTS.some((q) => q.id === key)) || new Set(normalized.dailies.claimed).size !== normalized.dailies.claimed.length || normalized.upgrades.length > 20 || normalized.upgrades.some((j) => !bounded(j.toLevel, 1, 100) || !bounded(j.startTime, 0, now) || !bounded(j.finishTime, j.startTime, now + 7 * 864e5))) return reject();
+  if (!integer2(normalized.builders, 1, MAX_BUILDERS) || !integer2(normalized.parkingLot, 0, 3) || !integer2(normalized.bonusDefSlots, 0, 3) || !Object.prototype.hasOwnProperty.call(FORMATIONS, normalized.formation) || normalized.heroes.length !== HERO_DEFS.length || new Set(normalized.heroes.map((h) => h.key)).size !== HERO_DEFS.length || !normalized.heroes.every((h) => HERO_DEFS.some((d) => d.key === h.key) && integer2(h.level, 1, 100) && integer2(h.stars, 1, 5) && integer2(h.shards, 0, 1e7) && typeof h.unlocked === "boolean") || Object.entries(normalized.defenseSlots).some(([key, n]) => !FORMATION_ORDER.some((f) => slotsFor(f).some((slot) => slot.id === key)) || !integer2(n, 0, MAX_SLOT_LEVEL)) || Object.entries(normalized.formationMastery).some(([key, n]) => !FORMATION_ORDER.includes(key) || !integer2(n, 0, 1e7)) || Object.entries(normalized.heroGates).some(([post, hero]) => !FORMATION_ORDER.some((f) => gatePostsFor(f).some((p) => p.id === post)) || !normalized.heroes.some((h) => h.key === hero && h.unlocked)) || !integer2(normalized.gauntlet.best, 0, 20) || !integer2(normalized.gauntlet.attempts, 0, 3) || !date(normalized.gauntlet.date) || !integer2(normalized.campaign.unlocked, 1, CAMPAIGN_STAGES.length) || Object.entries(normalized.campaign.stars).some(([key, n]) => !integer2(Number(key), 1, CAMPAIGN_STAGES.length) || !integer2(n, 0, 3)) || normalized.campaign.claimed.some((n) => !integer2(n, 1, CAMPAIGN_STAGES.length)) || new Set(normalized.campaign.claimed).size !== normalized.campaign.claimed.length || !date(normalized.dailies.date) || Object.entries(normalized.dailies.progress).some(([key, n]) => !ALL_QUESTS.some((q) => q.id === key) || !bounded2(n, 0, 1e8)) || normalized.dailies.claimed.some((key) => !ALL_QUESTS.some((q) => q.id === key)) || new Set(normalized.dailies.claimed).size !== normalized.dailies.claimed.length || normalized.upgrades.length > 20 || normalized.upgrades.some((j) => !bounded2(j.toLevel, 1, 100) || !bounded2(j.startTime, 0, now) || !bounded2(j.finishTime, j.startTime, now + 7 * 864e5))) return reject();
   const state = createInitialState(now);
   for (const key of Object.keys(state)) state[key] = normalized[key];
   state.campusLayout = normalized.campusLayout;
+  state.development = normalized.development;
+  state.scouting = normalized.scouting;
+  state.stadiumFootball = normalized.stadiumFootball;
   state.roster = normalized.roster.map((p) => ({ ...p, rarity: p.rarity ?? "COMMON" /* COMMON */, maxStat: p.maxStat ?? RARITY_CONFIG[p.rarity ?? "COMMON" /* COMMON */].maxStat, avatarColor: UNIT_COLOR[p.unit], tendency: text3(p.tendency, 50) ? p.tendency : tendencyFromId(p.id) }));
   state.recruitSlot = normalized.recruitSlot ? structuredClone(normalized.recruitSlot) : null;
   state.recruitBoard = void 0;
   state.defenseLog = [];
   state.bonusOrbs = [];
-  if (!Array.isArray(state.matchHistory) || state.matchHistory.some((m) => !object2(m) || !integer2(m.week, 1, 1e7) || !text3(m.opponent, 200) || !bounded(m.ourScore, 0, 1e3) || !bounded(m.theirScore, 0, 1e3) || typeof m.won !== "boolean" || !bounded(m.reward, 0, 1e9))) return reject();
+  if (!Array.isArray(state.matchHistory) || state.matchHistory.some((m) => !object2(m) || !integer2(m.week, 1, 1e7) || !text3(m.opponent, 200) || !bounded2(m.ourScore, 0, 1e3) || !bounded2(m.theirScore, 0, 1e3) || typeof m.won !== "boolean" || !bounded2(m.reward, 0, 1e9))) return reject();
   state.matchHistory = state.matchHistory.slice(0, 50);
   state.teamName = state.teamName.trim().slice(0, 40) || "Football Club";
   state.lastTick = now;
@@ -4039,6 +4457,7 @@ function createAuthorityService(store2, options = {}) {
         commit.nextState = outcome.state;
         commit.result = outcome.result;
       } else if (input.kind === "match.reserve") {
+        if (footballInProgress(club.state)) throw new MatchRuleError("active_match", "Finish your Stadium football game before starting a raid.");
         if (club.activeMatch) throw new MatchRuleError("active_match", "Continue or cancel your existing game first.");
         const choice = parseMatchChoice(input.choice);
         const target = choice.kind === "rival" ? await store2.getClub(choice.target) : null;

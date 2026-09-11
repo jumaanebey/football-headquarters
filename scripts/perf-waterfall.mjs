@@ -80,10 +80,11 @@ async function run(browser, label, { warmFrom } = {}) {
   t = Date.now(); const scouting = await clickText(/Scout|Scouting|Recruit/i); await stage(scouting ? 'scouting' : 'scouting-unreachable', t); await escape(); await escape();
   // Preparation sheet.
   t = Date.now(); await nav('Game Day'); await page.waitForTimeout(400);
+  await page.getByRole('button', { name: 'Base raids', exact: true }).first().click();
   await clickText(/^Next$|Prepare|Preseason Opener|Play next/i); await stage('prep', t);
   // First deployed hero: reserve, wait for the field, select the first hero card and tap the sideline.
   t = Date.now();
-  await page.getByRole('button', { name: /Reserve game|Kick off|Play/i }).first().click().catch(() => {});
+  await page.getByRole('button', { name: /Reserve (?:game|raid)|Kick off|Play/i }).first().click().catch(() => {});
   await page.waitForSelector('[aria-label="Battlefield"]', { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1200);
   const field = page.locator('[aria-label="Battlefield"]');

@@ -451,13 +451,13 @@ export const buildingEffect = (type: BuildingType, level: number): { label: stri
     case BuildingType.STADIUM:
       return { label: 'Income', value: `${Math.round(collectorRate(type, level) * 60)}/min` };
     case BuildingType.TRAINING_PITCH:
-      return { label: 'Drill Payout', value: `+${Math.round((trainingYieldMult(level) - 1) * 100)}%` };
+      return { label: 'Strength session', value: `${Math.max(20,Math.round(60/(1+(level-1)*.12)))}s` };
     case BuildingType.MEDICAL_CENTER:
       return { label: 'Energy Regen', value: `${(60000 / energyIntervalMs(level)).toFixed(1)}/min` };
     case BuildingType.YOUTH_ACADEMY:
       return { label: 'Roster Cap', value: `${RECRUIT_CONFIG.baseRosterCap + level * RECRUIT_CONFIG.capPerLevel}` };
     case BuildingType.TACTICS_ROOM:
-      return { label: 'Drill Readiness', value: `+${Math.round((warRoomReadinessMult(level) - 1) * 100)}%` };
+      return { label: 'Film session', value: `${Math.max(20,Math.round(75/(1+(level-1)*.12)))}s` };
     default:
       return { label: 'Level', value: `${level}` };
   }

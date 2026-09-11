@@ -58,7 +58,7 @@ function validatePending(saved: SavedClub, now: number): void {
 
 function pristine(saved: SavedClub, now: number): boolean {
   const fresh = createInitialState(now);
-  return saved.currentMatch === 1 && saved.trophies === 0 && saved.teamReadiness === 0 && saved.resources.COINS <= 500 && saved.resources.GEMS <= 10 && saved.resources.FANS === 0 && (saved.peakFans ?? 0) === 0 && (saved.builders ?? fresh.builders) === fresh.builders && (saved.parkingLot ?? 0) === 0 && (saved.bonusDefSlots ?? 0) === 0 && !saved.campusLayout && (!saved.formation || saved.formation === 'goalline') && !saved.recruitSlot && !saved.recruitBoard && !saved.upgrades?.length && !saved.matchHistory?.length && !saved.defenseLog?.length && saved.buildings.length === fresh.buildings.length && saved.buildings.every((b) => b.level === 1 && b.state === DrillState.IDLE) && saved.roster.length === INITIAL_ROSTER.length && saved.roster.every((p) => {
+  return !saved.development && !saved.scouting && !saved.stadiumFootball && saved.currentMatch === 1 && saved.trophies === 0 && saved.teamReadiness === 0 && saved.resources.COINS <= 500 && saved.resources.GEMS <= 10 && saved.resources.FANS === 0 && (saved.peakFans ?? 0) === 0 && (saved.builders ?? fresh.builders) === fresh.builders && (saved.parkingLot ?? 0) === 0 && (saved.bonusDefSlots ?? 0) === 0 && !saved.campusLayout && (!saved.formation || saved.formation === 'goalline') && !saved.recruitSlot && !saved.recruitBoard && !saved.upgrades?.length && !saved.matchHistory?.length && !saved.defenseLog?.length && saved.buildings.length === fresh.buildings.length && saved.buildings.every((b) => b.level === 1 && b.state === DrillState.IDLE) && saved.roster.length === INITIAL_ROSTER.length && saved.roster.every((p) => {
     const initial = INITIAL_ROSTER.find((value) => value.id === p.id);
     return initial && p.level === 1 && p.role === initial.role && p.unit === initial.unit && p.rarity === initial.rarity && STAT_KEYS.every((k) => p.stats[k] === initial.stats[k]);
   }) && (!saved.heroes || (saved.heroes.length === HERO_DEFS.length && saved.heroes.every((h) => h.level === 1 && (h.stars ?? 1) === 1 && (h.shards ?? 0) === 0 && (h.unlocked ?? !!HERO_DEFS.find((d) => d.key === h.key)?.starter) === !!HERO_DEFS.find((d) => d.key === h.key)?.starter))) && (!saved.campaign || (saved.campaign.unlocked === 1 && !Object.keys(saved.campaign.stars).length && !saved.campaign.claimed.length)) && (!saved.gauntlet || (saved.gauntlet.best === 0 && saved.gauntlet.attempts === 3)) && (!saved.dailies || (!Object.values(saved.dailies.progress).some((n) => n > 0) && !saved.dailies.claimed.length && !saved.dailies.sweepClaimed)) && (!saved.formationMastery || !Object.values(saved.formationMastery).some((n) => n > 0)) && (!saved.defenseSlots || Object.entries(saved.defenseSlots).every(([key, n]) => (key === 'D1' ? n === 1 : n === 0)));
@@ -83,6 +83,12 @@ export function admitClub(legacy: unknown, createdAt: number, activationAt: numb
   }
   if (!bounded(saved.resources.COINS, 0, 1e9) || !bounded(saved.resources.GEMS, 0, 1e7) || !bounded(saved.resources.FANS, 0, 1e8) || !bounded(saved.resources.ENERGY, 0, 100) || !integer(saved.lastTick, 0, now) || !integer(saved.currentMatch, 1, 1e7) || !bounded(saved.teamReadiness, 0, 100) || !integer(saved.trophies, 0, 1e7) || (saved.peakFans !== undefined && !bounded(saved.peakFans, 0, 1e8)) || (saved.energyProgressMs !== undefined && !bounded(saved.energyProgressMs, 0, 864e5)) || (saved.shieldUntil !== undefined && !integer(saved.shieldUntil, 0, now + 7 * 864e5)) || !bounded(saved.timeOfDay, 0, 24) || !Object.values(SeasonPhase).includes(saved.seasonPhase) || saved.buildings.length > 20 || new Set(saved.buildings.map((b) => b.id)).size !== saved.buildings.length || !saved.buildings.every((b) => INITIAL_BUILDINGS.some((owned) => owned.id === b.id && owned.type === b.type) && bounded(b.level, 1, 100) && (b.accrued === undefined || bounded(b.accrued, 0, 1e7))) || !saved.roster.length || saved.roster.length > 150 || new Set(saved.roster.map((p) => p.id)).size !== saved.roster.length || !saved.roster.every(validPlayer)) return reject();
   validatePending(saved, now);
+  // Versioned development is admitted only for eligible legacy clubs, with bounded jobs.
+  if(saved.development?.schedule){const schedule=saved.development.schedule;
+    if(schedule.blocks.some(b=>b.startTime>now+864e5||b.finishTime>now+864e5||b.level>(saved.buildings.find(f=>f.type===({weights:BuildingType.TRAINING_PITCH,rehab:BuildingType.MEDICAL_CENTER,film:BuildingType.TACTICS_ROOM,practice:BuildingType.TRAINING_PITCH})[b.station])?.level??1))||schedule.playerIds.some(id=>!saved.roster.some(p=>p.id===id)))return reject();
+  }
+  if(saved.scouting&&(saved.scouting.trip&&saved.scouting.trip.finishTime>now+864e5||saved.scouting.prospects.some(p=>p.job&&p.job.finishTime>now+864e5)))return reject();
+  if(saved.stadiumFootball?.game&&!saved.stadiumFootball.game.collected)throw new MatchRuleError('active_match','Finish and collect your local Stadium game before enabling online protection.');
   let normalized: SavedClub;
   try {
     const memory = { getItem: (key: string) => (key === SAVE_KEY ? raw : null), setItem: () => {} } as unknown as Storage;
@@ -99,6 +105,9 @@ export function admitClub(legacy: unknown, createdAt: number, activationAt: numb
   const state: SavedClub = createInitialState(now);
   for (const key of Object.keys(state) as (keyof GameState)[]) (state as Record<keyof GameState, unknown>)[key] = normalized[key];
   state.campusLayout = normalized.campusLayout;
+  state.development = normalized.development;
+  state.scouting = normalized.scouting;
+  state.stadiumFootball = normalized.stadiumFootball;
   state.roster = normalized.roster.map((p) => ({ ...p, rarity: p.rarity ?? PlayerRarity.COMMON, maxStat: p.maxStat ?? RARITY_CONFIG[p.rarity ?? PlayerRarity.COMMON].maxStat, avatarColor: UNIT_COLOR[p.unit], tendency: text(p.tendency, 50) ? p.tendency : tendencyFromId(p.id) }));
   state.recruitSlot = normalized.recruitSlot ? structuredClone(normalized.recruitSlot) : null;
   state.recruitBoard = undefined;

@@ -1,3 +1,5 @@
+import {progressClubDaily} from '../dailyProgress';
+export {progressClubDaily} from '../dailyProgress';
 import { BuildingType, DrillState, PlayerRarity, PlayerRole, PlayerState, ResourceType, UnitGroup, type GameState, type Player, type UpgradeJob } from '../../types';
 import {
   COLLECTOR_CONFIG, DRILLS, EXTRA_SLOT_COSTS, MAX_BUILDERS, PARKING_LOT, RARITY_CONFIG, RECRUIT_CONFIG, RECRUIT_FIRST_NAMES, RECRUIT_LAST_NAMES,
@@ -10,11 +12,17 @@ import { SWEEP_BONUS_GEMS, freshDailies, questsForDate } from '../../dailies';
 import { FORMATION_ORDER, MAX_SLOT_LEVEL, anchorsFor, formationUnlocked, gatePostsFor, slotById, slotUnlocked, slotUpgradeCost, type FormationKey } from '../../fixedBase';
 import { advanceEconomy } from '../economy';
 import { fanMilestoneTotal, nextFanMilestone, rallyFans, rallyPreview } from '../fanProgress';
+import {applyStadiumFootball,STADIUM_OPPONENTS,footballInProgress,type StadiumAction} from '../stadiumFootball';
+import {applyScouting,SCOUTING_TRIPS,RECRUITING_CONTACTS,type ScoutingAction} from '../scouting';
+import {STATIONS,startDevelopment,isDevelopmentSteps,type DevelopmentStep} from '../development';
 import { advanceCampus } from '../campus';
 import { applyCampusLayout, parseCampusLayout, type CampusLayout } from '../campusLayout';
 
-export type ClubAction =
+export type ClubAction = StadiumAction | ScoutingAction
   | { type: 'sync' }
+  | { type: 'development.start'; unit: UnitGroup|'ALL'; steps: DevelopmentStep[] }
+  | { type: 'development.read'; reportId: string }
+  | { type: 'development.stop'; scheduleId: string }
   | { type: 'facility.collect'; buildingId: string }
   | { type: 'facility.upgrade'; buildingId: string }
   | { type: 'facility.rush'; jobId: string }
@@ -61,6 +69,18 @@ type ClubClock = number | Pick<ClubActionContext, 'now' | 'calendarDate'>;
 
 const fields: Record<ClubAction['type'], string[]> = {
   'sync': [],
+  'stadium.start':['opponent'],
+  'stadium.call':['gameId','turn','call'],
+  'stadium.collect':['gameId'],
+  'stadium.abandon':['gameId'],
+  'scouting.search':['tier','pace'],
+  'scouting.contact':['playerId','contact'],
+  'scouting.rush':['playerId','jobId'],
+  'scouting.sign':['playerId'],
+  'scouting.dismiss':['playerId'],
+  'development.start':['unit','steps'],
+  'development.read':['reportId'],
+  'development.stop':['scheduleId'],
   'facility.collect': ['buildingId'],
   'facility.upgrade': ['buildingId'],
   'facility.rush': ['jobId'],
@@ -94,6 +114,10 @@ export function parseClubAction(input: unknown): ClubAction | null {
   if (typeof value.type !== 'string' || !Object.prototype.hasOwnProperty.call(fields, value.type)) return null;
   const required = fields[value.type as ClubAction['type']];
   if (Object.keys(value).length !== required.length + 1 || Object.keys(value).some(key => key !== 'type' && !required.includes(key))) return null;
+  if(value.type==='development.start'){
+    if((value.unit!=='ALL'&&!Object.values(UnitGroup).includes(value.unit as UnitGroup))||!isDevelopmentSteps(value.steps))return null;
+    return {type:'development.start',unit:value.unit as UnitGroup|'ALL',steps:value.steps.map(s=>({...s}))};
+  }
   if (value.type === 'campus.apply') {
     const layout = parseCampusLayout(value.layout);
     return layout ? { type: 'campus.apply', layout } : null;
@@ -103,6 +127,10 @@ export function parseClubAction(input: unknown): ClubAction | null {
     return { type: 'defense.seen', ids: [...value.ids] };
   }
   if (!required.every(key => typeof value[key] === 'string' && (value[key] as string).length > 0 && (value[key] as string).length <= 120)) return null;
+  if(value.type==='stadium.start'&&!Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS,String(value.opponent)))return null;
+  if(value.type==='stadium.call'&&!/^(0|[1-9][0-9]?)$/.test(String(value.turn)))return null;
+  if(value.type==='scouting.search'&&(!Object.prototype.hasOwnProperty.call(SCOUTING_TRIPS,String(value.tier))||!['time','coins'].includes(String(value.pace))))return null;
+  if(value.type==='scouting.contact'&&!Object.prototype.hasOwnProperty.call(RECRUITING_CONTACTS,String(value.contact)))return null;
   if (value.type === 'training.start' && !Object.values(UnitGroup).includes(value.unit as UnitGroup)) return null;
   if (value.type === 'formation.set' && !FORMATION_ORDER.includes(value.formation as FormationKey)) return null;
   if (value.type === 'club.rename' && (String(value.name).trim().length < 2 || String(value.name).trim().length > 24 || /[\u0000-\u001f\u007f-\u009f]/u.test(String(value.name)))) return null;
@@ -115,8 +143,7 @@ export function settleClubState(previous: GameState, clock: ClubClock): GameStat
   if (!Number.isFinite(now) || now < previous.lastTick) return previous;
   const date = context.calendarDate ?? new Date(now).toISOString().slice(0, 10);
   return {
-    ...advanceCampus(previous, now),
-    ...advanceEconomy(previous, now),
+    ...advanceCampus(previous, now, date),
     lastTick: now,
     peakFans: fanMilestoneTotal(previous),
     dailies: previous.dailies.date === date ? previous.dailies : freshDailies(date),
@@ -124,12 +151,6 @@ export function settleClubState(previous: GameState, clock: ClubClock): GameStat
   };
 }
 
-export function progressClubDaily(state: GameState, questId: string, count = 1): GameState {
-  const quest = questsForDate(state.dailies.date).find(value => value.id === questId);
-  if (!quest || state.dailies.claimed.includes(questId) || !Number.isFinite(count) || count <= 0) return state;
-  const progress = Math.min(quest.target, (state.dailies.progress[questId] ?? 0) + count);
-  return { ...state, dailies: { ...state.dailies, progress: { ...state.dailies.progress, [questId]: progress } } };
-}
 
 function validBalances(state: GameState): boolean {
   return Object.values(ResourceType).every(key => Number.isFinite(state.resources[key]) && state.resources[key] >= 0)
@@ -195,7 +216,25 @@ export function applyClubAction(previous: GameState, input: unknown, context: Cl
     while (state.upgrades.some(value => value.id === id)) id += '_n';
     return { id, kind, key, toLevel, startTime: now, finishTime: now + duration * 1e3 };
   };
+  if(footballInProgress(state)&&!['sync','stadium.call','stadium.abandon'].includes(command.type))return fail('active_match','Finish your Stadium game before changing the team.');
   switch (command.type) {
+    case 'stadium.start':case 'stadium.call':case 'stadium.collect':case 'stadium.abandon':{const next=applyStadiumFootball(state,command,now,random);return typeof next==='string'?fail('not_ready',next):success(next);}
+    case 'scouting.search': case 'scouting.contact': case 'scouting.rush': case 'scouting.sign': case 'scouting.dismiss': {
+      const next=applyScouting(state,command,now,random);return typeof next==='string'?fail('not_ready',next):success(next);
+    }
+    case 'development.start': {
+      const next=startDevelopment(state,command.unit,command.steps,now);
+      return typeof next==='string'?fail('not_ready',next):success(next,{scheduleId:next.development!.schedule!.id});
+    }
+    case 'development.stop': {
+      const schedule=state.development?.schedule;if(!schedule||schedule.id!==command.scheduleId)return fail('not_found','This schedule is already finished.');
+      const refund=Math.min(100-state.resources.ENERGY,schedule.blocks.slice(schedule.completed+1).reduce((n,b)=>n+STATIONS[b.station].energy,0));
+      return success({...state,resources:{...state.resources,ENERGY:state.resources.ENERGY+refund},development:{...state.development!,schedule:null}},{gained:{ENERGY:refund}});
+    }
+    case 'development.read': {
+      if(!state.development?.reports.some(r=>r.id===command.reportId))return fail('not_found','That session report was not found.');
+      return success({...state,development:{...state.development,reports:state.development.reports.map(r=>r.id===command.reportId?{...r,read:true}:r)}});
+    }
     case 'sync':
       return success(state);
     case 'defense.seen': {
@@ -248,6 +287,7 @@ export function applyClubAction(previous: GameState, input: unknown, context: Cl
       return success(rallyFans(state), { spent: { FANS: preview.fanCost }, gained: { ENERGY: preview.energyGain } });
     }
     case 'training.start': {
+      if(state.development?.schedule)return fail('busy','Finish your team schedule before starting another workout.');
       const drill = Object.prototype.hasOwnProperty.call(DRILLS, command.drillId) ? DRILLS[command.drillId] : undefined;
       if (!drill || (drill.targetUnit !== 'ALL' && drill.targetUnit !== command.unit)) return fail('invalid_command', 'That drill does not train this unit.');
       const pitch = state.buildings.find(value => value.type === BuildingType.TRAINING_PITCH && value.state === DrillState.IDLE);
@@ -356,6 +396,7 @@ export function applyClubAction(previous: GameState, input: unknown, context: Cl
       return success({ ...next, recruitBoard: recruitBoard(next, now, random) }, { playerId: slot.candidate.id });
     }
     case 'recruit.cut': {
+      if(state.development?.schedule?.playerIds.includes(command.playerId))return fail('busy','This player is following your team schedule. Finish it before releasing them.');
       if (state.roster.length <= 6) return fail('limit_reached', 'Keep at least six players on your roster.');
       if (!state.roster.some(value => value.id === command.playerId)) return fail('not_found', 'That player was not found.');
       return success({ ...state, roster: state.roster.filter(value => value.id !== command.playerId) }, { playerId: command.playerId });

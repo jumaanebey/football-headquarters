@@ -30,8 +30,9 @@ const journey = async (label, context, { failed = [] } = {}) => {
   line(/HALL OF HEROES/i.test(await page.locator('body').innerText()), `${label}: Heroes modal opens`);
   await page.keyboard.press('Escape'); await page.waitForTimeout(200);
   await page.click('[aria-label="Club navigation"] button:has-text("Game Day")').catch(() => {}); await page.waitForTimeout(400);
+  await page.getByRole('button', { name: 'Base raids', exact: true }).first().click();
   await page.getByRole('button', { name: /^Next$|Prepare|Preseason Opener|Play next/i }).first().click({ timeout: 3000 }).catch(() => {});
-  await page.getByRole('button', { name: /Reserve game|Kick off|Play/i }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('button', { name: /Reserve (?:game|raid)|Kick off|Play/i }).first().click({ timeout: 3000 }).catch(() => {});
   const field = await page.waitForSelector('[aria-label="Battlefield"]', { timeout: 30000 }).then(() => true).catch(() => false);
   line(field, `${label}: reservation and battlefield reached`);
   if (field) {

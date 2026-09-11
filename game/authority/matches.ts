@@ -75,6 +75,7 @@ export function issueMatch(input: { state: GameState; owner: string; id: string;
   const { owner, id, seed, now, choice, target } = input;
   if (!uuid(owner) || !uuid(id) || !Number.isSafeInteger(seed) || seed < 0 || seed > 4294967295) return fail('invalid_identity', 'The match could not be issued.');
   let state = settleClubState(input.state, { now });
+  if(state.development?.schedule)return fail('team_busy','Finish the team schedule before starting a raid.');
   const cost = choice.kind === 'gauntlet' ? 0 : RAID_ENERGY;
   if (state.resources.ENERGY < cost) return fail('energy', `This game needs ${cost} Energy.`);
   const power = armyStrength(state.roster);

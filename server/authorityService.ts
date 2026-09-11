@@ -1,4 +1,5 @@
 // server/authorityService.ts
+import {footballInProgress} from '../game/stadiumFootball';
 import type { GameState, DefenseLogEntry } from '../types';
 import type { BattleResult } from '../game/combat/contracts';
 import { canonicalJson } from '../game/combat/canonical';
@@ -139,6 +140,7 @@ export function createAuthorityService(store: AuthorityStore, options: Authority
         commit.nextState = outcome.state;
         commit.result = outcome.result;
       } else if (input.kind === 'match.reserve') {
+        if(footballInProgress(club.state))throw new MatchRuleError('active_match','Finish your Stadium football game before starting a raid.');
         if (club.activeMatch) throw new MatchRuleError('active_match', 'Continue or cancel your existing game first.');
         const choice = parseMatchChoice(input.choice);
         const target = choice.kind === 'rival' ? await store.getClub(choice.target) : null;

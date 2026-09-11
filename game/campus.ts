@@ -3,6 +3,8 @@ import { TENDENCIES, TendencyKey } from '../constants';
 import { freshDailies, todayKey } from '../dailies';
 import { mulberry32 } from '../battle';
 import { advanceEconomy } from './economy';
+import {advanceScouting} from './scouting';
+import { advanceDevelopment } from './development';
 import { fanMilestoneTotal } from './fanProgress';
 
 /** Advance wall-clock economy and timers, with bounded visual movement on resume.
@@ -10,7 +12,7 @@ import { fanMilestoneTotal } from './fanProgress';
  * React can replay it without duplicating events or changing patrol destinations.
  */
 /** `calendarDate` overrides the local calendar day: protected clubs advance on the club server's UTC day. */
-export function advanceCampus(previous: GameState, now: number, calendarDate?: string): GameState {
+export function advanceCampus(previous: GameState, now: number, calendarDate?: string, settleActivities = true): GameState {
   if (!Number.isFinite(now) || now <= previous.lastTick) return previous;
   const seconds = (now - previous.lastTick) / 1000;
   const movementSeconds = Math.min(seconds, 0.25);
@@ -42,11 +44,12 @@ export function advanceCampus(previous: GameState, now: number, calendarDate?: s
     return arrived;
   });
   const date = calendarDate ?? todayKey(now);
-  return {
+  const advanced = {
     ...previous, ...economy, roster, peakFans: fanMilestoneTotal(previous),
     dailies: previous.dailies.date === date ? previous.dailies : freshDailies(date),
     gauntlet: previous.gauntlet.date === date ? previous.gauntlet : { ...previous.gauntlet, attempts: 3, date },
     timeOfDay: (previous.timeOfDay + seconds / 60 * 24) % 24,
     lastTick: now,
   };
+  return settleActivities?advanceScouting(advanceDevelopment(advanced,now,calendarDate!==undefined),now,calendarDate!==undefined):advanced;
 }

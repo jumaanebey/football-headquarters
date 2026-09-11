@@ -59,9 +59,10 @@ try {
   // Game Day → Season game 1 (reserved on the server).
   await page.click('[aria-label="Club navigation"] button:has-text("Game Day"), [aria-label="Club navigation"] button:has-text("Play")').catch(async () => { await page.click('[aria-label="Club navigation"] button >> nth=2'); });
   await page.waitForTimeout(800);
+  await page.getByRole('button', { name: 'Base raids', exact: true }).first().click();
   await shot('game-day');
   await page.click('button:has-text("Next")').catch(async () => { await page.click('text=Preseason Opener'); });
-  await page.getByRole('button', { name: /Reserve game/ }).click();
+  await page.getByRole('button', { name: /Reserve (?:game|raid)/ }).click();
   await page.waitForSelector('[aria-label="Battlefield"]', { timeout: 30000 });
   await page.waitForTimeout(1500);
   await shot('battle-deploy');
