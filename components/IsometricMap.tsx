@@ -136,9 +136,9 @@ const GroundLayerInner: React.FC<{ buildings: BuildingInstance[]; field?: Ground
           <polygon points={[tileToScreen(ARRIVAL.x1,ARRIVAL.y1),tileToScreen(road.x2,ARRIVAL.y1),tileToScreen(road.x2,ARRIVAL.y2),tileToScreen(ARRIVAL.x1,ARRIVAL.y2)].map(p=>`${p.x},${p.y}`).join(' ')} fill="#313f40" stroke="#748276" strokeWidth="3" />
           <polygon points={[tileToScreen(ARRIVAL.x1+.2,ARRIVAL.y1+.2),tileToScreen(ARRIVAL.x2-.2,ARRIVAL.y1+.2),tileToScreen(ARRIVAL.x2-.2,ARRIVAL.y2-.2),tileToScreen(ARRIVAL.x1+.2,ARRIVAL.y2-.2)].map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#c8c4a0" strokeWidth="2" />
         </g>}
-        <g data-campus-walkways stroke="#829080" strokeWidth="22" strokeLinecap="round" opacity=".6">
+        <g data-campus-walkways stroke="#a49e89" strokeWidth="14" strokeLinecap="round" opacity=".6">
           {arrival && <line x1={tileToScreen(6.6,6.6).x} y1={tileToScreen(6.6,6.6).y} x2={tileToScreen(ARRIVAL.x1,ARRIVAL.y1).x} y2={tileToScreen(ARRIVAL.x1,ARRIVAL.y1).y} />}
-          {!panorama && buildings.map(b=>{const p=tileToScreen(b.gridX+.5,b.gridY+.5);const mid=tileToScreen(Math.max(field.x1-.6,Math.min(field.x2+.6,b.gridX+.5)),Math.max(field.y1-.6,Math.min(field.y2+.6,b.gridY+.5)));return <line key={b.id} x1={p.x} y1={p.y+22} x2={mid.x} y2={mid.y} />;})}
+          {!panorama && buildings.map(b=>{const p=tileToScreen(b.gridX+.5,b.gridY+.5);const mid=tileToScreen(Math.max(field.x1-.35,Math.min(field.x2+.35,b.gridX+.5)),Math.max(field.y1-.35,Math.min(field.y2+.35,b.gridY+.5)));return <line key={b.id} x1={p.x} y1={p.y+22} x2={mid.x} y2={mid.y} />;})}
           {panorama && <line x1={tileToScreen(-2,10).x} y1={tileToScreen(-2,10).y+40} x2={tileToScreen(9,-1).x} y2={tileToScreen(9,-1).y+40} />}
         </g>
         {/* One grass plane beneath every facility: no brighter campus diamond
@@ -337,14 +337,14 @@ const DrillRunner: React.FC<typeof DRILL_SQUAD[number]> = ({ slug, gx, gy, dgy, 
   );
 };
 
-// Arrival bay and a restrained perimeter. Parked bus only; no animated traffic.
+// A planted perimeter frames the departments without crossing their entrances.
 const OUTER_DECOR: { slug: string; gridX: number; gridY: number; scale: number; flip?: boolean; z?: number }[] = [
   {slug:'floodlight',gridX:-1,gridY:3,scale:.9},
   {slug:'floodlight',gridX:3,gridY:-1,scale:.9},
-  {slug:'tree-cluster',gridX:-2,gridY:5,scale:.9},
-  {slug:'tree-cluster',gridX:5,gridY:-2,scale:.9},
-  {slug:'tree-cluster',gridX:5,gridY:12,scale:.85},
-  {slug:'tree-cluster',gridX:12,gridY:5,scale:.85},
+  {slug:'tree-cluster',gridX:-2,gridY:1,scale:.6},
+  {slug:'tree-cluster',gridX:1,gridY:-2,scale:.6},
+  {slug:'tree-cluster',gridX:8,gridY:12,scale:.6},
+  {slug:'tree-cluster',gridX:12,gridY:8,scale:.6},
 ];
 const CAMPUS_DECOR: typeof DECOR = [];
 
@@ -621,7 +621,7 @@ const BuildingSprite: React.FC<{
       {/* Explicit collection target; facility art always opens the department. */}
       {/* centering lives on an animation-free wrapper — bounce-sm's transform used to REPLACE the -translate-x-1/2 */}
       {showBubble && (
-        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; onCollectResource?.(building, {x:e.clientX,y:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto rounded-full border-0 bg-transparent p-0" style={{ left: SPRITE_W*.22, top: paintTop+10, zIndex: 44, width:'max-content', minHeight:44/displayScale }}>
+        <button type="button" aria-label={`Collect ${banked} coins from ${info.name}`} onClick={e => { e.stopPropagation(); if (clickGuard?.current) return; const rect=e.currentTarget.getBoundingClientRect(); onCollectResource?.(building, {x:e.detail===0?rect.left+rect.width/2:e.clientX,y:e.detail===0?rect.top+rect.height/2:e.clientY}); }} data-tour="collect" className="absolute -translate-x-1/2 pointer-events-auto rounded-full border-0 bg-transparent p-0" style={{ left: 0, top: paintTop-50/displayScale, zIndex: 44, width:'max-content', minHeight:44/displayScale }}>
           <div className="flex items-center gap-1.5 rounded-full border-2 border-amber-300 shadow-lg bg-slate-950" style={{minHeight:44/displayScale,padding:`${4/displayScale}px ${8/displayScale}px`,gap:4/displayScale}}>
             <Coins size={14/displayScale} className="shrink-0 text-amber-300" />
             <span className="whitespace-nowrap font-display font-bold text-amber-200" style={{fontSize:12/displayScale}}>Collect {banked} Coins</span>
@@ -708,13 +708,17 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
   const campusRef = React.useRef<HTMLDivElement>(null);
   const viewport = useCampusViewport(campusRef);
   const landscape=viewport.height<500 && viewport.width>viewport.height;
-  const framing = frameCampus([...campusDisplayBuildings(buildings,customLayout,landscape).map(b => {
+  const wideCampus=landscape || (viewport.width>=700 && viewport.width>viewport.height);
+  const presentationBuildings=campusDisplayBuildings(buildings,customLayout,wideCampus);
+  const fieldCorners=[tileToScreen(CAMPUS_FIELD.x1-.35,CAMPUS_FIELD.y1-.35),tileToScreen(CAMPUS_FIELD.x2+.35,CAMPUS_FIELD.y1-.35),tileToScreen(CAMPUS_FIELD.x2+.35,CAMPUS_FIELD.y2+.35),tileToScreen(CAMPUS_FIELD.x1-.35,CAMPUS_FIELD.y2+.35)];
+  const fieldBounds=campusFieldClear(presentationBuildings)?[{left:Math.min(...fieldCorners.map(p=>p.x))-15,right:Math.max(...fieldCorners.map(p=>p.x))+15,top:Math.min(...fieldCorners.map(p=>p.y))-15,bottom:Math.max(...fieldCorners.map(p=>p.y))+15}]:[];
+  const framing = frameCampus([...fieldBounds,...presentationBuildings.map(b => {
     const anchor = b;
     const point = tileToScreen(anchor.gridX + .5, anchor.gridY + .5);
     const width = campusBuildingWidth(b.type, customLayout);
     const art=artBounds[b.id];
-    return art ? {left:point.x+Math.min(art.left,-125),right:point.x+Math.max(art.right,125),top:point.y+art.top-35,bottom:point.y+art.bottom+95} : {left:point.x-width/2, right:point.x+width/2,top:point.y-width+TILE_H/2,bottom:point.y+80};
-  })],viewport.width,viewport.height,landscape?220:260);
+    return art ? {left:point.x+Math.min(art.left,-125),right:point.x+Math.max(art.right,125),top:point.y+art.top-110,bottom:point.y+art.bottom+95} : {left:point.x-width/2, right:point.x+width/2,top:point.y-width+TILE_H/2,bottom:point.y+80};
+  })],viewport.width,viewport.height,landscape?160:260);
   const scale = framing.scale;
   const boardRef = React.useRef<HTMLDivElement>(null);
 
@@ -824,7 +828,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
   const campusList = edit ? edit.campus : CAMPUS_DECOR;
   // Home-board display remap FIRST (Jumaane's layout — battle geometry unaffected),
   // then any live editor overrides on top of it.
-  const displayBuildings = campusDisplayBuildings(buildings, customLayout, landscape);
+  const displayBuildings = campusDisplayBuildings(buildings, customLayout, wideCampus);
   // The editor previews the ENDGAME look ("show it at full fan capacity"):
   // max-level building art + a packed jumbotron, whatever this save's progress —
   // layout decisions should be judged against the board players are building toward.
@@ -1017,15 +1021,15 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
           flex: Safari START-aligns oversized flex children (Chrome centers them), which
           shoved the whole island off-screen on iPhones. translate(-50%,-50%) is identical
           in every browser. */}
-      <div className="absolute left-0 right-0 overflow-visible" style={{ top: landscape ? 104 : 138, bottom: landscape ? 124 : 132 }}>
+      <div className="absolute left-0 right-0 overflow-visible" style={{ top: landscape ? 90 : 138, bottom: landscape ? 70 : 132 }}>
         <div ref={boardRef} data-fhq-board onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onClickCapture={e=>{if(e.detail!==0 && panMovedRef.current){e.preventDefault();e.stopPropagation();panMovedRef.current=false;}}} onDoubleClick={resetCam}
           className="absolute"
           style={{ left: '50%', top: '50%', width: BOARD_W, height: BOARD_H, transform: `translate(calc(-50% + ${cam.x + (BOARD_W/2-framing.centerX)*scale*cam.z}px), calc(-50% + ${cam.y + (BOARD_H/2-framing.centerY)*scale*cam.z}px)) scale(${scale * cam.z})`, transformOrigin: 'center', touchAction: 'none' }}>
-          <GroundLayer panorama={landscape} arrival={false} showField={campusFieldClear(shownBuildings)} buildings={shownBuildings} field={edit?.field} road={edit?.road} />
+          <GroundLayer panorama={false} arrival={false} showField={campusFieldClear(shownBuildings)} buildings={shownBuildings} field={edit?.field} road={edit?.road} />
           {/* Jumbotron paints FIRST: it towers behind the practice field, so the
               north goalpost and everything south of it must layer in front. */}
           {edit && <Jumbotron clubName={clubName} trophies={showTrophies} fans={showFans} gx={edit?.board.gx} gy={edit?.board.gy} wMult={edit?.board.w} onOpenStats={onOpenStats} clickGuard={panMovedRef} />}
-          {!customLayout && !landscape && outerList.map((d, i) => (
+          {!customLayout && !landscape && (wideCampus?outerList.slice(0,4):outerList).map((d, i) => (
             <DecorSprite key={`o${i}`} slug={d.slug} gridX={d.gridX} gridY={d.gridY} scale={d.scale} flip={d.flip} z={d.z} />
           ))}
           {/* 🏙 growth props render after OUTER_DECOR so depth ties break in their favor;
@@ -1086,7 +1090,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
               </button>
             );
           })}
-          {!landscape && campusFieldClear(shownBuildings) && HERO_DEFS.filter(def => heroes.find(h => h.key === def.key)?.unlocked ?? !!def.starter).map(def => def.key).map((key, lane) => (
+          {campusFieldClear(shownBuildings) && HERO_DEFS.filter(def => heroes.find(h => h.key === def.key)?.unlocked ?? !!def.starter).map(def => def.key).map((key, lane) => (
             <CampusHero key={key} heroKey={key} lane={lane} field={edit?.field ?? FIELD_RECT} project={tileToScreen} onSelect={() => onOpenHeroes?.(key)} />
           ))}
           {edit && activePlayers.map((p) => (
@@ -1132,7 +1136,7 @@ export const IsometricMap: React.FC<Props> = ({ customLayout: hasCustomLayout = 
         </div>
       </div>
 
-      <div className="absolute bottom-24 inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none">
+      <div className="absolute inset-x-3 z-40 flex flex-wrap items-end justify-between gap-2 pointer-events-none" style={{bottom:landscape?64:96}}>
       <div className="flex gap-2 pointer-events-auto">
         <button type="button" onClick={() => setDirectoryOpen(true)} className="min-h-11 rounded-xl border border-slate-600 bg-slate-900/95 px-3 text-sm font-bold text-white">Facilities</button>
 
