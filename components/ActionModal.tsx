@@ -3,7 +3,7 @@ import { BuildingArt } from './BuildingArt';
 import { Sheet } from './ui';
 import { BuildingInstance, BuildingType, DrillState, GameState, ResourceType, UpgradeJob } from '../types';
 import { BUILDING_INFO, UPGRADE_CONFIG, upgradeDurationSecs, skipGemCost, builderHireCost, MAX_BUILDERS, buildingEffect, collectorCap, collectorRate } from '../constants';
-import { buildingMilestone, buildingRoadmap, buildingGoalCost, BUILDING_PURPOSE } from '../game/buildingProgression';
+import { buildingMilestone, buildingRoadmap, buildingGoalCost } from '../game/buildingProgression';
 
 interface Props {
   building: BuildingInstance | null;
@@ -42,7 +42,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
     : building.type===BuildingType.YOUTH_ACADEMY ? (club?.recruitSlot ? `Recruit ${Date.now()>=club.recruitSlot.finishTime?'ready to sign':`arrives in ${fmt((club.recruitSlot.finishTime-Date.now())/1000)}`}` : 'Compare prospects, then scout with Coins')
     : building.state===DrillState.ACTIVE ? `Training · ${fmt(((building.finishTime??Date.now())-Date.now())/1000)} remaining`
     : building.state===DrillState.COMPLETED ? 'Training complete · collect your squad’s progress' : `Team readiness ${club?.teamReadiness??0}/100`;
-  return <Sheet title={info.name} subtitle={`Level ${level} · ${resources.COINS.toLocaleString()} Coins available`} onClose={onClose} maxWidth="max-w-3xl">
+  return <Sheet title={info.name} subtitle={`Level ${level} · ${resources.COINS.toLocaleString()} Coins available`} onClose={onClose} maxWidth="max-w-5xl">
     <div className="fhq-facility-panel">
 
       <div className="fhq-facility-content">
@@ -61,7 +61,7 @@ export const ActionModal: React.FC<Props> = ({ building, resources, stadiumLevel
         <div className="fhq-facility-detail">
           {blocked && <p role="status" className="text-blue-300">Confirming club change…</p>}
           <section className="fhq-facility-overview">
-            <h3>Now · {current.label}: {current.value}</h3><p>{BUILDING_PURPOSE[building.type]}</p><p>{status}</p>
+            <h3>Now · {current.label}: {current.value}</h3><p>{status}</p>
             <div className="fhq-facility-actions">
             {onCollect&&collect&&<button disabled={blocked} className="fhq-facility-primary" onClick={()=>onCollect(building)}>{building.state===DrillState.COMPLETED?'Collect training':`Collect ${Math.floor(building.accrued??0)} Coins`}</button>}
             {onVisit&&<button onClick={onVisit} className="fhq-facility-primary">{visitLabel} →</button>}

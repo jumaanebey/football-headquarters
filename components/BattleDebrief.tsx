@@ -4,7 +4,7 @@ import { Flag, Trophy, Heart, Shield } from 'lucide-react';
 import { gauntletReward, GAME_PLANS, type BBuilding, type BTroop, type GamePlanKey } from '../battle';
 import { FORMATIONS, type FormationKey } from '../fixedBase';
 import type { BattleConfig, BattleResult } from '../game/combat/contracts';
-import { battleContributions, contributionLeaders, resultPresentation, type PostBattleDestination } from '../game/battleDebrief';
+import { nextBattleImprovement, battleContributions, contributionLeaders, resultPresentation, type PostBattleDestination } from '../game/battleDebrief';
 import { HeroArt } from './HeroArt';
 import { Sheet } from './ui';
 
@@ -31,6 +31,7 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
   const formation = FORMATIONS[formationKey as FormationKey];
   const selectedPlan = GAME_PLANS.find(p => p.key === planKey);
   const showContributions = modernCombat && !defense;
+  const improvement = nextBattleImprovement({defense,won:viewerWon,countered:!!selectedPlan&&!!formation?.counter.strongVs.includes(selectedPlan.key),lost:stats?.lost??0});
   const purse = result.gauntletTier !== undefined
     ? gauntletReward(result.gauntletTier, result.wavesHeld ?? 0, !!result.gauntletCleared) : null;
   const primary = 'w-full min-h-12 rounded-xl bg-orange-500 px-4 py-3 text-base font-bold text-white hover:bg-orange-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
@@ -45,10 +46,7 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
           : primary}>
           {replay ? 'Close replay' : config.practice ? 'Back to Hero Film Room' : defense ? 'Back to base' : 'Collect rewards'}
         </button>
-        {!neutral && <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => onContinue(defense ? 'defense' : 'heroes')} className="min-h-11 rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-white">{defense ? 'Review defense' : 'Collect & train heroes'}</button>
-          <button type="button" onClick={() => onContinue('games')} className="min-h-11 rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-white">{defense ? 'Game Day' : 'Collect & choose next game'}</button>
-        </div>}
+        {!neutral && <button type="button" onClick={()=>onContinue(improvement.destination)} className="w-full min-h-11 rounded-xl border border-amber-600 px-3 py-2 text-sm font-bold text-amber-200">{defense?'':'Collect & '}{improvement.title.toLowerCase()}</button>}
         {!neutral && !defense && <button type="button" onClick={() => onContinue('share')} className="w-full min-h-11 rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold text-white">Collect & make result card</button>}
         {!neutral && config.authority && <p className="text-xs text-slate-400">Your next page opens after the server confirms this result.</p>}
       </div>}>
@@ -64,6 +62,11 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
           {replay && <p className="mt-3 text-sm text-sky-200">Recorded result. Watching this film does not change your club or award rewards.</p>}
         </div>
 
+        {!neutral && <dl className="space-y-2 rounded-xl bg-slate-900 p-3 text-sm">
+          <div className="flex justify-between gap-4"><dt className="text-slate-300">{purse ? 'Night purse' : defense ? 'Coins lost' : 'Coins won'}</dt><dd className={`font-bold tabular-nums ${defense && !purse ? 'text-rose-300' : 'text-amber-300'}`}>{defense && !purse ? '−' : '+'}{number(purse?.coins ?? result.coins)}</dd></div>
+          {(!defense || purse) && <div className="flex justify-between gap-4"><dt className="text-slate-300">New fans won over</dt><dd className="font-bold tabular-nums text-rose-300">+{number(purse?.fans ?? result.fans)}</dd></div>}
+        </dl>}
+        {!neutral && <section aria-label="Your next improvement" className="rounded-xl border border-amber-800 bg-amber-950/30 p-3 text-sm text-slate-200"><h3 className="font-bold text-amber-200">{improvement.title}</h3><p className="mt-2">{improvement.reason}</p></section>}
         {actors.some(t=>(t.defenseControlSeconds??0)>0) && <section className="rounded-xl border border-sky-900 p-3 text-sm text-slate-300"><h3 className="font-bold text-white">Equipment control during this game</h3><p className="my-2 text-xs">Time affected by wet turf, flags or entanglement. Overlapping effects count once.</p>{[...actors].filter(t=>(t.defenseControlSeconds??0)>0).sort((a,b)=>(b.defenseControlSeconds??0)-(a.defenseControlSeconds??0)).slice(0,4).map(t=><p key={t.id}>{contributions.find(c=>c.id===t.id)?.name}: {(t.defenseControlSeconds??0).toFixed(1)}s · {t.lastDefenseEffect}</p>)}</section>}
         <DefenseCounterGuide buildings={config.buildings} rules={config.authority?.rules ?? config.replay?.rules} />
         <section aria-label="Game breakdown" className="rounded-xl border border-slate-700 p-3 text-sm text-slate-300">
@@ -75,12 +78,6 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
           {defense && <p className="mt-2">{guards.filter(g => !g.dead).length}/{guards.length} defenders still on the field · {buildings.filter(b => b.kind === 'defense' && !b.dead).length} emplacements standing.</p>}
           {defense && <p className="mt-2">Next test: adjust one gate assignment or placement, then compare damage and surviving defenses against this result.</p>}
         </section>
-
-        {config.campaignStage === 1 && !neutral && !defense && <section aria-label="Your next improvement" className="rounded-xl border border-orange-800 bg-orange-950/30 p-3 text-sm text-slate-200">
-          <h3 className="font-bold text-orange-300">Next: improve your club</h3>
-          <p className="mt-1">{result.won ? 'You cleared the opener. ' : 'You can retry the opener after preparing. '}Back home, open Heroes to compare a Train upgrade’s cost and stat benefit. If you need Coins, use the Training Field drills. Game Day shows your next match.</p>
-          <p className="mt-2 text-xs text-slate-300">Readiness is a preparation bonus, not a requirement to play. Free hero practice is always available.</p>
-        </section>}
 
         {showContributions && <section aria-label={config.practice ? 'Practice contributions' : replay ? 'Attacking contributions' : 'Drive contributions'}>
           <h3 className="mb-3 font-display text-base font-bold text-white">{replay ? 'The attacking team’s standouts' : 'Your team’s standouts'}</h3>
@@ -110,10 +107,6 @@ export function BattleDebrief({ config, result, actors, buildings = [], guards =
         {stats && !defense && <dl className="space-y-2 text-sm">
           <div className="flex justify-between gap-4"><dt className="text-slate-400">{replay ? 'Home defenders stopped' : 'Defenders stopped'}</dt><dd className="font-bold text-white">{stats.pancakes}</dd></div>
           <div className="flex justify-between gap-4"><dt className="text-slate-400">{replay ? 'Attackers subbed out' : 'Players subbed out'}</dt><dd className="font-bold text-white">{stats.lost}</dd></div>
-        </dl>}
-        {!neutral && <dl className="space-y-2 rounded-xl bg-slate-900 p-3 text-sm">
-          <div className="flex justify-between gap-4"><dt className="text-slate-300">{purse ? 'Night purse' : defense ? 'Coins lost' : 'Coins won'}</dt><dd className={`font-bold tabular-nums ${defense && !purse ? 'text-rose-300' : 'text-amber-300'}`}>{defense && !purse ? '−' : '+'}{number(purse?.coins ?? result.coins)}</dd></div>
-          {(!defense || purse) && <div className="flex justify-between gap-4"><dt className="text-slate-300">New fans won over</dt><dd className="font-bold tabular-nums text-rose-300">+{number(purse?.fans ?? result.fans)}</dd></div>}
         </dl>}
         {!neutral && !defense && config.rival && <figure className="flex items-center gap-3 border-t border-slate-800 pt-4">
           <img src={config.rival.art} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />

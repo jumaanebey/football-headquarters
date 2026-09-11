@@ -129,7 +129,7 @@ const DeployCard: React.FC<{
   count?: number | string; countBg?: string; overlay?: React.ReactNode; title?: string;
 }> = ({ onClick, disabled, selected, ready, heroKey, art, emoji, label, sub, subSub, count, countBg = '#f97316', overlay, title }) => (
   <button onClick={onClick} disabled={disabled} title={title}
-    className={`relative shrink-0 rounded-2xl p-[2px] text-left transition-all active:scale-95 ${selected ? 'scale-105' : ''} ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${ready && !disabled ? 'animate-pulse' : ''}`}
+    className={`fhq-deploy-card relative shrink-0 rounded-2xl p-[2px] text-left transition-all active:scale-95 ${selected ? 'scale-105' : ''} ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${ready && !disabled ? 'animate-pulse' : ''}`}
     style={{
       background: disabled ? '#1e293b'
         : selected || ready ? 'linear-gradient(155deg, #fde047 0%, #f97316 45%, #7c2d12 100%)'
@@ -1376,7 +1376,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
         </div>
       </div>
 
-      {modernCombat && !isDefense && !isReplay && <div className="fhq-battle-guide shrink-0 px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
+      {modernCombat && !isDefense && !isReplay && (pendingHero || lesson) && <div className="fhq-battle-guide shrink-0 px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
         <p className="text-xs text-slate-300" role={lesson ? 'status' : undefined}><strong className="text-amber-300">{lesson ? `${lesson.step}/3 · ${lesson.title}` : config.practice ? 'FREE PRACTICE' : 'YOUR HEROES'}</strong><br />{lesson?.detail ?? (pendingHero ? 'Choose a sideline spot, or use Deploy.' : 'Call a ready signature below. Watch its release and contact.')}</p>
         {pendingHero && <button type="button" className="shrink-0 min-h-11 px-3 py-2 rounded-lg bg-orange-500 text-sm font-bold text-white" onClick={() => {
           if (deployedHeroesRef.current.has(pendingHero.key)) return;
@@ -1940,7 +1940,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
                 </div>
                 </details>
               )}
-              <div className="text-center text-xs text-orange-300 font-bold mb-2">
+              <div className="fhq-battle-instruction text-center text-xs text-orange-300 font-bold mb-2">
                 {phase === 'fighting' && <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle"><PlanGlyph k={plan.key} size={11} className="shrink-0" /> {plan.name}</span>}
                 {instruction}
               </div>
@@ -1948,7 +1948,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, initialPlan = 
                 onSelect={hero => { setPendingHero(hero); setCastMode(null); setPendingSpecial(null); }} onAbility={useAbility} />}
               {/* Phones: ONE scrollable card tray (CC-style) — wrapping 18 cards into
                   4 rows would swallow the field. Desktop: wrap and center. */}
-              <div className="flex items-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="fhq-deploy-tray flex items-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {/* Troops — real player art on the cards */}
                 {UNIT_ORDER.map(u => {
                   const st = TROOP_STATS[u]; const count = army[u]; const active = selected === u && !pendingHero && !castMode && !pendingSpecial;
