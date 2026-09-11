@@ -21,6 +21,12 @@ describe('Stadium performance',()=>{
   const good=stadiumPerformance(game({...e,scored:3}),1),miss=stadiumPerformance(game({...e,scored:0}),1);
   expect(good.ball.x).toBe(-10);expect(good.ball.y).not.toBe(miss.ball.y);
  });
+ it('keeps kick protection in place and the holder seven yards deep',()=>{
+  const e={...event,action:'field-goal' as const,phase:'finish' as const,play:undefined};
+  const first=stadiumPerformance(game(e),0),last=stadiumPerformance(game(e),1);
+  expect(last.actors.find(a=>a.id==='qb')?.x).toBe(67);
+  expect(first.actors.find(a=>a.id==='wr0')?.x).toBe(last.actors.find(a=>a.id==='wr0')?.x);
+ });
  it('holds legacy events rather than inventing animated geometry',()=>{
   const s=stadiumPerformance(game({...event,startYard:undefined,endYard:undefined}),.5);
   expect(s.animated).toBe(false);

@@ -23,27 +23,27 @@ export function stadiumPerformance(game:StadiumFootballGame,time:number):Stadium
  const targetX=end;
  const runnerX=lerp(start-4*d,targetX,isRun?a:at(t,.15,.68));
  const receiverY=lerp(isRun?30:8,targetY,isRun?at(t,.35,.6):at(t,.4,.66));
- const qb={x:start-5*d,y:27};
+ const qb={x:start-(isKick?7:5)*d,y:27};
  const actors:StageActor[]=[];
  for(let i=0;i<5;i++)actors.push({id:`ol${i}`,x:start-d+Math.min(a*2,1.8)*d,y:20+i*3.2,away,facing:d,pose:active?(t<.15?16:t<.3?17:18+Math.floor(t*8+i)%2):16,large:true,label:i===1?name('LINE1'):undefined});
  actors.push({id:'qb',...qb,away,facing:d,pose:isKick?16:!active?24:t<.28?24:t<.5?25:t<.64?26:27,label:isKick?'Holder':name('QB')??'QB'});
- actors.push({id:'rb',x:isRun?runnerX:start-7*d,y:isRun?receiverY:31,away,facing:d,pose:isKick?(t<.3?28:t<.53?29:t<.72?30:31):isRun?(t<.15?11:t>.42&&t<.51?9:t===1?11:cycle(t)):12,label:isKick?'Kicker':isRun?name('BACK')??'Runner':undefined});
+ actors.push({id:'rb',x:isKick?lerp(start-10*d,start-7*d,at(t,.3,.53)):isRun?runnerX:start-7*d,y:isRun?receiverY:isKick?29:31,away,facing:d,pose:isKick?(t<.3?28:t<.53?29:t<.72?30:31):isRun?(t<.15?11:t>.42&&t<.51?9:t===1?11:cycle(t)):12,label:isKick?'Kicker':isRun?name('BACK')??'Runner':undefined});
  for(let i=0;i<4;i++){
   const targeted=i===0&&!isRun&&!isKick;
-  const y=targeted?receiverY:8+i*12;
-  const x=targeted?runnerX:start+(active?Math.min(18,a*22):0)*d;
-  actors.push({id:`wr${i}`,x,y,away,facing:d,pose:targeted&&active?(t<.15?12:t<.58?4+cycle(t,i):t<.7?13:t<.78?14:t<.87?15:cycle(t)):active?4+cycle(t,i):12,label:targeted?name('RECEIVER')??'Receiver':undefined});
+  const y=isKick?15+i*7:targeted?receiverY:8+i*12;
+  const x=isKick?start-1.5*d:targeted?runnerX:start+(active?Math.min(18,a*22):0)*d;
+  actors.push({id:`wr${i}`,x,y,away,facing:d,pose:isKick?(t<.15?16:18):targeted&&active?(t<.15?12:t<.58?4+cycle(t,i):t<.7?13:t<.78?14:t<.87?15:cycle(t)):active?4+cycle(t,i):12,label:targeted?name('RECEIVER')??'Receiver':undefined});
  }
  for(let i=0;i<4;i++)actors.push({id:`dl${i}`,x:start+2*d,y:21+i*4,away:!away,facing:-d as 1|-1,large:true,pose:active?(t<.3?21:22):20});
  for(let i=0;i<7;i++){
   const close=active&&!isKick?at(t,.42+i*.025,.97):0;
-  const y=8+i*6.8,x=start+(i>4?18:8)*d;
+  const y=isKick?11+i*5:8+i*6.8,x=start+(isKick?(i<5?2:6):i>4?18:8)*d;
   const pursuit=i===2;
   const coverage=e?.call==='zone'?'zone':e?.call==='man'?'man':e?.call==='stack'?'stack':'balanced';
   const routeIndex=i%4,routeY=routeIndex===0?targetY:8+routeIndex*12;
   const coverY=coverage==='man'?routeY+(i%2?2:-2):coverage==='zone'?y:isRun?targetY+(i-3)*2:y;
   const coverX=coverage==='zone'?start+(i>3?24:10)*d:coverage==='stack'&&i<4?start+3*d:targetX+(pursuit?1.6:4+i)*d;
-  actors.push({id:`db${i}`,x:lerp(x,coverX,close),y:lerp(y,coverY+(pursuit?1.2:0),close),away:!away,facing:-d as 1|-1,pose:!active?20:close>.92&&pursuit?23:close>0?4+cycle(t,i):21});
+  actors.push({id:`db${i}`,x:lerp(x,coverX,close),y:lerp(y,coverY+(pursuit?1.2:0),close),away:!away,facing:-d as 1|-1,pose:isKick?(t<.4?20:22):!active?20:close>.92&&pursuit?23:close>0?4+cycle(t,i):21});
  }
  const throwT=at(t,.61,.78),kickT=at(t,.53,.92);
  const ball=isKick?{x:lerp(qb.x,away?-10:110,kickT),y:lerp(27,e?.scored?20:39,kickT)-Math.sin(kickT*Math.PI)*14,visible:active}:
