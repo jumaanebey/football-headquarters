@@ -58,6 +58,10 @@ export interface BTroop {
   speed: number;   // world units / sec
   range: number;   // world units
   targetId: string | null;
+  raidActivity?: string;
+  engagementId?: string;
+  blockSeconds?: number;
+  catches?: number;
   dead: boolean;
   hitFlash: number; // seconds of damage-flash remaining
   rageT: number;    // seconds of Rage (2x dmg, 1.5x speed) remaining
@@ -834,7 +838,7 @@ export const mulberry32 = (seed: number) => {
   };
 };
 
-export interface ReplayAction { tick: number; k: 't' | 'h' | 's' | 'p' | 'a' | 'e' | 'd'; u?: UnitGroup; key?: string; x?: number; y?: number; } // 'e' = the attacker's whistle
+export interface ReplayAction { tick: number; k: 't' | 'h' | 's' | 'p' | 'a' | 'e' | 'd' | 'o'; u?: UnitGroup; key?: string; x?: number; y?: number; targetId?: string; } // 'e' = the attacker's whistle
 export interface ReplayData {
   v: 1 | 2;
   rules?: string;

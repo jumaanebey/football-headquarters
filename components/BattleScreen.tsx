@@ -1,3 +1,4 @@
+import { RaidOrders, RaidOrderOverlay, raidTargetName, type RaidAim } from './RaidOrders';
 import {raidEntryLanes} from '../game/raidDeployment';
 import {assetUrl} from '../game/assetUrl';
 import {KitLayer} from './TeamKit';
@@ -171,6 +172,11 @@ const makeSpecialTroop = (def: SpecialDef, x: number, y: number): BTroop => ({
 
 export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext, initialPlan = 'balanced', openingHero, onFinish, onExit, onPracticeAgain, onReplayAgain, onKickoff, onResultViewed }) => {
   const [showThreats, setShowThreats] = useState(false);
+  const [commandMode, setCommandMode] = useState<'deploy'|'orders'>('deploy');
+  const [raidAim, setRaidAim] = useState<RaidAim>('push');
+  const [orderScope, setOrderScope] = useState<UnitGroup>();
+  const [orderMessage, setOrderMessage] = useState('');
+  const [deployCount, setDeployCount] = useState<1|3|'all'>(3);
   const [showPlayerLabels, setShowPlayerLabels] = useState(false);
   const [replayPaused, setReplayPaused] = useState(false);
   const [replaySpeed, setReplaySpeed] = useState(1);
@@ -184,6 +190,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
   const heroes = config.heroes ?? [];
   const fieldRef = useRef<HTMLDivElement>(null);
   const battlePanel = useRef<HTMLDivElement>(null);
+  useEffect(()=>{battlePanel.current?.querySelector<HTMLElement>('.fhq-battle-commands')?.scrollTo({top:0});},[commandMode]);
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     // The originating sheet may restore focus while it unmounts. Enter the battle
@@ -268,7 +275,14 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
     sim.current = engineRef.current.state;
     actions.current = engineRef.current.actions.current;
   }
+  const tacticalCombat = !!engineRef.current?.tactics;
   const sendEngineCommand = (input: Omit<ReplayAction,'tick'>) => engineRef.current?.command({...input,tick:sim.current.ticks}) ?? false;
+  const issueOrder = (order: Omit<ReplayAction,'tick'|'k'>) => {
+    const accepted = sendEngineCommand({ k:'o', ...order });
+    const target = sim.current.buildings.find(b=>b.id===order.targetId);
+    const hero = sim.current.troops.find(t=>t.id===order.targetId);
+    setOrderMessage(accepted ? `${order.u ? TROOP_STATS[order.u].label : 'Whole team'}: ${order.key==='focus' ? `pressure ${target?raidTargetName(target):'target'}` : order.key==='protect' ? `protect ${heroes.find(h=>h.key===hero?.heroKey)?.name??'hero'}` : order.key==='push' ? 'rally point set' : 'automatic routes restored'}.` : 'Choose open turf or a target still in play.');
+  };
   const flushEngineAudio = () => {
     for (const cue of engineRef.current?.drainAudio() ?? []) {
       if(cue.name === 'intensity') crowdBedIntensity(cue.amount ?? 1);
@@ -1188,7 +1202,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
   // 🫗 HOLD & DRAG on the field = pour the group out continuously (throttled).
   const pourRef = useRef<{ down: boolean; lastT: number; poured: boolean }>({ down: false, lastT: 0, poured: false });
   const tryPour = (e: React.PointerEvent) => {
-    if (isDefense || isReplay || phase === 'result' || castMode || pendingSpecial || pendingHero) return;
+    if (isDefense || isReplay || phase === 'result' || commandMode === 'orders' || castMode || pendingSpecial || pendingHero) return;
     const now = performance.now();
     if (now - pourRef.current.lastT < 170) return;
     const rect = fieldRef.current!.getBoundingClientRect();
@@ -1207,6 +1221,17 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
   };
   const activateField = (wx: number, wy: number) => {
     if (isDefense || isReplay || phase === 'result') return;
+    if (tacticalCombat && commandMode === 'orders') {
+      if (raidAim === 'push') issueOrder({key:'push',x:wx,y:wy,u:orderScope});
+      else if (raidAim === 'focus') {
+        const target = sim.current.buildings.filter(b=>!b.dead&&dist(wx,wy,b.x,b.y)<=b.size*.6+6).sort((a,b)=>dist(wx,wy,a.x,a.y)-dist(wx,wy,b.x,b.y))[0];
+        if(target) issueOrder({key:'focus',targetId:target.id,u:orderScope}); else setOrderMessage('Tap a building, or choose its numbered target below.');
+      } else {
+        const target=sim.current.troops.filter(t=>t.isHero&&!t.dead&&dist(wx,wy,t.x,t.y)<9).sort((a,b)=>dist(wx,wy,a.x,a.y)-dist(wx,wy,b.x,b.y))[0];
+        if(target) issueOrder({key:'protect',targetId:target.id,u:orderScope}); else setOrderMessage('Choose the hero to protect below.');
+      }
+      return;
+    }
     if (castMode) {
       if ((plays[castMode.key] ?? 0) <= 0) return;
       if (!doCastPlay(castMode.key, wx, wy)) return;
@@ -1239,7 +1264,14 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
       return;
     }
 
-    deployTroopAt(wx, wy);
+    if (!tacticalCombat) { deployTroopAt(wx, wy); return; }
+    const unit = selectedRef.current, count = Math.min(armyRef.current[unit]??0, deployCount==='all'?150:deployCount);
+    const length=Math.hypot(wx-50,wy-50)||1, sx=-(wy-50)/length, sy=(wx-50)/length;
+    for(let i=0;i<count&&selectedRef.current===unit;i++) {
+      const offset=(i-(count-1)/2)*2.2;
+      const x=Math.max(2,Math.min(98,wx+sx*offset)),y=Math.max(2,Math.min(98,wy+sy*offset));
+      deployTroopAt(x,y);
+    }
   };
 
   const teamStyle=useClubStyle(clubName??config.attackerName??'Home club');
@@ -1305,10 +1337,10 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
     }
   }, [pct, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const instruction = castMode ? `Tap the field to call ${castMode.name}`
+  const instruction = tacticalCombat && commandMode === 'orders' ? 'Coach the players already on the field' : castMode ? `Tap the field to call ${castMode.name}`
     : pendingSpecial ? `Tap the sideline to send in the ${pendingSpecial.name}`
     : pendingHero ? `Tap the sideline to send in ${pendingHero.name}`
-    : army[selected] > 0 ? `${TROOP_STATS[selected].label}: ${TROOP_STATS[selected].hint} — tap, or HOLD & DRAG to pour them in`
+    : army[selected] > 0 ? tacticalCombat ? `${TROOP_STATS[selected].label} · send ${deployCount==='all'?'the group':Math.min(deployCount,army[selected])} from a sideline` : `${TROOP_STATS[selected].label}: ${TROOP_STATS[selected].hint} — tap, or HOLD & DRAG to pour them in`
     : 'Pick your offense — players, heroes, or plays';
 
   return (
@@ -1441,7 +1473,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
         <div ref={fieldRef} onClick={handleFieldClick} aria-label="Battlefield" role="button" tabIndex={isDefense || isReplay ? -1 : 0}
           aria-describedby="field-keyboard-help" onFocus={()=>setFieldFocused(true)} onBlur={()=>setFieldFocused(false)}
           onKeyDown={e=>{if(e.key.startsWith('Arrow')){e.preventDefault();setFieldCursor(p=>moveBattleCursor(p,e.key));}else if(e.key==='Enter'||e.key===' '){e.preventDefault();activateField(fieldCursor.x,fieldCursor.y);}}}
-          data-battlefield data-camera-mode={cameraPoint ? 'hero' : 'full'} data-combat-rules={modernCombat ? COMBAT_RULES_VERSION : 'legacy-v1'}
+          data-battlefield data-camera-mode={cameraPoint ? 'hero' : 'full'} data-combat-rules={modernCombat ? config.authority?.rules ?? config.replay?.rules ?? COMBAT_RULES_VERSION : 'legacy-v1'}
           onPointerDown={() => { pourRef.current.down = true; }}
           onPointerMove={e => { if (pourRef.current.down) tryPour(e); }}
           onPointerUp={() => { pourRef.current.down = false; }}
@@ -1449,7 +1481,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
           className={`relative rounded-2xl overflow-hidden shadow-2xl ${isDefense ? '' : castMode ? 'cursor-pointer ring-4 ring-offset-0' : 'cursor-crosshair'}`}
           style={{ width: 'min(96vw, 74vh)', height: 'min(96vw, 74vh)', background: 'radial-gradient(ellipse at 50% 42%, #17402a 0%, #0d2617 55%, #071410 100%)', border: '3px solid #0a1f14', animation: !reducedBattleMotion && s.shakeT > 0 ? 'fhq-shake 0.25s ease-in-out' : undefined, transform: modernCombat ? `translate(${heroCamera.x}%, ${heroCamera.y}%) scale(${heroCamera.scale})` : `${(typeof window !== 'undefined' && window.innerWidth < 640) ? '' : `translate(${cam.current.x.toFixed(2)}%, ${cam.current.y.toFixed(2)}%) `}scale(${((typeof window !== 'undefined' && window.innerWidth < 640 ? 1.06 : isDefense || isReplay ? 1.22 : 1.16) * (1 + (s.punchT > 0 ? s.punchT * 0.16 : 0))).toFixed(3)})`, transition: reducedBattleMotion ? 'none' : 'transform 160ms ease-out', touchAction: isDefense || isReplay ? undefined : 'none', ...(castMode ? { boxShadow: `0 0 0 3px ${castMode.color}` } : {}) }}>
 
-          <span id="field-keyboard-help" className="sr-only">Arrow keys aim. Enter or Space deploys the selected player on the sideline, or casts the selected play. Current position {fieldCursor.x}, {fieldCursor.y}.</span>
+          <span id="field-keyboard-help" className="sr-only">Arrow keys aim. Enter or Space sends the selected deployment, calls a play, or issues the selected squad order. Current position {fieldCursor.x}, {fieldCursor.y}.</span>
           {fieldFocused && <div aria-hidden="true" className="absolute z-[260] w-7 h-7 rounded-full border-2 border-white bg-orange-500/40 pointer-events-none" style={{left:`${px(fieldCursor.x,fieldCursor.y)}%`,top:`${py(fieldCursor.x,fieldCursor.y)}%`,transform:'translate(-50%,-50%)'}} />}
           {/* 🔷 ISO GROUND — the Clash-style diamond. Mow stripes + chalk yard lines run
               between projected world bands, end zones tint both ends, midfield gets the
@@ -1473,6 +1505,7 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
               </>
             )}
           </svg>
+          {engineRef.current?.tactics && <RaidOrderOverlay orders={engineRef.current.tactics.orders} troops={s.troops} buildings={s.buildings} project={(x,y)=>({x:px(x,y),y:py(x,y)})} choosingTarget={commandMode==='orders'&&raidAim==='focus'}/>}
           {/* midfield ball mark */}
           <span className="absolute pointer-events-none" style={{ left: `${px(50, 50)}%`, top: `${py(50, 50)}%`, transform: 'translate(-50%,-50%)', fontSize: '2.6vmin', opacity: 0.4, zIndex: 0 }}>🏈</span>
 
@@ -1918,7 +1951,8 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
             </div>
           ) : (
             <>
-              {phase === 'deploy' && (
+              {tacticalCombat && <div className="fhq-raid-command-tabs" aria-label="Raid controls"><button type="button" aria-pressed={commandMode==='deploy'} onClick={()=>{setCommandMode('deploy');setOrderMessage('')}}>Deploy</button><button type="button" aria-pressed={commandMode==='orders'} onClick={()=>{setCommandMode('orders');setCastMode(null);setPendingHero(null);setPendingSpecial(null)}}>Squad orders</button><button type="button" onClick={endBattle}>Whistle</button></div>}
+              {phase === 'deploy' && !tacticalCombat && (
                 <details className="mb-2 rounded-xl border border-slate-700">
                 <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-bold text-white">Game plan: {plan.name} · Change before kickoff</summary>
                 <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
@@ -1949,12 +1983,14 @@ export const BattleScreen: React.FC<Props> = ({ config, clubName, rewardContext,
                 {phase === 'fighting' && <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 uppercase font-black align-middle"><PlanGlyph k={plan.key} size={11} className="shrink-0" /> {plan.name}</span>}
                 {instruction}
               </div>
-              {!castMode&&!isReplay&&!isDefense&&(pendingHero||pendingSpecial||(army[selected]??0)>0)&&<div className="fhq-raid-entry" aria-label="Send players by sideline"><span>Send {pendingHero?.name??pendingSpecial?.name??TROOP_STATS[selected].label}</span><div>{raidEntryLanes(s.buildings).map(lane=><button type="button" key={lane.key} disabled={!lane.point} aria-label={`Deploy ${pendingHero?.name??pendingSpecial?.name??TROOP_STATS[selected].label} from ${lane.label}`} onClick={()=>{if(lane.point){setFieldCursor(lane.point);activateField(lane.point.x,lane.point.y);}}}>{lane.label}{!lane.point?' · blocked':' ↗'}</button>)}</div></div>}
+              {commandMode==='deploy'&&!castMode&&!isReplay&&!isDefense&&(pendingHero||pendingSpecial||(army[selected]??0)>0)&&<div className="fhq-raid-entry" aria-label="Send players by sideline"><span>Send {pendingHero?.name??pendingSpecial?.name??TROOP_STATS[selected].label}</span><div>{raidEntryLanes(s.buildings).map(lane=><button type="button" key={lane.key} disabled={!lane.point} aria-label={`Deploy ${pendingHero?.name??pendingSpecial?.name??TROOP_STATS[selected].label} from ${lane.label}`} onClick={()=>{if(lane.point){setFieldCursor(lane.point);activateField(lane.point.x,lane.point.y);}}}>{lane.label}{!lane.point?' · blocked':' ↗'}</button>)}</div></div>}
+              {tacticalCombat&&commandMode==='orders'&&<RaidOrders aim={raidAim} onAim={setRaidAim} scope={orderScope} onScope={setOrderScope} buildings={s.buildings} troops={s.troops} heroes={heroes} onOrder={issueOrder} message={orderMessage}/>}
+              {tacticalCombat&&commandMode==='deploy'&&!pendingHero&&!pendingSpecial&&!castMode&&<div className="fhq-raid-batch" aria-label="Players per deployment"><span>Send together</span>{([1,3,'all'] as const).map(n=><button key={n} type="button" aria-pressed={deployCount===n} onClick={()=>setDeployCount(n)}>{n==='all'?'Group':n}</button>)}</div>}
               {modernCombat && <HeroCommandBar heroes={heroes} troops={s.troops} selected={pendingHero?.key}
-                onSelect={hero => { setPendingHero(hero); setCastMode(null); setPendingSpecial(null); }} onAbility={useAbility} />}
+                onSelect={hero => { setCommandMode('deploy'); setPendingHero(hero); setCastMode(null); setPendingSpecial(null); }} onAbility={useAbility} />}
               {/* Phones: ONE scrollable card tray (CC-style) — wrapping 18 cards into
                   4 rows would swallow the field. Desktop: wrap and center. */}
-              <div className="fhq-deploy-tray flex items-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div hidden={commandMode==='orders'} className="fhq-deploy-tray flex items-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {/* Troops — real player art on the cards */}
                 {UNIT_ORDER.map(u => {
                   const st = TROOP_STATS[u]; const count = army[u]; const active = selected === u && !pendingHero && !castMode && !pendingSpecial;

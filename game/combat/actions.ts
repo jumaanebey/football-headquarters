@@ -2,7 +2,7 @@ import type { BBuilding, BTroop } from '../../battle';
 import { ABILITY_CD, dist, nearestBuilding } from '../../battle';
 import { signatureFrameAt } from './actionTiming';
 
-export const COMBAT_RULES_VERSION = 'defense-counters-4';
+export const COMBAT_RULES_VERSION = 'raid-tactics-5';
 export type HeroAction = {
   id: string; actorId: string; heroKey: string; ability: NonNullable<BTroop['ability']>;
   elapsed: number; windup: number; travel: number; recovery: number; released: boolean; resolved: boolean;
@@ -31,10 +31,10 @@ export function applyBuildingYardage(actor: BTroop, target: BBuilding, requested
 }
 
 /** Commands start an action; they never apply a projectile's result ahead of contact. */
-export function beginHeroAction(actor: BTroop, buildings: BBuilding[], tick: number): HeroAction | null {
+export function beginHeroAction(actor: BTroop, buildings: BBuilding[], tick: number, calledTarget?: BBuilding): HeroAction | null {
   if (actor.dead || !actor.ability || (actor.abilityCd ?? 0) > 0 || actor.activeAction) return null;
   const projectile = actor.ability === 'hailmary' || actor.ability === 'onside_bomb';
-  const target = projectile || actor.ability === 'burner_dash' || actor.ability === 'truckstick' ? nearestBuilding(actor.x, actor.y, buildings) : undefined;
+  const target = projectile || actor.ability === 'burner_dash' || actor.ability === 'truckstick' ? (calledTarget && !calledTarget.dead ? calledTarget : nearestBuilding(actor.x, actor.y, buildings)) : undefined;
   if ((projectile || actor.ability === 'burner_dash') && !target) return null;
   const action: HeroAction = {
     id: `${actor.id}:signature:${tick}`, actorId: actor.id, heroKey: actor.heroKey ?? '', ability: actor.ability,

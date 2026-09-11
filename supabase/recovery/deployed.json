@@ -16,11 +16,10 @@
     "recordedFrom": "Supabase deployment v6 and get_edge_function readback: index.ts exactly matches the 163379-character committed artifact. Retains hero-actions-3 and defense-counters-4."
   },
   "staged": {
-    "version": 6,
-    "artifact": "supabase/recovery/club-authority.v6.min.js",
-    "sha256": "519031c02a2a9019c37457a76ae2028343653836b18786826fb563a04045723d",
-    "rules": "defense-counters-4",
-    "commit": "652169296a8a432053f043c421cd245aba08df0c"
+    "version": 7,
+    "artifact": "supabase/recovery/club-authority.v7.min.js",
+    "sha256": "dfe1b18ad512f83897d1ce5d0bd4019a7c66e64c8df50c0dc1255e5c25e9e77a",
+    "rules": "raid-tactics-5"
   },
   "rollback": {
     "healthy": "Roll back the frontend while retaining v6 authority for existing development schedules, prospects and Stadium football games. Do not restore v5 while v6 activity state exists.",
