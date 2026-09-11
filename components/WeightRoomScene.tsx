@@ -1,12 +1,12 @@
 import {useState} from 'react';
 import type {Player} from '../types';
-import {unitPlayerSprite} from '../assets';
+import {IndoorPlayer} from './IndoorPlayer';
 
 const interior = new URL('../art/rooms/weight-room-interior-v3.webp', import.meta.url).href;
 // Feet sit on the illustrated floor, in front of the equipment. Back row paints first.
 const SPOTS = [
-  {x:39,y:61,height:30}, {x:59,y:66,height:30}, {x:78,y:72,height:30},
-  {x:26,y:76,height:35}, {x:47,y:84,height:35}, {x:68,y:92,height:35},
+  {x:36,y:63,height:29}, {x:55,y:68,height:29}, {x:75,y:73,height:29},
+  {x:27,y:77,height:32}, {x:48,y:84,height:32}, {x:68,y:92,height:32},
 ];
 export function WeightRoomScene({participants,selected,working,ready,onSelect}:{
   participants:Player[];selected:string;working:boolean;ready:boolean;onSelect:(id:string)=>void;
@@ -26,8 +26,8 @@ export function WeightRoomScene({participants,selected,working,ready,onSelect}:{
       return <button type="button" key={p.id} className="fhq-weight-room-player" aria-pressed={selected===p.id}
         aria-label={`Follow ${p.name}, ${p.role}, level ${p.level}${working?', working out':ready?', workout complete':''}`}
         onClick={()=>onSelect(p.id)} style={{left:`${spot.x}%`,top:`${spot.y}%`,height:`${spot.height}%`}}>
-        <img src={unitPlayerSprite(p.unit)} alt="" draggable={false}/>
-        <span>{p.name}<small>L{p.level}{working?' · In session':ready?' · Ready':''}</small></span>
+        <IndoorPlayer unit={p.unit} working={working} offset={i*.37}/>
+        <span className="fhq-room-player-label">{selected===p.id?p.name:p.role}<small>L{p.level}{working?' · In session':ready?' · Ready':''}</small></span>
       </button>;
     })}
     {participants.length>6&&<div className="fhq-weight-room-overflow">+{participants.length-6} teammates in this session · choose a player below to follow them</div>}

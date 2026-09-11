@@ -413,3 +413,24 @@ button { touch-action:manipulation; }
 @media(max-width:599px){.fhq-department-controls{padding-top:8px;padding-bottom:8px}.fhq-room-activity{gap:4px}.fhq-room-goals{padding:6px 8px}.fhq-room-goals h3{margin-bottom:4px}.fhq-room-goals article{padding:2px}}
 
 @media(max-width:360px){.fhq-gate-heroes strong{font-size:9px;white-space:nowrap;letter-spacing:-.02em}}
+
+/* Indoor athletes share the rooms' camera, lighting and practice kit. Feet anchor
+   on the floor; selection marks the ground rather than glowing around the body. */
+.fhq-indoor-player{position:relative;display:block;width:100%;height:100%;isolation:isolate}
+.fhq-indoor-player:before{content:"";position:absolute;z-index:-1;bottom:0;left:16%;width:68%;height:7%;border-radius:50%;background:#070906a8;filter:blur(2px);transform:skewX(-18deg)}
+.fhq-indoor-player canvas{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
+.fhq-weight-room-player{width:17%;min-width:0}
+.fhq-weight-room-player>.fhq-indoor-player{position:relative;inset:auto;transform:none;background:none;border:0;border-radius:0;padding:0;white-space:normal;width:100%;height:100%;pointer-events:none}
+.fhq-weight-room-player>.fhq-room-player-label{top:100%;font-size:9px;border-color:transparent;background:#101921a6;padding:2px 4px}
+.fhq-weight-room-player[aria-pressed=true]>.fhq-room-player-label{border-color:#d5a652;color:#ffdf9c;background:#101921ee;z-index:2}
+.fhq-weight-room-player[aria-pressed=true] .fhq-indoor-player:before{box-shadow:0 0 0 1px #f4c477;background:#e7a94855}
+.fhq-weight-room-player:not([aria-pressed=true]) .fhq-room-player-label small{display:none}
+.fhq-weight-player>.fhq-indoor-player{width:46px;height:66px;flex-shrink:0}
+.fhq-weight-player>.fhq-indoor-player:before{display:none}
+.fhq-room-prospect{left:58%;bottom:20%;height:37%;width:19%}
+.fhq-room-prospect>.fhq-indoor-player{position:relative;inset:auto;transform:none;background:none;border:0;border-radius:0;padding:0;white-space:normal;width:100%;height:100%}
+.fhq-indoor-player-fallback{position:absolute;inset:0;font-size:9px;background:#152330;color:#e2e8f0;display:grid;place-content:center;text-align:center}
+@media(min-width:800px){.fhq-weight-room-player>.fhq-room-player-label{font-size:11px}}
+.fhq-weight-session:not(.is-idle){grid-template-columns:minmax(0,1fr) auto;padding:8px 10px;gap:4px 10px;font-size:12px;align-items:center}
+.fhq-weight-session progress{grid-column:1/-1}.fhq-weight-session small{display:none}
+.fhq-weight-scene>.fhq-weight-session:not(.is-idle){margin:8px 12px}

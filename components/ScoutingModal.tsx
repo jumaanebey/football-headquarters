@@ -3,7 +3,7 @@ import {BuildingType,type GameState,type Player,type ResourceType,type BuildingI
 import {RECRUIT_CONFIG} from '../constants';
 import {rosterCap,rollBoard,candidateOvr,recruitCost,recruitSeconds} from '../recruiting';
 import {prospectComparison} from '../game/progression/rosterCompare';
-import {unitPlayerSprite} from '../assets';
+import {IndoorPlayer} from './IndoorPlayer';
 import {Sheet} from './ui';
 import {FacilityInterior} from './FacilityInterior';
 import {FacilityGoals,FacilityUpgrade,roomTime} from './FacilityUpgrade';
@@ -24,7 +24,7 @@ export const ScoutingModal:React.FC<Props>=({club,resources,roster,recruitSlot,a
  const best=comparison?.comparable;
  return <Sheet title="Scouting Dept" subtitle={`Inside · Level ${academy.level} · Roster ${roster.length}/${cap} · ${resources.COINS.toLocaleString()} Coins`} onClose={onClose} maxWidth="max-w-6xl">
   <div className="fhq-department fhq-scout-room">
-   <div className="fhq-department-scene"><FacilityInterior type={BuildingType.YOUTH_ACADEMY}>{selected&&<div className="fhq-room-prospect"><img src={unitPlayerSprite(selected.unit)} alt=""/><span>{selected.name}<small>{recruitSlot?(ready?'Ready to sign':'Scouting in progress'):'Prospect · not yet signed'}</small></span></div>}</FacilityInterior></div>
+   <div className="fhq-department-scene"><FacilityInterior type={BuildingType.YOUTH_ACADEMY}>{selected&&<div className="fhq-room-prospect"><IndoorPlayer unit={selected.unit} label={`${selected.name}, ${selected.role}, in practice clothes`}/><span>{selected.name}<small>{recruitSlot?(ready?'Ready to sign':'Scouting in progress'):'Prospect · not yet signed'}</small></span></div>}</FacilityInterior></div>
    <div className="fhq-department-controls">
     {blocked&&<p role="status">Confirming your club change…</p>}
     <section className="fhq-room-activity">
