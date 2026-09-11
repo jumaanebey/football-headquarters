@@ -1,0 +1,30 @@
+/* Stadium football presentation. Owned by the Stadium package and imported by
+   components/StadiumFootball.tsx, so game-theme.css is never edited concurrently. */
+.fhq-football-objective {
+  margin: 0 0 .35rem;
+  color: #ffe9b8;
+  font-size: .95rem;
+  line-height: 1.35;
+}
+.fhq-football-context {
+  margin: 0 0 .6rem;
+  color: #a9c3d4;
+  font-size: .85rem;
+  line-height: 1.35;
+}
+.fhq-football-actors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .75rem;
+  margin: .45rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: #cfe3f2;
+  font-size: .78rem;
+}
+.fhq-football-actors li {
+  background: rgba(12, 28, 40, .72);
+  border: 1px solid rgba(148, 190, 220, .28);
+  border-radius: 999px;
+  padding: .12rem .55rem;
+}
