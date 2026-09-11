@@ -5,8 +5,9 @@ import {keyIndoorMatte} from '../game/indoorPlayers';
 
 describe('room activity artwork',()=>{
  for(const [name,poses]of [['squat',2],['mobility',2],['recovery',3],['film',1]] as const)it(`${name} has complete keyed figures for all four groups`,async()=>{
-  const bounds=JSON.parse(readFileSync(new URL(`../art/players/indoor-${name}-v1.json`,import.meta.url),'utf8'));
-  const {data,info}=await sharp(new URL(`../art/players/indoor-${name}-v1.webp`,import.meta.url).pathname).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const version=name==='recovery'?2:1;
+  const bounds=JSON.parse(readFileSync(new URL(`../art/players/indoor-${name}-v${version}.json`,import.meta.url),'utf8'));
+  const {data,info}=await sharp(new URL(`../art/players/indoor-${name}-v${version}.webp`,import.meta.url).pathname).ensureAlpha().raw().toBuffer({resolveWithObject:true});
   expect(bounds).toHaveLength(4);
   for(const frames of bounds){expect(frames).toHaveLength(poses);for(const p of frames){
    expect(p.x+p.w).toBeLessThanOrEqual(info.width);expect(p.y+p.h).toBeLessThanOrEqual(info.height);
