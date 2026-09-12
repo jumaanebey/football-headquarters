@@ -30,7 +30,7 @@ describe('connected facility development',()=>{
  });
  it('prevents overlapping jobs and cutting an assigned player; refunds no completed gains',()=>{
   const s=act(initial(),{type:'development.start',unit:'ALL',steps:[steps[0]]});
-  for(const a of [{type:'development.start',unit:'ALL',steps:[steps[0]]},{type:'training.start',unit:s.roster[0].unit,drillId:'sled_push'},{type:'recruit.cut',playerId:s.roster[0].id},{type:'stadium.start',opponent:'harbor'}])expect(applyClubAction(s,a,{now:NOW,random:()=>.4}).ok).toBe(false);
+  for(const a of [{type:'development.start',unit:'ALL',steps:[steps[0]]},{type:'training.start',unit:s.roster[0].unit,drillId:'sled_push'},{type:'recruit.cut',playerId:s.roster[0].id},{type:'stadium.start',format:'four-downs',opponent:'harbor'}])expect(applyClubAction(s,a,{now:NOW,random:()=>.4}).ok).toBe(false);
  });
  it('keeps protected player gains unchanged until a server confirmation',()=>{
   const s=act(initial(),{type:'development.start',unit:'ALL',steps:[steps[0]]}),end=s.development!.schedule!.blocks[0].finishTime;
@@ -68,14 +68,14 @@ describe('recruiting relationships and agent network',()=>{
 });
 describe('player-present Stadium football',()=>{
  it('never advances a possession from elapsed time alone',()=>{
-  const s=act(initial(),{type:'stadium.start',opponent:'harbor'});expect(s.resources.ENERGY).toBe(30);expect(settleClubState(s,NOW+86400000).stadiumFootball).toEqual(s.stadiumFootball);
+  const s=act(initial(),{type:'stadium.start',format:'four-downs',opponent:'harbor'});expect(s.resources.ENERGY).toBe(30);expect(settleClubState(s,NOW+86400000).stadiumFootball).toEqual(s.stadiumFootball);
   expect(applyClubAction(s,{type:'facility.upgrade',buildingId:'stadium-1'},{now:NOW,random:()=>.4}).ok).toBe(false);
  });
  it('completes two possessions, permits ties, restores the exact next decision and rewards once',()=>{
   const outcomes=new Set<string>();
   for(const roll of [.01,.15,.3,.4,.5,.6,.7,.85,.99]){
-   let s=act(initial(),{type:'stadium.start',opponent:'harbor'});let n=0;
-   while(s.stadiumFootball!.game!.phase!=='final'&&n++<12){const g=s.stadiumFootball!.game!,call=footballCalls(g)[0].key;const action={type:'stadium.call' as const,gameId:g.id,turn:String(g.turn),call};s=act(parseSavedClub(JSON.stringify(s)),action,s.lastTick,roll);expect(applyClubAction(s,action,{now:s.lastTick,random:()=>roll}).ok).toBe(false);}
+   let s=act(initial(),{type:'stadium.start',format:'four-downs',opponent:'harbor'});let n=0;
+   while(s.stadiumFootball!.game!.phase!=='final'&&n++<96){const g=s.stadiumFootball!.game!,call=footballCalls(g)[0].key;const action={type:'stadium.call' as const,gameId:g.id,turn:String(g.turn),call};s=act(parseSavedClub(JSON.stringify(s)),action,s.lastTick,roll);expect(applyClubAction(s,action,{now:s.lastTick,random:()=>roll}).ok).toBe(false);}
    const g=s.stadiumFootball!.game!;expect(g.phase).toBe('final');expect(new Set(g.events.map(e=>e.possession))).toEqual(new Set(['home','away']));expect(g.possessionIndex).toBe(1);outcomes.add(g.home===g.away?'tie':g.home>g.away?'win':'loss');
    const coins=s.resources.COINS;s=act(s,{type:'stadium.collect',gameId:g.id});expect(s.resources.COINS).toBe(coins+g.reward);expect(s.stadiumFootball!.history).toHaveLength(1);expect(applyClubAction(s,{type:'stadium.collect',gameId:g.id},{now:s.lastTick,random:()=>.4}).ok).toBe(false);
   }
@@ -84,7 +84,7 @@ describe('player-present Stadium football',()=>{
  it('lets an overwhelmingly better return team break a kickoff when it receives',()=>{
   // random 0.8 wins the toss for the home club, so the first decision really is a return lane.
   const s=initial();s.roster=s.roster.map(p=>({...p,level:40,stats:{strength:80,speed:80,iq:80}}));
-  const started=applyClubAction(s,{type:'stadium.start',opponent:'harbor'},{now:NOW,random:()=>.8});
+  const started=applyClubAction(s,{type:'stadium.start',format:'four-downs',opponent:'harbor'},{now:NOW,random:()=>.8});
   expect(started.ok).toBe(true);if(!started.ok)return;
   const g=started.state.stadiumFootball!.game!;expect(g.receivesFirst).toBe('home');expect(g.possession).toBe('home');
   const next=applyClubAction(started.state,{type:'stadium.call',gameId:g.id,turn:'0',call:footballCalls(g)[0].key},{now:NOW,random:()=>.001});
@@ -95,7 +95,7 @@ describe('player-present Stadium football',()=>{
   expect(after.events[0].action).toBe('touchdown');expect(after.events[0].endYard).toBe(100);
  });
  it('charges forfeits, produces no reward, rejects forged calls/results',()=>{
-  let s=act(initial(),{type:'stadium.start',opponent:'harbor'}),id=s.stadiumFootball!.game!.id;
+  let s=act(initial(),{type:'stadium.start',format:'four-downs',opponent:'harbor'}),id=s.stadiumFootball!.game!.id;
   expect(parseClubAction({type:'stadium.call',gameId:id,turn:'0',call:'touchdown',reward:999})).toBeNull();
   expect(applyClubAction(s,{type:'stadium.call',gameId:id,turn:'0',call:'touchdown'},{now:NOW,random:()=>.4}).ok).toBe(false);
   s=act(s,{type:'stadium.abandon',gameId:id});expect(s.stadiumFootball!.game!.reward).toBe(0);expect(s.resources.ENERGY).toBe(30);expect(parseSavedClub(JSON.stringify(s)).stadiumFootball).toEqual(s.stadiumFootball);

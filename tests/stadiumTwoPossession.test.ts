@@ -9,7 +9,7 @@ import {
   STADIUM_RULES_VERSION, conversionMatters, coverageDescription, defensiveLookOf, describeYard, driveDirection,
   fieldGoalDistance, footballCalls, isTwoPossessionGame, kickerOf, lookDescription, returnCoverageOf,
   stadiumObjective, validStadiumFootball, yardsToGoal, type StadiumFootballGame,
-} from '../game/stadiumFootball';
+} from '../game/stadiumFootballV2';
 import { selectLineup } from '../game/lineup';
 import { parseSavedClub } from '../game/saveValidation';
 
@@ -19,6 +19,7 @@ const club = (): GameState => ({ ...createInitialState(NOW), lastTick: NOW, reso
 const start = (homeFirst: boolean, state: GameState = club()) => {
   const res = applyClubAction(state, { type: 'stadium.start', opponent: 'harbor' }, { now: NOW, random: () => (homeFirst ? 0.8 : 0.4) });
   if (!res.ok) throw new Error('start refused');
+  res.state.stadiumFootball!.game!.v=2;
   return res.state;
 };
 const gameOf = (s: GameState) => s.stadiumFootball!.game!;
@@ -37,6 +38,7 @@ const startWith = (want: { homeFirst: boolean; coverage?: 'edges' | 'middle' | '
     const res = applyClubAction(club(), { type: 'stadium.start', opponent: 'harbor' }, { now: NOW, random: () => r });
     if (!res.ok) continue;
     const g = gameOf(res.state);
+    g.v=2;
     if ((g.receivesFirst === 'home') !== want.homeFirst) continue;
     if (want.coverage && returnCoverageOf(g) !== want.coverage) continue;
     return res.state;

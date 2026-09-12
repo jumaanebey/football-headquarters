@@ -121,10 +121,11 @@ describe('through the authority service', () => {
   it('starts a Stadium game whose snapshot survives a save round-trip and a later roster change', async () => {
     const h = harness();
     await h.call(A, { kind: 'bootstrap' });
-    const started = await h.call(A, { kind: 'action', operationId: op(7501), expectedRevision: h.revision(A), action: { type: 'stadium.start', opponent: 'harbor' } });
+    const started = await h.call(A, { kind: 'action', operationId: op(7501), expectedRevision: h.revision(A), action: { type: 'stadium.start', format: 'four-downs', opponent: 'harbor' } });
     expect(started.ok).toBe(true);
     const game = h.state(A).stadiumFootball!.game!;
-    expect(game.v).toBe(2);
+    expect(game.v).toBe(3);
+    expect(game.down).toBe(1);
     expect(game.lineup!.players).toHaveLength(9);
     const reloaded = parseSavedClub(JSON.stringify(h.state(A)));
     expect(reloaded.stadiumFootball!.game).toEqual(game);

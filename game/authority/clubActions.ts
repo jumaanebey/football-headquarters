@@ -115,6 +115,10 @@ export function parseClubAction(input: unknown): ClubAction | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const value = input as Record<string, unknown>;
   if (typeof value.type !== 'string' || !Object.prototype.hasOwnProperty.call(fields, value.type)) return null;
+  if(value.type==='stadium.start'&&value.format!==undefined){
+    if(value.format!=='four-downs'||Object.keys(value).length!==3||typeof value.opponent!=='string'||!Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS,value.opponent))return null;
+    return {type:'stadium.start',opponent:value.opponent as keyof typeof STADIUM_OPPONENTS,format:'four-downs'};
+  }
   const required = fields[value.type as ClubAction['type']];
   if (Object.keys(value).length !== required.length + 1 || Object.keys(value).some(key => key !== 'type' && !required.includes(key))) return null;
   if(value.type==='development.start'){

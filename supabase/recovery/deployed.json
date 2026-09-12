@@ -16,12 +16,12 @@
     "recordedFrom": "Supabase v9 deployment and exact get_edge_function readback of committed inline artifact. Connected lineups and Stadium v2; existing raid rules and legacy Stadium arithmetic retained."
   },
   "staged": {
-    "version": 9,
-    "artifact": "supabase/recovery/club-authority.v9.min.js",
-    "sha256": "90ae3d20bcd33ab2bd58c60af7135ea51edd0421314858526de17b3620cb7bf2",
+    "version": 10,
+    "artifact": "supabase/recovery/club-authority.v10.min.js",
+    "sha256": "a1bc91a5cc5f34e2f45da052ecdbedff2be59c53aa97520f7793ad2c823ffa53",
     "rules": "raid-tactics-5",
-    "commit": "8d552410e0ac7ce24e0b24e1d915995516da29a8",
-    "note": "Deployed with exact inline-artifact readback; native ESM initialization and presentation corrections included."
+    "commit": "cfffc56be40c60f554b05c1f88c1caaa7aba59e9",
+    "note": "Four-down Stadium v3; explicit new-client opt-in; frozen v2 and v1 games remain supported. Pending deployment."
   },
   "rollback": {
     "healthy": "Retain v9 on frontend rollback: it accepts legacy Stadium games and the new v2 games, and preserves lineups. Do not restore v8 while v2 Stadium games exist; retain its immutable artifact for forensic recovery only.",

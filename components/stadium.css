@@ -41,3 +41,5 @@
  .fhq-football-decisions>.fhq-football-event{order:3}
  .fhq-football-decisions>.fhq-concede{order:4}
 }
+
+.fhq-football-down{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid #e9bd68;border-radius:9px;background:#102c35;margin:0}.fhq-football-down strong{font-size:22px;white-space:nowrap;color:#ffe08c}.fhq-football-down span{font-size:11px;color:#cfdee4;max-width:180px}
