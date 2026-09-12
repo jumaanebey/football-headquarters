@@ -1951,6 +1951,13 @@ function seeded2(seed, label) {
   for (let i = 0; i < label.length; i++) {
     h = Math.imul(h ^ label.charCodeAt(i), 16777619) >>> 0;
   }
+  if (/^(look|theirplay|kick):/.test(label)) {
+    h ^= h >>> 16;
+    h = Math.imul(h, 2146121005);
+    h ^= h >>> 15;
+    h = Math.imul(h, 2221713035);
+    h ^= h >>> 16;
+  }
   return (h >>> 8 & 16777215) / 16777216;
 }
 var ENDZONE2 = { home: 0, away: 100 };
@@ -2236,7 +2243,7 @@ function resolve2(game, call, roll, ctx) {
         return { title: `${yards2} yards to ${describeYard2(end2)}`, detail: `${base} The drive continues.`, yards: yards2, action: play === "power" ? "run" : "pass", scored: 0, actors: actors2, endPhase: "finish", endYard: end2, play };
       }
       const theirRoll = seeded2(game.seed ?? 0, `theirplay:${game.possessionIndex ?? 0}:${game.turn}`);
-      const theirPlay = theirRoll < 0.34 ? "slants" : theirRoll < 0.67 ? "verticals" : "power";
+      const theirPlay = theirRoll < 0.25 ? "slants" : theirRoll < 0.5 ? "flood" : theirRoll < 0.75 ? "verticals" : "power";
       const counters = call === "zone" && theirPlay === "verticals" || call === "man" && theirPlay === "slants" || call === "stack" && theirPlay === "power";
       const toGoal = yardsToGoal2(possession, game.yardLine);
       const theirScore = bounded3((0.18 - defAdv * 0.18 + (counters ? -0.1 : 0.06)) * Math.min(1, 8 / Math.max(1, toGoal)), 5e-3, 0.8);

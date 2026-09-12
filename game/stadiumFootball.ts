@@ -85,6 +85,7 @@ const bounded=(n:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,n));
 function seeded(seed:number,label:string):number{
  let h=(seed>>>0)^0x9e3779b9;
  for(let i=0;i<label.length;i++){h=Math.imul(h^label.charCodeAt(i),0x01000193)>>>0;}
+ if(/^(look|theirplay|kick):/.test(label)){h^=h>>>16;h=Math.imul(h,0x7feb352d);h^=h>>>15;h=Math.imul(h,0x846ca68b);h^=h>>>16;}
  return ((h>>>8)&0xffffff)/0x1000000;
 }
 const ENDZONE={home:0,away:100} as const;
@@ -346,7 +347,7 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
    return {title:`${yards} yards to ${describeYard(end)}`,detail:`${base} The drive continues.`,yards,action:play==='power'?'run':'pass',scored:0,actors,endPhase:'finish',endYard:end,play};
   }
   const theirRoll=seeded(game.seed??0,`theirplay:${game.possessionIndex??0}:${game.turn}`);
-  const theirPlay:FootballPlay=theirRoll<.34?'slants':theirRoll<.67?'verticals':'power';
+  const theirPlay:FootballPlay=theirRoll<.25?'slants':theirRoll<.5?'flood':theirRoll<.75?'verticals':'power';
   const counters=(call==='zone'&&theirPlay==='verticals')||(call==='man'&&theirPlay==='slants')||(call==='stack'&&theirPlay==='power');
   const toGoal=yardsToGoal(possession,game.yardLine);
   const theirScore=bounded((.18-defAdv*.18+(counters?-.1:.06))*Math.min(1,8/Math.max(1,toGoal)),.005,.8);
