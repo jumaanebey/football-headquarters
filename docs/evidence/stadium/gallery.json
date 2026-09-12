@@ -1,0 +1,1109 @@
+{
+  "capturedAt": "2026-09-12T00:35:47.134Z",
+  "scenarios": [
+    {
+      "id": "S01",
+      "title": "S01 · Field goal missedstarter club · away receives first · final 0–3 · loss · 20 coins",
+      "tags": [
+        "defense-man",
+        "direction-away",
+        "direction-home",
+        "kick-made",
+        "kick-missed",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-loss",
+        "pass-deep",
+        "receive-first-away"
+      ],
+      "plays": [
+        {
+          "id": "S01-0",
+          "title": "1. They start at their 39",
+          "geometry": "away · kick · no play · call squib · yard 80 → 61 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S01-1",
+          "title": "2. They gain 18 to your 43",
+          "geometry": "away · stop · verticals · call man · yard 61 → 43 · direction -1 · no points · Crusher (DL iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "443.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S01-2",
+          "title": "3. Their 60-yard field goal is good",
+          "geometry": "away · field-goal · no play · call contain · yard 43 → 43 · direction -1 · 3 points · Hawk (LB power 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "299.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S01-3",
+          "title": "4. Return to your 48",
+          "geometry": "home · return · no play · call right · yard 20 → 48 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S01-4",
+          "title": "5. The play breaks down",
+          "geometry": "home · pass · verticals · call verticals · yard 48 → 48 · direction 1 · no points · Speedy (WR speed 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "339.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S01-5",
+          "title": "6. 69-yard field goal is no good",
+          "geometry": "home · field-goal · no play · call field-goal · yard 48 → 48 · direction 1 · no points · Power Back (RB overall 33)",
+          "hasSvg": true,
+          "viewBox": "339.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "title": "S02 · Field goal missed (2)starter club · away receives first · final 0–3 · loss · 20 coins",
+      "tags": [
+        "defense-zone",
+        "direction-away",
+        "direction-home",
+        "kick-made",
+        "kick-missed",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-loss",
+        "pass-intermediate",
+        "receive-first-away"
+      ],
+      "plays": [
+        {
+          "id": "S02-0",
+          "title": "1. They start at your 45",
+          "geometry": "away · kick · no play · call deep · yard 80 → 45 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S02-1",
+          "title": "2. They gain 16 to your 29",
+          "geometry": "away · stop · verticals · call zone · yard 45 → 29 · direction -1 · no points · Hawk (LB iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "315.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S02-2",
+          "title": "3. Their 46-yard field goal is good",
+          "geometry": "away · field-goal · no play · call pressure · yard 29 → 29 · direction -1 · 3 points · Crusher (DL power 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "187.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S02-3",
+          "title": "4. Return to your 35",
+          "geometry": "home · return · no play · call right · yard 20 → 35 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S02-4",
+          "title": "5. 16 yards to their 49",
+          "geometry": "home · pass · flood · call flood · yard 35 → 51 · direction 1 · no points · Speedy (WR iq 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "235.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S02-5",
+          "title": "6. 66-yard field goal is no good",
+          "geometry": "home · field-goal · no play · call field-goal · yard 51 → 51 · direction 1 · no points · Power Back (RB overall 33)",
+          "hasSvg": true,
+          "viewBox": "363.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "title": "S03 · Field goal missed (3)starter club · away receives first · final 0–6 · loss · 20 coins",
+      "tags": [
+        "defense-zone",
+        "direction-away",
+        "direction-home",
+        "kick-missed",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-loss",
+        "pass-intermediate",
+        "receive-first-away",
+        "touchdown-offense"
+      ],
+      "plays": [
+        {
+          "id": "S03-0",
+          "title": "1. They start at your 40",
+          "geometry": "away · kick · no play · call deep · yard 80 → 40 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S03-1",
+          "title": "2. They score a touchdown",
+          "geometry": "away · touchdown · verticals · call zone · yard 40 → 0 · direction -1 · 6 points · Hawk (LB iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "275.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S03-2",
+          "title": "3. Their extra point is blocked",
+          "geometry": "away · conversion · no play · call block · yard 0 → 0 · direction -1 · no points · Crusher (DL power 13)",
+          "hasSvg": true,
+          "viewBox": "-5 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S03-3",
+          "title": "4. Return to their 33",
+          "geometry": "home · return · no play · call middle · yard 20 → 67 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S03-4",
+          "title": "5. 7 yards to their 26",
+          "geometry": "home · pass · flood · call flood · yard 67 → 74 · direction 1 · no points · Speedy (WR iq 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "491.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S03-5",
+          "title": "6. 43-yard field goal is no good",
+          "geometry": "home · field-goal · no play · call field-goal · yard 74 → 74 · direction 1 · no points · Power Back (RB overall 33)",
+          "hasSvg": true,
+          "viewBox": "547.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "title": "S04 · Touchdown from the offensive callstarter club · away receives first · final 0–7 · loss · 20 coins",
+      "tags": [
+        "defense-zone",
+        "direction-away",
+        "direction-home",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-loss",
+        "pass-short",
+        "receive-first-away",
+        "stop-no-gain",
+        "touchdown-offense"
+      ],
+      "plays": [
+        {
+          "id": "S04-0",
+          "title": "1. They start at their 46",
+          "geometry": "away · kick · no play · call squib · yard 80 → 54 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S04-1",
+          "title": "2. They score a touchdown",
+          "geometry": "away · touchdown · verticals · call zone · yard 54 → 0 · direction -1 · 6 points · Hawk (LB iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "387.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S04-2",
+          "title": "3. Their extra point is good",
+          "geometry": "away · conversion · no play · call contain · yard 0 → 0 · direction -1 · 1 points · Hawk (LB power 13)",
+          "hasSvg": true,
+          "viewBox": "-5 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S04-3",
+          "title": "4. Return to your 47",
+          "geometry": "home · return · no play · call right · yard 20 → 47 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S04-4",
+          "title": "5. 14 yards to their 39",
+          "geometry": "home · pass · slants · call slants · yard 47 → 61 · direction 1 · no points · Ace QB (QB iq 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "331.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S04-5",
+          "title": "6. Stopped short",
+          "geometry": "home · stop · power · call go · yard 61 → 61 · direction 1 · no points · Power Back (RB power 13)",
+          "hasSvg": true,
+          "viewBox": "413.0615141700405 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S05",
+      "title": "S05 · Kickoff return taken the distancestarter club · away receives first · final 6–6 · tie · 50 coins",
+      "tags": [
+        "direction-away",
+        "direction-home",
+        "kickoff-return",
+        "outcome-tie",
+        "pass-intermediate",
+        "receive-first-away",
+        "return-touchdown",
+        "touchdown-finish",
+        "two-point-missed"
+      ],
+      "plays": [
+        {
+          "id": "S05-0",
+          "title": "1. They return the kickoff for a touchdown",
+          "geometry": "away · touchdown · no play · call deep · yard 80 → 0 · direction -1 · 6 points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S05-1",
+          "title": "2. Their extra point is blocked",
+          "geometry": "away · conversion · no play · call contain · yard 0 → 0 · direction -1 · no points · Hawk (LB power 13)",
+          "hasSvg": true,
+          "viewBox": "-5 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S05-2",
+          "title": "3. Return to your 43",
+          "geometry": "home · return · no play · call left · yard 20 → 43 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S05-3",
+          "title": "4. The play breaks down",
+          "geometry": "home · pass · flood · call flood · yard 43 → 43 · direction 1 · no points · Speedy (WR iq 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "299.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S05-4",
+          "title": "5. 57-yard touchdown",
+          "geometry": "home · touchdown · power · call go · yard 43 → 100 · direction 1 · 6 points · Power Back (RB power 13)",
+          "hasSvg": true,
+          "viewBox": "287.75059109311735 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S05-5",
+          "title": "6. Two-point conversion stopped",
+          "geometry": "home · conversion · no play · call two-point · yard 100 → 100 · direction 1 · no points · Power Back (RB power 13)",
+          "hasSvg": true,
+          "viewBox": "685 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S06",
+      "title": "S06 · Field goal missed (4)starter club · away receives first · final 0–0 · tie · 50 coins",
+      "tags": [
+        "defense-run",
+        "direction-away",
+        "direction-home",
+        "kick-missed",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-tie",
+        "pass-deep",
+        "receive-first-away",
+        "stop-no-gain"
+      ],
+      "plays": [
+        {
+          "id": "S06-0",
+          "title": "1. They start at their 47",
+          "geometry": "away · kick · no play · call squib · yard 80 → 53 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S06-1",
+          "title": "2. They gain 18 to your 35",
+          "geometry": "away · stop · verticals · call stack · yard 53 → 35 · direction -1 · no points · Crusher (DL iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "379.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S06-2",
+          "title": "3. Their 52-yard field goal misses",
+          "geometry": "away · field-goal · no play · call contain · yard 35 → 35 · direction -1 · no points · Hawk (LB power 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "235.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S06-3",
+          "title": "4. Return to your 39",
+          "geometry": "home · return · no play · call right · yard 20 → 39 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S06-4",
+          "title": "5. 18 yards to their 43",
+          "geometry": "home · pass · verticals · call verticals · yard 39 → 57 · direction 1 · no points · Speedy (WR speed 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "267.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S06-5",
+          "title": "6. Stopped short",
+          "geometry": "home · stop · power · call go · yard 57 → 57 · direction 1 · no points · Power Back (RB power 13)",
+          "hasSvg": true,
+          "viewBox": "381.0615141700405 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S07",
+      "title": "S07 · Touchdown from the offensive call (2)starter club · away receives first · final 0–7 · loss · 20 coins",
+      "tags": [
+        "defense-zone",
+        "direction-away",
+        "direction-home",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-loss",
+        "receive-first-away",
+        "run-power",
+        "stop-no-gain",
+        "touchdown-offense"
+      ],
+      "plays": [
+        {
+          "id": "S07-0",
+          "title": "1. They start at your 45",
+          "geometry": "away · kick · no play · call deep · yard 80 → 45 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S07-1",
+          "title": "2. They score a touchdown",
+          "geometry": "away · touchdown · verticals · call zone · yard 45 → 0 · direction -1 · 6 points · Hawk (LB iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "315.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S07-2",
+          "title": "3. Their extra point is good",
+          "geometry": "away · conversion · no play · call block · yard 0 → 0 · direction -1 · 1 points · Crusher (DL power 13)",
+          "hasSvg": true,
+          "viewBox": "-5 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S07-3",
+          "title": "4. Return to your 47",
+          "geometry": "home · return · no play · call left · yard 20 → 47 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S07-4",
+          "title": "5. 15 yards to their 38",
+          "geometry": "home · run · power · call power · yard 47 → 62 · direction 1 · no points · Power Back (RB power 13), Fridge (OL power 13)",
+          "hasSvg": true,
+          "viewBox": "305.9796923076923 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S07-5",
+          "title": "6. Stopped short",
+          "geometry": "home · stop · power · call go · yard 62 → 62 · direction 1 · no points · Power Back (RB power 13)",
+          "hasSvg": true,
+          "viewBox": "421.0615141700405 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S08",
+      "title": "S08 · Kickoff return taken the distance (2)starter club · away receives first · final 7–7 · tie · 50 coins",
+      "tags": [
+        "defense-zone",
+        "direction-away",
+        "direction-home",
+        "extra-point-made",
+        "kickoff-coverage",
+        "outcome-tie",
+        "receive-first-away",
+        "return-touchdown",
+        "touchdown-offense"
+      ],
+      "plays": [
+        {
+          "id": "S08-0",
+          "title": "1. They start at their 40",
+          "geometry": "away · kick · no play · call squib · yard 80 → 60 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S08-1",
+          "title": "2. They score a touchdown",
+          "geometry": "away · touchdown · verticals · call zone · yard 60 → 0 · direction -1 · 6 points · Hawk (LB iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "435.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S08-2",
+          "title": "3. Their extra point is good",
+          "geometry": "away · conversion · no play · call contain · yard 0 → 0 · direction -1 · 1 points · Hawk (LB power 13)",
+          "hasSvg": true,
+          "viewBox": "-5 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S08-3",
+          "title": "4. Kickoff return touchdown!",
+          "geometry": "home · touchdown · no play · call middle · yard 20 → 100 · direction 1 · 6 points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S08-4",
+          "title": "5. Extra point is good",
+          "geometry": "home · conversion · no play · call extra-point · yard 100 → 100 · direction 1 · 1 points · Power Back (RB overall 33)",
+          "hasSvg": true,
+          "viewBox": "685 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S09",
+      "title": "S09 · Extra point goodstarter club · away receives first · final 7–6 · win · 100 coins",
+      "tags": [
+        "defense-man",
+        "direction-away",
+        "direction-home",
+        "extra-point-made",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-win",
+        "receive-first-away",
+        "touchdown-offense"
+      ],
+      "plays": [
+        {
+          "id": "S09-0",
+          "title": "1. They start at your 40",
+          "geometry": "away · kick · no play · call deep · yard 80 → 40 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S09-1",
+          "title": "2. They score a touchdown",
+          "geometry": "away · touchdown · verticals · call man · yard 40 → 0 · direction -1 · 6 points · Crusher (DL iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "275.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S09-2",
+          "title": "3. Their extra point is blocked",
+          "geometry": "away · conversion · no play · call block · yard 0 → 0 · direction -1 · no points · Crusher (DL power 13)",
+          "hasSvg": true,
+          "viewBox": "-5 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S09-3",
+          "title": "4. Return to your 35",
+          "geometry": "home · return · no play · call right · yard 20 → 35 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S09-4",
+          "title": "5. Touchdown!",
+          "geometry": "home · touchdown · verticals · call verticals · yard 35 → 100 · direction 1 · 6 points · Speedy (WR speed 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "235.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S09-5",
+          "title": "6. Extra point is good",
+          "geometry": "home · conversion · no play · call extra-point · yard 100 → 100 · direction 1 · 1 points · Power Back (RB overall 33)",
+          "hasSvg": true,
+          "viewBox": "685 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "title": "S10 · A second-possession touchdown that ends it without a conversionstarter club · away receives first · final 6–3 · wi",
+      "tags": [
+        "conversion-skipped",
+        "defense-zone",
+        "direction-away",
+        "direction-home",
+        "kick-made",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-win",
+        "receive-first-away",
+        "touchdown-offense"
+      ],
+      "plays": [
+        {
+          "id": "S10-0",
+          "title": "1. They start at their 44",
+          "geometry": "away · kick · no play · call squib · yard 80 → 56 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S10-1",
+          "title": "2. They gain 9 to your 47",
+          "geometry": "away · stop · verticals · call zone · yard 56 → 47 · direction -1 · no points · Hawk (LB iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "403.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S10-2",
+          "title": "3. Their 64-yard field goal is good",
+          "geometry": "away · field-goal · no play · call pressure · yard 47 → 47 · direction -1 · 3 points · Crusher (DL power 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "331.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S10-3",
+          "title": "4. Return to their 41",
+          "geometry": "home · return · no play · call middle · yard 20 → 59 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S10-4",
+          "title": "5. Touchdown!",
+          "geometry": "home · touchdown · slants · call slants · yard 59 → 100 · direction 1 · 6 points · Ace QB (QB iq 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "427.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S11",
+      "title": "S11 · Two-point conversion goodstarter club · away receives first · final 8–7 · win · 100 coins",
+      "tags": [
+        "defense-man",
+        "direction-away",
+        "direction-home",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-win",
+        "receive-first-away",
+        "run-power",
+        "touchdown-finish",
+        "touchdown-offense",
+        "two-point-made"
+      ],
+      "plays": [
+        {
+          "id": "S11-0",
+          "title": "1. They start at their 47",
+          "geometry": "away · kick · no play · call squib · yard 80 → 53 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S11-1",
+          "title": "2. They score a touchdown",
+          "geometry": "away · touchdown · verticals · call man · yard 53 → 0 · direction -1 · 6 points · Crusher (DL iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "379.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S11-2",
+          "title": "3. Their extra point is good",
+          "geometry": "away · conversion · no play · call contain · yard 0 → 0 · direction -1 · 1 points · Hawk (LB power 13)",
+          "hasSvg": true,
+          "viewBox": "-5 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S11-3",
+          "title": "4. Return to their 37",
+          "geometry": "home · return · no play · call middle · yard 20 → 63 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S11-4",
+          "title": "5. 24 yards to their 13",
+          "geometry": "home · run · power · call power · yard 63 → 87 · direction 1 · no points · Power Back (RB power 13), Fridge (OL power 13)",
+          "hasSvg": true,
+          "viewBox": "436.9305991902834 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S11-5",
+          "title": "6. 13-yard touchdown",
+          "geometry": "home · touchdown · power · call go · yard 87 → 100 · direction 1 · 6 points · Power Back (RB power 13)",
+          "hasSvg": true,
+          "viewBox": "625.323935222672 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S11-6",
+          "title": "7. Two-point conversion is good",
+          "geometry": "home · conversion · no play · call two-point · yard 100 → 100 · direction 1 · 2 points · Power Back (RB power 13)",
+          "hasSvg": true,
+          "viewBox": "685 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "title": "S12 · Kickoff return taken the distance (3)starter club · away receives first · final 6–7 · loss · 20 coins",
+      "tags": [
+        "defense-man",
+        "direction-away",
+        "direction-home",
+        "extra-point-missed",
+        "kickoff-coverage",
+        "outcome-loss",
+        "receive-first-away",
+        "return-touchdown",
+        "touchdown-offense"
+      ],
+      "plays": [
+        {
+          "id": "S12-0",
+          "title": "1. They start at their 43",
+          "geometry": "away · kick · no play · call squib · yard 80 → 57 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S12-1",
+          "title": "2. They score a touchdown",
+          "geometry": "away · touchdown · verticals · call man · yard 57 → 0 · direction -1 · 6 points · Crusher (DL iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "411.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S12-2",
+          "title": "3. Their extra point is good",
+          "geometry": "away · conversion · no play · call block · yard 0 → 0 · direction -1 · 1 points · Crusher (DL power 13)",
+          "hasSvg": true,
+          "viewBox": "-5 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S12-3",
+          "title": "4. Kickoff return touchdown!",
+          "geometry": "home · touchdown · no play · call right · yard 20 → 100 · direction 1 · 6 points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S12-4",
+          "title": "5. Extra point missed",
+          "geometry": "home · conversion · no play · call extra-point · yard 100 → 100 · direction 1 · no points · Power Back (RB overall 33)",
+          "hasSvg": true,
+          "viewBox": "685 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    },
+    {
+      "id": "S13",
+      "title": "S13 · Extra point good (2)starter club · home receives first · final 7–0 · win · 100 coins",
+      "tags": [
+        "defense-run",
+        "direction-away",
+        "direction-home",
+        "extra-point-made",
+        "kick-missed",
+        "kickoff-coverage",
+        "kickoff-return",
+        "outcome-win",
+        "receive-first-home",
+        "touchdown-offense"
+      ],
+      "plays": [
+        {
+          "id": "S13-0",
+          "title": "1. Return to your 45",
+          "geometry": "home · return · no play · call right · yard 20 → 45 · direction 1 · no points · Speedy (WR speed 13)",
+          "hasSvg": true,
+          "viewBox": "121.35000000000001 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S13-1",
+          "title": "2. Touchdown!",
+          "geometry": "home · touchdown · slants · call slants · yard 45 → 100 · direction 1 · 6 points · Ace QB (QB iq 13), Ace QB (QB iq 13)",
+          "hasSvg": true,
+          "viewBox": "315.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S13-2",
+          "title": "3. Extra point is good",
+          "geometry": "home · conversion · no play · call extra-point · yard 100 → 100 · direction 1 · 1 points · Power Back (RB overall 33)",
+          "hasSvg": true,
+          "viewBox": "685 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S13-3",
+          "title": "4. They start at your 44",
+          "geometry": "away · kick · no play · call deep · yard 80 → 44 · direction -1 · no points · Island (CB speed 13)",
+          "hasSvg": true,
+          "viewBox": "590.15 151.13600000000002 355 310",
+          "caption": "Secure the catch",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S13-4",
+          "title": "5. They gain 12 to your 32",
+          "geometry": "away · stop · power · call stack · yard 44 → 32 · direction -1 · no points · Hawk (LB iq 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "334.5039433198381 181 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        },
+        {
+          "id": "S13-5",
+          "title": "6. Their 49-yard field goal misses",
+          "geometry": "away · field-goal · no play · call pressure · yard 32 → 32 · direction -1 · no points · Crusher (DL power 13), Viper (S overall 40)",
+          "hasSvg": true,
+          "viewBox": "211.75 157 355 310",
+          "caption": "Snap · execute assignments",
+          "control": "Skip animation",
+          "playback": "playing"
+        }
+      ]
+    }
+  ],
+  "viewports": [
+    {
+      "id": "phone-portrait",
+      "width": 390,
+      "height": 844,
+      "isMobile": true,
+      "docWidth": 390,
+      "innerWidth": 390,
+      "overflowing": 0,
+      "clipped": 0,
+      "svgs": 76,
+      "controls": 76,
+      "offscreen": 0,
+      "tiny": 0
+    },
+    {
+      "id": "phone-portrait",
+      "width": 390,
+      "height": 844,
+      "isMobile": true,
+      "panel": {
+        "docWidth": 390,
+        "innerWidth": 390,
+        "panelWidth": 333,
+        "fieldHeight": 289,
+        "buttons": 4,
+        "wide": 0,
+        "small": 0
+      },
+      "decided": {
+        "objective": "Their possession. Hold them and the game is yours to finish.",
+        "context": "43 yards to the endzone from your 43.",
+        "calls": 2,
+        "enabled": 2,
+        "docWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "phone-landscape",
+      "width": 844,
+      "height": 390,
+      "isMobile": true,
+      "docWidth": 844,
+      "innerWidth": 844,
+      "overflowing": 0,
+      "clipped": 0,
+      "svgs": 76,
+      "controls": 76,
+      "offscreen": 0,
+      "tiny": 0
+    },
+    {
+      "id": "phone-landscape",
+      "width": 844,
+      "height": 390,
+      "isMobile": true,
+      "panel": {
+        "docWidth": 844,
+        "innerWidth": 844,
+        "panelWidth": 787,
+        "fieldHeight": 181,
+        "buttons": 4,
+        "wide": 0,
+        "small": 0
+      },
+      "decided": {
+        "objective": "Their possession. Hold them and the game is yours to finish.",
+        "context": "43 yards to the endzone from your 43.",
+        "calls": 2,
+        "enabled": 2,
+        "docWidth": 844,
+        "innerWidth": 844
+      }
+    },
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "docWidth": 1440,
+      "innerWidth": 1440,
+      "overflowing": 0,
+      "clipped": 0,
+      "svgs": 76,
+      "controls": 76,
+      "offscreen": 0,
+      "tiny": 0
+    },
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900,
+      "isMobile": false,
+      "panel": {
+        "docWidth": 1440,
+        "innerWidth": 1440,
+        "panelWidth": 1383,
+        "fieldHeight": 480,
+        "buttons": 4,
+        "wide": 0,
+        "small": 0
+      },
+      "decided": {
+        "objective": "Their possession. Hold them and the game is yours to finish.",
+        "context": "43 yards to the endzone from your 43.",
+        "calls": 2,
+        "enabled": 2,
+        "docWidth": 1440,
+        "innerWidth": 1440
+      }
+    }
+  ]
+}
