@@ -16,7 +16,6 @@
 //     rather than inferring it from animation coordinates.
 //
 // Games saved before this rewrite keep their own rules: see game/stadiumFootballLegacy.ts.
-import * as frozenV2 from './stadiumFootballV2';
 import {progressClubDaily} from './dailyProgress';
 import {type GameState, type PlayerRole} from '../types';
 import {FOOTBALL_PLAYS,type FootballPlay} from './development';
@@ -30,7 +29,7 @@ export const STADIUM_OPPONENTS={
 } as const;
 export type StadiumOpponent=keyof typeof STADIUM_OPPONENTS;
 export type StadiumPhase='return'|'offense'|'finish'|'conversion'|'kickoff'|'defense'|'defend-finish'|'final';
-export const STADIUM_RULES_VERSION=3;
+export const STADIUM_RULES_VERSION=2;
 
 export type Possession='home'|'away';
 /** What the coverage team is protecting on the kick return; shown before the lane is chosen. */
@@ -48,7 +47,6 @@ export interface FootballEvent {
  possession?:Possession;
  /** +1 drives towards the away endzone at yard 100, -1 towards the home endzone at yard 0. */
  direction?:1|-1;
- down?:number;lineToGain?:number;firstDown?:boolean;turnoverOnDowns?:boolean;
  startYard?:number;endYard?:number;action?:FootballActionKind;scored?:number;actors?:FootballActor[];
 }
 export interface StadiumFootballGame {
@@ -63,16 +61,14 @@ export interface StadiumFootballGame {
  /** Stable per-game seed. Shown context (coverage, defensive look) derives from it, so reloading
   *  a pending decision shows the same situation it showed before. */
  seed?:number;
- /** v3: next scrimmage down and absolute line to gain. */
- down?:number;lineToGain?:number;
  /** The selected team at kickoff. Later roster changes cannot reach a game in progress. */
  lineup?:LineupSnapshot;
 }
 export interface StadiumFootballState {game:StadiumFootballGame|null;history:{id:string;opponent:StadiumOpponent;home:number;away:number;reward:number;at:number}[];}
-export type StadiumAction={type:'stadium.start';opponent:StadiumOpponent;format?:'four-downs'}|{type:'stadium.call';gameId:string;turn:string;call:string}|{type:'stadium.collect';gameId:string}|{type:'stadium.abandon';gameId:string};
+export type StadiumAction={type:'stadium.start';opponent:StadiumOpponent}|{type:'stadium.call';gameId:string;turn:string;call:string}|{type:'stadium.collect';gameId:string}|{type:'stadium.abandon';gameId:string};
 export const FOOTBALL_ENTRY_ENERGY=10;
 export const footballInProgress=(club:GameState)=>!!club.stadiumFootball?.game&&club.stadiumFootball.game.phase!=='final';
-export const isTwoPossessionGame=(game:StadiumFootballGame|null|undefined):boolean=>!!game&&(game.v===2||game.v===STADIUM_RULES_VERSION);
+export const isTwoPossessionGame=(game:StadiumFootballGame|null|undefined):boolean=>!!game&&game.v===STADIUM_RULES_VERSION;
 
 /** Ratings of the SELECTED team (game/lineup.ts). A reserve cannot change them. */
 export function footballRatings(club:GameState):FootballRating{
@@ -99,8 +95,7 @@ export const returnCoverageOf=(game:StadiumFootballGame):ReturnCoverage=>{
  return roll<.34?'edges':roll<.67?'middle':'balanced';
 };
 export const defensiveLookOf=(game:StadiumFootballGame):DefensiveLook=>{
- if(game.v===2)return frozenV2.defensiveLookOf(game);
- const roll=seeded(game.seed??0,`look:${game.possessionIndex??0}:${game.turn}`);
+ const roll=seeded(game.seed??0,`look:${game.possessionIndex??0}`);
  return roll<.34?'blitz':roll<.67?'deep':'balanced';
 };
 const COVERAGE_TEXT:Record<ReturnCoverage,string>={edges:'Their coverage is squeezing both sidelines.',middle:'Their coverage has stacked the middle of the field.',balanced:'Their coverage is spread evenly across the field.'};
@@ -170,7 +165,6 @@ export function stadiumObjective(game:StadiumFootballGame):string{
 }
 
 export function footballCalls(game:StadiumFootballGame):{key:string;name:string;detail:string}[]{
- if(game.v===2)return frozenV2.footballCalls(game);
  if(!isTwoPossessionGame(game))return legacyFootballCalls(game);
  const mine=game.possession==='home';
  switch(game.phase){
@@ -183,14 +177,13 @@ export function footballCalls(game:StadiumFootballGame):{key:string;name:string;
   return [lane('left','Return left'),lane('middle','Return up the middle'),lane('right','Return right')];
  }
  case 'offense':{
-  if(!mine&&game.down===4)return [{key:'pressure',name:'Pressure a possible kick',detail:'Rush the kicker; a run or pass can exploit the pressure.'},{key:'zone',name:'Zone coverage',detail:'Protect the sticks and deep ball.'},{key:'man',name:'Man coverage',detail:'Contest the short completion.'},{key:'stack',name:'Stack the box',detail:'Protect the first-down line against the run.'}];
   if(!mine)return [
    {key:'zone',name:'Zone · protect the deep ball',detail:'Takes away four verticals; leaves the short routes open.'},
    {key:'man',name:'Man · take away the quick game',detail:'Takes away slants; vulnerable to deep speed.'},
    {key:'stack',name:'Stack the box',detail:'Stops the power run; opens the passing lanes.'}];
   const look=defensiveLookOf(game);
   const answer=(play:FootballPlay,name:string)=>({key:play,name,detail:`${PLAY_ANSWER[play]===look?'Answers their look.':'Their look is set up against this.'} ${Math.round(PLAY_RISK[play]*100)}% chance of a failed play.`});
-  return [answer('slants','Quick slants'),answer('flood','Flood the zone'),answer('verticals','Four verticals'),answer('power','Power run'),{key:'field-goal',name:`Kick a ${fieldGoalDistance('home',game.yardLine)}-yard field goal`,detail:'A miss ends your possession. No punts.'}];
+  return [answer('slants','Quick slants'),answer('flood','Flood the zone'),answer('verticals','Four verticals'),answer('power','Power run')];
  }
  case 'finish':{
   if(!mine)return [
@@ -221,13 +214,11 @@ function advancePossession(game:StadiumFootballGame):StadiumFootballGame{
  const index=(game.possessionIndex??0)+1;
  if(index>=2)return {...game,phase:'final'};
  const next:Possession=game.possession==='home'?'away':'home';
- return {...game,possession:next,possessionIndex:index,phase:'return',yardLine:next==='home'?20:80,down:1,lineToGain:next==='home'?30:70};
+ return {...game,possession:next,possessionIndex:index,phase:'return',yardLine:next==='home'?20:80};
 }
 
 export function applyStadiumFootball(club:GameState,action:StadiumAction,now:number,random:()=>number):GameState|string{
  const state=club.stadiumFootball??{game:null,history:[]},old=state.game;
- if(action.type==='stadium.start'&&action.format!=='four-downs')return frozenV2.applyStadiumFootball(club,action,now,random);
- if(action.type!=='stadium.start'&&old?.v===2)return frozenV2.applyStadiumFootball(club,action,now,random);
  if(action.type==='stadium.start'){
   if(old&&!old.collected)return 'Finish and collect your current Stadium game first.';
   if(club.development?.schedule)return 'Finish your team schedule before taking the field.';
@@ -238,7 +229,7 @@ export function applyStadiumFootball(club:GameState,action:StadiumAction,now:num
   const game:StadiumFootballGame={
    id:`football_${now}_${Math.floor(random()*1e9)}`,opponent:action.opponent,phase:'return',turn:0,startedAt:now,home:0,away:0,
    yardLine:receivesFirst==='home'?20:80,ratings:footballRatings(club),events:[],collected:false,reward:0,
-   down:1,lineToGain:receivesFirst==='home'?30:70,v:STADIUM_RULES_VERSION,possession:receivesFirst,possessionIndex:0,receivesFirst,seed,lineup:lineupSnapshot(club),
+   v:STADIUM_RULES_VERSION,possession:receivesFirst,possessionIndex:0,receivesFirst,seed,lineup:lineupSnapshot(club),
   };
   return {...club,teamReadiness:Math.max(0,club.teamReadiness-12),resources:{...club.resources,ENERGY:club.resources.ENERGY-FOOTBALL_ENTRY_ENERGY},stadiumFootball:{...state,game}};
  }
@@ -261,15 +252,7 @@ export function applyStadiumFootball(club:GameState,action:StadiumAction,now:num
  const advantage=(r.attack-opponent.power)/Math.max(25,opponent.power);
  const defAdv=(r.defense-opponent.power)/Math.max(25,opponent.power);
  const roll=random(),call=action.call;
- const context={mine,possession,advantage,defAdv,opponent,r,random};
- const kickNow=old.phase==='offense'&&(mine?call==='field-goal':old.down===4&&fieldGoalDistance(possession,old.yardLine)<=55&&seeded(old.seed??0,`kick:${old.turn}`)<.7);
- const resolution=kickNow?resolve({...old,phase:'finish'},mine?'field-goal':call==='pressure'?'pressure':'contain',roll,context):resolve(old,call,roll,context);
- // An opponent choosing to go on fourth runs an ordinary play, not a forced touchdown attempt.
- if(kickNow&&!mine&&resolution.action!=='field-goal'){
-  Object.assign(resolution,resolve(old,call,roll,context));
- }
- if(old.phase==='offense'&&resolution.action!=='field-goal'&&resolution.yards>=yardsToGoal(possession,old.yardLine)&&resolution.yards>0){resolution.scored=6;resolution.scoringSide=possession;resolution.action='touchdown';resolution.title=mine?'Touchdown!':'They score a touchdown';resolution.endPhase='conversion';}
- if(old.phase==='offense'&&!resolution.scored&&resolution.action!=='field-goal')resolution.endPhase='offense';
+ const resolution=resolve(old,call,roll,{mine,possession,advantage,defAdv,opponent,r,random});
  let game:StadiumFootballGame={...old,turn:old.turn+1,yardLine:resolution.endYard};
  if(resolution.scored){const side=resolution.scoringSide??possession;if(side==='home')game.home+=resolution.scored;else game.away+=resolution.scored;}
  game.events=[...old.events,{
@@ -277,16 +260,6 @@ export function applyStadiumFootball(club:GameState,action:StadiumAction,now:num
   play:resolution.play,yards:resolution.yards,possession,direction:driveDirection(possession),
   startYard:old.yardLine,endYard:resolution.endYard,action:resolution.action,scored:resolution.scored,actors:resolution.actors,
  }];
- if(old.phase==='offense'){
-  const event=game.events[game.events.length-1];event.down=old.down;event.lineToGain=old.lineToGain;
-  if(!resolution.scored&&resolution.action!=='field-goal'){
-   const reached=driveDirection(possession)*(game.yardLine-(old.lineToGain??old.yardLine))>=0;
-   if(reached){game.down=1;game.lineToGain=advance(possession,game.yardLine,10);event.firstDown=true;event.title+=' · First down';event.detail+=' New set of downs.';}
-   else if(old.down===4){event.turnoverOnDowns=true;event.title='Turnover on downs';event.detail+=' Fourth down stopped short. This possession is over.';resolution.endPhase='next-possession';}
-   else game.down=(old.down??1)+1;
-  }
- }
- if(old.phase==='return'&&resolution.endPhase==='offense'){game.down=1;game.lineToGain=advance(possession,game.yardLine,10);}
  if(resolution.endPhase==='next-possession')game=advancePossession(game);
  else game.phase=resolution.endPhase;
  // A conversion that cannot change win, tie or loss is not a decision: skip it.
@@ -331,7 +304,7 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
    const talent=play==='power'?r.power:play==='verticals'?r.speed:r.iq;
    const mastery=r.mastery[play]??0;
    const toGoal=yardsToGoal(possession,game.yardLine);
-   const scoreChance=bounded((.18+advantage*.18+(answers?.1:-.04)+(talent-15)*.003+mastery*.004)*Math.min(1,8/Math.max(1,toGoal)),.005,.8);
+   const scoreChance=bounded(.2+advantage*.24+(answers?.16:-.06)+(talent-15)*.004+r.readiness*.0008+mastery*.008-(toGoal/260),.04,.9);
    const failChance=PLAY_RISK[play]*(answers?.6:1.35);
    const actors=[...actor(SLOT_FOR_PLAY[play],ATTRIBUTE_FOR_PLAY[play]),...actor(play==='power'?'LINE1':'QB',play==='power'?'power':'iq')];
    const base=`${FOOTBALL_PLAYS[play]?.name??play} against ${LOOK_TEXT[look].toLowerCase().replace(/^they are /,'a defense ').replace(/\.$/,'')}. ${answers?'The call answered their look.':'Their look was set up against it.'} Mastery ${mastery}/20.`;
@@ -339,17 +312,17 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
     return {title:'Touchdown!',detail:`${base} ${toGoal} yards, all at once.`,yards:toGoal,action:'touchdown',scored:6,actors,endPhase:'conversion',endYard:possession==='home'?ENDZONE.away:ENDZONE.home,play,scoringSide};
    }
    if(roll>1-failChance){
-    return {title:'The play breaks down',detail:`${base} No gain. The ball stays at the line of scrimmage.`,yards:0,action:play==='power'?'run':'pass',scored:0,actors,endPhase:'finish',endYard:game.yardLine,play};
+    return {title:'The play breaks down',detail:`${base} No gain: the possession moves straight to your decision.`,yards:0,action:play==='power'?'run':'pass',scored:0,actors,endPhase:'finish',endYard:game.yardLine,play};
    }
-   const yards=Math.round(bounded((play==='power'?2:4)+advantage*4+roll*(play==='verticals'?17:play==='power'?5:9)+(answers?2:0),1,Math.max(1,toGoal-1)));
+   const yards=Math.round(bounded(8+advantage*9+roll*14+(answers?6:0),1,Math.max(1,toGoal-1)));
    const end=advance(possession,game.yardLine,yards);
-   return {title:`${yards} yards to ${describeYard(end)}`,detail:`${base} The drive continues.`,yards,action:play==='power'?'run':'pass',scored:0,actors,endPhase:'finish',endYard:end,play};
+   return {title:`${yards} yards to ${describeYard(end)}`,detail:`${base} One decision left on this possession.`,yards,action:play==='power'?'run':'pass',scored:0,actors,endPhase:'finish',endYard:end,play};
   }
-  const theirRoll=seeded(game.seed??0,`theirplay:${game.possessionIndex??0}:${game.turn}`);
+  const theirRoll=seeded(game.seed??0,`theirplay:${game.possessionIndex??0}`);
   const theirPlay:FootballPlay=theirRoll<.34?'slants':theirRoll<.67?'verticals':'power';
   const counters=(call==='zone'&&theirPlay==='verticals')||(call==='man'&&theirPlay==='slants')||(call==='stack'&&theirPlay==='power');
   const toGoal=yardsToGoal(possession,game.yardLine);
-  const theirScore=bounded((.18-defAdv*.18+(counters?-.1:.06))*Math.min(1,8/Math.max(1,toGoal)),.005,.8);
+  const theirScore=bounded(.2-defAdv*.22+(counters?-.14:.08)+(toGoal<30?.1:0),.03,.85);
   const actors=[...actor(counters?'BACKER':'RUSHER','iq'),...actor('SAFETY','overall')];
   const name=FOOTBALL_PLAYS[theirPlay]?.name??theirPlay;
   if(roll<theirScore){
@@ -358,7 +331,7 @@ function resolve(game:StadiumFootballGame,call:string,roll:number,ctx:ResolveCon
   if(roll>.9){
    return {title:'Stopped for no gain',detail:`Your ${call} met ${name} at the line. They face a decision from where they stand.`,yards:0,action:'stop',scored:0,actors,endPhase:'finish',endYard:game.yardLine,play:theirPlay};
   }
-  const yards=Math.round(bounded((theirPlay==='power'?2:4)-defAdv*4+roll*(theirPlay==='verticals'?17:theirPlay==='power'?5:9)+(counters?-2:2),1,Math.max(1,toGoal-1)));
+  const yards=Math.round(bounded(7-defAdv*7+roll*12+(counters?-4:4),1,Math.max(1,toGoal-1)));
   const end=advance(possession,game.yardLine,yards);
   return {title:`They gain ${yards} to ${describeYard(end)}`,detail:`Your ${call} against ${name}. ${counters?'The call took their first option away.':'They found the space your call left.'}`,yards,action:'stop',scored:0,actors,endPhase:'finish',endYard:end,play:theirPlay};
  }
@@ -428,26 +401,22 @@ export function describeYard(yardLine:number):string{
 }
 
 export function validStadiumFootball(input:unknown):input is StadiumFootballState{
- if(!input||typeof input!=='object')return false;
- if((input as StadiumFootballState).game?.v===2)return frozenV2.validStadiumFootball(input);const s=input as StadiumFootballState;const int=(n:unknown)=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0;
+ if(!input||typeof input!=='object')return false;const s=input as StadiumFootballState;const int=(n:unknown)=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0;
  if(!Array.isArray(s.history)||s.history.length>20||s.history.some(h=>!h||typeof h.id!=='string'||!Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS,h.opponent)||![h.home,h.away,h.reward,h.at].every(int)))return false;
  const g=s.game;if(g===null||g===undefined)return true;
  const ratingsOk=!!g.ratings&&['attack','defense','speed','power','iq','readiness'].every(k=>Number.isFinite(g.ratings[k as keyof FootballRating])&&Number(g.ratings[k as keyof FootballRating])>=0)
   &&!!g.ratings.mastery&&Object.entries(g.ratings.mastery).every(([k,v])=>Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS,k)&&int(v)&&(v as number)<=20);
- const eventsOk=Array.isArray(g.events)&&g.events.length<=96&&g.events.every(e=>e&&typeof e.title==='string'&&typeof e.detail==='string'&&typeof e.call==='string'&&[e.turn,e.home,e.away,e.yards].every(int)
+ const eventsOk=Array.isArray(g.events)&&g.events.length<=16&&g.events.every(e=>e&&typeof e.title==='string'&&typeof e.detail==='string'&&typeof e.call==='string'&&[e.turn,e.home,e.away,e.yards].every(int)
   &&(e.possession===undefined||e.possession==='home'||e.possession==='away')
   &&(e.direction===undefined||e.direction===1||e.direction===-1)
   &&(e.startYard===undefined||(int(e.startYard)&&e.startYard<=100))&&(e.endYard===undefined||(int(e.endYard)&&e.endYard<=100))
-  &&(e.down===undefined||(int(e.down)&&e.down>=1&&e.down<=4))&&(e.lineToGain===undefined||(int(e.lineToGain)&&e.lineToGain<=100))
-  &&(e.firstDown===undefined||typeof e.firstDown==='boolean')&&(e.turnoverOnDowns===undefined||typeof e.turnoverOnDowns==='boolean')
   &&(e.scored===undefined||(int(e.scored)&&e.scored<=6))
   &&(e.actors===undefined||(Array.isArray(e.actors)&&e.actors.length<=4&&e.actors.every(a=>!!a&&typeof a.name==='string'&&a.name.length<=120&&typeof a.slot==='string'&&Number.isFinite(a.value)))));
  const v2=g.v===STADIUM_RULES_VERSION;
- const distance=(g.possession==='away'?-1:1)*((g.lineToGain??0)-g.yardLine);
- const v2Ok=!v2||((g.phase!=='offense'||distance>0&&distance<=10)&&(int(g.down)&&g.down!>=1&&g.down!<=4&&int(g.lineToGain)&&g.lineToGain!<=100)&&(g.possession==='home'||g.possession==='away')&&int(g.possessionIndex)&&(g.possessionIndex as number)<=2
+ const v2Ok=!v2||((g.possession==='home'||g.possession==='away')&&int(g.possessionIndex)&&(g.possessionIndex as number)<=2
   &&(g.receivesFirst==='home'||g.receivesFirst==='away')&&int(g.seed)&&(g.lineup===undefined||validLineupSnapshot(g.lineup)));
  return !!g&&typeof g.id==='string'&&Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS,g.opponent)
   &&['return','offense','finish','conversion','kickoff','defense','defend-finish','final'].includes(g.phase)
-  &&[g.turn,g.startedAt,g.home,g.away,g.yardLine,g.reward].every(int)&&g.turn<=96&&g.home<=40&&g.away<=40&&g.yardLine<=100&&g.reward<=220
+  &&[g.turn,g.startedAt,g.home,g.away,g.yardLine,g.reward].every(int)&&g.turn<=16&&g.home<=40&&g.away<=40&&g.yardLine<=100&&g.reward<=220
   &&typeof g.collected==='boolean'&&(g.v===undefined||g.v===STADIUM_RULES_VERSION)&&ratingsOk&&eventsOk&&v2Ok;
 }

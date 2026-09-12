@@ -52,6 +52,7 @@ const gameOf = (state: GameState): StadiumFootballGame => {
 export function startScenario(preset: ClubPreset, opponent: StadiumOpponent, startRandom: number): GameState {
   const result = applyClubAction(presetClub(preset), { type: 'stadium.start', opponent }, { now: SCENARIO_NOW, random: () => startRandom });
   if (!result.ok) throw new Error(`stadium.start refused: ${result.message}`);
+  // No format field: this is the original v2 client request, retained for compatibility.
   return result.state;
 }
 

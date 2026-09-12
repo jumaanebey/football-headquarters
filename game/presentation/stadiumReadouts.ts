@@ -16,3 +16,10 @@ export function kickOutlook(game:StadiumFootballGame):string{
  const chance=Math.max(.03,Math.min(.97,.97-(distance-20)*.017+(steadiness-30)*.004));
  return `${Math.round(chance*100)}% estimated chance · ${chance<.2?'Very long shot':chance<.5?'Risky attempt':'Three points if good'}.`;
 }
+
+export function downReadout(game:StadiumFootballGame):string{
+ if(game.v!==3||game.phase!=='offense')return '';
+ const toGoal=yardsToGoal(game.possession??'home',game.yardLine);
+ const distance=Math.abs((game.lineToGain??game.yardLine)-game.yardLine);
+ return `${['','1st','2nd','3rd','4th'][game.down??1]} & ${distance===toGoal?'Goal':distance}`;
+}

@@ -1578,15 +1578,14 @@ var legacyCollectReward = (club, now, state, old) => {
   return old.home > old.away ? progressClubDaily(collected, "win_attack") : collected;
 };
 
-// game/stadiumFootball.ts
-var STADIUM_OPPONENTS = {
+// game/stadiumFootballV2.ts
+var STADIUM_OPPONENTS2 = {
   harbor: { name: "Harbor Hawks", power: 55, style: "zone", reward: 100 },
   ironwood: { name: "Ironwood Bears", power: 85, style: "stack", reward: 150 },
   summit: { name: "Summit Stars", power: 120, style: "man", reward: 220 }
 };
 var STADIUM_RULES_VERSION = 2;
 var FOOTBALL_ENTRY_ENERGY = 10;
-var footballInProgress = (club) => !!club.stadiumFootball?.game && club.stadiumFootball.game.phase !== "final";
 var isTwoPossessionGame = (game) => !!game && game.v === STADIUM_RULES_VERSION;
 function footballRatings(club) {
   const r = lineupRatings(club.roster, lineupOf(club));
@@ -1752,7 +1751,7 @@ function applyStadiumFootball(club, action, now, random) {
   if (old.phase === "final" || String(old.turn) !== action.turn || !footballCalls(old).some((c) => c.key === action.call)) return "That play call is out of date. Use the current decision.";
   const possession = old.possession ?? "home";
   const mine = possession === "home";
-  const opponent = STADIUM_OPPONENTS[old.opponent], r = old.ratings;
+  const opponent = STADIUM_OPPONENTS2[old.opponent], r = old.ratings;
   const advantage = (r.attack - opponent.power) / Math.max(25, opponent.power);
   const defAdv = (r.defense - opponent.power) / Math.max(25, opponent.power);
   const roll = random(), call = action.call;
@@ -1922,14 +1921,414 @@ function validStadiumFootball(input) {
   if (!input || typeof input !== "object") return false;
   const s = input;
   const int = (n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
-  if (!Array.isArray(s.history) || s.history.length > 20 || s.history.some((h) => !h || typeof h.id !== "string" || !Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, h.opponent) || ![h.home, h.away, h.reward, h.at].every(int))) return false;
+  if (!Array.isArray(s.history) || s.history.length > 20 || s.history.some((h) => !h || typeof h.id !== "string" || !Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS2, h.opponent) || ![h.home, h.away, h.reward, h.at].every(int))) return false;
   const g = s.game;
   if (g === null || g === void 0) return true;
   const ratingsOk = !!g.ratings && ["attack", "defense", "speed", "power", "iq", "readiness"].every((k) => Number.isFinite(g.ratings[k]) && Number(g.ratings[k]) >= 0) && !!g.ratings.mastery && Object.entries(g.ratings.mastery).every(([k, v]) => Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, k) && int(v) && v <= 20);
   const eventsOk = Array.isArray(g.events) && g.events.length <= 16 && g.events.every((e) => e && typeof e.title === "string" && typeof e.detail === "string" && typeof e.call === "string" && [e.turn, e.home, e.away, e.yards].every(int) && (e.possession === void 0 || e.possession === "home" || e.possession === "away") && (e.direction === void 0 || e.direction === 1 || e.direction === -1) && (e.startYard === void 0 || int(e.startYard) && e.startYard <= 100) && (e.endYard === void 0 || int(e.endYard) && e.endYard <= 100) && (e.scored === void 0 || int(e.scored) && e.scored <= 6) && (e.actors === void 0 || Array.isArray(e.actors) && e.actors.length <= 4 && e.actors.every((a) => !!a && typeof a.name === "string" && a.name.length <= 120 && typeof a.slot === "string" && Number.isFinite(a.value))));
   const v2 = g.v === STADIUM_RULES_VERSION;
   const v2Ok = !v2 || (g.possession === "home" || g.possession === "away") && int(g.possessionIndex) && g.possessionIndex <= 2 && (g.receivesFirst === "home" || g.receivesFirst === "away") && int(g.seed) && (g.lineup === void 0 || validLineupSnapshot(g.lineup));
-  return !!g && typeof g.id === "string" && Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, g.opponent) && ["return", "offense", "finish", "conversion", "kickoff", "defense", "defend-finish", "final"].includes(g.phase) && [g.turn, g.startedAt, g.home, g.away, g.yardLine, g.reward].every(int) && g.turn <= 16 && g.home <= 40 && g.away <= 40 && g.yardLine <= 100 && g.reward <= 220 && typeof g.collected === "boolean" && (g.v === void 0 || g.v === STADIUM_RULES_VERSION) && ratingsOk && eventsOk && v2Ok;
+  return !!g && typeof g.id === "string" && Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS2, g.opponent) && ["return", "offense", "finish", "conversion", "kickoff", "defense", "defend-finish", "final"].includes(g.phase) && [g.turn, g.startedAt, g.home, g.away, g.yardLine, g.reward].every(int) && g.turn <= 16 && g.home <= 40 && g.away <= 40 && g.yardLine <= 100 && g.reward <= 220 && typeof g.collected === "boolean" && (g.v === void 0 || g.v === STADIUM_RULES_VERSION) && ratingsOk && eventsOk && v2Ok;
+}
+
+// game/stadiumFootball.ts
+var STADIUM_OPPONENTS = {
+  harbor: { name: "Harbor Hawks", power: 55, style: "zone", reward: 100 },
+  ironwood: { name: "Ironwood Bears", power: 85, style: "stack", reward: 150 },
+  summit: { name: "Summit Stars", power: 120, style: "man", reward: 220 }
+};
+var STADIUM_RULES_VERSION2 = 3;
+var FOOTBALL_ENTRY_ENERGY2 = 10;
+var footballInProgress = (club) => !!club.stadiumFootball?.game && club.stadiumFootball.game.phase !== "final";
+var isTwoPossessionGame2 = (game) => !!game && (game.v === 2 || game.v === STADIUM_RULES_VERSION2);
+function footballRatings2(club) {
+  const r = lineupRatings(club.roster, lineupOf(club));
+  return { attack: r.attack, defense: r.defense, speed: r.speed, power: r.power, iq: r.iq, readiness: club.teamReadiness, mastery: { ...club.development?.mastery } };
+}
+var bounded3 = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+function seeded2(seed, label) {
+  let h = seed >>> 0 ^ 2654435769;
+  for (let i = 0; i < label.length; i++) {
+    h = Math.imul(h ^ label.charCodeAt(i), 16777619) >>> 0;
+  }
+  return (h >>> 8 & 16777215) / 16777216;
+}
+var ENDZONE2 = { home: 0, away: 100 };
+var driveDirection2 = (possession) => possession === "home" ? 1 : -1;
+var yardsToGoal2 = (possession, yardLine) => possession === "home" ? 100 - yardLine : yardLine;
+var fieldGoalDistance2 = (possession, yardLine) => Math.max(18, Math.round(yardsToGoal2(possession, yardLine) + 17));
+var advance2 = (possession, yardLine, yards) => bounded3(yardLine + driveDirection2(possession) * yards, 0, 100);
+var returnCoverageOf2 = (game) => {
+  const roll = seeded2(game.seed ?? 0, `coverage:${game.possessionIndex ?? 0}`);
+  return roll < 0.34 ? "edges" : roll < 0.67 ? "middle" : "balanced";
+};
+var defensiveLookOf2 = (game) => {
+  if (game.v === 2) return defensiveLookOf(game);
+  const roll = seeded2(game.seed ?? 0, `look:${game.possessionIndex ?? 0}:${game.turn}`);
+  return roll < 0.34 ? "blitz" : roll < 0.67 ? "deep" : "balanced";
+};
+var COVERAGE_TEXT2 = { edges: "Their coverage is squeezing both sidelines.", middle: "Their coverage has stacked the middle of the field.", balanced: "Their coverage is spread evenly across the field." };
+var LOOK_TEXT2 = { blitz: "They are crowding the line of scrimmage.", deep: "They have dropped their safeties deep.", balanced: "They are showing a balanced front." };
+var LANE_SIDE2 = { left: "edge", right: "edge", middle: "middle" };
+function laneQuality2(coverage, call) {
+  const side = LANE_SIDE2[call] ?? "middle";
+  if (coverage === "balanced") return { bonus: side === "middle" ? 2 : 0, breakaway: 0.04, note: "Even coverage: the lanes were the same width." };
+  const soft = coverage === "edges" ? "middle" : "edge";
+  return side === soft ? { bonus: 14, breakaway: 0.16, note: `You attacked the open ${soft === "middle" ? "middle" : "sideline"}.` } : { bonus: -6, breakaway: 0.01, note: `You ran into their ${coverage === "edges" ? "sideline" : "interior"} strength.` };
+}
+var PLAY_ANSWER2 = { slants: "blitz", verticals: "deep", flood: "balanced", power: "deep" };
+var PLAY_RISK2 = { slants: 0.08, verticals: 0.3, flood: 0.14, power: 0.1 };
+var SLOT_FOR_PLAY2 = { slants: "QB", flood: "RECEIVER", verticals: "RECEIVER", power: "BACK" };
+var ATTRIBUTE_FOR_PLAY2 = { slants: "iq", flood: "iq", verticals: "speed", power: "power" };
+function actorFor2(game, slot, attribute, ratings) {
+  const player = snapshotSlotPlayer(game.lineup, slot);
+  if (!player) return null;
+  const value = attribute === "overall" ? player.power : Math.round(attribute === "speed" ? ratings.speed : attribute === "power" ? ratings.power : ratings.iq);
+  return { slot, name: player.name, role: player.role, attribute, value };
+}
+function kickerOf2(game) {
+  const order = ["BACK", "RECEIVER", "QB", "SAFETY", "COVER"];
+  for (const slot of order) {
+    const player = snapshotSlotPlayer(game.lineup, slot);
+    if (player) return player;
+  }
+  return game.lineup?.players[0] ?? null;
+}
+function conversionMatters2(game) {
+  if ((game.possessionIndex ?? 0) === 0) return true;
+  const scoring = game.possession === "home" ? "home" : "away";
+  const outcome = (extra) => {
+    const home = game.home + (scoring === "home" ? extra : 0), away = game.away + (scoring === "away" ? extra : 0);
+    return home > away ? "win" : home === away ? "tie" : "loss";
+  };
+  return new Set([0, 1, 2].map(outcome)).size > 1;
+}
+function footballCalls2(game) {
+  if (game.v === 2) return footballCalls(game);
+  if (!isTwoPossessionGame2(game)) return legacyFootballCalls(game);
+  const mine = game.possession === "home";
+  switch (game.phase) {
+    case "return": {
+      if (!mine) return [
+        { key: "deep", name: "Kick deep", detail: "Make them start further back; a returner with speed can still break it." },
+        { key: "squib", name: "Squib kick", detail: "Gives up field position to take the long return away." }
+      ];
+      const coverage = returnCoverageOf2(game);
+      const lane = (key, name) => {
+        const q = laneQuality2(coverage, key);
+        return { key, name, detail: q.bonus > 4 ? "Open: their coverage is elsewhere." : q.bonus < 0 ? "Contested: this is where their coverage is." : "Even: no particular advantage." };
+      };
+      return [lane("left", "Return left"), lane("middle", "Return up the middle"), lane("right", "Return right")];
+    }
+    case "offense": {
+      if (!mine && game.down === 4) return [{ key: "pressure", name: "Pressure a possible kick", detail: "Rush the kicker; a run or pass can exploit the pressure." }, { key: "zone", name: "Zone coverage", detail: "Protect the sticks and deep ball." }, { key: "man", name: "Man coverage", detail: "Contest the short completion." }, { key: "stack", name: "Stack the box", detail: "Protect the first-down line against the run." }];
+      if (!mine) return [
+        { key: "zone", name: "Zone \xB7 protect the deep ball", detail: "Takes away four verticals; leaves the short routes open." },
+        { key: "man", name: "Man \xB7 take away the quick game", detail: "Takes away slants; vulnerable to deep speed." },
+        { key: "stack", name: "Stack the box", detail: "Stops the power run; opens the passing lanes." }
+      ];
+      const look = defensiveLookOf2(game);
+      const answer = (play, name) => ({ key: play, name, detail: `${PLAY_ANSWER2[play] === look ? "Answers their look." : "Their look is set up against this."} ${Math.round(PLAY_RISK2[play] * 100)}% chance of a failed play.` });
+      return [answer("slants", "Quick slants"), answer("flood", "Flood the zone"), answer("verticals", "Four verticals"), answer("power", "Power run"), { key: "field-goal", name: `Kick a ${fieldGoalDistance2("home", game.yardLine)}-yard field goal`, detail: "A miss ends your possession. No punts." }];
+    }
+    case "finish": {
+      if (!mine) return [
+        { key: "pressure", name: "Pressure the kicker", detail: "A block ends their possession; a miss gives up no points." },
+        { key: "contain", name: "Defend the goal line", detail: "Keeps the runner in front of you if they go for it." }
+      ];
+      const distance2 = fieldGoalDistance2(game.possession ?? "home", game.yardLine);
+      const toGo = yardsToGoal2(game.possession ?? "home", game.yardLine);
+      return [
+        { key: "field-goal", name: `Kick a ${distance2}-yard field goal`, detail: "Three points if your kicker has the range." },
+        { key: "go", name: toGo <= 5 ? "Goal-line push for the touchdown" : `Go for it from ${toGo} yards out`, detail: toGo <= 5 ? "One run against their goal-line front." : `${toGo} yards to the endzone in a single play.` }
+      ];
+    }
+    case "conversion": {
+      if (!mine) return [
+        { key: "block", name: "Pressure the kick", detail: "A block denies the extra point." },
+        { key: "contain", name: "Defend the two-point play", detail: "Keeps the runner out of the endzone." }
+      ];
+      return [
+        { key: "extra-point", name: "Kick the extra point", detail: "One point, rarely missed." },
+        { key: "two-point", name: "Go for two", detail: "One matchup at the goal line for two points." }
+      ];
+    }
+    default:
+      return [];
+  }
+}
+function advancePossession2(game) {
+  const index2 = (game.possessionIndex ?? 0) + 1;
+  if (index2 >= 2) return { ...game, phase: "final" };
+  const next = game.possession === "home" ? "away" : "home";
+  return { ...game, possession: next, possessionIndex: index2, phase: "return", yardLine: next === "home" ? 20 : 80, down: 1, lineToGain: next === "home" ? 30 : 70 };
+}
+function applyStadiumFootball2(club, action, now, random) {
+  const state = club.stadiumFootball ?? { game: null, history: [] }, old = state.game;
+  if (action.type === "stadium.start" && action.format !== "four-downs") return applyStadiumFootball(club, action, now, random);
+  if (action.type !== "stadium.start" && old?.v === 2) return applyStadiumFootball(club, action, now, random);
+  if (action.type === "stadium.start") {
+    if (old && !old.collected) return "Finish and collect your current Stadium game first.";
+    if (club.development?.schedule) return "Finish your team schedule before taking the field.";
+    if (club.buildings.some((b) => b.activeDrillId)) return "Collect your workout before playing football.";
+    if (club.resources.ENERGY < FOOTBALL_ENTRY_ENERGY2) return "A Stadium game needs 10 Energy.";
+    const seed = Math.floor(random() * 2147483647);
+    const receivesFirst = seeded2(seed, "toss") < 0.5 ? "home" : "away";
+    const game2 = {
+      id: `football_${now}_${Math.floor(random() * 1e9)}`,
+      opponent: action.opponent,
+      phase: "return",
+      turn: 0,
+      startedAt: now,
+      home: 0,
+      away: 0,
+      yardLine: receivesFirst === "home" ? 20 : 80,
+      ratings: footballRatings2(club),
+      events: [],
+      collected: false,
+      reward: 0,
+      down: 1,
+      lineToGain: receivesFirst === "home" ? 30 : 70,
+      v: STADIUM_RULES_VERSION2,
+      possession: receivesFirst,
+      possessionIndex: 0,
+      receivesFirst,
+      seed,
+      lineup: lineupSnapshot(club)
+    };
+    return { ...club, teamReadiness: Math.max(0, club.teamReadiness - 12), resources: { ...club.resources, ENERGY: club.resources.ENERGY - FOOTBALL_ENTRY_ENERGY2 }, stadiumFootball: { ...state, game: game2 } };
+  }
+  if (!old || old.id !== action.gameId) return "That Stadium game was not found.";
+  if (action.type === "stadium.collect") {
+    if (old.phase !== "final" || old.collected) return "This result is not ready to collect.";
+    return legacyCollectReward(club, now, state, old);
+  }
+  if (action.type === "stadium.abandon") {
+    if (old.phase === "final") return "This game is already over.";
+    const away = Math.max(old.away, old.home + 1);
+    return { ...club, stadiumFootball: { ...state, game: { ...old, phase: "final", away, reward: 0, events: [...old.events, { turn: old.turn, phase: old.phase, call: "abandon", title: "Game conceded", detail: "No rewards. The entry Energy was spent at kickoff.", home: old.home, away, yards: 0, possession: old.possession, direction: old.possession ? driveDirection2(old.possession) : void 0, startYard: old.yardLine, endYard: old.yardLine, action: "concede", scored: 0, actors: [] }] } } };
+  }
+  if (!isTwoPossessionGame2(old)) return applyLegacyStadiumCall(club, action, state, old, random);
+  if (old.phase === "final" || String(old.turn) !== action.turn || !footballCalls2(old).some((c) => c.key === action.call)) return "That play call is out of date. Use the current decision.";
+  const possession = old.possession ?? "home";
+  const mine = possession === "home";
+  const opponent = STADIUM_OPPONENTS[old.opponent], r = old.ratings;
+  const advantage = (r.attack - opponent.power) / Math.max(25, opponent.power);
+  const defAdv = (r.defense - opponent.power) / Math.max(25, opponent.power);
+  const roll = random(), call = action.call;
+  const context = { mine, possession, advantage, defAdv, opponent, r, random };
+  const kickNow = old.phase === "offense" && (mine ? call === "field-goal" : old.down === 4 && fieldGoalDistance2(possession, old.yardLine) <= 55 && seeded2(old.seed ?? 0, `kick:${old.turn}`) < 0.7);
+  const resolution = kickNow ? resolve2({ ...old, phase: "finish" }, mine ? "field-goal" : call === "pressure" ? "pressure" : "contain", roll, context) : resolve2(old, call, roll, context);
+  if (kickNow && !mine && resolution.action !== "field-goal") {
+    Object.assign(resolution, resolve2(old, call, roll, context));
+  }
+  if (old.phase === "offense" && resolution.action !== "field-goal" && resolution.yards >= yardsToGoal2(possession, old.yardLine) && resolution.yards > 0) {
+    resolution.scored = 6;
+    resolution.scoringSide = possession;
+    resolution.action = "touchdown";
+    resolution.title = mine ? "Touchdown!" : "They score a touchdown";
+    resolution.endPhase = "conversion";
+  }
+  if (old.phase === "offense" && !resolution.scored && resolution.action !== "field-goal") resolution.endPhase = "offense";
+  let game = { ...old, turn: old.turn + 1, yardLine: resolution.endYard };
+  if (resolution.scored) {
+    const side = resolution.scoringSide ?? possession;
+    if (side === "home") game.home += resolution.scored;
+    else game.away += resolution.scored;
+  }
+  game.events = [...old.events, {
+    turn: old.turn,
+    phase: old.phase,
+    call,
+    title: resolution.title,
+    detail: resolution.detail,
+    home: game.home,
+    away: game.away,
+    play: resolution.play,
+    yards: resolution.yards,
+    possession,
+    direction: driveDirection2(possession),
+    startYard: old.yardLine,
+    endYard: resolution.endYard,
+    action: resolution.action,
+    scored: resolution.scored,
+    actors: resolution.actors
+  }];
+  if (old.phase === "offense") {
+    const event = game.events[game.events.length - 1];
+    event.down = old.down;
+    event.lineToGain = old.lineToGain;
+    if (!resolution.scored && resolution.action !== "field-goal") {
+      const reached = driveDirection2(possession) * (game.yardLine - (old.lineToGain ?? old.yardLine)) >= 0;
+      if (reached) {
+        game.down = 1;
+        game.lineToGain = advance2(possession, game.yardLine, 10);
+        event.firstDown = true;
+        event.title += " \xB7 First down";
+        event.detail += " New set of downs.";
+      } else if (old.down === 4) {
+        event.turnoverOnDowns = true;
+        event.title = "Turnover on downs";
+        event.detail += " Fourth down stopped short. This possession is over.";
+        resolution.endPhase = "next-possession";
+      } else game.down = (old.down ?? 1) + 1;
+    }
+  }
+  if (old.phase === "return" && resolution.endPhase === "offense") {
+    game.down = 1;
+    game.lineToGain = advance2(possession, game.yardLine, 10);
+  }
+  if (resolution.endPhase === "next-possession") game = advancePossession2(game);
+  else game.phase = resolution.endPhase;
+  if (game.phase === "conversion" && !conversionMatters2(game)) game = advancePossession2(game);
+  if (game.phase === "final") game.reward = game.home > game.away ? opponent.reward : game.home === game.away ? Math.round(opponent.reward * 0.5) : 20;
+  return { ...club, stadiumFootball: { ...state, game } };
+}
+function resolve2(game, call, roll, ctx) {
+  const { mine, possession, advantage, defAdv, opponent, r } = ctx;
+  const scoringSide = possession;
+  const actor = (slot, attribute) => {
+    const a = actorFor2(game, slot, attribute, r);
+    return a ? [a] : [];
+  };
+  switch (game.phase) {
+    case "return": {
+      if (mine) {
+        const coverage = returnCoverageOf2(game);
+        const quality = laneQuality2(coverage, call);
+        const base = 18 + quality.bonus + r.speed * 0.35 + roll * 14 + advantage * 6;
+        if (roll < quality.breakaway + bounded3((r.speed - 15) / 220, 0, 0.06)) {
+          return { title: "Kickoff return touchdown!", detail: `${COVERAGE_TEXT2[coverage]} ${quality.note} Your returner took it the distance.`, yards: 80, action: "touchdown", scored: 6, actors: actor("RECEIVER", "speed"), endPhase: "conversion", endYard: ENDZONE2.away, scoringSide };
+        }
+        const yards2 = Math.round(bounded3(base, 8, 52));
+        const end2 = advance2(possession, game.yardLine, yards2);
+        return { title: `Return to ${describeYard2(end2)}`, detail: `${COVERAGE_TEXT2[coverage]} ${quality.note} ${yards2} yards on the return.`, yards: yards2, action: "return", scored: 0, actors: actor("RECEIVER", "speed"), endPhase: "offense", endYard: end2 };
+      }
+      const squib = call === "squib";
+      const threat = bounded3(0.18 - defAdv * 0.12, 0.03, 0.35);
+      if (!squib && roll < threat) {
+        return { title: "They return the kickoff for a touchdown", detail: "Your coverage team was beaten to the sideline. Kicking deep gave them the runway.", yards: 80, action: "touchdown", scored: 6, actors: actor("COVER", "speed"), endPhase: "conversion", endYard: ENDZONE2.home, scoringSide };
+      }
+      const yards = Math.round(bounded3((squib ? 16 : 28) - defAdv * 8 + roll * 10, 6, 48));
+      const end = advance2(possession, game.yardLine, yards);
+      return { title: `They start at ${describeYard2(end)}`, detail: squib ? "The squib kick kept the return short and handed them the field position." : "Your coverage team made the tackle after a full return.", yards, action: "kick", scored: 0, actors: actor("COVER", "speed"), endPhase: "offense", endYard: end };
+    }
+    case "offense": {
+      if (mine) {
+        const play = call;
+        const look = defensiveLookOf2(game);
+        const answers = PLAY_ANSWER2[play] === look;
+        const talent = play === "power" ? r.power : play === "verticals" ? r.speed : r.iq;
+        const mastery = r.mastery[play] ?? 0;
+        const toGoal2 = yardsToGoal2(possession, game.yardLine);
+        const scoreChance = bounded3((0.18 + advantage * 0.18 + (answers ? 0.1 : -0.04) + (talent - 15) * 3e-3 + mastery * 4e-3) * Math.min(1, 8 / Math.max(1, toGoal2)), 5e-3, 0.8);
+        const failChance = PLAY_RISK2[play] * (answers ? 0.6 : 1.35);
+        const actors2 = [...actor(SLOT_FOR_PLAY2[play], ATTRIBUTE_FOR_PLAY2[play]), ...actor(play === "power" ? "LINE1" : "QB", play === "power" ? "power" : "iq")];
+        const base = `${FOOTBALL_PLAYS[play]?.name ?? play} against ${LOOK_TEXT2[look].toLowerCase().replace(/^they are /, "a defense ").replace(/\.$/, "")}. ${answers ? "The call answered their look." : "Their look was set up against it."} Mastery ${mastery}/20.`;
+        if (roll < scoreChance) {
+          return { title: "Touchdown!", detail: `${base} ${toGoal2} yards, all at once.`, yards: toGoal2, action: "touchdown", scored: 6, actors: actors2, endPhase: "conversion", endYard: possession === "home" ? ENDZONE2.away : ENDZONE2.home, play, scoringSide };
+        }
+        if (roll > 1 - failChance) {
+          return { title: "The play breaks down", detail: `${base} No gain. The ball stays at the line of scrimmage.`, yards: 0, action: play === "power" ? "run" : "pass", scored: 0, actors: actors2, endPhase: "finish", endYard: game.yardLine, play };
+        }
+        const yards2 = Math.round(bounded3((play === "power" ? 2 : 4) + advantage * 4 + roll * (play === "verticals" ? 17 : play === "power" ? 5 : 9) + (answers ? 2 : 0), 1, Math.max(1, toGoal2 - 1)));
+        const end2 = advance2(possession, game.yardLine, yards2);
+        return { title: `${yards2} yards to ${describeYard2(end2)}`, detail: `${base} The drive continues.`, yards: yards2, action: play === "power" ? "run" : "pass", scored: 0, actors: actors2, endPhase: "finish", endYard: end2, play };
+      }
+      const theirRoll = seeded2(game.seed ?? 0, `theirplay:${game.possessionIndex ?? 0}:${game.turn}`);
+      const theirPlay = theirRoll < 0.34 ? "slants" : theirRoll < 0.67 ? "verticals" : "power";
+      const counters = call === "zone" && theirPlay === "verticals" || call === "man" && theirPlay === "slants" || call === "stack" && theirPlay === "power";
+      const toGoal = yardsToGoal2(possession, game.yardLine);
+      const theirScore = bounded3((0.18 - defAdv * 0.18 + (counters ? -0.1 : 0.06)) * Math.min(1, 8 / Math.max(1, toGoal)), 5e-3, 0.8);
+      const actors = [...actor(counters ? "BACKER" : "RUSHER", "iq"), ...actor("SAFETY", "overall")];
+      const name = FOOTBALL_PLAYS[theirPlay]?.name ?? theirPlay;
+      if (roll < theirScore) {
+        return { title: "They score a touchdown", detail: `They called ${name} against your ${call}. ${counters ? "Your call was right but they executed anyway." : "Your call left that option open."}`, yards: toGoal, action: "touchdown", scored: 6, actors, endPhase: "conversion", endYard: possession === "home" ? ENDZONE2.away : ENDZONE2.home, play: theirPlay, scoringSide };
+      }
+      if (roll > 0.9) {
+        return { title: "Stopped for no gain", detail: `Your ${call} met ${name} at the line. They face a decision from where they stand.`, yards: 0, action: "stop", scored: 0, actors, endPhase: "finish", endYard: game.yardLine, play: theirPlay };
+      }
+      const yards = Math.round(bounded3((theirPlay === "power" ? 2 : 4) - defAdv * 4 + roll * (theirPlay === "verticals" ? 17 : theirPlay === "power" ? 5 : 9) + (counters ? -2 : 2), 1, Math.max(1, toGoal - 1)));
+      const end = advance2(possession, game.yardLine, yards);
+      return { title: `They gain ${yards} to ${describeYard2(end)}`, detail: `Your ${call} against ${name}. ${counters ? "The call took their first option away." : "They found the space your call left."}`, yards, action: "stop", scored: 0, actors, endPhase: "finish", endYard: end, play: theirPlay };
+    }
+    case "finish": {
+      const toGoal = yardsToGoal2(possession, game.yardLine);
+      if (mine) {
+        if (call === "field-goal") {
+          const distance2 = fieldGoalDistance2(possession, game.yardLine);
+          const kicker = kickerOf2(game);
+          const steadiness = kicker ? kicker.power : Math.round(r.iq * 3);
+          const chance3 = bounded3(0.97 - (distance2 - 20) * 0.017 + (steadiness - 30) * 4e-3, 0.03, 0.97);
+          const made3 = roll < chance3;
+          const actors3 = kicker ? [{ slot: "BACK", name: kicker.name, role: kicker.role, attribute: "overall", value: kicker.power }] : [];
+          return { title: made3 ? `${distance2}-yard field goal is good` : `${distance2}-yard field goal is no good`, detail: `${kicker ? `${kicker.name} took the kick. ` : ""}A ${distance2}-yard attempt at ${Math.round(chance3 * 100)}% for this club.`, yards: 0, action: "field-goal", scored: made3 ? 3 : 0, actors: actors3, endPhase: "next-possession", endYard: game.yardLine, scoringSide };
+        }
+        const goalLine = toGoal <= 5;
+        const chance2 = bounded3((goalLine ? 0.5 : 0.3) + advantage * 0.2 + (r.power - 15) * 4e-3 - (goalLine ? 0 : toGoal * 6e-3), 0.05, 0.9);
+        const made2 = roll < chance2;
+        const actors2 = actor("BACK", "power");
+        if (made2) return { title: goalLine ? "Goal-line touchdown" : `${toGoal}-yard touchdown`, detail: goalLine ? "The runner followed the lead block through their front." : `They had to cover ${toGoal} yards in one play, and did.`, yards: toGoal, action: "touchdown", scored: 6, actors: actors2, endPhase: "conversion", endYard: possession === "home" ? ENDZONE2.away : ENDZONE2.home, play: "power", scoringSide };
+        return { title: goalLine ? "Goal-line stand" : "Stopped short", detail: `${toGoal} yards was too far on one play. The possession ends with no points.`, yards: 0, action: "stop", scored: 0, actors: actors2, endPhase: "next-possession", endYard: game.yardLine, play: "power" };
+      }
+      const pressure = call === "pressure";
+      const theyKick = seeded2(game.seed ?? 0, `theirfinish:${game.possessionIndex ?? 0}`) < (toGoal > 8 ? 0.72 : 0.3);
+      const actors = [...actor(pressure ? "RUSHER" : "BACKER", "power"), ...actor("SAFETY", "overall")];
+      if (theyKick) {
+        const distance2 = fieldGoalDistance2(possession, game.yardLine);
+        const chance2 = bounded3(0.9 - (distance2 - 20) * 0.015 - (pressure ? 0.14 : 0) + defAdv * -0.05, 0.05, 0.95);
+        const made2 = roll < chance2;
+        return { title: made2 ? `Their ${distance2}-yard field goal is good` : `Their ${distance2}-yard field goal misses`, detail: pressure ? "You sent pressure at the kick." : "You stayed back to defend the goal line; they took the points.", yards: 0, action: "field-goal", scored: made2 ? 3 : 0, actors, endPhase: "next-possession", endYard: game.yardLine, scoringSide };
+      }
+      const chance = bounded3(0.45 - defAdv * 0.2 - (pressure ? 0 : 0.16) - (toGoal > 5 ? toGoal * 0.01 : 0), 0.05, 0.9);
+      const made = roll < chance;
+      if (made) return { title: "They convert for a touchdown", detail: pressure ? "You pressured instead of defending the goal line, and they ran through it." : "You defended the goal line and they still got in.", yards: toGoal, action: "touchdown", scored: 6, actors, endPhase: "conversion", endYard: possession === "home" ? ENDZONE2.away : ENDZONE2.home, play: "power", scoringSide };
+      return { title: "They are stopped short", detail: pressure ? "The pressure got there before the runner did." : "Your goal-line defence held them out.", yards: 0, action: "stop", scored: 0, actors, endPhase: "next-possession", endYard: game.yardLine, play: "power" };
+    }
+    case "conversion": {
+      if (mine) {
+        const two = call === "two-point";
+        const kicker = kickerOf2(game);
+        const chance2 = two ? bounded3(0.46 + advantage * 0.2 + (r.power - 15) * 4e-3, 0.1, 0.9) : bounded3(0.95 + (kicker ? (kicker.power - 30) * 15e-4 : 0), 0.7, 0.99);
+        const made2 = roll < chance2;
+        const actors2 = two ? actor("BACK", "power") : kicker ? [{ slot: "BACK", name: kicker.name, role: kicker.role, attribute: "overall", value: kicker.power }] : [];
+        return { title: made2 ? two ? "Two-point conversion is good" : "Extra point is good" : two ? "Two-point conversion stopped" : "Extra point missed", detail: two ? "One matchup at the goal line decided it." : `${kicker ? `${kicker.name} ` : ""}took the kick after the touchdown.`, yards: 0, action: "conversion", scored: made2 ? two ? 2 : 1 : 0, actors: actors2, endPhase: "next-possession", endYard: game.yardLine, scoringSide };
+      }
+      const theyGoForTwo = conversionWouldWin2(game);
+      const block = call === "block";
+      const chance = theyGoForTwo ? bounded3(0.48 - defAdv * 0.18 - (block ? 0 : 0.12), 0.08, 0.9) : bounded3(0.95 - (block ? 0.1 : 0), 0.6, 0.98);
+      const made = roll < chance;
+      const actors = actor(block ? "RUSHER" : "BACKER", "power");
+      return { title: made ? theyGoForTwo ? "They convert for two" : "Their extra point is good" : theyGoForTwo ? "Their two-point try is denied" : "Their extra point is blocked", detail: theyGoForTwo ? "They needed two, and you defended it accordingly." : block ? "You sent the rush at the kick." : "You stayed home against the two-point look.", yards: 0, action: "conversion", scored: made ? theyGoForTwo ? 2 : 1 : 0, actors, endPhase: "next-possession", endYard: game.yardLine, scoringSide };
+    }
+    default:
+      return { title: "", detail: "", yards: 0, action: "stop", scored: 0, actors: [], endPhase: "final", endYard: game.yardLine };
+  }
+}
+function conversionWouldWin2(game) {
+  const theirs = game.possession === "home" ? game.home : game.away;
+  const ours = game.possession === "home" ? game.away : game.home;
+  return theirs + 1 <= ours && theirs + 2 > ours;
+}
+function describeYard2(yardLine) {
+  const spot = Math.round(bounded3(yardLine, 0, 100));
+  if (spot === 50) return "midfield";
+  return spot < 50 ? `your ${spot}` : `their ${100 - spot}`;
+}
+function validStadiumFootball2(input) {
+  if (!input || typeof input !== "object") return false;
+  if (input.game?.v === 2) return validStadiumFootball(input);
+  const s = input;
+  const int = (n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
+  if (!Array.isArray(s.history) || s.history.length > 20 || s.history.some((h) => !h || typeof h.id !== "string" || !Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, h.opponent) || ![h.home, h.away, h.reward, h.at].every(int))) return false;
+  const g = s.game;
+  if (g === null || g === void 0) return true;
+  const ratingsOk = !!g.ratings && ["attack", "defense", "speed", "power", "iq", "readiness"].every((k) => Number.isFinite(g.ratings[k]) && Number(g.ratings[k]) >= 0) && !!g.ratings.mastery && Object.entries(g.ratings.mastery).every(([k, v]) => Object.prototype.hasOwnProperty.call(FOOTBALL_PLAYS, k) && int(v) && v <= 20);
+  const eventsOk = Array.isArray(g.events) && g.events.length <= 96 && g.events.every((e) => e && typeof e.title === "string" && typeof e.detail === "string" && typeof e.call === "string" && [e.turn, e.home, e.away, e.yards].every(int) && (e.possession === void 0 || e.possession === "home" || e.possession === "away") && (e.direction === void 0 || e.direction === 1 || e.direction === -1) && (e.startYard === void 0 || int(e.startYard) && e.startYard <= 100) && (e.endYard === void 0 || int(e.endYard) && e.endYard <= 100) && (e.down === void 0 || int(e.down) && e.down >= 1 && e.down <= 4) && (e.lineToGain === void 0 || int(e.lineToGain) && e.lineToGain <= 100) && (e.firstDown === void 0 || typeof e.firstDown === "boolean") && (e.turnoverOnDowns === void 0 || typeof e.turnoverOnDowns === "boolean") && (e.scored === void 0 || int(e.scored) && e.scored <= 6) && (e.actors === void 0 || Array.isArray(e.actors) && e.actors.length <= 4 && e.actors.every((a) => !!a && typeof a.name === "string" && a.name.length <= 120 && typeof a.slot === "string" && Number.isFinite(a.value))));
+  const v2 = g.v === STADIUM_RULES_VERSION2;
+  const distance2 = (g.possession === "away" ? -1 : 1) * ((g.lineToGain ?? 0) - g.yardLine);
+  const v2Ok = !v2 || (g.phase !== "offense" || distance2 > 0 && distance2 <= 10) && (int(g.down) && g.down >= 1 && g.down <= 4 && int(g.lineToGain) && g.lineToGain <= 100) && (g.possession === "home" || g.possession === "away") && int(g.possessionIndex) && g.possessionIndex <= 2 && (g.receivesFirst === "home" || g.receivesFirst === "away") && int(g.seed) && (g.lineup === void 0 || validLineupSnapshot(g.lineup));
+  return !!g && typeof g.id === "string" && Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, g.opponent) && ["return", "offense", "finish", "conversion", "kickoff", "defense", "defend-finish", "final"].includes(g.phase) && [g.turn, g.startedAt, g.home, g.away, g.yardLine, g.reward].every(int) && g.turn <= 96 && g.home <= 40 && g.away <= 40 && g.yardLine <= 100 && g.reward <= 220 && typeof g.collected === "boolean" && (g.v === void 0 || g.v === STADIUM_RULES_VERSION2) && ratingsOk && eventsOk && v2Ok;
 }
 
 // game/combat/canonical.ts
@@ -3870,7 +4269,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     hash(["command", a]);
     return true;
   };
-  const advance2 = () => {
+  const advance3 = () => {
     if (!started || sim.current.ended) return;
     hashPlan();
     const previousTick = sim.current.ticks;
@@ -3914,7 +4313,7 @@ function createBattleEngine(input, seed, planKey = "balanced") {
     plays,
     defensePlays,
     command,
-    advance: advance2,
+    advance: advance3,
     finish: () => command({ k: "e", tick: sim.current.ticks }),
     setPlan: (key) => {
       if (started) return false;
@@ -4469,6 +4868,10 @@ function parseClubAction(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const value = input;
   if (typeof value.type !== "string" || !Object.prototype.hasOwnProperty.call(fields, value.type)) return null;
+  if (value.type === "stadium.start" && value.format !== void 0) {
+    if (value.format !== "four-downs" || Object.keys(value).length !== 3 || typeof value.opponent !== "string" || !Object.prototype.hasOwnProperty.call(STADIUM_OPPONENTS, value.opponent)) return null;
+    return { type: "stadium.start", opponent: value.opponent, format: "four-downs" };
+  }
   const required2 = fields[value.type];
   if (Object.keys(value).length !== required2.length + 1 || Object.keys(value).some((key) => key !== "type" && !required2.includes(key))) return null;
   if (value.type === "development.start") {
@@ -4573,7 +4976,7 @@ function applyClubAction(previous, input, context) {
     case "stadium.call":
     case "stadium.collect":
     case "stadium.abandon": {
-      const next = applyStadiumFootball(state, command, now, random);
+      const next = applyStadiumFootball2(state, command, now, random);
       return typeof next === "string" ? fail2("not_ready", next) : success(next);
     }
     case "scouting.search":
@@ -5017,7 +5420,7 @@ function parseSavedClub(raw) {
   for (const field of ["lastTick", "timeOfDay", "trophies", "builders", "parkingLot", "bonusDefSlots", "shieldUntil", "energyProgressMs", "peakFans"]) {
     if (field in s) require2(number(s[field]), field);
   }
-  if (s.stadiumFootball !== void 0) require2(validStadiumFootball(s.stadiumFootball), "Stadium football");
+  if (s.stadiumFootball !== void 0) require2(validStadiumFootball2(s.stadiumFootball), "Stadium football");
   if (s.scouting !== void 0) require2(validScouting(s.scouting), "scouting activities");
   if (s.development !== void 0) require2(validDevelopment(s.development), "team development");
   if (s.lineup !== void 0) require2(validLineup(s.lineup), "Stadium lineup");
@@ -5165,16 +5568,16 @@ var loadState = (storage, now = Date.now()) => {
 
 // server/authorityAdmission.ts
 var STAT_KEYS = ["strength", "speed", "iq"];
-var bounded3 = (n, lo, hi) => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
-var integer2 = (n, lo, hi) => bounded3(n, lo, hi) && Number.isSafeInteger(n);
+var bounded4 = (n, lo, hi) => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
+var integer2 = (n, lo, hi) => bounded4(n, lo, hi) && Number.isSafeInteger(n);
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var text3 = (value, length = 100) => typeof value === "string" && value.length > 0 && value.length <= length && !/[\u0000-\u001f\u007f]/u.test(value);
 var date = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value));
-var point4 = (value) => object2(value) && ["x", "y", "z"].every((key) => bounded3(value[key], -1e3, 1e3));
+var point4 = (value) => object2(value) && ["x", "y", "z"].every((key) => bounded4(value[key], -1e3, 1e3));
 var reject = () => {
   throw new MatchRuleError("invalid_legacy", "This club needs recovery before online protection can be enabled. Your local club has been kept.");
 };
-var validPlayer = (p) => object2(p) && text3(p.id) && text3(p.name) && integer2(p.level, 1, 100) && Object.prototype.hasOwnProperty.call(ROLE_UNIT, p.role) && ROLE_UNIT[p.role] === p.unit && object2(p.stats) && STAT_KEYS.every((key) => bounded3(p.stats[key], 1, 1e3)) && point4(p.worldPos) && point4(p.targetPos) && (p.rarity === void 0 || Object.values(PlayerRarity).includes(p.rarity)) && (p.maxStat === void 0 || bounded3(p.maxStat, 1, 1e3));
+var validPlayer = (p) => object2(p) && text3(p.id) && text3(p.name) && integer2(p.level, 1, 100) && Object.prototype.hasOwnProperty.call(ROLE_UNIT, p.role) && ROLE_UNIT[p.role] === p.unit && object2(p.stats) && STAT_KEYS.every((key) => bounded4(p.stats[key], 1, 1e3)) && point4(p.worldPos) && point4(p.targetPos) && (p.rarity === void 0 || Object.values(PlayerRarity).includes(p.rarity)) && (p.maxStat === void 0 || bounded4(p.maxStat, 1, 1e3));
 function validatePending(saved, now) {
   const jobs = saved.upgrades ?? [];
   if (jobs.length > 20 || new Set(jobs.map((job) => job.id)).size !== jobs.length || new Set(jobs.map((job) => `${job.kind}:${job.key}`)).size !== jobs.length) return reject();
@@ -5190,7 +5593,7 @@ function validatePending(saved, now) {
   }
   if (saved.recruitSlot != null) {
     const slot = saved.recruitSlot;
-    if (!object2(slot) || !validPlayer(slot.candidate) || !bounded3(slot.cost, 0, 1e9) || !integer2(slot.finishTime, 0, now + 7 * 864e5) || saved.roster.some((p) => p.id === slot.candidate.id)) return reject();
+    if (!object2(slot) || !validPlayer(slot.candidate) || !bounded4(slot.cost, 0, 1e9) || !integer2(slot.finishTime, 0, now + 7 * 864e5) || saved.roster.some((p) => p.id === slot.candidate.id)) return reject();
   }
 }
 function pristine(saved, now) {
@@ -5217,7 +5620,7 @@ function admitClub(legacy, createdAt, activationAt, now) {
     state2.teamName = (saved.teamName || state2.teamName).trim().slice(0, 40);
     return { state: state2, origin: "new" };
   }
-  if (!bounded3(saved.resources.COINS, 0, 1e9) || !bounded3(saved.resources.GEMS, 0, 1e7) || !bounded3(saved.resources.FANS, 0, 1e8) || !bounded3(saved.resources.ENERGY, 0, 100) || !integer2(saved.lastTick, 0, now) || !integer2(saved.currentMatch, 1, 1e7) || !bounded3(saved.teamReadiness, 0, 100) || !integer2(saved.trophies, 0, 1e7) || saved.peakFans !== void 0 && !bounded3(saved.peakFans, 0, 1e8) || saved.energyProgressMs !== void 0 && !bounded3(saved.energyProgressMs, 0, 864e5) || saved.shieldUntil !== void 0 && !integer2(saved.shieldUntil, 0, now + 7 * 864e5) || !bounded3(saved.timeOfDay, 0, 24) || !Object.values(SeasonPhase).includes(saved.seasonPhase) || saved.buildings.length > 20 || new Set(saved.buildings.map((b) => b.id)).size !== saved.buildings.length || !saved.buildings.every((b) => INITIAL_BUILDINGS.some((owned) => owned.id === b.id && owned.type === b.type) && bounded3(b.level, 1, 100) && (b.accrued === void 0 || bounded3(b.accrued, 0, 1e7))) || !saved.roster.length || saved.roster.length > 150 || new Set(saved.roster.map((p) => p.id)).size !== saved.roster.length || !saved.roster.every(validPlayer)) return reject();
+  if (!bounded4(saved.resources.COINS, 0, 1e9) || !bounded4(saved.resources.GEMS, 0, 1e7) || !bounded4(saved.resources.FANS, 0, 1e8) || !bounded4(saved.resources.ENERGY, 0, 100) || !integer2(saved.lastTick, 0, now) || !integer2(saved.currentMatch, 1, 1e7) || !bounded4(saved.teamReadiness, 0, 100) || !integer2(saved.trophies, 0, 1e7) || saved.peakFans !== void 0 && !bounded4(saved.peakFans, 0, 1e8) || saved.energyProgressMs !== void 0 && !bounded4(saved.energyProgressMs, 0, 864e5) || saved.shieldUntil !== void 0 && !integer2(saved.shieldUntil, 0, now + 7 * 864e5) || !bounded4(saved.timeOfDay, 0, 24) || !Object.values(SeasonPhase).includes(saved.seasonPhase) || saved.buildings.length > 20 || new Set(saved.buildings.map((b) => b.id)).size !== saved.buildings.length || !saved.buildings.every((b) => INITIAL_BUILDINGS.some((owned) => owned.id === b.id && owned.type === b.type) && bounded4(b.level, 1, 100) && (b.accrued === void 0 || bounded4(b.accrued, 0, 1e7))) || !saved.roster.length || saved.roster.length > 150 || new Set(saved.roster.map((p) => p.id)).size !== saved.roster.length || !saved.roster.every(validPlayer)) return reject();
   validatePending(saved, now);
   if (saved.development?.schedule) {
     const schedule = saved.development.schedule;
@@ -5235,7 +5638,7 @@ function admitClub(legacy, createdAt, activationAt, now) {
   }
   const stadiumLevel = normalized.buildings.find((b) => b.type === "STADIUM" /* STADIUM */)?.level ?? 1;
   if (Object.values(normalized.defenseSlots).some((n) => n > stadiumLevel) || normalized.heroes.some((h) => h.level > heroMaxLevel(stadiumLevel))) return reject();
-  if (!integer2(normalized.builders, 1, MAX_BUILDERS) || !integer2(normalized.parkingLot, 0, 3) || !integer2(normalized.bonusDefSlots, 0, 3) || !Object.prototype.hasOwnProperty.call(FORMATIONS, normalized.formation) || normalized.heroes.length !== HERO_DEFS.length || new Set(normalized.heroes.map((h) => h.key)).size !== HERO_DEFS.length || !normalized.heroes.every((h) => HERO_DEFS.some((d) => d.key === h.key) && integer2(h.level, 1, 100) && integer2(h.stars, 1, 5) && integer2(h.shards, 0, 1e7) && typeof h.unlocked === "boolean") || Object.entries(normalized.defenseSlots).some(([key, n]) => !FORMATION_ORDER.some((f) => slotsFor(f).some((slot) => slot.id === key)) || !integer2(n, 0, MAX_SLOT_LEVEL)) || Object.entries(normalized.formationMastery).some(([key, n]) => !FORMATION_ORDER.includes(key) || !integer2(n, 0, 1e7)) || Object.entries(normalized.heroGates).some(([post, hero]) => !FORMATION_ORDER.some((f) => gatePostsFor(f).some((p) => p.id === post)) || !normalized.heroes.some((h) => h.key === hero && h.unlocked)) || !integer2(normalized.gauntlet.best, 0, 20) || !integer2(normalized.gauntlet.attempts, 0, 3) || !date(normalized.gauntlet.date) || !integer2(normalized.campaign.unlocked, 1, CAMPAIGN_STAGES.length) || Object.entries(normalized.campaign.stars).some(([key, n]) => !integer2(Number(key), 1, CAMPAIGN_STAGES.length) || !integer2(n, 0, 3)) || normalized.campaign.claimed.some((n) => !integer2(n, 1, CAMPAIGN_STAGES.length)) || new Set(normalized.campaign.claimed).size !== normalized.campaign.claimed.length || !date(normalized.dailies.date) || Object.entries(normalized.dailies.progress).some(([key, n]) => !ALL_QUESTS.some((q) => q.id === key) || !bounded3(n, 0, 1e8)) || normalized.dailies.claimed.some((key) => !ALL_QUESTS.some((q) => q.id === key)) || new Set(normalized.dailies.claimed).size !== normalized.dailies.claimed.length || normalized.upgrades.length > 20 || normalized.upgrades.some((j) => !bounded3(j.toLevel, 1, 100) || !bounded3(j.startTime, 0, now) || !bounded3(j.finishTime, j.startTime, now + 7 * 864e5))) return reject();
+  if (!integer2(normalized.builders, 1, MAX_BUILDERS) || !integer2(normalized.parkingLot, 0, 3) || !integer2(normalized.bonusDefSlots, 0, 3) || !Object.prototype.hasOwnProperty.call(FORMATIONS, normalized.formation) || normalized.heroes.length !== HERO_DEFS.length || new Set(normalized.heroes.map((h) => h.key)).size !== HERO_DEFS.length || !normalized.heroes.every((h) => HERO_DEFS.some((d) => d.key === h.key) && integer2(h.level, 1, 100) && integer2(h.stars, 1, 5) && integer2(h.shards, 0, 1e7) && typeof h.unlocked === "boolean") || Object.entries(normalized.defenseSlots).some(([key, n]) => !FORMATION_ORDER.some((f) => slotsFor(f).some((slot) => slot.id === key)) || !integer2(n, 0, MAX_SLOT_LEVEL)) || Object.entries(normalized.formationMastery).some(([key, n]) => !FORMATION_ORDER.includes(key) || !integer2(n, 0, 1e7)) || Object.entries(normalized.heroGates).some(([post, hero]) => !FORMATION_ORDER.some((f) => gatePostsFor(f).some((p) => p.id === post)) || !normalized.heroes.some((h) => h.key === hero && h.unlocked)) || !integer2(normalized.gauntlet.best, 0, 20) || !integer2(normalized.gauntlet.attempts, 0, 3) || !date(normalized.gauntlet.date) || !integer2(normalized.campaign.unlocked, 1, CAMPAIGN_STAGES.length) || Object.entries(normalized.campaign.stars).some(([key, n]) => !integer2(Number(key), 1, CAMPAIGN_STAGES.length) || !integer2(n, 0, 3)) || normalized.campaign.claimed.some((n) => !integer2(n, 1, CAMPAIGN_STAGES.length)) || new Set(normalized.campaign.claimed).size !== normalized.campaign.claimed.length || !date(normalized.dailies.date) || Object.entries(normalized.dailies.progress).some(([key, n]) => !ALL_QUESTS.some((q) => q.id === key) || !bounded4(n, 0, 1e8)) || normalized.dailies.claimed.some((key) => !ALL_QUESTS.some((q) => q.id === key)) || new Set(normalized.dailies.claimed).size !== normalized.dailies.claimed.length || normalized.upgrades.length > 20 || normalized.upgrades.some((j) => !bounded4(j.toLevel, 1, 100) || !bounded4(j.startTime, 0, now) || !bounded4(j.finishTime, j.startTime, now + 7 * 864e5))) return reject();
   const state = createInitialState(now);
   for (const key of Object.keys(state)) state[key] = normalized[key];
   state.campusLayout = normalized.campusLayout;
@@ -5247,7 +5650,7 @@ function admitClub(legacy, createdAt, activationAt, now) {
   state.recruitBoard = void 0;
   state.defenseLog = [];
   state.bonusOrbs = [];
-  if (!Array.isArray(state.matchHistory) || state.matchHistory.some((m) => !object2(m) || !integer2(m.week, 1, 1e7) || !text3(m.opponent, 200) || !bounded3(m.ourScore, 0, 1e3) || !bounded3(m.theirScore, 0, 1e3) || typeof m.won !== "boolean" || !bounded3(m.reward, 0, 1e9))) return reject();
+  if (!Array.isArray(state.matchHistory) || state.matchHistory.some((m) => !object2(m) || !integer2(m.week, 1, 1e7) || !text3(m.opponent, 200) || !bounded4(m.ourScore, 0, 1e3) || !bounded4(m.theirScore, 0, 1e3) || typeof m.won !== "boolean" || !bounded4(m.reward, 0, 1e9))) return reject();
   state.matchHistory = state.matchHistory.slice(0, 50);
   state.teamName = state.teamName.trim().slice(0, 40) || "Football Club";
   state.lastTick = now;
