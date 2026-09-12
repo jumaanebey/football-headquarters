@@ -31,3 +31,13 @@
 
 /* A close field camera keeps athletes legible at phone widths. */
 .fhq-stadium-performance{overflow:hidden;background:#183329;border:1px solid #60816b;border-radius:14px;margin:12px 0}.fhq-stadium-performance>svg{display:block;width:100%;max-height:none;aspect-ratio:auto}.fhq-performance-caption{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:9px 12px;background:#142823}.fhq-performance-caption p{margin:0;font-size:12px;color:#f8eac4;font-weight:700}.fhq-performance-caption button{flex-shrink:0;color:#c9dfdb;border:1px solid #54736a;border-radius:7px;padding:7px;background:transparent;font-size:11px;min-height:34px}.fhq-football-decisions[aria-busy=true] .fhq-football-calls{opacity:.55}@media(min-width:900px){.fhq-stadium-performance>svg{max-height:480px}}
+
+/* Put the next decision ahead of the detailed recap on short landscape screens. */
+@media(max-height:500px) and (orientation:landscape){
+ .fhq-football-live>.fhq-football-decisions{display:flex;flex-direction:column;gap:7px}
+ .fhq-football-decisions>.fhq-football-objective{order:0;margin:0}
+ .fhq-football-decisions>.fhq-football-context{order:1;margin:0}
+ .fhq-football-decisions>.fhq-football-calls,.fhq-football-decisions>.fhq-session-result{order:2}
+ .fhq-football-decisions>.fhq-football-event{order:3}
+ .fhq-football-decisions>.fhq-concede{order:4}
+}
