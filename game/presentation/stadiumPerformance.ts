@@ -46,7 +46,7 @@ export function stadiumPerformance(game:StadiumFootballGame,time:number):Stadium
  const throwT=at(t,.61,.78),kickT=at(t,.53,.92);
  const ball=isKick?{x:lerp(qb.x,away?-10:110,kickT),y:lerp(27,e?.scored?20:39,kickT)-Math.sin(kickT*Math.PI)*14,visible:active}:
  isRun?{x:runnerX,y:receiverY,visible:false}:{x:lerp(qb.x,targetX,throwT),y:lerp(qb.y,targetY,throwT)-Math.sin(throwT*Math.PI)*5+(!complete?at(t,.78,.92)*2:0),visible:active&&t>=.61&&(t<.78||!complete)};
- return {actors,ball,focus:isKick?{x:lerp(start,away?0:100,kickT),y:27}:isRun?{x:runnerX,y:receiverY}:{x:lerp(start,targetX,at(t,.4,.85)),y:lerp(27,targetY,at(t,.4,.85))},beat:!active?'Set · awaiting your call':t<.15?'Set · read the formation':t<.4?'Snap · execute assignments':t<.7?isKick?'Plant · strike the ball':isRun?'Press the gap · plant and cut':'Release · track the pass':t<1?'Finish the play':e!.title,animated:active};
+ return {actors,ball,focus:isKick?{x:lerp(start,away?0:100,kickT),y:27}:isRun?{x:runnerX,y:receiverY}:{x:lerp(lerp(start,targetX,at(t,.4,.85)),end,!complete?at(t,.85,1):0),y:lerp(27,targetY,at(t,.4,.85))},beat:!active?'Set · awaiting your call':t<.15?'Set · read the formation':t<.4?'Snap · execute assignments':t<.7?isKick?'Plant · strike the ball':isRun?'Press the gap · plant and cut':'Release · track the pass':t<1?'Finish the play':e!.title,animated:active};
 }
 function eventKind(e:FootballEvent|undefined){
  if(e?.phase==='return'||e?.action==='return'||e?.action==='kick')return 'return';
