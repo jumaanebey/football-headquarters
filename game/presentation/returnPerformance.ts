@@ -9,7 +9,7 @@ const route=(points:FieldPoint[],t:number)=>{
  return {x:mix(points[i].x,points[i+1].x,f-i),y:mix(points[i].y,points[i+1].y,f-i)};
 };
 /** The return begins at the saved catch spot; kickoff flight is a separate sequence. */
-export function returnPerformance(start:number,end:number,lane:'left'|'middle'|'right',time:number,direction:1|-1=1):ReturnPerformance{
+export function returnPerformance(start:number,end:number,lane:'left'|'middle'|'right',time:number,direction:1|-1=1,scored=false):ReturnPerformance{
  const t=clamp(time),side=lane==='left'?-1:lane==='right'?1:0;
  const advance=(v:number)=>start+direction*v;
  const distance=(end-start)*direction;
@@ -27,7 +27,7 @@ export function returnPerformance(start:number,end:number,lane:'left'|'middle'|'
   const y=3+i*4.7,x=advance(17+(i%3)*3);
   const pursuit=i===4||i===8;
   const chase=clamp((t-(i===4?.35:.47))/.53);
-  const close=i===4&&distance<55?1:.72;
+  const close=i===4&&!scored?1:.72;
   actors.push({id:`cover-${i}`,side:'cover',role:pursuit?'Pursuit':'Coverage',
    x:pursuit?mix(x,runner.x-direction*(1-close)*5,chase*close):mix(x,advance(13+(i%3)*2)+direction*1.8,clamp(t/.45)),
    y:pursuit?mix(y,runner.y+1.3,chase*close):mix(y,5+Math.min(i,9)*4.8+side*2,clamp(t/.45)),
