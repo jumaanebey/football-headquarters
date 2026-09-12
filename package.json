@@ -30,7 +30,8 @@
     "art:cutouts": "esbuild scripts/derive-campus-cutouts.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/derive-campus-cutouts.mjs && node dist/derive-campus-cutouts.mjs",
     "art:compare": "esbuild scripts/compare-derived-art.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/compare-derived-art.mjs && node dist/compare-derived-art.mjs",
     "facility:evidence": "esbuild scripts/facility-gameplay-evidence.ts --bundle --format=esm --platform=node --outfile=dist/facility-gameplay-evidence.mjs && node --env-file=.env.production dist/facility-gameplay-evidence.mjs",
-    "art:players": "esbuild scripts/derive-player-alpha.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/derive-player-alpha.mjs && node dist/derive-player-alpha.mjs"
+    "art:players": "esbuild scripts/derive-player-alpha.ts --bundle --format=esm --platform=node --external:sharp --define:import.meta.env={} --outfile=dist/derive-player-alpha.mjs && node dist/derive-player-alpha.mjs",
+    "stadium:search": "esbuild scripts/stadium-scenario-search.ts --bundle --format=esm --platform=node --define:import.meta.env={} --outfile=dist/stadium-search.mjs && node dist/stadium-search.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.554.0",
