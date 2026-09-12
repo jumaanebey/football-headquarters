@@ -9,7 +9,7 @@ export function StadiumFootball({club,blocked,onAction}:{club:GameState;blocked:
  const game=club.stadiumFootball?.game,ratings=footballRatings(club),[confirmConcede,setConfirmConcede]=useState(false),[playing,setPlaying]=useState(false);
  const live=game&&!game.collected,last=game?.events.at(-1),phase=game?.phase,final=phase==='final';
  return <section className={`fhq-stadium-football${live?' fhq-football-live':''}`} aria-label="Stadium football">
- <header><small>HOME STADIUM · {game?.v===2?'TWO POSSESSIONS':'FOUR DOWNS · NO PUNTS'}</small><h3>{live?playing?'Play in motion':final?'Final whistle':game.possession==='away'?'Their possession':'Your possession':'Stadium football'}</h3></header>
+ <header><small>HOME STADIUM · {live&&game.v===2?'SAVED ORIGINAL FORMAT · NEXT GAME: FOUR DOWNS':'FOUR DOWNS · NO PUNTS'}</small><h3>{live?playing?'Play in motion':final?'Final whistle':game.possession==='away'?'Their possession':'Your possession':'Stadium football'}</h3></header>
  {live?<><div className="fhq-football-score"><div><small>{club.teamName}</small><strong>{playing?(game.events.at(-2)?.home??0):game.home}</strong></div><span>{final&&!playing?'FINAL':'VS'}</span><div><small>{STADIUM_OPPONENTS[game.opponent].name}</small><strong>{playing?(game.events.at(-2)?.away??0):game.away}</strong></div></div>
  <StadiumSequence onPlayback={setPlaying} game={game} level={club.buildings.find(b=>b.type===BuildingType.STADIUM)?.level??1}/>
  <div className="fhq-football-decisions" aria-busy={playing}>
