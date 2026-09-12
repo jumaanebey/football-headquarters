@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Stadium scenario gallery (dev fixture)</title>
+<style>
+ body{margin:0;background:#0d1a21;color:#e6eef2;font:14px/1.45 system-ui,sans-serif}
+ header{position:sticky;top:0;z-index:5;background:#091218;padding:.6rem .9rem;border-bottom:1px solid #1d333f;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+ header h1{font-size:1rem;margin:0}
+ select,button{min-height:30px;background:#132531;color:#e6eef2;border:1px solid #2b4757;border-radius:6px;padding:.2rem .5rem}
+ main{padding:.9rem;display:grid;gap:1rem}
+ .scenario{border:1px solid #1d333f;border-radius:10px;overflow:hidden}
+ .scenario>h2{margin:0;padding:.5rem .75rem;background:#122230;font-size:.95rem}
+ .scenario>h2 small{font-weight:400;color:#8fb0c2;margin-left:.5rem}
+ .tags{display:flex;flex-wrap:wrap;gap:.3rem;padding:.4rem .75rem;border-bottom:1px solid #1d333f}
+ .tags span{font-size:.7rem;background:#16303f;border:1px solid #27495c;border-radius:999px;padding:.05rem .45rem;color:#a8cadd}
+ .events{display:grid;gap:.75rem;padding:.75rem}
+ .event{border:1px solid #233d4c;border-radius:8px;background:#0f1f28}
+ .event>h3{margin:0;padding:.4rem .6rem;font-size:.85rem;background:#142734;display:flex;justify-content:space-between;gap:.5rem}
+ .geometry{font:11px/1.4 ui-monospace,monospace;color:#96b9cb;padding:.35rem .6rem;border-top:1px solid #1d333f}
+ .fhq-stadium-sequence svg{width:100%;height:auto;display:block;background:#0b1a22}
+ .fhq-performance-caption{display:flex;gap:.5rem;align-items:center;justify-content:space-between;padding:.35rem .6rem;font-size:.8rem;color:#bcd6e3}
+ [data-wide="1"] .events{grid-template-columns:repeat(auto-fill,minmax(430px,1fr))}
+</style></head>
+<body><div id="root"></div><script type="module" src="./stadium-gallery.tsx"></script></body></html>
